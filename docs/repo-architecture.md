@@ -11,6 +11,22 @@ This repository follows a layered workspace layout:
   - shared orchestration cores
   - shared infrastructure utilities
 
+## Runtime Units
+
+At runtime, the workspace currently collapses into 5 service units:
+
+1. `apps/ocp-center-api`
+2. `apps/commerce-catalog-api`
+3. `commerce-provider`
+   - `apps/commerce-provider-api`
+   - `apps/commerce-provider-admin-web`
+4. `ocp-user-demo`
+   - `apps/ocp-user-demo-api`
+   - `apps/ocp-user-demo-web`
+5. `apps/ocp-protocol-docs-web`
+
+The monorepo contains 7 app directories, but two pairs are intentionally split frontend/backend companions rather than separate product surfaces.
+
 ## Boundary Rules
 
 ### `packages` keeps the semantic minimum
@@ -41,8 +57,16 @@ Current app ownership:
   - first catalog implementation for commerce products
 - `apps/commerce-provider-api`
   - provider source-data API and catalog sync runtime
+- `apps/commerce-provider-admin-web`
+  - provider management UI for the provider runtime
 - `apps/ocp-center-api`
   - catalog registry and routing center
+- `apps/ocp-user-demo-api`
+  - user-side agent backend
+- `apps/ocp-user-demo-web`
+  - user-side demo frontend
+- `apps/ocp-protocol-docs-web`
+  - protocol documentation site
 
 ## Package Responsibilities
 
@@ -74,17 +98,15 @@ Current app ownership:
 - `center.ts`
   - center registry persistence
 
-This split is organizational only. Migrations still remain in one linear history under `packages/db/migrations/`.
+This split is organizational only. The migration history has now been squashed into a fresh baseline under `packages/db/migrations/`.
 
 ## Migration Policy
 
-During active phase development:
+Current policy after MVP phase 1:
 
-- keep a single linear migration history
-- make migrations small and domain-focused
-- do not rewrite history for cosmetic cleanup
-
-After the phase 1 storage model stabilizes, the migration history can be squashed into a fresh baseline.
+- `packages/db/migrations/` keeps the baseline for fresh environments
+- pre-baseline incremental migrations are kept only as workspace backup material when needed
+- future migrations should continue linearly from the new baseline
 
 ## Current Follow-up Work
 

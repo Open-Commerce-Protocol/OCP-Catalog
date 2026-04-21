@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      outDir: '../ocp-user-demo-api/public/user-demo',
+      emptyOutDir: true,
+    },
     server: {
       host: '0.0.0.0',
       port: userDemoPort,

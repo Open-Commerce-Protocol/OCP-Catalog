@@ -23,7 +23,35 @@ User / Agent -> Center -> Catalog
   agent 再对 Catalog query / resolve
 ```
 
-## 仓库里有什么
+## 当前运行单元
+
+从运行和部署角度看，这个 monorepo 当前可以收敛成 5 个核心服务：
+
+```text
+1. ocp-center-api
+   Catalog Registry / Discovery Center
+
+2. commerce-catalog-api
+   第一个 Catalog 实现，负责 registration / sync / query / resolve
+
+3. commerce-provider
+   由 commerce-provider-api + commerce-provider-admin-web 组成
+   负责商品源数据管理、注册和同步
+
+4. ocp-user-demo
+   由 ocp-user-demo-api + ocp-user-demo-web 组成
+   负责用户侧 agent 体验
+
+5. ocp-protocol-docs-web
+   协议文档站，纯静态前端
+```
+
+也就是说，仓库里虽然有 7 个 `apps/*` 目录，但其中有两组本质上是配套单元：
+
+- `commerce-provider-api` + `commerce-provider-admin-web`
+- `ocp-user-demo-api` + `ocp-user-demo-web`
+
+## 仓库结构
 
 ```text
 apps/
@@ -75,21 +103,39 @@ packages/
 
 ### 3. Commerce Provider
 
-- 商品后台 CRUD
-- seed demo products
-- register 到 catalog
-- publish-to-catalog
-  - 先注册
-  - 再按当前 active registration version 分批同步
-- sync run 审计
+- `commerce-provider-api`
+  - 商品后台 CRUD
+  - seed demo products
+  - register 到 catalog
+  - publish-to-catalog
+    - 先注册
+    - 再按当前 active registration version 分批同步
+  - sync run 审计
+- `commerce-provider-admin-web`
+  - Provider 管理台
+  - 商品维护
+  - register / publish / sync run 查看
 
 ### 4. User Demo
 
-- 真正接入 agent backend，不是只在前端写规则
-- agent 不直接把 tool raw output 返回给用户
-- agent 先消化 Center / Catalog 的返回，再转述给用户
-- 默认不自动保存 catalog profile 到本地
-- 支持多轮 refinement
+- `ocp-user-demo-api`
+  - 真正接入 agent backend，不是只在前端写规则
+  - agent 不直接把 tool raw output 返回给用户
+  - agent 先消化 Center / Catalog 的返回，再转述给用户
+  - 默认不自动保存 catalog profile 到本地
+  - 支持多轮 refinement
+- `ocp-user-demo-web`
+  - 用户侧 demo UI
+  - 承载对话、catalog profile 和记忆、结果展示与 resolve
+
+### 5. Protocol Docs
+
+- `ocp-protocol-docs-web`
+  - OCP Catalog 协议文档站
+  - 中英文内容
+  - schema 片段展示
+  - API endpoint 示例
+  - 仓库实现映射
 
 实现总览见 [docs/implementation-overview.md](./docs/implementation-overview.md)。
 
@@ -188,6 +234,7 @@ bun run user:demo:api
 ```bash
 bun run commerce:provider:admin
 bun run user:demo
+bun run protocol:docs
 ```
 
 默认地址：
@@ -198,6 +245,47 @@ bun run user:demo
 - User Demo API: `http://localhost:4230`
 - Provider Admin Web: `http://localhost:4210`
 - User Demo Web: `http://localhost:4220`
+- Protocol Docs Web: `http://localhost:5173`（若端口被占用会顺延）
+
+## 按服务启动
+
+如果你不需要整套链路，可以按 5 个服务视角选择性启动：
+
+### 1. 只启动协议文档站
+
+```bash
+bun run --cwd apps/ocp-protocol-docs-web build
+bun run protocol:docs
+```
+
+`ocp-protocol-docs-web` 是纯静态站，不依赖后端服务。
+
+### 2. 只启动 Catalog + Center
+
+```bash
+bun run center:api
+bun run commerce:catalog:api
+```
+
+适合验证 `Catalog -> Center` 注册与发现链路。
+
+### 3. 启动 Provider 配套单元
+
+```bash
+bun run commerce:provider:api
+bun run commerce:provider:admin
+```
+
+适合维护商品、注册到 Catalog、执行同步。
+
+### 4. 启动 User Demo 配套单元
+
+```bash
+bun run user:demo:api
+bun run user:demo
+```
+
+适合验证用户侧 agent 对 OCP Catalog 的消费链路。
 
 ## 验证脚本
 

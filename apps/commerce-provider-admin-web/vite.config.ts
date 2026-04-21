@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    build: {
+      outDir: '../commerce-provider-api/public/provider-admin',
+      emptyOutDir: true,
+    },
     server: {
       host: '0.0.0.0',
       port: providerAdminPort,

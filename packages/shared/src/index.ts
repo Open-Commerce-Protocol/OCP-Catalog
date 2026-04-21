@@ -43,3 +43,5 @@ export function asArray<T>(value: T | T[] | undefined | null): T[] {
   if (value == null) return [];
   return Array.isArray(value) ? value : [value];
 }
+
+export * from './static-site';

@@ -2,7 +2,7 @@ import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb } from '@ocp-catalog/db';
-import { AppError } from '@ocp-catalog/shared';
+import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { CatalogClient } from './catalog-client';
@@ -15,6 +15,7 @@ const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
 const products = new ProductRepository(db, config);
 const provider = new ProviderService(db, config, products, new CatalogClient(config));
+const providerAdminSite = createSpaStaticSiteHandler(new URL('../public/provider-admin', import.meta.url).pathname);
 
 const app = new Elysia()
   .use(cors())
@@ -46,7 +47,15 @@ const app = new Elysia()
     assertAdminAuth(headers);
     return { provider_id: config.COMMERCE_PROVIDER_ID, products: await products.listProducts() };
   })
+  .get('/api/provider-admin/admin/products', async ({ headers }) => {
+    assertAdminAuth(headers);
+    return { provider_id: config.COMMERCE_PROVIDER_ID, products: await products.listProducts() };
+  })
   .post('/admin/products', async ({ body, headers }) => {
+    assertAdminAuth(headers);
+    return products.createProduct(productCreateSchema.parse(body));
+  })
+  .post('/api/provider-admin/admin/products', async ({ body, headers }) => {
     assertAdminAuth(headers);
     return products.createProduct(productCreateSchema.parse(body));
   })
@@ -55,7 +64,16 @@ const app = new Elysia()
     const seeded = await products.seedDemoProducts(demoProducts());
     return { provider_id: config.COMMERCE_PROVIDER_ID, seeded_count: seeded.length, products: seeded };
   })
+  .post('/api/provider-admin/admin/products/seed-demo', async ({ headers }) => {
+    assertAdminAuth(headers);
+    const seeded = await products.seedDemoProducts(demoProducts());
+    return { provider_id: config.COMMERCE_PROVIDER_ID, seeded_count: seeded.length, products: seeded };
+  })
   .get('/admin/products/:id', async ({ params, headers }) => {
+    assertAdminAuth(headers);
+    return products.getProduct(params.id);
+  })
+  .get('/api/provider-admin/admin/products/:id', async ({ params, headers }) => {
     assertAdminAuth(headers);
     return products.getProduct(params.id);
   })
@@ -63,11 +81,24 @@ const app = new Elysia()
     assertAdminAuth(headers);
     return products.updateProduct(params.id, productPatchSchema.parse(body));
   })
+  .patch('/api/provider-admin/admin/products/:id', async ({ params, body, headers }) => {
+    assertAdminAuth(headers);
+    return products.updateProduct(params.id, productPatchSchema.parse(body));
+  })
   .delete('/admin/products/:id', async ({ params, headers }) => {
     assertAdminAuth(headers);
     return products.deactivateProduct(params.id);
   })
+  .delete('/api/provider-admin/admin/products/:id', async ({ params, headers }) => {
+    assertAdminAuth(headers);
+    return products.deactivateProduct(params.id);
+  })
   .post('/provider/register-to-catalog', async ({ body, headers }) => {
+    assertAdminAuth(headers);
+    const request = syncRequestSchema.parse(body ?? {});
+    return provider.registerToCatalog(request.registration_version);
+  })
+  .post('/api/provider-admin/provider/register-to-catalog', async ({ body, headers }) => {
     assertAdminAuth(headers);
     const request = syncRequestSchema.parse(body ?? {});
     return provider.registerToCatalog(request.registration_version);
@@ -77,7 +108,17 @@ const app = new Elysia()
     const request = syncRequestSchema.parse(body ?? {});
     return provider.publishToCatalog(request.registration_version);
   })
+  .post('/api/provider-admin/provider/publish-to-catalog', async ({ body, headers }) => {
+    assertAdminAuth(headers);
+    const request = syncRequestSchema.parse(body ?? {});
+    return provider.publishToCatalog(request.registration_version);
+  })
   .post('/provider/sync-to-catalog', async ({ body, headers }) => {
+    assertAdminAuth(headers);
+    const request = syncRequestSchema.parse(body ?? {});
+    return provider.syncAll(request.registration_version);
+  })
+  .post('/api/provider-admin/provider/sync-to-catalog', async ({ body, headers }) => {
     assertAdminAuth(headers);
     const request = syncRequestSchema.parse(body ?? {});
     return provider.syncAll(request.registration_version);
@@ -87,7 +128,16 @@ const app = new Elysia()
     const request = syncRequestSchema.parse(body ?? {});
     return provider.syncOne(params.id, request.registration_version);
   })
+  .post('/api/provider-admin/provider/sync-product/:id', async ({ params, body, headers }) => {
+    assertAdminAuth(headers);
+    const request = syncRequestSchema.parse(body ?? {});
+    return provider.syncOne(params.id, request.registration_version);
+  })
   .get('/provider/sync-runs', async ({ headers }) => {
+    assertAdminAuth(headers);
+    return { provider_id: config.COMMERCE_PROVIDER_ID, runs: await provider.listSyncRuns() };
+  })
+  .get('/api/provider-admin/provider/sync-runs', async ({ headers }) => {
     assertAdminAuth(headers);
     return { provider_id: config.COMMERCE_PROVIDER_ID, runs: await provider.listSyncRuns() };
   })
@@ -95,9 +145,30 @@ const app = new Elysia()
     assertAdminAuth(headers);
     return provider.getCatalogStatus();
   })
+  .get('/api/provider-admin/provider/status', async ({ headers }) => {
+    assertAdminAuth(headers);
+    return provider.getCatalogStatus();
+  })
+  .get('/', () => serveProviderAdmin('/'))
+  .get('/*', async ({ request }) => {
+    const pathname = new URL(request.url).pathname;
+    if (
+      pathname === '/health'
+      || pathname.startsWith('/admin/')
+      || pathname.startsWith('/provider/')
+      || pathname.startsWith('/api/provider-admin/')
+    ) {
+      return new Response('Not Found', { status: 404 });
+    }
+
+    return serveProviderAdmin(pathname);
+  })
   .listen(config.PROVIDER_API_PORT);
 
 console.log(`Commerce Provider API listening on http://localhost:${app.server?.port}`);
+if (await providerAdminSite('/')) {
+  console.log(`Commerce Provider Admin static site mounted from apps/commerce-provider-api/public/provider-admin`);
+}
 
 function assertAdminAuth(headers: Record<string, string | undefined>) {
   requireApiKey(
@@ -109,4 +180,9 @@ function assertAdminAuth(headers: Record<string, string | undefined>) {
 
 function firstHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+async function serveProviderAdmin(pathname: string) {
+  const response = await providerAdminSite(pathname);
+  return response ?? new Response('Not Found', { status: 404 });
 }

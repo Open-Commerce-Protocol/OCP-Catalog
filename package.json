@@ -21,6 +21,7 @@
     "user:demo:api": "bun run --cwd apps/ocp-user-demo-api start",
     "user:demo": "bun run --cwd apps/ocp-user-demo-web dev",
     "protocol:docs": "bun run --cwd apps/ocp-protocol-docs-web dev",
+    "protocol:docs:host": "bun run --cwd apps/ocp-protocol-docs-web start",
     "validate:mvp": "bun scripts/validate-mvp.ts",
     "validate:center": "bun scripts/validate-center.ts",
     "db:generate": "bun run --cwd packages/db generate",

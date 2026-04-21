@@ -5,6 +5,22 @@
 如果你想看长期协议设计，读 [design_v2.md](./design_v2.md)。  
 如果你想看当前仓库真实可跑的实现，读本文。
 
+## 0. 当前服务模型
+
+从运行和部署视角看，当前项目可以理解为 5 个服务：
+
+1. `ocp-center-api`
+2. `commerce-catalog-api`
+3. `commerce-provider`
+   - `commerce-provider-api`
+   - `commerce-provider-admin-web`
+4. `ocp-user-demo`
+   - `ocp-user-demo-api`
+   - `ocp-user-demo-web`
+5. `ocp-protocol-docs-web`
+
+其中 `commerce-provider` 和 `ocp-user-demo` 在代码上各拆成前后端两个 app，但运行语义上分别属于一个配套单元。
+
 ## 1. 当前完成的闭环
 
 ### 1.1 Catalog -> Center
@@ -226,21 +242,23 @@ Center 会抽取并建立索引的信息包括：
 
 > 这个 catalog 里有哪些对象
 
-## 5. Provider 示例实现了什么
+## 5. Provider 配套单元实现了什么
 
-当前 provider 示例不是一次性 demo script，而是一个真正的 API：
+当前 provider 不是一次性 demo script，而是一个完整配套单元：
 
 - [apps/commerce-provider-api](D:/workspace/ts/ocp-catalog-demo/apps/commerce-provider-api)
+- [apps/commerce-provider-admin-web](D:/workspace/ts/ocp-catalog-demo/apps/commerce-provider-admin-web)
 
 已实现：
 
-- 商品后台 CRUD
-- demo 商品 seed
-- provider status 查看
-- register-to-catalog
-- sync-product
-- sync-to-catalog
-- publish-to-catalog
+- `commerce-provider-api`
+  - 商品后台 CRUD
+  - demo 商品 seed
+  - provider status 查看
+  - register-to-catalog
+  - sync-product
+  - sync-to-catalog
+  - publish-to-catalog
 
 其中 `publish-to-catalog` 是当前推荐工作流：
 
@@ -250,9 +268,14 @@ register -> active version confirmed -> batched sync
 
 这样可以避免 register 和 sync 的时序竞争。
 
+- `commerce-provider-admin-web`
+  - 商品管理页面
+  - 后台增删改查
+  - register / publish / sync runs 操作入口
+
 ## 6. User Demo 与 agent
 
-用户侧 demo 由两个应用组成：
+用户侧 demo 由一个配套单元组成：
 
 - [apps/ocp-user-demo-api](D:/workspace/ts/ocp-catalog-demo/apps/ocp-user-demo-api)
 - [apps/ocp-user-demo-web](D:/workspace/ts/ocp-catalog-demo/apps/ocp-user-demo-web)
@@ -275,6 +298,20 @@ register -> active version confirmed -> batched sync
 - agent 不直接暴露 raw tool result
 - agent 默认不替用户自动保存 catalog
 - 当前用户 demo 仍是单用户、本地 memory、单 catalog 选择模型
+
+## 6.3 Protocol Docs
+
+协议文档站位于：
+
+- [apps/ocp-protocol-docs-web](D:/workspace/ts/ocp-catalog-demo/apps/ocp-protocol-docs-web)
+
+它是纯静态前端，不依赖业务 API。当前已实现：
+
+- 中英文协议正文
+- schema fragment 展示
+- API endpoint 示例
+- 仓库实现映射
+- 协议设计原则页面
 
 ## 7. 当前完成的 OCP 链路总结
 
