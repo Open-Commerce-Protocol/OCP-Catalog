@@ -245,8 +245,14 @@ export function App() {
                   <div className="grid grid-cols-2 gap-2 mt-3">
                     <div className="text-ink/40">Sort:</div>
                     <div className="text-right text-spruce">{querySession.sortPreference}</div>
-                    <div className="text-ink/40">Obj Type:</div>
-                    <div className="text-right text-ink/80">{querySession.activeFilters.object_type}</div>
+                    <div className="text-ink/40">Filters:</div>
+                    <div className="text-right text-ink/80">
+                      {Object.entries(querySession.activeFilters).length > 0
+                        ? Object.entries(querySession.activeFilters)
+                            .map(([key, value]) => `${key}=${value}`)
+                            .join(', ')
+                        : 'none'}
+                    </div>
                   </div>
                 </div>
               </motion.div>

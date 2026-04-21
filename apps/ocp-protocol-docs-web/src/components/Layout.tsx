@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
 import { LeftNav } from './LeftNav';
 import { RightToc } from './RightToc';
@@ -12,6 +12,11 @@ export type TocHeading = {
 
 export function Layout() {
   const [headings, setHeadings] = useState<TocHeading[]>([]);
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">

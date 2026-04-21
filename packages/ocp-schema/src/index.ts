@@ -15,6 +15,11 @@ export const endpointSchema = z.object({
 });
 
 export const catalogQueryModeSchema = z.enum(['keyword', 'filter', 'semantic', 'hybrid']);
+export const syncCapabilityDirectionSchema = z.enum([
+  'provider_to_catalog',
+  'catalog_pull_provider',
+  'provider_stream_to_catalog',
+]);
 
 export const fieldRefSchema = z.string().regex(/^[a-z0-9][a-z0-9._-]*#\/[A-Za-z0-9_.~/-]+$/);
 
@@ -28,15 +33,65 @@ export const fieldRuleSchema = z.object({
   note: z.string().optional(),
 });
 
+export const fieldRequirementSchema = z.union([
+  fieldRefSchema,
+  z.array(fieldRefSchema).min(1),
+]);
+
 export const objectContractSchema = z.object({
-  contract_id: z.string().min(1),
-  object_type: z.string().min(1),
-  required_packs: z.array(z.string().min(1)).default([]),
-  optional_packs: z.array(z.string().min(1)).default([]),
-  compatible_packs: z.record(z.string(), z.array(z.string().min(1))).default({}),
-  field_rules: z.array(fieldRuleSchema),
-  registration_modes: z.array(z.enum(['feed_url', 'api_pull', 'push_api'])).default(['push_api']),
+  required_fields: z.array(fieldRequirementSchema).min(1),
+  optional_fields: z.array(fieldRefSchema).default([]),
   additional_fields_policy: z.enum(['allow', 'ignore', 'reject']).default('allow'),
+});
+
+export const syncModelSchema = z.object({
+  snapshot: z.boolean(),
+  delta: z.boolean(),
+  stream: z.boolean(),
+});
+
+export const mutationSemanticsSchema = z.object({
+  upsert: z.boolean(),
+  delete: z.boolean(),
+});
+
+export const providerEndpointSchema = z.object({
+  url: z.string().url(),
+}).catchall(z.unknown());
+
+export const syncCapabilitySchema = z.object({
+  capability_id: z.string().min(1),
+  description: z.string().optional(),
+  direction: syncCapabilityDirectionSchema,
+  transport: z.string().min(1),
+  object_types: z.array(z.string().min(1)).default([]),
+  sync_model: syncModelSchema,
+  mutation_semantics: mutationSemanticsSchema,
+  batching: z.object({
+    enabled: z.boolean(),
+    max_items: z.number().int().min(1).optional(),
+    max_bytes: z.number().int().min(1).optional(),
+  }).optional(),
+  cursoring: z.object({
+    enabled: z.boolean(),
+  }).optional(),
+  streaming: z.object({
+    enabled: z.boolean(),
+  }).optional(),
+  auth: z.object({
+    schemes: z.array(z.string().min(1)).default([]),
+  }).optional(),
+  endpoint_contract: z.object({
+    hosted_by: z.enum(['catalog', 'provider']),
+    path_hint: z.string().optional(),
+    required_endpoint_fields: z.array(z.string().min(1)).default([]),
+  }).optional(),
+  metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const selectedSyncCapabilitySchema = z.object({
+  capability_id: z.string().min(1),
+  reason: z.string().min(1),
 });
 
 export const queryCapabilityMetadataSchema = z.record(z.string(), z.unknown()).default({});
@@ -53,7 +108,6 @@ export const catalogQueryCapabilitySchema = z.object({
   capability_id: z.string().min(1),
   name: z.string().min(1).optional(),
   description: z.string().optional(),
-  target_object_types: z.array(z.string().min(1)).min(1),
   query_packs: z.array(queryPackDescriptorSchema).default([]),
   searchable_field_refs: z.array(fieldRefSchema).default([]),
   filterable_field_refs: z.array(fieldRefSchema).default([]),
@@ -72,7 +126,6 @@ export const catalogManifestSchema = z.object({
   catalog_name: z.string().min(1),
   description: z.string().optional(),
   registry_visibility: z.enum(['public', 'partner', 'private']).default('public'),
-  supported_object_types: z.array(z.string().min(1)).default([]),
   endpoints: z.object({
     query: endpointSchema,
     resolve: endpointSchema,
@@ -83,6 +136,7 @@ export const catalogManifestSchema = z.object({
   query_capabilities: z.array(catalogQueryCapabilitySchema).min(1),
   provider_contract: z.object({
     field_rules: z.array(fieldRuleSchema),
+    sync_capabilities: z.array(syncCapabilitySchema).default([]),
   }),
   object_contracts: z.array(objectContractSchema),
 });
@@ -103,14 +157,19 @@ export const providerRegistrationSchema = z.object({
     domains: z.array(z.string().min(1)).optional(),
   }).passthrough(),
   object_declarations: z.array(z.object({
-    object_type: z.string().min(1),
-    provided_packs: z.array(z.string().min(1)),
     guaranteed_fields: z.array(z.string().min(1)),
     optional_fields: z.array(z.string().min(1)).optional(),
-    delivery: z.object({
-      mode: z.enum(['feed_url', 'api_pull', 'push_api']),
-      feed_url: z.string().url().optional(),
-      sync_interval_hint: z.string().optional(),
+    sync: z.object({
+      preferred_capabilities: z.array(z.string().min(1)).default([]),
+      avoid_capabilities_unless_necessary: z.array(z.string().min(1)).default([]),
+      provider_endpoints: z.record(z.string(), providerEndpointSchema).default({}),
+    }).superRefine((value, ctx) => {
+      if (value.preferred_capabilities.length === 0 && value.avoid_capabilities_unless_necessary.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'At least one sync capability must be declared.',
+        });
+      }
     }),
   })).min(1),
 });
@@ -140,8 +199,9 @@ export const registrationResultSchema = z.object({
   catalog_id: z.string().min(1),
   provider_id: z.string().optional(),
   status: registrationStatusSchema,
-  matched_contract_ids: z.array(z.string()).default([]),
+  matched_object_contract_count: z.number().int().min(0).default(0),
   effective_registration_version: z.number().int().min(1).optional(),
+  selected_sync_capability: selectedSyncCapabilitySchema.optional(),
   missing_required_fields: z.array(z.string()).default([]),
   warnings: z.array(z.string()).default([]),
   message: z.string().optional(),
@@ -183,7 +243,6 @@ export const objectSyncResultSchema = z.object({
 });
 
 export const catalogQueryFiltersSchema = z.object({
-  object_type: z.string().min(1).optional(),
   category: z.string().min(1).optional(),
   brand: z.string().min(1).optional(),
   currency: z.string().min(1).optional(),
@@ -205,7 +264,6 @@ export const catalogQueryRequestSchema = z.object({
 
 export const queryResultItemSchema = z.object({
   entry_id: z.string(),
-  object_type: z.string(),
   provider_id: z.string(),
   object_id: z.string(),
   title: z.string(),
@@ -290,6 +348,8 @@ export const inventoryPackSchema = z.object({
 
 export type CatalogManifest = z.infer<typeof catalogManifestSchema>;
 export type ObjectContract = z.infer<typeof objectContractSchema>;
+export type SyncCapability = z.infer<typeof syncCapabilitySchema>;
+export type SelectedSyncCapability = z.infer<typeof selectedSyncCapabilitySchema>;
 export type ProviderRegistration = z.infer<typeof providerRegistrationSchema>;
 export type CommercialObject = z.infer<typeof commercialObjectSchema>;
 export type RegistrationResult = z.infer<typeof registrationResultSchema>;

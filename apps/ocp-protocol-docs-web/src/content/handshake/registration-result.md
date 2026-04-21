@@ -24,8 +24,11 @@ The current schema supports:
 ```json
 {
   "properties": {
-    "matched_contract_ids": { "type": "array" },
+    "matched_object_contract_count": { "type": "integer" },
     "effective_registration_version": { "type": "integer" },
+    "selected_sync_capability": {
+      "type": "object"
+    },
     "missing_required_fields": { "type": "array" },
     "warnings": { "type": "array" },
     "message": { "type": "string" }
@@ -35,12 +38,13 @@ The current schema supports:
 
 ## Why It Matters
 
-The registration result is not just an ACK.
+The registration result returns structured registration feedback.
 
 It tells the provider:
 
 - whether registration is fully accepted
-- which contracts matched
+- how many object contracts matched
+- which sync capability was selected
 - whether fields are missing
 - whether the active version changed
 

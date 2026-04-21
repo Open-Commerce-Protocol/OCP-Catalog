@@ -60,7 +60,6 @@ export class ObjectSyncService {
         catalogId: request.catalog_id,
         providerId: request.provider_id,
         registrationVersion: request.registration_version,
-        declaredObjectTypes: providerState.declaredObjectTypes,
         scenario: this.scenario,
       });
       items.push(result);
@@ -296,7 +295,6 @@ type SyncContext = {
   catalogId: string;
   providerId: string;
   registrationVersion: number;
-  declaredObjectTypes: string[];
   scenario: CatalogScenarioModule;
 };
 
@@ -304,15 +302,6 @@ function validateCommercialObject(object: CommercialObject, context: SyncContext
   const errors: string[] = [];
 
   if (object.provider_id !== context.providerId) errors.push('provider_id does not match sync request');
-  if (!context.declaredObjectTypes.includes(object.object_type)) errors.push(`object_type ${object.object_type} is not declared by provider`);
-
-  const contract = context.scenario.objectContracts().find((candidate) => candidate.object_type === object.object_type) ?? null;
-  if (!contract) return [...errors, `Unsupported object_type: ${object.object_type}`];
-
-  const packs = new Set(object.descriptors.map((descriptor) => descriptor.pack_id));
-  for (const requiredPack of contract.required_packs) {
-    if (!packs.has(requiredPack)) errors.push(`Missing required pack: ${requiredPack}`);
-  }
 
   for (const descriptor of object.descriptors) {
     const payloadSize = JSON.stringify(descriptor.data).length;
@@ -325,8 +314,16 @@ function validateCommercialObject(object: CommercialObject, context: SyncContext
     if (!packResult.ok) errors.push(...packResult.errors);
   }
 
-  for (const rule of contract.field_rules.filter((fieldRule) => fieldRule.requirement === 'required')) {
-    if (!isPresent(readDescriptorField(object, rule.field_ref))) errors.push(`Missing required field_ref: ${rule.field_ref}`);
+  const matchingContracts = context.scenario.objectContracts().filter((contract) => (
+    contract.required_fields.every((requirement) => (
+      typeof requirement === 'string'
+        ? isPresent(readDescriptorField(object, requirement))
+        : requirement.some((fieldRef) => isPresent(readDescriptorField(object, fieldRef)))
+    ))
+  ));
+
+  if (matchingContracts.length === 0) {
+    errors.push('Object does not satisfy any published object contract.');
   }
 
   return errors;
@@ -353,7 +350,6 @@ function buildSearchText(projection: SearchProjection) {
     stringValue(projection.availability_status),
     stringValue(projection.provider_id),
     stringValue(projection.object_id),
-    stringValue(projection.object_type),
     stringValue(projection.text),
   ]
     .filter((value): value is string => typeof value === 'string' && value.length > 0)

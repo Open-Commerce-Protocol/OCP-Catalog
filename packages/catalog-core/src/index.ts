@@ -17,7 +17,7 @@ export { ObjectSyncService } from './object-sync-service';
 export { QueryService } from './query-service';
 export { ResolveService } from './resolve-service';
 export { CatalogEmbeddingService } from './embedding-service';
-export { defaultProviderFieldRules, findScenarioContract } from './scenario';
+export { defaultProviderFieldRules } from './scenario';
 export type { CatalogScenarioModule, DescriptorValidationResult, SearchProjection } from './scenario';
 export type { EmbeddingProvider, EmbeddingResult } from './embedding-service';
 

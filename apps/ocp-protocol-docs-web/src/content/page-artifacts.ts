@@ -73,6 +73,15 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           },
         }),
       },
+      {
+        title: { en: 'Provider Sync Capability Shape', zh: 'Provider 同步能力结构' },
+        sourcePath: 'ocp.catalog.handshake.v1/catalog-manifest.schema.json',
+        select: (schema) => ({
+          provider_contract: {
+            sync_capabilities: schema.properties?.provider_contract?.properties?.sync_capabilities,
+          },
+        }),
+      },
     ],
     implementationRefs: [
       {
@@ -119,10 +128,9 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         select: (schema) => ({
           required: schema.required,
           properties: {
-            required_packs: schema.properties?.required_packs,
-            optional_packs: schema.properties?.optional_packs,
-            field_rules: schema.properties?.field_rules,
-            registration_modes: schema.properties?.registration_modes,
+            required_fields: schema.properties?.required_fields,
+            optional_fields: schema.properties?.optional_fields,
+            additional_fields_policy: schema.properties?.additional_fields_policy,
           },
         }),
       },
@@ -137,17 +145,56 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       {
         title: { en: 'List object contracts', zh: '列出 object contracts' },
         method: 'GET',
-        path: '/ocp/contracts?object_type=commerce.product',
+        path: '/ocp/contracts',
         response: {
           kind: 'ObjectContractList',
           catalog_id: 'commerce_catalog_local_dev',
           contracts: [
             {
-              contract_id: 'commerce_product_contract_v1',
-              object_type: 'commerce.product',
+              required_fields: ['ocp.commerce.product.core.v1#/title'],
+              optional_fields: ['ocp.commerce.price.v1#/amount'],
             },
           ],
         },
+      },
+    ],
+  },
+  '/handshake/sync-capabilities': {
+    schemaSections: [
+      {
+        title: { en: 'Catalog Sync Capability Shape', zh: 'Catalog 同步能力结构' },
+        sourcePath: 'ocp.catalog.handshake.v1/catalog-manifest.schema.json',
+        select: (schema) => ({
+          provider_contract: schema.properties?.provider_contract?.properties?.sync_capabilities,
+        }),
+      },
+      {
+        title: { en: 'Provider Sync Declaration Shape', zh: 'Provider 同步声明结构' },
+        sourcePath: 'ocp.catalog.handshake.v1/provider-registration.schema.json',
+        select: (schema) => ({
+          sync: schema.properties?.object_declarations?.items?.properties?.sync,
+        }),
+      },
+      {
+        title: { en: 'Selected Sync Capability Shape', zh: '协商结果结构' },
+        sourcePath: 'ocp.catalog.handshake.v1/registration-result.schema.json',
+        select: (schema) => ({
+          selected_sync_capability: schema.properties?.selected_sync_capability,
+        }),
+      },
+    ],
+    implementationRefs: [
+      {
+        label: { en: 'Commerce catalog sync capability declaration', zh: '电商 catalog 同步能力声明' },
+        path: 'apps/commerce-catalog-api/src/commerce-scenario.ts',
+      },
+      {
+        label: { en: 'Provider sync declaration builder', zh: 'Provider 同步声明构造器' },
+        path: 'apps/commerce-provider-api/src/provider-mapper.ts',
+      },
+      {
+        label: { en: 'Registration capability negotiation', zh: '注册阶段能力协商逻辑' },
+        path: 'packages/catalog-core/src/registration-service.ts',
       },
     ],
   },
@@ -195,13 +242,12 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           },
           object_declarations: [
             {
-              object_type: 'commerce.product',
-              provided_packs: [
-                'ocp.commerce.product.core.v1',
-                'ocp.commerce.price.v1',
-                'ocp.commerce.inventory.v1',
-              ],
-              delivery: { mode: 'push_api' },
+              guaranteed_fields: ['ocp.commerce.product.core.v1#/title'],
+              sync: {
+                preferred_capabilities: ['ocp.push.batch'],
+                avoid_capabilities_unless_necessary: [],
+                provider_endpoints: {},
+              },
             },
           ],
         },
@@ -209,7 +255,11 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           kind: 'RegistrationResult',
           status: 'accepted_full',
           effective_registration_version: 3,
-          matched_contract_ids: ['commerce_product_contract_v1'],
+          matched_object_contract_count: 1,
+          selected_sync_capability: {
+            capability_id: 'ocp.push.batch',
+            reason: 'provider_preferred_and_supported_by_catalog',
+          },
           warnings: [],
         },
       },
@@ -256,7 +306,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
             {
               kind: 'CommercialObject',
               object_id: 'electronics-headphones-001',
-              object_type: 'commerce.product',
+              object_type: 'product',
               provider_id: 'commerce_provider_local_dev',
               title: 'Wireless Noise Cancelling Headphones',
               descriptors: [
@@ -284,8 +334,9 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           required: schema.required,
           properties: {
             status: schema.properties?.status,
-            matched_contract_ids: schema.properties?.matched_contract_ids,
+            matched_object_contract_count: schema.properties?.matched_object_contract_count,
             effective_registration_version: schema.properties?.effective_registration_version,
+            selected_sync_capability: schema.properties?.selected_sync_capability,
             missing_required_fields: schema.properties?.missing_required_fields,
             warnings: schema.properties?.warnings,
           },
@@ -307,7 +358,11 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           kind: 'RegistrationResult',
           status: 'accepted_limited',
           effective_registration_version: 3,
-          matched_contract_ids: ['commerce_product_contract_v1'],
+          matched_object_contract_count: 1,
+          selected_sync_capability: {
+            capability_id: 'ocp.push.batch',
+            reason: 'provider_preferred_and_supported_by_catalog',
+          },
           missing_required_fields: [],
           warnings: ['Semantic search hints unavailable for this provider declaration.'],
         },
@@ -434,7 +489,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         request: {
           query: 'wireless noise cancelling headphones',
           filters: {
-            object_type: 'commerce.product',
             query_pack: 'ocp.commerce.product.search.v1',
           },
           limit: 5,
@@ -446,7 +500,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
             {
               catalog_id: 'commerce_catalog_local_dev',
               catalog_name: 'Commerce Catalog Local Dev',
-              matched_object_types: ['commerce.product'],
               route_hint: {
                 query_url: 'http://localhost:4000/ocp/query',
               },
@@ -592,11 +645,11 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/query',
         request: {
-          query_text: 'wireless noise cancelling headphones',
-          object_type: 'commerce.product',
+          query: 'wireless noise cancelling headphones',
           query_pack: 'ocp.commerce.product.search.v1',
           query_mode: 'hybrid',
           filters: {
+            object_type: 'product',
             availability_status: 'in_stock',
           },
         },
@@ -655,6 +708,10 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         response: {
           registration: {
             status: 'accepted_full',
+            selected_sync_capability: {
+              capability_id: 'ocp.push.batch',
+              reason: 'provider_preferred_and_supported_by_catalog',
+            },
           },
           sync: {
             accepted_count: 5,

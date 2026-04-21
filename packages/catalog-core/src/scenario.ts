@@ -21,6 +21,7 @@ export type CatalogScenarioModule = {
   registryVisibility?: CatalogManifest['registry_visibility'];
   objectContracts(): ObjectContract[];
   providerFieldRules?(): CatalogManifest['provider_contract']['field_rules'];
+  providerSyncCapabilities?(): CatalogManifest['provider_contract']['sync_capabilities'];
   queryCapabilities(): CatalogManifest['query_capabilities'];
   validateDescriptorPack(packId: string, data: unknown): DescriptorValidationResult;
   buildSearchProjection(object: CommercialObject): SearchProjection;
@@ -44,6 +45,6 @@ export function defaultProviderFieldRules(): CatalogManifest['provider_contract'
   ];
 }
 
-export function findScenarioContract(scenario: CatalogScenarioModule, objectType: string) {
-  return scenario.objectContracts().find((contract) => contract.object_type === objectType) ?? null;
+export function defaultProviderSyncCapabilities(): CatalogManifest['provider_contract']['sync_capabilities'] {
+  return [];
 }

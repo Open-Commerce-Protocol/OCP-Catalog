@@ -6,25 +6,81 @@ This repository implements one concrete catalog scenario: a commerce product cat
 
 The current catalog profile is shaped around:
 
-- `commerce.product`
+- `product`
 - one main product-search capability
 - `query_packs` as the primary search contract
 - English-first content with language hints in metadata
+- one live provider-facing sync capability: `ocp.push.batch`
 
-## Query Pack Example
+## Current ObjectContract
+
+The current commerce catalog accepts one object contract:
 
 ```json
 {
-  "pack_id": "ocp.commerce.product.search.v1",
-  "query_modes": ["keyword", "filter", "semantic", "hybrid"],
-  "metadata": {
-    "query_hints": {
-      "supported_query_languages": ["en"],
-      "content_languages": ["en"]
-    }
+  "required_fields": [
+    "ocp.commerce.product.core.v1#/title"
+  ],
+  "optional_fields": [
+    "ocp.commerce.price.v1#/amount",
+    "ocp.commerce.inventory.v1#/availability_status"
+  ],
+  "additional_fields_policy": "allow"
+}
+```
+
+This is the actual contract boundary the provider must satisfy.
+
+## Minimal Registration Success Conditions
+
+For the current repository, a provider can register successfully only if it can declare:
+
+- `guaranteed_fields` includes `ocp.commerce.product.core.v1#/title`
+- `sync.preferred_capabilities` or `sync.avoid_capabilities_unless_necessary` intersects with the catalog's `sync_capabilities`
+
+The protocol handshake itself does not require the provider to declare `object_type` for that match.
+
+In practice, the provider usually also declares:
+
+- `ocp.commerce.price.v1`
+- `ocp.commerce.inventory.v1`
+
+because those packs improve filtering, ranking, display, and resolve behavior.
+
+## Current Published Sync Capability
+
+The current live manifest publishes:
+
+```json
+{
+  "capability_id": "ocp.push.batch",
+  "direction": "provider_to_catalog",
+  "transport": "http_push",
+  "object_types": ["product"],
+  "sync_model": {
+    "snapshot": true,
+    "delta": false,
+    "stream": false
+  },
+  "mutation_semantics": {
+    "upsert": true,
+    "delete": true
   }
 }
 ```
+
+## Current Sync Path In This Repository
+
+The verified interaction is:
+
+```text
+ProviderRegistration.sync.preferred_capabilities = ["ocp.push.batch"]
+  -> provider registers
+  -> RegistrationResult.selected_sync_capability = ocp.push.batch
+  -> provider sends batched object sync requests
+```
+
+Reserved capabilities such as `ocp.feed.url` belong in the runtime manifest only after the matching pull implementation exists.
 
 ## Indexing Strategy
 
@@ -44,3 +100,5 @@ The protocol documents the shape of the catalog, but the example catalog also sh
 - semantic capability hints
 - filterable field hints
 - resolve support
+- concrete object-contract requirements for provider registration
+- explicit sync capability negotiation instead of a flat delivery-mode enum

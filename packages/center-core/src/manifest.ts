@@ -43,7 +43,6 @@ export function buildCenterManifest(config: AppConfig): CenterManifest {
         capability_id: 'center.catalog.keyword.v1',
         query_modes: ['keyword', 'filter'],
         filter_fields: [
-          'object_type',
           'query_mode',
           'query_pack',
           'supports_resolve',

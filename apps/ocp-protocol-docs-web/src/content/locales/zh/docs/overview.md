@@ -23,7 +23,7 @@
 
 协议被故意拆成两层。
 
-### Handshake
+### 握手层
 
 `ocp.catalog.handshake.v1` 负责：
 
@@ -35,7 +35,7 @@
 
 它**不**负责 Center 注册或 catalog 联邦发现。
 
-### Center
+### 中心层
 
 `ocp.catalog.center.v1` 负责：
 

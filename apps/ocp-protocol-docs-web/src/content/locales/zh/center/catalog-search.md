@@ -1,8 +1,8 @@
-# CatalogSearch
+# 目录搜索（CatalogSearch）
 
 `CatalogSearchRequest` 和 `CatalogSearchResult` 定义的是 Agent 如何向 Center 询问候选 Catalog。
 
-## Search Request
+## 搜索请求
 
 这个请求结构刻意保持轻量。
 
@@ -27,7 +27,7 @@
 }
 ```
 
-## Search Result Item
+## 搜索结果项
 
 每个结果项同时包含排序信息和 route 信息。
 
@@ -36,7 +36,7 @@
   "catalog_id": "commerce_catalog_local_dev",
   "catalog_name": "Commerce Catalog Local Dev",
   "score": 0.96,
-  "matched_object_types": ["commerce.product"],
+  "matched_object_types": ["product"],
   "matched_query_capabilities": ["commerce_product_search"],
   "route_hint": {
     "catalog_id": "commerce_catalog_local_dev",
@@ -44,7 +44,7 @@
     "manifest_url": "http://localhost:4000/ocp/manifest"
   },
   "explain": [
-    "Matched object type commerce.product",
+    "Matched object type product",
     "Matched supported query pack ocp.commerce.product.search.v1"
   ]
 }

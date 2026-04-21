@@ -50,15 +50,14 @@ const app = new Elysia()
   }))
   .get('/.well-known/ocp-catalog', () => buildWellKnownDiscovery(config))
   .get('/ocp/manifest', () => buildCatalogManifest(config, commerceCatalogScenario))
-  .get('/ocp/contracts', ({ query }) => {
+  .get('/ocp/contracts', () => {
     const contracts = buildCatalogManifest(config, commerceCatalogScenario).object_contracts;
-    const objectType = typeof query.object_type === 'string' ? query.object_type : null;
 
     return {
       ocp_version: '1.0',
       kind: 'ObjectContractList',
       catalog_id: config.CATALOG_ID,
-      contracts: objectType ? contracts.filter((contract) => contract.object_type === objectType) : contracts,
+      contracts,
     };
   })
   .post('/ocp/providers/register', async ({ body, headers }) => {

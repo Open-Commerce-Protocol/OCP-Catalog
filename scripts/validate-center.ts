@@ -78,7 +78,7 @@ await check('Catalog resolve returns route hint by catalog_id', async () => {
     catalog_id: catalogId,
   });
   assert(routeHint.catalog_id === catalogId, 'resolved route hint should match catalog_id');
-  assert(routeHint.supported_object_types.includes('product'), 'route hint should include product object type');
+  assert(typeof routeHint.query_url === 'string' && routeHint.query_url.length > 0, 'route hint should include query_url');
 });
 
 await check('Catalog refresh requires token', async () => {

@@ -46,6 +46,7 @@
 - Provider 发现 catalog
 - Provider 获取 manifest / contracts
 - Provider 提交 registration
+- Catalog 协商并返回 selected sync capability
 - Catalog 建立 active provider contract state
 - Provider 分批同步 `CommercialObject`
 - Catalog 校验 descriptor packs 和 required fields
@@ -82,6 +83,8 @@
 
 - `object_type = product`
 
+这里的 `object_type` 是当前 catalog 的运行时分类与索引标签。Provider registration 的握手匹配基于 `guaranteed_fields` 与 object contract 的 `required_fields`。
+
 ### 2.2 使用的 descriptor packs
 
 当前围绕商品场景使用的 pack 主要包括：
@@ -98,6 +101,7 @@
 - `ocp.query.keyword.v1`
 - `ocp.query.filter.v1`
 - 开启 embedding 时再声明 `ocp.query.semantic.v1`
+- `provider_contract.sync_capabilities = ["ocp.push.batch"]`
 
 支持的 query modes：
 
@@ -263,7 +267,7 @@ Center 会抽取并建立索引的信息包括：
 其中 `publish-to-catalog` 是当前推荐工作流：
 
 ```text
-register -> active version confirmed -> batched sync
+register -> selected sync capability confirmed -> active version confirmed -> batched sync
 ```
 
 这样可以避免 register 和 sync 的时序竞争。

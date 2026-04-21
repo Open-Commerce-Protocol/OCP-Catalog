@@ -5,10 +5,8 @@ type QueryCapabilitySource = Pick<CatalogManifest, 'query_capabilities'>;
 
 export function objectContractSummaries(manifest: CatalogManifest) {
   return manifest.object_contracts.map((contract) => ({
-    contract_id: contract.contract_id,
-    object_type: contract.object_type,
-    required_packs: contract.required_packs,
-    optional_packs: contract.optional_packs,
+    required_fields: contract.required_fields,
+    optional_fields: contract.optional_fields,
   }));
 }
 
@@ -53,12 +51,10 @@ export function buildCatalogSearchProjection(
     registration.operator.display_name,
     ...registration.tags,
     ...registration.claimed_domains,
-    ...manifest.supported_object_types,
     ...modes,
     ...queryPacks,
     ...queryLanguages,
     ...contentLangs,
-    ...contracts.map((contract) => contract.object_type),
     verificationStatus,
     trustTier,
     healthStatus,
@@ -70,7 +66,6 @@ export function buildCatalogSearchProjection(
     operator: registration.operator.display_name,
     tags: registration.tags,
     domains: registration.claimed_domains,
-    supported_object_types: manifest.supported_object_types,
     supported_query_modes: modes,
     supported_query_packs: queryPacks,
     object_contract_summaries: contracts,

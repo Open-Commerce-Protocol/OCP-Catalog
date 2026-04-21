@@ -13,6 +13,7 @@ Catalog -> Center
 Provider -> Catalog
   Provider 发现 Catalog
   Provider 注册到 Catalog
+  Catalog 选择 sync capability
   Provider 分批同步对象
   Catalog 校验、入库、建索引
 
@@ -91,6 +92,7 @@ packages/
 - discovery / manifest / contracts
 - Provider registration versioning
 - Provider active contract state
+- sync capability negotiation
 - object sync
 - CommercialObject / DescriptorInstance / CatalogEntry 持久化
 - query
@@ -108,7 +110,7 @@ packages/
   - seed demo products
   - register 到 catalog
   - publish-to-catalog
-    - 先注册
+    - 先注册并协商 selected sync capability
     - 再按当前 active registration version 分批同步
   - sync run 审计
 - `commerce-provider-admin-web`
@@ -150,6 +152,8 @@ packages/
 - 商品搜索和 resolve
 - Provider 注册与内容同步
 
+这里的 `object_type = product` 是当前 catalog 运行时场景标签，不再是 handshake 协议里 provider registration 的匹配前提。
+
 它的 profile 和 query capability 当前会声明：
 
 - 支持的 query modes：`keyword`、`filter`、`hybrid`
@@ -161,6 +165,10 @@ packages/
   - 可选 `ocp.query.semantic.v1`
 - `supported_query_languages: ["en"]`
 - `content_languages: ["en"]`
+
+provider-facing sync capability 当前会声明：
+
+- `ocp.push.batch`
 
 之所以显式声明英文能力，是因为当前 catalog 内的样例商品内容主要是英文；用户侧 agent 会在需要时把中文购物意图转换成英文检索短语，再调用 catalog。
 

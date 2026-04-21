@@ -2,36 +2,18 @@
 
 `CatalogManifest` is the catalog's public handshake document.
 
-## When It Is Used
+## What It Declares
 
-Providers and agents read the manifest to understand:
+It tells a provider or agent:
 
 - who the catalog is
-- where its endpoints are
-- what object types it accepts
-- what search capability it exposes
+- which endpoints are public
+- which object contracts it accepts
+- which query capabilities it exposes
+- which provider fields it requires
+- which sync capabilities it is willing to negotiate with providers
 
-## Required Fields
-
-Key required fields in the current schema:
-
-```json
-{
-  "required": [
-    "ocp_version",
-    "kind",
-    "id",
-    "catalog_id",
-    "catalog_name",
-    "endpoints",
-    "query_capabilities",
-    "provider_contract",
-    "object_contracts"
-  ]
-}
-```
-
-## Endpoint Fragment
+## Endpoint Shape
 
 ```json
 {
@@ -45,30 +27,58 @@ Key required fields in the current schema:
 }
 ```
 
-## Query Capability Fragment
+## Provider Contract Shape
+
+`provider_contract` includes two formal surfaces:
+
+- `field_rules`
+- `sync_capabilities`
+
+Example:
+
+```json
+{
+  "provider_contract": {
+    "field_rules": [
+      {
+        "field_ref": "provider#/display_name",
+        "requirement": "required"
+      }
+    ],
+    "sync_capabilities": [
+      {
+        "capability_id": "ocp.push.batch",
+        "direction": "provider_to_catalog",
+        "transport": "http_push",
+        "object_types": ["product"],
+        "sync_model": {
+          "snapshot": true,
+          "delta": false,
+          "stream": false
+        },
+        "mutation_semantics": {
+          "upsert": true,
+          "delete": true
+        }
+      }
+    ]
+  }
+}
+```
+
+## Search Contract Shape
+
+The search contract is expressed through `query_capabilities[*].query_packs`.
 
 ```json
 {
   "query_capabilities": [
     {
-      "capability_id": "commerce_product_search",
-      "name": "Commerce Product Search",
-      "target_object_types": ["commerce.product"],
+      "capability_id": "ocp.commerce.product.search.v1",
       "query_packs": [
         {
           "pack_id": "ocp.commerce.product.search.v1",
-          "description": "Search products by keyword and filters",
-          "query_modes": ["keyword", "filter", "semantic", "hybrid"],
-          "request_schema_uri": "https://ocp.dev/schema/...",
-          "metadata": {
-            "query_hints": {
-              "supported_query_languages": ["en"],
-              "filter_fields": [
-                "ocp.commerce.inventory.v1#/availability_status",
-                "ocp.commerce.price.v1#/currency"
-              ]
-            }
-          }
+          "query_modes": ["keyword", "filter", "semantic", "hybrid"]
         }
       ]
     }
@@ -76,16 +86,20 @@ Key required fields in the current schema:
 }
 ```
 
-## Why Query Packs Matter
+`target_object_types` may appear as a catalog-authored hint, but it is not the main protocol axis for query negotiation.
 
-The manifest should tell the agent how to search through `query_packs`, not through a loose textual description.
+The protocol only requires the catalog to declare:
 
-That gives the agent:
+- which query endpoints exist
+- which query capabilities exist
+- which input fields are accepted
+- which fields are searchable, filterable, or sortable
+- where the request schema lives
 
-- a stable pack identifier
-- request schema linkage
-- optional execution hints
+## Runtime Example
 
-## Repository Example
+The commerce catalog example publishes one provider-facing sync capability:
 
-In this repository, the commerce catalog uses one primary capability for product search and exposes language and semantic hints through `metadata`.
+- `ocp.push.batch`
+
+Reserved capabilities such as `ocp.feed.url` belong in the runtime manifest only when the corresponding transport path is implemented.

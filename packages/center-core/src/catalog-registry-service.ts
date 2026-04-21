@@ -124,7 +124,7 @@ export class CatalogRegistryService {
       discoveryPayload: discovery as unknown as Record<string, unknown>,
       manifestPayload: manifest as unknown as Record<string, unknown>,
       manifestHash,
-      supportedObjectTypes: manifest.supported_object_types,
+      supportedObjectTypes: [],
       queryCapabilities: manifest.query_capabilities,
       objectContractSummaries: objectContractSummaries(manifest),
     });
@@ -356,7 +356,6 @@ export class CatalogRegistryService {
           catalog_name: row.catalogName,
           ...(row.description ? { description: row.description } : {}),
           score,
-          matched_object_types: row.supportedObjectTypes,
           matched_query_capabilities: row.supportedQueryPacks,
           verification_status: row.verificationStatus,
           trust_tier: row.trustTier,
@@ -463,7 +462,7 @@ export class CatalogRegistryService {
       discoveryPayload: discovery as unknown as Record<string, unknown>,
       manifestPayload: manifest as unknown as Record<string, unknown>,
       manifestHash: hashJson(manifest),
-      supportedObjectTypes: manifest.supported_object_types,
+      supportedObjectTypes: [],
       queryCapabilities: manifest.query_capabilities,
       objectContractSummaries: objectContractSummaries(manifest),
     });
@@ -646,7 +645,7 @@ export class CatalogRegistryService {
         wellKnownUrl: registration.well_known_url,
         tags: registration.tags,
         domains: registration.claimed_domains,
-        supportedObjectTypes: manifest.supported_object_types,
+        supportedObjectTypes: [],
         supportedQueryModes: supportedQueryModes(manifest),
         supportedQueryPacks: supportedQueryPacks(manifest),
         supportedQueryLanguages: supportedQueryLanguages(manifest),
@@ -673,7 +672,7 @@ export class CatalogRegistryService {
           wellKnownUrl: registration.well_known_url,
           tags: registration.tags,
           domains: registration.claimed_domains,
-          supportedObjectTypes: manifest.supported_object_types,
+          supportedObjectTypes: [],
           supportedQueryModes: supportedQueryModes(manifest),
           supportedQueryPacks: supportedQueryPacks(manifest),
           supportedQueryLanguages: supportedQueryLanguages(manifest),
@@ -702,7 +701,6 @@ export class CatalogRegistryService {
       query_url: stringValue(asRecord(row.searchProjection).query_url) ?? row.manifestUrl.replace(/\/ocp\/manifest$/, '/ocp/query'),
       ...(resolveUrl ? { resolve_url: resolveUrl } : {}),
       supported_query_packs: row.supportedQueryPacks,
-      supported_object_types: row.supportedObjectTypes,
       auth_requirements: { query: 'none', resolve: 'none' },
       metadata: {
         query_hints: {
@@ -786,7 +784,6 @@ function matchesCatalogFilters(
   projection: Record<string, unknown>,
   filters: Record<string, unknown>,
 ) {
-  if (filters.object_type && !row.supportedObjectTypes.includes(String(filters.object_type))) return false;
   if (filters.query_mode && !row.supportedQueryModes.includes(String(filters.query_mode))) return false;
   if (filters.query_pack && !row.supportedQueryPacks.includes(String(filters.query_pack))) return false;
   if (filters.supports_resolve !== undefined && Boolean(row.supportsResolve) !== filters.supports_resolve) return false;
@@ -822,7 +819,6 @@ function explainCatalog(
 ) {
   const explain: string[] = [];
   if (terms.length > 0) explain.push(`Catalog metadata keyword score ${score} from term(s): ${terms.join(', ')}.`);
-  if (filters.object_type) explain.push(`Catalog supports object_type ${filters.object_type}.`);
   if (filters.query_mode) explain.push(`Catalog supports query_mode ${filters.query_mode}.`);
   if (row.verificationStatus === 'verified') explain.push('Catalog domain is verified.');
   if (row.healthStatus === 'healthy') explain.push('Catalog query endpoint is healthy.');

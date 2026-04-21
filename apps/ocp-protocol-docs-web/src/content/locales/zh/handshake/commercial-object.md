@@ -1,4 +1,4 @@
-# CommercialObject
+# 商业对象（CommercialObject）
 
 `CommercialObject` 是同步进 Catalog 的通用对象包络。
 
@@ -23,7 +23,7 @@
 }
 ```
 
-## Descriptor 片段
+## 描述符片段
 
 ```json
 {
@@ -39,7 +39,7 @@
 }
 ```
 
-## 为什么需要 Descriptor
+## 为什么需要描述符
 
 `CommercialObject` 没有把所有商品细节做成一个固定 schema，而是允许 pack 承载领域数据。
 

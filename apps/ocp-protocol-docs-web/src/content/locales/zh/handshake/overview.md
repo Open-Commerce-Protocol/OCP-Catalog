@@ -1,37 +1,39 @@
-# Handshake 概览
+# 握手概览（Handshake Overview）
 
 `ocp.catalog.handshake.v1` 是 Provider 和 Catalog 节点之间的最小握手层。
 
-## 它覆盖什么
+## 它负责什么
 
-这个包定义了：
+这个 handshake package 定义：
 
-- catalog manifest discovery
+- catalog manifest 发现
 - object contract
 - provider registration
-- 通用 commercial object 包络
+- provider-facing sync capability negotiation
+- 共享的 commercial object 包络
 - registration feedback
 
-## 它不覆盖什么
+## 它不负责什么
 
-这个包**不**冻结：
+这个 package **不**冻结：
 
-- object sync 请求包络
-- catalog query 请求包络
-- resolve 请求包络
-- Center 注册
+- object sync request envelope
+- catalog query request envelope
+- resolve request envelope
+- Center registration
 
-这些内容当前仍由仓库里的运行时 schema 管理，后续可以继续拆成单独协议包。
+这些关注点不属于 handshake package 本身。
 
-## 它回答的核心问题
+## 核心问题
 
-Handshake 层主要回答三件事：
+握手层回答四个问题：
 
-1. 这个 Catalog 是谁
-2. 它接受什么对象
-3. Provider 应该如何声明自己的供给能力
+1. 这个 catalog 是什么类型？
+2. 它接受哪些 object contract？
+3. 它愿意协商哪些同步能力？
+4. Provider 如何声明自己的供给能力和同步偏好？
 
-## 包内主要对象
+## Package 范围
 
 ```text
 CatalogManifest
@@ -41,27 +43,54 @@ CommercialObject
 RegistrationResult
 FieldRef
 FieldRule
+SyncCapability
 ```
 
-## 示例流程
+## 示例握手流程
 
 ```text
 GET /.well-known/ocp-catalog
 -> 获取 manifest
--> 检查 contracts
+-> 查看 contracts
+-> 查看 provider_contract.sync_capabilities
 -> POST provider registration
--> 获得 registration result
--> 开始 object sync
+-> 收到带 selected_sync_capability 的 registration result
+-> 如果选中的是 catalog-hosted push，则开始 object sync
 ```
 
-## 搜索能力的表达方式
+## 同步能力协商
 
-在 `CatalogManifest` 中，搜索能力的主要表达方式是 `query_packs`。
+握手协议通过命名 capability 协商同步路径。
+
+关键规则是：
+
+- `capability_id` 是协商主键
+- `direction` 是正式的数据流向类别
+- `transport` 只是描述性的实现形态标签
+
+协议保留的基线命名空间是 `ocp.*`。
+
+示例：
+
+- `ocp.push.all`
+- `ocp.push.batch`
+- `ocp.feed.url`
+- `ocp.pull.api`
+- `ocp.streaming`
+
+仓库示例运行时实现并发布的是：
+
+- `ocp.push.batch`
+
+像 `ocp.feed.url`、`ocp.pull.api`、`ocp.streaming` 这样的保留能力，只有在对应运行时路径真正实现后，才应该出现在 live manifest 中。
+
+## 搜索能力形状
+
+在 `CatalogManifest` 中，搜索契约通过 `query_packs` 表达。
 
 ```json
 {
-  "capability_id": "commerce_product_search",
-  "target_object_types": ["commerce.product"],
+  "capability_id": "ocp.commerce.product.search.v1",
   "query_packs": [
     {
       "pack_id": "ocp.commerce.product.search.v1",
@@ -77,8 +106,10 @@ GET /.well-known/ocp-catalog
 }
 ```
 
-这个结构是有意的：
+这个结构的含义是：
 
-- `query_packs` 表达“怎么搜”
-- `query_modes` 附属于某个 pack
-- 额外提示统一进 `metadata`
+- `query_packs` 定义 agent 应该如何搜索
+- `query_modes` 绑定在 pack 上
+- 扩展提示放在 `metadata` 中
+
+handshake package 不要求所有 catalog 共享一个协议级 query 分类轴。query 语义应以 catalog 自己声明的 contract 为准。

@@ -1,4 +1,4 @@
-# RegistrationResult
+# 注册结果（RegistrationResult）
 
 `RegistrationResult` 是 Provider registration 完成后的结构化反馈。
 
@@ -24,8 +24,11 @@
 ```json
 {
   "properties": {
-    "matched_contract_ids": { "type": "array" },
+    "matched_object_contract_count": { "type": "integer" },
     "effective_registration_version": { "type": "integer" },
+    "selected_sync_capability": {
+      "type": "object"
+    },
     "missing_required_fields": { "type": "array" },
     "warnings": { "type": "array" },
     "message": { "type": "string" }
@@ -35,11 +38,12 @@
 
 ## 为什么它重要
 
-它不是一个简单的 ACK，而是告诉 Provider：
+它会告诉 Provider：
 
-- 这次注册是否被完全接受
-- 匹配到了哪些 contract
+- registration 是否被完全接受
+- 匹配到了多少个 object contract
+- 最终选中了哪条 sync capability
 - 是否存在缺失字段
-- 当前生效版本是多少
+- 当前激活版本是否发生变化
 
-这也是 Provider Admin UI 在触发 sync 之前应该先看的结果。
+这些反馈都应该在 Provider Admin UI 里展示出来，然后再决定是否继续 full sync。

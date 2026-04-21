@@ -9,6 +9,7 @@ The handshake package defines:
 - catalog manifest discovery
 - object contracts
 - provider registration
+- provider-facing sync capability negotiation
 - shared commercial object envelope
 - registration feedback
 
@@ -21,15 +22,16 @@ This package does **not** freeze:
 - resolve request envelopes
 - Center registration
 
-Those concerns live elsewhere in the repository runtime and may later split into dedicated protocol packages.
+Those concerns live outside this handshake package.
 
 ## Core Questions
 
-The handshake layer answers three questions:
+The handshake layer answers four questions:
 
 1. What kind of catalog is this?
-2. What objects can it accept?
-3. How does a provider declare its supply capability?
+2. Which object contracts can it accept?
+3. Which sync capabilities is the catalog willing to negotiate?
+4. How does a provider declare its supply capability and sync preference?
 
 ## Package Surface
 
@@ -41,6 +43,7 @@ CommercialObject
 RegistrationResult
 FieldRef
 FieldRule
+SyncCapability
 ```
 
 ## Example Handshake Flow
@@ -49,10 +52,37 @@ FieldRule
 GET /.well-known/ocp-catalog
 -> fetch manifest
 -> inspect contracts
+-> inspect provider_contract.sync_capabilities
 -> POST provider registration
--> receive registration result
--> start object sync
+-> receive registration result with selected_sync_capability
+-> start object sync if the selected capability is catalog-hosted push
 ```
+
+## Sync Capability Negotiation
+
+The handshake protocol negotiates sync through named capabilities.
+
+The key rules are:
+
+- `capability_id` is the negotiation key
+- `direction` is the formal data-flow category
+- `transport` is only a descriptive implementation label
+
+The baseline protocol-reserved namespace is `ocp.*`.
+
+Examples:
+
+- `ocp.push.all`
+- `ocp.push.batch`
+- `ocp.feed.url`
+- `ocp.pull.api`
+- `ocp.streaming`
+
+The repository example runtime implements and publishes:
+
+- `ocp.push.batch`
+
+Reserved capabilities such as `ocp.feed.url`, `ocp.pull.api`, and `ocp.streaming` should only appear in a live manifest after the corresponding runtime path is implemented.
 
 ## Search Capability Shape
 
@@ -60,8 +90,7 @@ Inside `CatalogManifest`, the main search contract is expressed through `query_p
 
 ```json
 {
-  "capability_id": "commerce_product_search",
-  "target_object_types": ["commerce.product"],
+  "capability_id": "ocp.commerce.product.search.v1",
   "query_packs": [
     {
       "pack_id": "ocp.commerce.product.search.v1",
@@ -77,8 +106,10 @@ Inside `CatalogManifest`, the main search contract is expressed through `query_p
 }
 ```
 
-That structure is intentional:
+That structure remains intentional:
 
 - `query_packs` define how an agent should search
 - `query_modes` stay attached to a pack
 - extra hints live in `metadata`
+
+The handshake package does not require every catalog to share one protocol-level query classification axis. Query semantics should follow the catalog's own declared contract.

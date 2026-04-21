@@ -6,7 +6,6 @@ export type CatalogProviderState = {
   catalog_id: string;
   status: string;
   active_registration_version: number;
-  declared_object_types: string[];
   declared_packs: string[];
   guaranteed_fields: string[];
   registration: Record<string, unknown> | null;

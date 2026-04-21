@@ -1,37 +1,19 @@
-# CatalogManifest
+# 目录清单（CatalogManifest）
 
-`CatalogManifest` 是 Catalog 对外公开的握手文档。
+`CatalogManifest` 是 catalog 对外公开的握手文档。
 
-## 它在什么时候使用
+## 它声明什么
 
-Provider 和 Agent 会读取 manifest，以了解：
+它会告诉 provider 或 agent：
 
-- 这个 catalog 是谁
-- 它有哪些 endpoint
-- 它接受哪些 object type
-- 它暴露哪些搜索能力
+- catalog 是谁
+- 哪些 endpoint 是公开的
+- 它接受哪些 object contract
+- 它暴露哪些 query capability
+- 它要求 provider 具备哪些字段
+- 它愿意和 provider 协商哪些 sync capability
 
-## 必需字段
-
-当前 schema 中最关键的必需字段如下：
-
-```json
-{
-  "required": [
-    "ocp_version",
-    "kind",
-    "id",
-    "catalog_id",
-    "catalog_name",
-    "endpoints",
-    "query_capabilities",
-    "provider_contract",
-    "object_contracts"
-  ]
-}
-```
-
-## Endpoint 片段
+## Endpoint 形状
 
 ```json
 {
@@ -45,30 +27,58 @@ Provider 和 Agent 会读取 manifest，以了解：
 }
 ```
 
-## Query Capability 片段
+## Provider Contract 形状
+
+`provider_contract` 包含两个正式部分：
+
+- `field_rules`
+- `sync_capabilities`
+
+示例：
+
+```json
+{
+  "provider_contract": {
+    "field_rules": [
+      {
+        "field_ref": "provider#/display_name",
+        "requirement": "required"
+      }
+    ],
+    "sync_capabilities": [
+      {
+        "capability_id": "ocp.push.batch",
+        "direction": "provider_to_catalog",
+        "transport": "http_push",
+        "object_types": ["product"],
+        "sync_model": {
+          "snapshot": true,
+          "delta": false,
+          "stream": false
+        },
+        "mutation_semantics": {
+          "upsert": true,
+          "delete": true
+        }
+      }
+    ]
+  }
+}
+```
+
+## 搜索契约形状
+
+搜索契约通过 `query_capabilities[*].query_packs` 表达。
 
 ```json
 {
   "query_capabilities": [
     {
-      "capability_id": "commerce_product_search",
-      "name": "Commerce Product Search",
-      "target_object_types": ["commerce.product"],
+      "capability_id": "ocp.commerce.product.search.v1",
       "query_packs": [
         {
           "pack_id": "ocp.commerce.product.search.v1",
-          "description": "Search products by keyword and filters",
-          "query_modes": ["keyword", "filter", "semantic", "hybrid"],
-          "request_schema_uri": "https://ocp.dev/schema/...",
-          "metadata": {
-            "query_hints": {
-              "supported_query_languages": ["en"],
-              "filter_fields": [
-                "ocp.commerce.inventory.v1#/availability_status",
-                "ocp.commerce.price.v1#/currency"
-              ]
-            }
-          }
+          "query_modes": ["keyword", "filter", "semantic", "hybrid"]
         }
       ]
     }
@@ -76,16 +86,20 @@ Provider 和 Agent 会读取 manifest，以了解：
 }
 ```
 
-## 为什么 Query Packs 很重要
+`target_object_types` 可以作为 catalog 自己写入的提示字段出现，但它不是 query negotiation 的主协议轴。
 
-Manifest 应该通过 `query_packs` 告诉 agent 如何搜索，而不是只给一段描述文字。
+协议层真正要求 catalog 声明的是：
 
-这样 agent 能获得：
+- 有哪些 query endpoint
+- 有哪些 query capability
+- 接受哪些输入字段
+- 哪些字段可搜索、可过滤、可排序
+- request schema 在哪里
 
-- 稳定的 pack 标识
-- request schema 链接
-- 可选的执行提示
+## 运行时示例
 
-## 仓库中的例子
+commerce catalog 示例的 live manifest 发布一个 provider-facing sync capability：
 
-当前仓库里的 commerce catalog 就是通过一个主要的 product search capability，对外暴露语言提示和语义提示。
+- `ocp.push.batch`
+
+像 `ocp.feed.url` 这样的保留能力，应在对应传输路径实现后再出现在运行时 manifest 中。

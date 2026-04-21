@@ -1,4 +1,4 @@
-# CatalogRouteHint
+# 目录路由提示（CatalogRouteHint）
 
 `CatalogRouteHint` 是 Center 返回给调用方的最小路由摘要。
 
@@ -33,7 +33,7 @@
   "query_url": "http://localhost:4000/ocp/query",
   "resolve_url": "http://localhost:4000/ocp/resolve",
   "supported_query_packs": ["ocp.commerce.product.search.v1"],
-  "supported_object_types": ["commerce.product"],
+  "supported_object_types": ["product"],
   "metadata": {
     "query_hints": {
       "supported_query_modes": ["keyword", "filter", "semantic", "hybrid"],

@@ -1,46 +1,95 @@
-# Commerce Catalog 示例
+# 电商目录示例（Commerce Catalog Example）
 
-当前仓库实现了一个具体的 catalog 场景：电商商品 catalog。
+这个仓库实现了一个具体场景 catalog：commerce product catalog。
 
-## Catalog Profile
+## 目录画像
 
-当前 catalog profile 围绕这些能力构建：
+当前 catalog profile 围绕这些点构建：
 
-- `commerce.product`
-- 一个主要的 product-search capability
-- 使用 `query_packs` 作为主要搜索契约
-- 内容以英文为主，并通过 metadata 暴露语言提示
+- `product`
+- 一个主 product-search capability
+- `query_packs` 作为主搜索契约
+- 在 metadata 中暴露 language hints
+- 一个 live provider-facing sync capability：`ocp.push.batch`
 
-## Query Pack 示例
+## 对象契约示例
+
+当前 commerce catalog 接受一个 object contract：
 
 ```json
 {
-  "pack_id": "ocp.commerce.product.search.v1",
-  "query_modes": ["keyword", "filter", "semantic", "hybrid"],
-  "metadata": {
-    "query_hints": {
-      "supported_query_languages": ["en"],
-      "content_languages": ["en"]
-    }
+  "required_fields": [
+    "ocp.commerce.product.core.v1#/title"
+  ],
+  "optional_fields": [
+    "ocp.commerce.price.v1#/amount",
+    "ocp.commerce.inventory.v1#/availability_status"
+  ],
+  "additional_fields_policy": "allow"
+}
+```
+
+这就是 provider 必须满足的真实 contract 边界。
+
+## 最小注册成功条件
+
+在当前仓库里，一个 provider 只有在能声明以下内容时才能注册成功：
+
+- `guaranteed_fields` 包含 `ocp.commerce.product.core.v1#/title`
+- `sync.preferred_capabilities` 或 `sync.avoid_capabilities_unless_necessary` 与 catalog 的 `sync_capabilities` 有交集
+
+## 已发布的同步能力
+
+当前 live manifest 发布的是：
+
+```json
+{
+  "capability_id": "ocp.push.batch",
+  "direction": "provider_to_catalog",
+  "transport": "http_push",
+  "object_types": [],
+  "sync_model": {
+    "snapshot": true,
+    "delta": false,
+    "stream": false
+  },
+  "mutation_semantics": {
+    "upsert": true,
+    "delete": true
   }
 }
 ```
 
+## 同步路径
+
+当前验证过的交互是：
+
+```text
+ProviderRegistration.sync.preferred_capabilities = ["ocp.push.batch"]
+  -> provider 注册
+  -> RegistrationResult.selected_sync_capability = ocp.push.batch
+  -> provider 发送 batched object sync request
+```
+
+像 `ocp.feed.url` 这样的保留能力，应在对应 pull 实现完成后再出现在 runtime manifest 里。
+
 ## 索引策略
 
-当前 commerce catalog 采用分层索引：
+当前 commerce catalog 使用分层索引：
 
-1. 把 descriptor 投影到 catalog entry
-2. 在 Postgres 中存结构化 filter 列
-3. 保存标准化 search text 用于 keyword 检索
-4. 保存 embedding 向量用于 semantic 检索
-5. 使用 `pgvector` HNSW shortlist，再做 exact cosine rerank
+1. descriptor projection into catalog entries
+2. Postgres structured filter columns
+3. keyword search text
+4. semantic embedding vectors
+5. `pgvector` HNSW shortlist + exact cosine rerank
 
-## 为什么这个例子重要
+## 为什么这很重要
 
-协议只规定了 catalog 的外部形状，而这个示例进一步说明了真实实现如何暴露：
+协议文档描述了 catalog 的 shape，而这个示例 catalog 则展示了真实实现如何暴露：
 
-- 语言提示
-- 语义检索提示
-- 可过滤字段提示
-- resolve 支持
+- language hints
+- semantic capability hints
+- filterable field hints
+- resolve support
+- provider registration 所需的具体 contract
+- 显式 sync capability negotiation

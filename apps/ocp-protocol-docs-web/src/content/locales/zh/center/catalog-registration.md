@@ -1,4 +1,4 @@
-# CatalogRegistration
+# 目录注册（CatalogRegistration）
 
 `CatalogRegistration` 是 Catalog 向 Center 发送的版本化声明。
 

@@ -119,7 +119,6 @@ export const catalogRouteHintSchema = z.object({
   query_url: z.string().url(),
   resolve_url: z.string().url().optional(),
   supported_query_packs: z.array(z.string()).default([]),
-  supported_object_types: z.array(z.string()).default([]),
   auth_requirements: z.record(z.string(), z.unknown()).default({}),
   metadata: z.record(z.string(), z.unknown()).default({}),
   verification_status: z.string(),
@@ -141,7 +140,6 @@ export const catalogProfileSnapshotSchema = z.object({
   homepage: z.string().url(),
   well_known_url: z.string().url(),
   manifest_url: z.string().url(),
-  supported_object_types: z.array(z.string()).default([]),
   query_capabilities: z.array(z.record(z.string(), z.unknown())).default([]),
   object_contract_summaries: z.array(z.record(z.string(), z.unknown())).default([]),
   metadata: z.record(z.string(), z.unknown()).default({}),
@@ -161,7 +159,6 @@ export const catalogIndexEntrySchema = z.object({
   homepage: z.string().url(),
   manifest_url: z.string().url(),
   well_known_url: z.string().url(),
-  supported_object_types: z.array(z.string()).default([]),
   supported_query_modes: z.array(z.string()).default([]),
   supported_query_packs: z.array(z.string()).default([]),
   supports_resolve: z.boolean().default(false),
@@ -174,7 +171,6 @@ export const catalogIndexEntrySchema = z.object({
 });
 
 export const catalogSearchFiltersSchema = z.object({
-  object_type: z.string().min(1).optional(),
   query_mode: z.string().min(1).optional(),
   query_pack: z.string().min(1).optional(),
   supports_resolve: z.boolean().optional(),
@@ -199,7 +195,6 @@ export const catalogSearchResultItemSchema = z.object({
   catalog_name: z.string().min(1),
   description: z.string().optional(),
   score: z.number(),
-  matched_object_types: z.array(z.string()).default([]),
   matched_query_capabilities: z.array(z.string()).default([]),
   verification_status: z.string(),
   trust_tier: z.string(),

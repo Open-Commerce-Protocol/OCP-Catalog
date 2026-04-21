@@ -1,31 +1,23 @@
 # ObjectContract
 
-`ObjectContract` defines what a catalog is willing to accept for a given object type.
+`ObjectContract` defines the field-level acceptance boundary published by a catalog.
 
 ## What It Controls
 
 An object contract expresses:
 
-- the `object_type`
-- required and optional descriptor packs
-- field validation rules
-- allowed registration modes
+- required field requirements
+- optional field references
+- additional field policy
 
 ## Schema Fragment
 
 ```json
 {
-  "required": ["contract_id", "object_type", "field_rules"],
+  "required": ["required_fields"],
   "properties": {
-    "required_packs": { "type": "array" },
-    "optional_packs": { "type": "array" },
-    "compatible_packs": { "type": "object" },
-    "registration_modes": {
-      "type": "array",
-      "items": {
-        "enum": ["feed_url", "api_pull", "push_api"]
-      }
-    },
+    "required_fields": { "type": "array" },
+    "optional_fields": { "type": "array" },
     "additional_fields_policy": {
       "enum": ["allow", "ignore", "reject"]
     }
@@ -33,21 +25,28 @@ An object contract expresses:
 }
 ```
 
-## Practical Meaning
+## Required Field Groups
 
-The object contract is how the catalog keeps provider input bounded.
+Each entry in `required_fields` is either:
 
-For example, a commerce product contract can require:
+- a single `FieldRef`
+- an array of `FieldRef` values meaning "at least one of these fields must be guaranteed"
 
-- core product pack
-- price pack
-- inventory pack
+Example:
 
-and reject registrations that cannot guarantee required fields.
+```json
+[
+  "ocp.commerce.product.core.v1#/title",
+  [
+    "ocp.commerce.price.v1#/amount",
+    "provider#/price_text"
+  ]
+]
+```
 
-## Field Rules
+## Field References
 
-Field rules point at concrete fields using `FieldRef`.
+Field references point at concrete fields using `FieldRef`.
 
 Examples:
 
@@ -57,4 +56,28 @@ ocp.commerce.product.core.v1#/title
 ocp.commerce.price.v1#/amount
 ```
 
-This lets the contract talk about validation without hard-coding one giant object schema.
+This keeps compatibility checks directly on fields instead of requiring provider-facing pack negotiation.
+
+## Current Commerce Contract In This Repository
+
+The first catalog in this repository currently exposes this contract:
+
+```json
+{
+  "required_fields": [
+    "ocp.commerce.product.core.v1#/title"
+  ],
+  "optional_fields": [
+    "ocp.commerce.product.core.v1#/summary",
+    "ocp.commerce.price.v1#/amount",
+    "ocp.commerce.inventory.v1#/availability_status"
+  ],
+  "additional_fields_policy": "allow"
+}
+```
+
+The minimum registration condition is therefore:
+
+- guarantee `ocp.commerce.product.core.v1#/title`
+
+Sync transport is negotiated separately through `sync_capabilities`, not through `ObjectContract`.

@@ -25,16 +25,16 @@
       "type": "string",
       "enum": ["accepted_full", "accepted_limited", "rejected", "pending_verification"]
     },
-    "matched_contract_ids": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "uniqueItems": true
+    "matched_object_contract_count": {
+      "type": "integer",
+      "minimum": 0
     },
     "effective_registration_version": {
       "type": "integer",
       "minimum": 1
+    },
+    "selected_sync_capability": {
+      "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/SelectedSyncCapability"
     },
     "missing_required_fields": {
       "type": "array",

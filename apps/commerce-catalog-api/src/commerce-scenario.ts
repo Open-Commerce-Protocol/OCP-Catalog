@@ -6,6 +6,7 @@ import {
   type CatalogManifest,
   type CommercialObject,
   type ObjectContract,
+  type SyncCapability,
 } from '@ocp-catalog/ocp-schema';
 import {
   numberField,
@@ -27,6 +28,7 @@ export function createCommerceCatalogScenario(options: { semanticSearchEnabled?:
     description: 'Protocol-first OCP Commerce product Catalog node.',
     registryVisibility: 'public',
     objectContracts: buildCommerceObjectContracts,
+    providerSyncCapabilities: buildCommerceSyncCapabilities,
     queryCapabilities: () => buildCommerceQueryCapabilities(options),
     validateDescriptorPack,
     buildSearchProjection,
@@ -39,55 +41,60 @@ export function createCommerceCatalogScenario(options: { semanticSearchEnabled?:
 function buildCommerceObjectContracts(): ObjectContract[] {
   return [
     {
-      contract_id: 'contract.product.default.v1',
-      object_type: 'product',
-      required_packs: ['ocp.commerce.product.core.v1'],
-      optional_packs: ['ocp.commerce.price.v1', 'ocp.commerce.inventory.v1'],
-      compatible_packs: {},
-      field_rules: [
-        {
-          field_ref: 'ocp.commerce.product.core.v1#/title',
-          requirement: 'required',
-          usage: ['identity', 'index', 'display', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.product.core.v1#/summary',
-          requirement: 'optional',
-          usage: ['index', 'display', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.product.core.v1#/brand',
-          requirement: 'optional',
-          usage: ['index', 'filter', 'display', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.product.core.v1#/category',
-          requirement: 'optional',
-          usage: ['index', 'filter', 'display', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.product.core.v1#/product_url',
-          requirement: 'optional',
-          usage: ['reference', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.price.v1#/currency',
-          requirement: 'optional',
-          usage: ['filter', 'display', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.price.v1#/amount',
-          requirement: 'optional',
-          usage: ['filter', 'rank', 'display', 'resolve'],
-        },
-        {
-          field_ref: 'ocp.commerce.inventory.v1#/availability_status',
-          requirement: 'optional',
-          usage: ['filter', 'display', 'resolve'],
-        },
+      required_fields: [
+        'ocp.commerce.product.core.v1#/title',
       ],
-      registration_modes: ['push_api', 'feed_url'],
+      optional_fields: [
+        'ocp.commerce.product.core.v1#/summary',
+        'ocp.commerce.product.core.v1#/brand',
+        'ocp.commerce.product.core.v1#/category',
+        'ocp.commerce.product.core.v1#/product_url',
+        'ocp.commerce.price.v1#/currency',
+        'ocp.commerce.price.v1#/amount',
+        'ocp.commerce.inventory.v1#/availability_status',
+      ],
       additional_fields_policy: 'allow',
+    },
+  ];
+}
+
+function buildCommerceSyncCapabilities(): SyncCapability[] {
+  return [
+    {
+      capability_id: 'ocp.push.batch',
+      description: 'Provider pushes batched product objects to the catalog sync API.',
+      direction: 'provider_to_catalog',
+      transport: 'http_push',
+      object_types: [],
+      sync_model: {
+        snapshot: true,
+        delta: false,
+        stream: false,
+      },
+      mutation_semantics: {
+        upsert: true,
+        delete: true,
+      },
+      batching: {
+        enabled: true,
+        max_items: 100,
+        max_bytes: 1048576,
+      },
+      cursoring: {
+        enabled: false,
+      },
+      streaming: {
+        enabled: false,
+      },
+      auth: {
+        schemes: ['x-api-key'],
+      },
+      endpoint_contract: {
+        hosted_by: 'catalog',
+        path_hint: '/ocp/objects/sync',
+        required_endpoint_fields: [],
+      },
+      metadata: {},
     },
   ];
 }
@@ -127,12 +134,10 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       name: 'Commerce product search',
       description: 'Searches commerce product entries and returns resolvable product candidates.',
       query_packs: queryPacks,
-      target_object_types: ['product'],
       input_fields: [
         { name: 'query_pack', type: 'string', required: false },
         { name: 'query_mode', type: 'string', required: false },
         { name: 'query', type: 'string', required: false },
-        { name: 'filters.object_type', type: 'string', required: false },
         { name: 'filters.category', type: 'string', required: false },
         { name: 'filters.brand', type: 'string', required: false },
         { name: 'filters.currency', type: 'string', required: false },
@@ -156,7 +161,7 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       supports_resolve: true,
       metadata: {
         query_hints: {
-          filter_fields: ['object_type', 'category', 'brand', 'currency', 'availability_status', 'provider_id'],
+          filter_fields: ['category', 'brand', 'currency', 'availability_status', 'provider_id'],
           supported_query_languages: ['en'],
           content_languages: ['en'],
         },
@@ -201,7 +206,6 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
     currency,
     availabilityStatus,
     object.provider_id,
-    object.object_type,
   ].filter(Boolean).join(' ').toLowerCase();
 
   return {
@@ -216,7 +220,6 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
     ...(object.source_url ? { source_url: object.source_url } : {}),
     provider_id: object.provider_id,
     object_id: object.object_id,
-    object_type: object.object_type,
     text,
   };
 }

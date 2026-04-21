@@ -1,7 +1,7 @@
 import type { AppConfig } from '@ocp-catalog/config';
 import { catalogManifestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
 import type { CatalogScenarioModule } from './scenario';
-import { defaultProviderFieldRules } from './scenario';
+import { defaultProviderFieldRules, defaultProviderSyncCapabilities } from './scenario';
 
 export function buildWellKnownDiscovery(config: AppConfig) {
   const baseUrl = config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '');
@@ -33,7 +33,6 @@ export function buildCatalogManifest(config: AppConfig, scenario: CatalogScenari
     catalog_name: config.CATALOG_NAME,
     description: scenario.description ?? 'Protocol-first OCP Catalog node.',
     registry_visibility: scenario.registryVisibility ?? 'public',
-    supported_object_types: unique(objectContracts.map((contract) => contract.object_type)),
     endpoints: {
       query: { url: `${baseUrl}/ocp/query`, method: 'POST' },
       resolve: { url: `${baseUrl}/ocp/resolve`, method: 'POST' },
@@ -44,13 +43,10 @@ export function buildCatalogManifest(config: AppConfig, scenario: CatalogScenari
     query_capabilities: scenario.queryCapabilities(),
     provider_contract: {
       field_rules: scenario.providerFieldRules?.() ?? defaultProviderFieldRules(),
+      sync_capabilities: scenario.providerSyncCapabilities?.() ?? defaultProviderSyncCapabilities(),
     },
     object_contracts: objectContracts,
   };
 
   return catalogManifestSchema.parse(manifest);
-}
-
-function unique<T>(values: T[]) {
-  return [...new Set(values)];
 }

@@ -46,23 +46,44 @@ A provider submits a registration:
 {
   "object_declarations": [
     {
-      "object_type": "commerce.product",
-      "provided_packs": [
-        "ocp.commerce.product.core.v1",
-        "ocp.commerce.price.v1",
-        "ocp.commerce.inventory.v1"
-      ],
       "guaranteed_fields": [
         "ocp.commerce.product.core.v1#/title",
         "ocp.commerce.price.v1#/amount"
       ],
-      "delivery": {
-        "mode": "push_api"
+      "sync": {
+        "preferred_capabilities": ["ocp.push.batch"],
+        "avoid_capabilities_unless_necessary": [],
+        "provider_endpoints": {}
       }
     }
   ]
 }
 ```
+
+## Matching Against ObjectContract
+
+The provider registration is matched against the catalog's published `ObjectContract` and `sync_capabilities`.
+
+In the commerce catalog example, the registration succeeds only if the declaration can satisfy:
+
+- required field `ocp.commerce.product.core.v1#/title`
+- at least one mutually supported sync capability
+
+At the protocol layer, the catalog matches declarations by contract requirements:
+
+- `guaranteed_fields`
+- `required_fields`
+
+## Example Sync Path
+
+The example sync path is:
+
+- registration with `sync.preferred_capabilities = ["ocp.push.batch"]`
+- activation of the registration version
+- `RegistrationResult.selected_sync_capability = ocp.push.batch`
+- batched object sync over the catalog sync API
+
+Reserved capabilities such as `ocp.feed.url` should be declared only when the provider-hosted endpoint and the catalog pull path are both implemented.
 
 ## Version Rule
 
@@ -71,5 +92,3 @@ For one `catalog_id + provider_id` pair:
 - the provider sends a complete new registration document
 - the new document must increase `registration_version`
 - the catalog uses that version to decide which declaration is active
-
-This versioned shape is what allowed the current repository to enforce correct registration-before-sync behavior.

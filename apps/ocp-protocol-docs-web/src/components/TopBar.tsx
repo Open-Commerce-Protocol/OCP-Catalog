@@ -10,6 +10,18 @@ export function TopBar() {
   const [query, setQuery] = useState('');
   const { locale, localizePath, setLocale, text } = useDocsLocale();
 
+  const currentPageLabel = useMemo(() => {
+    const matched = navigation
+      .flatMap((group) => group.links.map((link) => ({ group, link })))
+      .find(({ link }) => link.href === location.pathname);
+
+    if (!matched) {
+      return location.pathname.replace(/^\//, '') || text({ en: 'overview', zh: '总览' });
+    }
+
+    return `${resolveLocalizedText(matched.group.title, locale)} / ${resolveLocalizedText(matched.link.title, locale)}`;
+  }, [locale, location.pathname, text]);
+
   const searchResults = useMemo(() => {
     const keyword = query.trim().toLowerCase();
 
@@ -105,7 +117,7 @@ export function TopBar() {
         <div className="hidden lg:flex items-center gap-2 text-slate-300">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
           <span className="text-xs uppercase tracking-[0.18em]" title={text(docsUiText.currentPage)}>
-            {location.pathname.replace(/^\//, '') || 'overview'}
+            {currentPageLabel}
           </span>
         </div>
       </div>

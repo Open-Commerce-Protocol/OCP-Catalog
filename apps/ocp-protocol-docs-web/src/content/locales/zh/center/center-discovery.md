@@ -1,4 +1,4 @@
-# CenterDiscovery
+# 中心发现（CenterDiscovery）
 
 `CenterDiscovery` 是访问 Center 时的引导文档。
 

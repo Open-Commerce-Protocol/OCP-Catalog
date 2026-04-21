@@ -11,7 +11,6 @@ const routeHintSchema = z.object({
   query_url: z.string().url(),
   resolve_url: z.string().url().optional(),
   supported_query_packs: z.array(z.string()),
-  supported_object_types: z.array(z.string()),
   metadata: z.object({
     query_hints: z.object({
       supported_query_modes: z.array(z.string()).default([]),
@@ -41,7 +40,6 @@ const catalogSearchItemSchema = z.object({
   catalog_name: z.string(),
   description: z.string().optional(),
   score: z.number(),
-  matched_object_types: z.array(z.string()),
   matched_query_capabilities: z.array(z.string()),
   verification_status: z.string(),
   trust_tier: z.string(),
@@ -65,7 +63,6 @@ const querySessionSchema = z.object({
   baseIntent: z.string(),
   latestUserTurn: z.string(),
   activeFilters: z.object({
-    object_type: z.string(),
     category: z.string().optional(),
     brand: z.string().optional(),
     currency: z.string().optional(),
@@ -79,7 +76,6 @@ const querySessionSchema = z.object({
 
 const catalogQueryItemSchema = z.object({
   entry_id: z.string(),
-  object_type: z.string(),
   provider_id: z.string(),
   object_id: z.string(),
   title: z.string(),
@@ -116,7 +112,6 @@ type AgentPlan = {
   query_pack: string;
   sort_preference: 'relevance' | 'price_asc';
   filters: {
-    object_type: string;
     category?: string;
     brand?: string;
     currency?: string;
@@ -133,7 +128,6 @@ const agentPlanSchema = z.object({
   query_pack: z.string().min(1),
   sort_preference: z.enum(['relevance', 'price_asc']),
   filters: z.object({
-    object_type: z.string().min(1),
     category: z.string().optional(),
     brand: z.string().optional(),
     currency: z.string().optional(),
@@ -169,7 +163,7 @@ export class UserDemoAgentService {
     });
 
     if (request.saved_profiles.length === 0) {
-      const center = await this.searchCenter(plan.center_search_query, plan.filters.object_type);
+      const center = await this.searchCenter(plan.center_search_query);
       const candidate = center.items[0] ?? null;
       if (!candidate) {
         return {
@@ -248,8 +242,7 @@ export class UserDemoAgentService {
         'Decide how to refine the user request into a catalog query plan.',
         'Return JSON only.',
         'Never auto-register a catalog locally. Registration must be explicit user consent.',
-        'Supported filters: object_type, category, brand, currency, availability_status, provider_id.',
-        'Set filters.object_type to "product".',
+        'Supported filters: category, brand, currency, availability_status, provider_id.',
         'Use sort_preference price_asc only when the user clearly asks for cheaper/lower price.',
         'Use query_mode keyword by default, hybrid when both keyword and filters matter, filter only when there is no search phrase.',
         'When the user speaks Chinese but the available catalog metadata indicates English-oriented search, you may translate the search phrase to English.',
@@ -336,13 +329,12 @@ export class UserDemoAgentService {
     );
   }
 
-  private async searchCenter(query: string, objectType: string) {
+  private async searchCenter(query: string) {
     return requestJson<{ items: CatalogSearchItem[] }>(`${this.config.CENTER_PUBLIC_BASE_URL.replace(/\/$/, '')}/ocp/catalogs/search`, {
       ocp_version: '1.0',
       kind: 'CatalogSearchRequest',
       query,
       filters: {
-        object_type: objectType,
         verification_status: 'verified',
         supports_resolve: true,
       },

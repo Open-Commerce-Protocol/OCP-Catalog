@@ -5,6 +5,8 @@ import {
   type ObjectContract,
   type ProviderRegistration,
   type RegistrationResult,
+  type SelectedSyncCapability,
+  type SyncCapability,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq } from 'drizzle-orm';
@@ -14,6 +16,12 @@ import type { CatalogScenarioModule } from './scenario';
 export type RequestMeta = {
   sourceIp?: string | null;
   userAgent?: string | null;
+};
+
+type DeclarationMatch = {
+  contract: ObjectContract;
+  declaration: ProviderRegistration['object_declarations'][number];
+  selectedSyncCapability: SelectedSyncCapability;
 };
 
 export class RegistrationService {
@@ -89,7 +97,11 @@ export class RegistrationService {
     if (!stored) throw new AppError('internal_error', 'Failed to persist provider registration', 500);
 
     if (this.shouldActivate(evaluation, activeState?.activeRegistrationVersion, registration.registration_version)) {
-      const declarations = validDeclarations(registration, this.scenario.objectContracts());
+      const matches = validDeclarationMatches(
+        registration,
+        this.scenario.objectContracts(),
+        this.scenario.providerSyncCapabilities?.() ?? [],
+      );
 
       await this.db
         .insert(schema.providerContractStates)
@@ -100,9 +112,9 @@ export class RegistrationService {
           activeRegistrationId: stored.id,
           activeRegistrationVersion: registration.registration_version,
           status: 'active',
-          declaredObjectTypes: unique(declarations.map((declaration) => declaration.object_type)),
-          declaredPacks: unique(declarations.flatMap((declaration) => declaration.provided_packs)),
-          guaranteedFields: unique(declarations.flatMap((declaration) => declaration.guaranteed_fields)),
+          declaredObjectTypes: [],
+          declaredPacks: [],
+          guaranteedFields: unique(matches.flatMap((match) => match.declaration.guaranteed_fields)),
         })
         .onConflictDoUpdate({
           target: [schema.providerContractStates.catalogId, schema.providerContractStates.providerId],
@@ -110,9 +122,9 @@ export class RegistrationService {
             activeRegistrationId: stored.id,
             activeRegistrationVersion: registration.registration_version,
             status: 'active',
-            declaredObjectTypes: unique(declarations.map((declaration) => declaration.object_type)),
-            declaredPacks: unique(declarations.flatMap((declaration) => declaration.provided_packs)),
-            guaranteedFields: unique(declarations.flatMap((declaration) => declaration.guaranteed_fields)),
+            declaredObjectTypes: [],
+            declaredPacks: [],
+            guaranteedFields: unique(matches.flatMap((match) => match.declaration.guaranteed_fields)),
             updatedAt: new Date(),
           },
         });
@@ -136,7 +148,6 @@ export class RegistrationService {
       catalog_id: state.catalogId,
       status: state.status,
       active_registration_version: state.activeRegistrationVersion,
-      declared_object_types: state.declaredObjectTypes,
       declared_packs: state.declaredPacks,
       guaranteed_fields: state.guaranteedFields,
       registration: registration?.registration ?? null,
@@ -171,8 +182,9 @@ export class RegistrationService {
   private evaluate(registration: ProviderRegistration, activeVersion?: number): RegistrationResult {
     const warnings: string[] = [];
     const missingRequiredFields: string[] = [];
-    const matchedContractIds: string[] = [];
     const blockingErrors: string[] = [];
+    const selectedSyncCapabilities: SelectedSyncCapability[] = [];
+    const catalogSyncCapabilities = this.scenario.providerSyncCapabilities?.() ?? [];
 
     if (registration.catalog_id !== this.config.CATALOG_ID) {
       return {
@@ -182,7 +194,7 @@ export class RegistrationService {
         catalog_id: this.config.CATALOG_ID,
         provider_id: registration.provider.provider_id,
         status: 'rejected',
-        matched_contract_ids: [],
+        matched_object_contract_count: 0,
         effective_registration_version: activeVersion,
         missing_required_fields: [],
         warnings: [`Registration catalog_id ${registration.catalog_id} does not match ${this.config.CATALOG_ID}`],
@@ -198,7 +210,7 @@ export class RegistrationService {
         catalog_id: registration.catalog_id,
         provider_id: registration.provider.provider_id,
         status: 'accepted_limited',
-        matched_contract_ids: [],
+        matched_object_contract_count: 0,
         effective_registration_version: activeVersion,
         missing_required_fields: [],
         warnings: [`registration_version ${registration.registration_version} is not newer than active version ${activeVersion}`],
@@ -207,24 +219,28 @@ export class RegistrationService {
     }
 
     for (const declaration of registration.object_declarations) {
-      const contract = this.scenario.objectContracts().find((candidate) => candidate.object_type === declaration.object_type);
-      if (!contract) {
-        warnings.push(`Unsupported object_type: ${declaration.object_type}`);
+      const declarationMatches = matchDeclarationToContracts(
+        declaration,
+        this.scenario.objectContracts(),
+        catalogSyncCapabilities,
+      );
+
+      if (declarationMatches.matches.length === 0) {
+        warnings.push(...declarationMatches.warnings);
+        blockingErrors.push(...declarationMatches.errors);
+        missingRequiredFields.push(...declarationMatches.missingRequiredFields);
         continue;
       }
 
-      const declarationErrors = validateDeclaration(contract, declaration);
-      if (declarationErrors.length > 0) {
-        blockingErrors.push(...declarationErrors);
-        missingRequiredFields.push(...declarationErrors.filter((error) => error.startsWith('Missing required field_ref: ')));
-        continue;
-      }
-
-      matchedContractIds.push(contract.contract_id);
+      warnings.push(...declarationMatches.warnings);
+      selectedSyncCapabilities.push(...declarationMatches.matches.map((match) => match.selectedSyncCapability));
     }
 
-    const uniqueMatchedContractIds = unique(matchedContractIds);
-    const status = uniqueMatchedContractIds.length === 0
+    const matchedObjectContractCount = registration.object_declarations.reduce((count, declaration) => (
+      count + matchDeclarationToContracts(declaration, this.scenario.objectContracts(), catalogSyncCapabilities).matches.length
+    ), 0);
+    const selectedSyncCapability = resolveSelectedSyncCapability(selectedSyncCapabilities, warnings);
+    const status = matchedObjectContractCount === 0
       ? 'rejected'
       : warnings.length > 0 || blockingErrors.length > 0
         ? 'accepted_limited'
@@ -237,8 +253,9 @@ export class RegistrationService {
       catalog_id: registration.catalog_id,
       provider_id: registration.provider.provider_id,
       status,
-      matched_contract_ids: uniqueMatchedContractIds,
+      matched_object_contract_count: matchedObjectContractCount,
       effective_registration_version: status === 'rejected' ? activeVersion : registration.registration_version,
+      selected_sync_capability: status === 'rejected' ? undefined : selectedSyncCapability,
       missing_required_fields: unique(missingRequiredFields),
       warnings: unique([...warnings, ...blockingErrors]),
       message: status === 'rejected'
@@ -249,38 +266,135 @@ export class RegistrationService {
 
   private shouldActivate(result: RegistrationResult, activeVersion: number | undefined, newVersion: number) {
     if (result.status === 'rejected') return false;
-    if (result.matched_contract_ids.length === 0) return false;
+    if (result.matched_object_contract_count === 0) return false;
     return activeVersion === undefined || newVersion > activeVersion;
   }
 }
 
-function validateDeclaration(contract: ObjectContract, declaration: ProviderRegistration['object_declarations'][number]) {
+function evaluateDeclaration(
+  contract: ObjectContract,
+  declaration: ProviderRegistration['object_declarations'][number],
+  catalogSyncCapabilities: SyncCapability[],
+) {
   const errors: string[] = [];
-  const providedPacks = new Set(declaration.provided_packs);
   const guaranteedFields = new Set(declaration.guaranteed_fields);
+  const missingRequiredFields: string[] = [];
 
-  for (const requiredPack of contract.required_packs) {
-    if (!providedPacks.has(requiredPack)) errors.push(`Missing required pack: ${requiredPack}`);
+  for (const requirement of contract.required_fields) {
+    if (typeof requirement === 'string') {
+      if (!guaranteedFields.has(requirement)) {
+        errors.push(`Missing required field_ref: ${requirement}`);
+        missingRequiredFields.push(requirement);
+      }
+      continue;
+    }
+
+    if (!requirement.some((fieldRef) => guaranteedFields.has(fieldRef))) {
+      errors.push(`Missing required field_ref group: ${requirement.join(' | ')}`);
+      missingRequiredFields.push(...requirement);
+    }
   }
 
-  for (const rule of contract.field_rules.filter((fieldRule) => fieldRule.requirement === 'required')) {
-    if (!guaranteedFields.has(rule.field_ref)) errors.push(`Missing required field_ref: ${rule.field_ref}`);
+  const selectedSyncCapability = negotiateSyncCapability(catalogSyncCapabilities, declaration);
+  if (!selectedSyncCapability) {
+    errors.push('No mutually supported sync capability for object contract.');
+    return { errors, missingRequiredFields };
   }
 
-  if (!contract.registration_modes.includes(declaration.delivery.mode)) {
-    errors.push(`Unsupported delivery mode for ${declaration.object_type}: ${declaration.delivery.mode}`);
+  const capability = catalogSyncCapabilities.find((candidate) => candidate.capability_id === selectedSyncCapability.capability_id);
+  if (!capability) {
+    errors.push(`Selected sync capability ${selectedSyncCapability.capability_id} is not published by the catalog.`);
+    return { errors, missingRequiredFields };
   }
 
-  return errors;
+  for (const requiredEndpointField of capability?.endpoint_contract?.required_endpoint_fields ?? []) {
+    if (!(requiredEndpointField in declaration.sync.provider_endpoints)) {
+      errors.push(`Missing provider endpoint: ${requiredEndpointField} for capability ${capability.capability_id}`);
+    }
+  }
+
+  return { errors, selectedSyncCapability, missingRequiredFields };
 }
 
-function validDeclarations(registration: ProviderRegistration, contracts: ObjectContract[]) {
-  return registration.object_declarations.filter((declaration) => {
-    const contract = contracts.find((candidate) => candidate.object_type === declaration.object_type);
-    return contract ? validateDeclaration(contract, declaration).length === 0 : false;
-  });
+function validDeclarationMatches(
+  registration: ProviderRegistration,
+  contracts: ObjectContract[],
+  catalogSyncCapabilities: SyncCapability[],
+) {
+  return registration.object_declarations.flatMap((declaration) => (
+    matchDeclarationToContracts(declaration, contracts, catalogSyncCapabilities).matches
+  ));
 }
 
 function unique<T>(values: T[]) {
   return [...new Set(values)];
+}
+
+function negotiateSyncCapability(
+  catalogSyncCapabilities: SyncCapability[],
+  declaration: ProviderRegistration['object_declarations'][number],
+): SelectedSyncCapability | null {
+  const catalogCapabilityIds = new Set(catalogSyncCapabilities.map((capability) => capability.capability_id));
+  const preferredMatches = declaration.sync.preferred_capabilities.filter((capabilityId) => catalogCapabilityIds.has(capabilityId));
+  if (preferredMatches.length > 0) {
+    return {
+      capability_id: preferredMatches[0],
+      reason: 'provider_preferred_and_supported_by_catalog',
+    };
+  }
+
+  const fallbackMatches = declaration.sync.avoid_capabilities_unless_necessary.filter((capabilityId) => catalogCapabilityIds.has(capabilityId));
+  if (fallbackMatches.length > 0) {
+    return {
+      capability_id: fallbackMatches[0],
+      reason: 'provider_fallback_capability_selected',
+    };
+  }
+
+  return null;
+}
+
+function resolveSelectedSyncCapability(
+  selectedSyncCapabilities: SelectedSyncCapability[],
+  warnings: string[],
+): SelectedSyncCapability | undefined {
+  if (selectedSyncCapabilities.length === 0) return undefined;
+
+  const uniqueSelections = unique(selectedSyncCapabilities.map((capability) => `${capability.capability_id}:${capability.reason}`));
+  if (uniqueSelections.length > 1) {
+    warnings.push('Multiple object declarations selected different sync capabilities; returning the first negotiated capability.');
+  }
+
+  return selectedSyncCapabilities[0];
+}
+
+function matchDeclarationToContracts(
+  declaration: ProviderRegistration['object_declarations'][number],
+  contracts: ObjectContract[],
+  catalogSyncCapabilities: SyncCapability[],
+) {
+  const matches: DeclarationMatch[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  const missingRequiredFields: string[] = [];
+
+  for (const contract of contracts) {
+    const evaluation = evaluateDeclaration(contract, declaration, catalogSyncCapabilities);
+    missingRequiredFields.push(...(evaluation.missingRequiredFields ?? []));
+    if (evaluation.errors.length === 0 && evaluation.selectedSyncCapability) {
+      matches.push({
+        contract,
+        declaration,
+        selectedSyncCapability: evaluation.selectedSyncCapability,
+      });
+    }
+  }
+
+  if (matches.length === 0) {
+    errors.push('Declaration did not match any object contract by required fields.');
+  } else if (matches.length > 1) {
+    warnings.push('One provider declaration matched multiple object contracts.');
+  }
+
+  return { matches, warnings, errors, missingRequiredFields: unique(missingRequiredFields) };
 }

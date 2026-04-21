@@ -58,6 +58,21 @@
       },
       "additionalProperties": false
     },
+    "FieldRequirement": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FieldRef"
+        },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "uniqueItems": true
+        }
+      ]
+    },
     "Endpoint": {
       "type": "object",
       "required": ["url", "method"],
@@ -97,6 +112,182 @@
         },
         "description": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncModel": {
+      "type": "object",
+      "required": ["snapshot", "delta", "stream"],
+      "properties": {
+        "snapshot": {
+          "type": "boolean"
+        },
+        "delta": {
+          "type": "boolean"
+        },
+        "stream": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "MutationSemantics": {
+      "type": "object",
+      "required": ["upsert", "delete"],
+      "properties": {
+        "upsert": {
+          "type": "boolean"
+        },
+        "delete": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProviderEndpoint": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "$ref": "#/$defs/URL"
+        }
+      },
+      "additionalProperties": true
+    },
+    "SelectedSyncCapability": {
+      "type": "object",
+      "required": ["capability_id", "reason"],
+      "properties": {
+        "capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncCapability": {
+      "type": "object",
+      "required": [
+        "capability_id",
+        "direction",
+        "transport",
+        "sync_model",
+        "mutation_semantics"
+      ],
+      "properties": {
+        "capability_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "provider_to_catalog",
+            "catalog_pull_provider",
+            "provider_stream_to_catalog"
+          ]
+        },
+        "transport": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "sync_model": {
+          "$ref": "#/$defs/SyncModel"
+        },
+        "mutation_semantics": {
+          "$ref": "#/$defs/MutationSemantics"
+        },
+        "batching": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "max_items": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": ["enabled"],
+          "additionalProperties": false
+        },
+        "cursoring": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": ["enabled"],
+          "additionalProperties": false
+        },
+        "streaming": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": ["enabled"],
+          "additionalProperties": false
+        },
+        "auth": {
+          "type": "object",
+          "properties": {
+            "schemes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          },
+          "required": ["schemes"],
+          "additionalProperties": false
+        },
+        "endpoint_contract": {
+          "type": "object",
+          "properties": {
+            "hosted_by": {
+              "type": "string",
+              "enum": ["catalog", "provider"]
+            },
+            "path_hint": {
+              "type": "string"
+            },
+            "required_endpoint_fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "uniqueItems": true
+            }
+          },
+          "required": ["hosted_by"],
+          "additionalProperties": false
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true
         }
       },
       "additionalProperties": false

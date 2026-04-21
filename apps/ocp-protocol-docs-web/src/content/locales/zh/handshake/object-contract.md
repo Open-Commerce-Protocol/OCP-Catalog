@@ -1,31 +1,23 @@
-# ObjectContract
+# 对象契约（ObjectContract）
 
-`ObjectContract` 定义的是：对于某种 object type，Catalog 愿意接收什么。
+`ObjectContract` 定义 catalog 发布的字段级接收边界。
 
 ## 它控制什么
 
-一个 object contract 会表达：
+一个 object contract 表达：
 
-- `object_type`
-- required 和 optional descriptor packs
-- field validation rules
-- 允许的 registration mode
+- 必需字段要求
+- 可选字段引用
+- additional field policy
 
 ## Schema 片段
 
 ```json
 {
-  "required": ["contract_id", "object_type", "field_rules"],
+  "required": ["required_fields"],
   "properties": {
-    "required_packs": { "type": "array" },
-    "optional_packs": { "type": "array" },
-    "compatible_packs": { "type": "object" },
-    "registration_modes": {
-      "type": "array",
-      "items": {
-        "enum": ["feed_url", "api_pull", "push_api"]
-      }
-    },
+    "required_fields": { "type": "array" },
+    "optional_fields": { "type": "array" },
     "additional_fields_policy": {
       "enum": ["allow", "ignore", "reject"]
     }
@@ -33,21 +25,28 @@
 }
 ```
 
-## 实际含义
+## 必需字段组
 
-ObjectContract 是 Catalog 约束 Provider 输入边界的方式。
+`required_fields` 中的每一项可以是：
 
-例如一个 commerce product contract 可以要求：
+- 一个单独的 `FieldRef`
+- 一个 `FieldRef[]`，表示“这一组字段至少满足一个”
 
-- 核心商品 pack
-- price pack
-- inventory pack
+示例：
 
-如果 Provider 无法满足这些要求，Catalog 就可以拒绝注册或降级接入。
+```json
+[
+  "ocp.commerce.product.core.v1#/title",
+  [
+    "ocp.commerce.price.v1#/amount",
+    "provider#/price_text"
+  ]
+]
+```
 
-## Field Rules
+## 字段引用
 
-Field rule 通过 `FieldRef` 指向具体字段。
+字段引用通过 `FieldRef` 指向具体字段。
 
 示例：
 
@@ -57,4 +56,28 @@ ocp.commerce.product.core.v1#/title
 ocp.commerce.price.v1#/amount
 ```
 
-这样 contract 就不需要把所有内容都硬编码成一个巨大的对象 schema。
+这样 contract 就能直接按字段表达兼容条件，而不需要额外引入 provider-facing pack 协商。
+
+## Commerce Contract 示例
+
+当前仓库里的第一个 catalog 暴露的是：
+
+```json
+{
+  "required_fields": [
+    "ocp.commerce.product.core.v1#/title"
+  ],
+  "optional_fields": [
+    "ocp.commerce.product.core.v1#/summary",
+    "ocp.commerce.price.v1#/amount",
+    "ocp.commerce.inventory.v1#/availability_status"
+  ],
+  "additional_fields_policy": "allow"
+}
+```
+
+因此最小注册条件是：
+
+- 保证 `ocp.commerce.product.core.v1#/title`
+
+同步传输路径通过 `sync_capabilities` 单独协商。

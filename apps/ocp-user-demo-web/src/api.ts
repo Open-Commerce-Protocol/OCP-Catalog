@@ -3,7 +3,6 @@ export type CatalogSearchItem = {
   catalog_name: string;
   description?: string;
   score: number;
-  matched_object_types: string[];
   matched_query_capabilities: string[];
   verification_status: string;
   trust_tier: string;
@@ -16,7 +15,6 @@ export type CatalogSearchItem = {
     query_url: string;
     resolve_url?: string;
     supported_query_packs: string[];
-    supported_object_types: string[];
     metadata: {
       query_hints?: {
         supported_query_modes?: string[];
@@ -35,7 +33,6 @@ export type CatalogSearchItem = {
 
 export type CatalogQueryItem = {
   entry_id: string;
-  object_type: string;
   provider_id: string;
   object_id: string;
   title: string;
@@ -60,7 +57,6 @@ export type QuerySession = {
   baseIntent: string;
   latestUserTurn: string;
   activeFilters: {
-    object_type: string;
     category?: string;
     brand?: string;
     currency?: string;
@@ -103,7 +99,6 @@ const userDemoApiPrefix = '/api/user-demo';
 
 export async function searchCenter(input: {
   query: string;
-  objectType?: string;
   queryMode?: string;
   queryPack?: string;
   verificationStatus?: string;
@@ -116,7 +111,6 @@ export async function searchCenter(input: {
       kind: 'CatalogSearchRequest',
       query: input.query,
       filters: {
-        ...(input.objectType ? { object_type: input.objectType } : {}),
         ...(input.queryMode ? { query_mode: input.queryMode } : {}),
         ...(input.queryPack ? { query_pack: input.queryPack } : {}),
         ...(input.verificationStatus ? { verification_status: input.verificationStatus } : {}),
@@ -169,7 +163,6 @@ export async function resolveEntry(routeHint: CatalogSearchItem['route_hint'] | 
 export async function runAgentRoute(input: {
   centerQuery: string;
   catalogQuery: string;
-  objectType?: string;
   queryMode?: string;
   queryPack?: string;
 }) {
@@ -178,7 +171,6 @@ export async function runAgentRoute(input: {
   timeline.push('Searching OCP Center for candidate catalogs.');
   const center = await searchCenter({
     query: input.centerQuery,
-    objectType: input.objectType,
     queryMode: input.queryMode,
     queryPack: input.queryPack,
     verificationStatus: 'verified',
@@ -196,7 +188,7 @@ export async function runAgentRoute(input: {
     query: input.catalogQuery,
     queryMode: input.queryMode,
     queryPack: input.queryPack,
-    filters: input.objectType ? { object_type: input.objectType } : {},
+    filters: {},
   });
 
   if (!catalog.items.length) {

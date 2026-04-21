@@ -1,12 +1,12 @@
 # ocp.catalog.handshake.v1
 
-`ocp.catalog.handshake.v1` 定义的是 `Provider -> Catalog Node` 的最小握手层。
+`ocp.catalog.handshake.v1` 定义 `Provider -> Catalog Node` 的最小握手层。
 
-它负责回答三件事：
+它负责冻结三类内容：
 
-1. 这个 Catalog 是谁，暴露了哪些入口
-2. 这个 Catalog 接受什么对象契约
-3. Provider 如何声明自己的对象供给能力
+1. Catalog 如何暴露自己的 manifest、query 能力和 provider 接入面
+2. Catalog 如何声明对象契约
+3. Provider 如何提交版本化注册声明并协商 sync capability
 
 它不负责冻结完整的 sync/query/resolve payload，也不负责 Center 注册、联邦路由或交易流程。
 
@@ -21,6 +21,7 @@
 - `RegistrationResult`
 - `FieldRef`
 - `FieldRule`
+- `SyncCapability`
 - commerce product descriptor packs
 
 文件结构：
@@ -62,6 +63,7 @@ ocp.catalog.handshake.v1/
 - 公开 endpoint
 - 接受哪些对象契约
 - 暴露哪些查询能力
+- 暴露哪些 provider-facing sync capabilities
 
 ### Query Capability Structure
 
@@ -85,41 +87,46 @@ query_capabilities[*].query_packs[*]
 - `request_schema_uri`
 - `metadata`
 
-其中：
+这里的 query capability 只负责声明 Catalog 提供什么查询方法和 schema，不负责约束 Catalog 内部必须按什么协议级对象分类来执行 query。
 
-- `query_modes` 是某个 `query_pack` 的执行提示
-- `metadata` 是统一的可选扩展对象，用于承载语言提示、语义提示、实现提示等额外信息
+### Provider Sync Capability Structure
 
-### Why This Shape
+当前结构里，Provider 与 Catalog 的同步协商主表达方式是：
 
-这个结构的意图是：
+- `provider_contract.sync_capabilities[*].capability_id`
 
-- 固定协议主轴：`query_packs`
-- 避免把所有实现提示抬成顶层必填字段
-- 给语言、embedding、filter hints 留出稳定扩展位
+能力协商的关键约束是：
 
-例如，一个 capability 可以在 `metadata` 中暴露：
+- `capability_id` 是主协商键
+- `direction` 是数据流向类别
+- `transport` 只是实现形态标签，不参与主协商
 
-- `query_hints.supported_query_languages`
-- `query_hints.content_languages`
-- `query_hints.filter_fields`
-- `semantic_search.enabled`
+当前官方基线能力命名建议包括：
 
-这些都属于附加提示，不属于最小握手闭环的硬要求。
+- `ocp.push.all`
+- `ocp.push.batch`
+- `ocp.feed.url`
+- `ocp.pull.api`
+- `ocp.streaming`
+
+当前仓库真实实现并验证的是：
+
+- `ocp.push.batch`
 
 ## ObjectContract
 
-`ObjectContract` 定义 Catalog 对某类对象的接入要求。
+`ObjectContract` 定义 Catalog 对某类输入契约的接入要求。
 
 它回答：
 
-- 支持什么 `object_type`
-- 必需哪些 `required_packs`
-- 哪些 `optional_packs` 可选
+- 必需哪些 `required_fields`
+- 哪些 `optional_fields` 可选
 - 哪些字段必须满足
-- 支持哪些 `registration_modes`
+- 对额外字段的处理策略
 
-在当前仓库中，第一个场景 contract 是 commerce product contract。
+`ObjectContract` 不再承载 sync mode / registration mode。
+
+ProviderRegistration 的匹配基于 `guaranteed_fields` 与 `required_fields` 的直接比对。
 
 ## ProviderRegistration
 
@@ -132,22 +139,33 @@ query_capabilities[*].query_packs[*]
 - 新版本必须提高 `registration_version`
 - `updated_at` 用于审计，不用于版本优先级判断
 
-## CommercialObject
+### Provider Sync Declaration
 
-`CommercialObject` 是共享对象包络。
+`ProviderRegistration.object_declarations[].sync` 当前收敛成三部分：
 
-这个包只冻结对象的最小通用结构：
+- `preferred_capabilities`
+- `avoid_capabilities_unless_necessary`
+- `provider_endpoints`
 
-- `object_id`
-- `object_type`
-- `provider_id`
-- `title`
-- `summary`
-- `status`
-- `source_url`
-- `descriptors`
+这里没有单独的 `supported_capabilities`。
 
-它用于让 Catalog 能够校验 pack 和建立本地投影，但不冻结完整 sync API。
+这里也没有单独的 `disallowed_capabilities`。
+
+如果一个 capability 没出现在这两个 capability 列表中，它就不参与协商。
+
+`ProviderRegistration.object_declarations[*]` 的协议级匹配由 Catalog 根据 declaration 提供的字段保证去匹配自己的 `ObjectContract`。
+
+`provider_endpoints` 采用 endpoint map 结构，值必须是对象，而不是裸字符串。例如：
+
+```json
+{
+  "provider_endpoints": {
+    "feed_url": {
+      "url": "https://provider.example/catalog-feed.json"
+    }
+  }
+}
+```
 
 ## RegistrationResult
 
@@ -157,27 +175,45 @@ query_capabilities[*].query_packs[*]
 
 - `status`
 - `effective_registration_version`
-- `matched_contract_ids`
+- `matched_object_contract_count`
+- `selected_sync_capability`
 - `warnings`
 - `missing_required_fields`
 
-## FieldRef
+其中 `selected_sync_capability` 明确告诉 Provider：
 
-字段引用格式：
+- Catalog 最终选择了哪条 sync capability
+- 为什么选中它
+
+## Current Repository Mapping
+
+当前仓库里的 provider/catalog 示例链路应理解为：
 
 ```text
-<namespace_or_pack>#/<json-pointer>
+ProviderRegistration.sync.preferred_capabilities = ["ocp.push.batch"]
+  -> registration accepted
+  -> RegistrationResult.selected_sync_capability = ocp.push.batch
+  -> provider sends batched ObjectSyncRequest payloads to /ocp/objects/sync
 ```
 
-示例：
+也就是说，当前样例实现已经切到 capability negotiation，但真实跑通的交互形态仍然是 catalog-hosted push batch sync。
 
-```text
-provider#/display_name
-provider#/homepage
-system#/updated_at
-ocp.commerce.product.core.v1#/title
-ocp.commerce.price.v1#/amount
-```
+## Reserved Capability Implementation Guidance
+
+下列能力应在文档中明确视为“协议预留能力”，只有在实现完成后才应出现在运行时 manifest 中：
+
+- `ocp.feed.url`
+  - Catalog 需要有定时拉取器
+  - Provider 需要在 `provider_endpoints.feed_url.url` 暴露快照源
+  - Catalog 需要处理 checksum / refresh / full snapshot replacement
+- `ocp.pull.api`
+  - Catalog 需要 API client、鉴权能力和分页/游标拉取逻辑
+  - Provider 需要暴露 bootstrap endpoint 与增量游标约定
+- `ocp.streaming`
+  - Catalog 需要持续连接、重连、游标恢复和幂等消费
+  - Provider 需要暴露 stream endpoint / webhook / event checkpoint 机制
+
+这些能力的协商主键仍然是 `capability_id`，不是 `transport`。
 
 ## Discovery
 

@@ -60,7 +60,11 @@ describe('provider-mapper', () => {
     expect(registration.catalog_id).toBe(config.CATALOG_ID);
     expect(registration.registration_version).toBe(3);
     expect(registration.provider.provider_id).toBe(config.COMMERCE_PROVIDER_ID);
-    expect(registration.object_declarations[0]?.object_type).toBe('product');
+    expect(registration.object_declarations[0]?.sync).toEqual({
+      preferred_capabilities: ['ocp.push.batch'],
+      avoid_capabilities_unless_necessary: [],
+      provider_endpoints: {},
+    });
   });
 
   test('maps product cents to commercial object price amount', () => {

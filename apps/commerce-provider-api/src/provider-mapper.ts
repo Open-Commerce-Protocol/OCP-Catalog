@@ -22,12 +22,6 @@ export function buildProviderRegistration(config: AppConfig, registrationVersion
     },
     object_declarations: [
       {
-        object_type: 'product',
-        provided_packs: [
-          'ocp.commerce.product.core.v1',
-          'ocp.commerce.price.v1',
-          'ocp.commerce.inventory.v1',
-        ],
         guaranteed_fields: ['ocp.commerce.product.core.v1#/title'],
         optional_fields: [
           'ocp.commerce.product.core.v1#/summary',
@@ -38,7 +32,11 @@ export function buildProviderRegistration(config: AppConfig, registrationVersion
           'ocp.commerce.price.v1#/amount',
           'ocp.commerce.inventory.v1#/availability_status',
         ],
-        delivery: { mode: 'push_api' },
+        sync: {
+          preferred_capabilities: ['ocp.push.batch'],
+          avoid_capabilities_unless_necessary: [],
+          provider_endpoints: {},
+        },
       },
     ],
   };

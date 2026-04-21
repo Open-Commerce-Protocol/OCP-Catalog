@@ -44,7 +44,6 @@ export class QueryService {
       eq(schema.catalogEntries.catalogId, catalogId),
       eq(schema.catalogEntries.entryStatus, 'active'),
     ];
-    if (request.filters.object_type) baseConditions.push(eq(schema.catalogEntries.objectType, request.filters.object_type));
     if (request.filters.provider_id) baseConditions.push(eq(schema.catalogEntries.providerId, request.filters.provider_id));
     if (request.filters.category) baseConditions.push(eq(schema.catalogEntries.category, request.filters.category));
     if (request.filters.brand) baseConditions.push(eq(schema.catalogEntries.brand, request.filters.brand));
@@ -87,7 +86,6 @@ export class QueryService {
 
         return {
           entry_id: row.entryId,
-          object_type: row.objectType,
           provider_id: row.providerId,
           object_id: row.objectId,
           title: stringValue(projection.title) ?? row.objectId,
@@ -138,7 +136,6 @@ export class QueryService {
     return this.db
       .select({
         entryId: schema.catalogEntries.id,
-        objectType: schema.catalogEntries.objectType,
         title: schema.catalogEntries.title,
         summary: schema.catalogEntries.summary,
         providerId: schema.catalogEntries.providerId,

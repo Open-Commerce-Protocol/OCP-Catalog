@@ -16,7 +16,7 @@
 - trust 与 health 状态
 - cache 信息
 
-## Manifest 仍然是完整能力文档
+## Manifest 是完整能力文档
 
 如果 agent 需要更深的能力细节，就应该跟着 `manifest_url` 去读取 manifest。
 
