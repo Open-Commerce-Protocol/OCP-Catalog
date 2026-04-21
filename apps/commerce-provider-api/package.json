@@ -1,0 +1,29 @@
+{
+  "name": "@ocp-catalog/commerce-provider-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cd ../.. && bun --watch apps/commerce-provider-api/src/index.ts",
+    "start": "cd ../.. && bun apps/commerce-provider-api/src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@elysiajs/cors": "^1.3.3",
+    "@ocp-catalog/auth-core": "workspace:*",
+    "@ocp-catalog/config": "workspace:*",
+    "@ocp-catalog/db": "workspace:*",
+    "@ocp-catalog/ocp-schema": "workspace:*",
+    "@ocp-catalog/shared": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "elysia": "^1.3.22",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.1",
+    "typescript": "^5.9.3"
+  }
+}

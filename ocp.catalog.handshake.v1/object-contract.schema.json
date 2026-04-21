@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ocp.dev/schema/ocp.catalog.handshake.v1/object-contract.schema.json",
+  "type": "object",
+  "required": ["contract_id", "object_type", "field_rules"],
+  "properties": {
+    "contract_id": {
+      "type": "string"
+    },
+    "object_type": {
+      "type": "string"
+    },
+    "required_packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "optional_packs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "compatible_packs": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      }
+    },
+    "field_rules": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/FieldRule"
+      }
+    },
+    "registration_modes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["feed_url", "api_pull", "push_api"]
+      },
+      "uniqueItems": true
+    },
+    "additional_fields_policy": {
+      "type": "string",
+      "enum": ["allow", "ignore", "reject"],
+      "default": "allow"
+    }
+  },
+  "additionalProperties": false
+}

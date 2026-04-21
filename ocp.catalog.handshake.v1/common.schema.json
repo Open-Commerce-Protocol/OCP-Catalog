@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json",
+  "$defs": {
+    "Identifier": {
+      "type": "string",
+      "minLength": 1
+    },
+    "URL": {
+      "type": "string",
+      "format": "uri"
+    },
+    "Timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "FieldRef": {
+      "type": "string",
+      "minLength": 1,
+      "examples": [
+        "provider#/display_name",
+        "provider#/homepage",
+        "system#/updated_at",
+        "ocp.commerce.product.core.v1#/title",
+        "ocp.commerce.price.v1#/amount"
+      ]
+    },
+    "FieldRule": {
+      "type": "object",
+      "required": ["field_ref", "requirement"],
+      "properties": {
+        "field_ref": {
+          "$ref": "#/$defs/FieldRef"
+        },
+        "requirement": {
+          "type": "string",
+          "enum": ["required", "optional", "accepted"]
+        },
+        "usage": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["identity", "index", "filter", "rank", "display", "resolve", "reference"]
+          },
+          "uniqueItems": true,
+          "default": []
+        },
+        "accepted_aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FieldRef"
+          },
+          "uniqueItems": true
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Endpoint": {
+      "type": "object",
+      "required": ["url", "method"],
+      "properties": {
+        "url": {
+          "$ref": "#/$defs/URL"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "QueryInputField": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "integer", "boolean", "array", "object"]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "operators": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "in", "contains", "prefix"]
+          },
+          "uniqueItems": true
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

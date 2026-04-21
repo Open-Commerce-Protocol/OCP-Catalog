@@ -1,0 +1,15 @@
+{
+  "name": "@ocp-catalog/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  }
+}

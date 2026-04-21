@@ -1,0 +1,27 @@
+{
+  "name": "@ocp-catalog/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@ocp-catalog/config": "workspace:*",
+    "drizzle-orm": "^0.44.7",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.8"
+  }
+}
