@@ -19,6 +19,8 @@ export class ProviderService {
 
   async getCatalogStatus() {
     const providerState = await this.findCatalogProviderState();
+    const products = await this.products.listProducts();
+    const localQuality = summarizeProductQuality(products);
 
     return {
       provider_id: this.config.COMMERCE_PROVIDER_ID,
@@ -27,6 +29,9 @@ export class ProviderService {
       active_registration_version: providerState?.active_registration_version ?? null,
       next_registration_version: (providerState?.active_registration_version ?? 0) + 1,
       sync_batch_size: DEFAULT_SYNC_BATCH_SIZE,
+      local_quality: localQuality,
+      publish_readiness: buildPublishReadiness(localQuality),
+      catalog_quality: providerState?.catalog_quality ?? null,
     };
   }
 
@@ -191,3 +196,68 @@ export class ProviderService {
 function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
+
+function summarizeProductQuality(products: Array<typeof schema.providerProducts.$inferSelect>) {
+  const summary = {
+    product_count: products.length,
+    ready_for_publish_count: 0,
+    missing_price_count: 0,
+    missing_list_price_count: 0,
+    missing_product_url_count: 0,
+    missing_image_count: 0,
+    missing_brand_or_category_count: 0,
+    out_of_stock_count: 0,
+    active_count: 0,
+  };
+
+  for (const product of products) {
+    if (product.status === 'active') summary.active_count += 1;
+    const hasPrice = Boolean(product.currency) && product.amount > 0;
+    const hasUrl = Boolean(product.productUrl);
+    const hasTaxonomy = Boolean(product.brand) && Boolean(product.category);
+    if (product.status === 'active' && hasPrice && hasUrl && hasTaxonomy) summary.ready_for_publish_count += 1;
+    if (!product.currency || product.amount <= 0) summary.missing_price_count += 1;
+    if (product.listAmount === null || product.listAmount <= product.amount) summary.missing_list_price_count += 1;
+    if (!product.productUrl) summary.missing_product_url_count += 1;
+    if (!product.imageUrls.length) summary.missing_image_count += 1;
+    if (!product.brand || !product.category) summary.missing_brand_or_category_count += 1;
+    if (product.availabilityStatus === 'out_of_stock') summary.out_of_stock_count += 1;
+  }
+
+  return summary;
+}
+
+function buildPublishReadiness(summary: ReturnType<typeof summarizeProductQuality>) {
+  const blockingIssues: string[] = [];
+  const warnings: string[] = [];
+
+  if (summary.product_count === 0) {
+    blockingIssues.push('No provider products exist yet.');
+  }
+  if (summary.active_count === 0) {
+    blockingIssues.push('No active products are available for publish.');
+  }
+  if (summary.ready_for_publish_count === 0 && summary.active_count > 0) {
+    blockingIssues.push('No active products meet the standard commerce publish baseline.');
+  }
+  if (summary.missing_image_count > 0) {
+    warnings.push(`${summary.missing_image_count} product(s) are missing images.`);
+  }
+  if (summary.missing_list_price_count > 0) {
+    warnings.push(`${summary.missing_list_price_count} product(s) have no useful list price.`);
+  }
+  if (summary.out_of_stock_count > 0) {
+    warnings.push(`${summary.out_of_stock_count} product(s) are currently out of stock.`);
+  }
+
+  return {
+    ready: blockingIssues.length === 0,
+    blocking_issues: blockingIssues,
+    warnings,
+  };
+}
+
+export const __providerServiceTestOnly = {
+  summarizeProductQuality,
+  buildPublishReadiness,
+};

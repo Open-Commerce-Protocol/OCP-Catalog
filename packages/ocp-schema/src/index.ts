@@ -247,6 +247,11 @@ export const catalogQueryFiltersSchema = z.object({
   currency: z.string().min(1).optional(),
   availability_status: z.string().min(1).optional(),
   provider_id: z.string().min(1).optional(),
+  sku: z.string().min(1).optional(),
+  min_amount: z.number().nonnegative().optional(),
+  max_amount: z.number().nonnegative().optional(),
+  in_stock_only: z.boolean().optional(),
+  has_image: z.boolean().optional(),
 }).strict();
 
 export const catalogQueryRequestSchema = z.object({

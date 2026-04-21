@@ -3,6 +3,7 @@ import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import {
   catalogQueryRequestSchema,
+  type CatalogQueryRequest,
   type CatalogQueryResult,
   type QueryResultItem,
 } from '@ocp-catalog/ocp-schema';
@@ -80,7 +81,7 @@ export class QueryService {
 
         const keywordScore = terms.length > 0 ? scoreProjection(projection, terms) : queryMode === 'semantic' ? 0 : 1;
         const semanticScore = semanticScores.get(row.entryId) ?? 0;
-        const score = combinedScore(queryMode, keywordScore, semanticScore);
+        const score = combinedScore(queryMode, keywordScore, semanticScore, projection, request.filters);
         if (queryMode === 'semantic' && semanticScore <= 0) return null;
         if (queryMode !== 'semantic' && terms.length > 0 && keywordScore <= 0 && semanticScore <= 0) return null;
 
@@ -184,11 +185,21 @@ function tokenize(query: string) {
     .filter(Boolean);
 }
 
-function matchesFilters(projection: Record<string, unknown>, filters: Record<string, string | undefined>) {
-  return Object.entries(filters).every(([key, expected]) => {
-    if (!expected) return true;
-    return normalize(projection[key]) === normalize(expected);
-  });
+function matchesFilters(projection: Record<string, unknown>, filters: CatalogQueryRequest['filters']) {
+  if (filters.provider_id && normalize(projection.provider_id) !== normalize(filters.provider_id)) return false;
+  if (filters.category && normalize(projection.category) !== normalize(filters.category)) return false;
+  if (filters.brand && normalize(projection.brand) !== normalize(filters.brand)) return false;
+  if (filters.currency && normalize(projection.currency) !== normalize(filters.currency)) return false;
+  if (filters.availability_status && normalize(projection.availability_status) !== normalize(filters.availability_status)) return false;
+  if (filters.sku && normalize(projection.sku) !== normalize(filters.sku)) return false;
+  if (filters.has_image !== undefined && booleanValue(projection.has_image) !== filters.has_image) return false;
+  if (filters.in_stock_only && !['in_stock', 'low_stock'].includes(normalize(projection.availability_status))) return false;
+
+  const amount = numberValue(projection.amount);
+  if (filters.min_amount !== undefined && amount < filters.min_amount) return false;
+  if (filters.max_amount !== undefined && amount > filters.max_amount) return false;
+
+  return true;
 }
 
 function scoreProjection(projection: Record<string, unknown>, terms: string[]) {
@@ -199,6 +210,9 @@ function scoreProjection(projection: Record<string, unknown>, terms: string[]) {
   for (const term of terms) {
     if (text.includes(term)) score += 1;
     if (normalize(projection.title).includes(term)) score += 2;
+    if (normalize(projection.sku).includes(term)) score += 4;
+    if (normalize(projection.brand).includes(term)) score += 1.5;
+    if (normalize(projection.category).includes(term)) score += 1.25;
   }
 
   return Number(score.toFixed(4));
@@ -208,17 +222,20 @@ function combinedScore(
   queryMode: 'keyword' | 'filter' | 'semantic' | 'hybrid',
   keywordScore: number,
   semanticScore: number,
+  projection: Record<string, unknown>,
+  filters: CatalogQueryRequest['filters'],
 ) {
-  if (queryMode === 'semantic') return Number(semanticScore.toFixed(4));
+  const commerceScore = commerceQualityScore(projection, filters);
+  if (queryMode === 'semantic') return Number((semanticScore + commerceScore).toFixed(4));
   if (queryMode === 'hybrid' && semanticScore > 0) {
-    return Number((keywordScore * 0.55 + semanticScore * 2).toFixed(4));
+    return Number((keywordScore * 0.55 + semanticScore * 2 + commerceScore).toFixed(4));
   }
-  return keywordScore;
+  return Number((keywordScore + commerceScore).toFixed(4));
 }
 
 function buildItemExplain(
   projection: Record<string, unknown>,
-  filters: Record<string, string | undefined>,
+  filters: CatalogQueryRequest['filters'],
   terms: string[],
   keywordScore: number,
   semanticScore: number,
@@ -230,8 +247,9 @@ function buildItemExplain(
     explain.push(`Semantic score ${semanticScore}.`);
   }
   for (const [key, expected] of Object.entries(filters)) {
-    if (expected) explain.push(`Filter ${key} matched ${stringValue(projection[key]) ?? expected}.`);
+    if (expected !== undefined && expected !== false) explain.push(`Filter ${key} matched ${String(projection[key] ?? expected)}.`);
   }
+  if (stringValue(projection.quality_tier)) explain.push(`Quality tier ${projection.quality_tier}.`);
   if (explain.length === 0) explain.push('Matched active catalog entry.');
   return explain;
 }
@@ -277,6 +295,14 @@ function queryPackDescriptors(capability: Record<string, unknown>) {
 
 function normalize(value: unknown) {
   return String(value ?? '').trim().toLowerCase();
+}
+
+function booleanValue(value: unknown) {
+  return value === true;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 function hashKey(value: string) {
@@ -325,3 +351,34 @@ function mergeRows<
   }
   return [...rows.values()];
 }
+
+function commerceQualityScore(
+  projection: Record<string, unknown>,
+  filters: CatalogQueryRequest['filters'],
+) {
+  let score = 0;
+  const amount = numberValue(projection.amount);
+  if (amount > 0) score += 0.35;
+  const listAmount = numberValue(projection.list_amount);
+  if (listAmount > amount && amount > 0) score += 0.08;
+  if (booleanValue(projection.has_product_url)) score += 0.2;
+  if (booleanValue(projection.has_image)) score += 0.25;
+
+  const availability = normalize(projection.availability_status);
+  if (availability === 'in_stock') score += 0.35;
+  else if (availability === 'low_stock') score += 0.2;
+  else if (availability === 'preorder') score += 0.05;
+  else if (availability === 'out_of_stock') score -= filters.in_stock_only ? 1 : 0.35;
+
+  const qualityTier = normalize(projection.quality_tier);
+  if (qualityTier === 'rich') score += 0.3;
+  else if (qualityTier === 'standard') score += 0.15;
+
+  return score;
+}
+
+export const __queryServiceTestOnly = {
+  matchesFilters,
+  scoreProjection,
+  commerceQualityScore,
+};

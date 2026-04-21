@@ -1,4 +1,7 @@
-export function inferQueryMode(query: string, filters: Record<string, string | undefined>) {
+export function inferQueryMode(
+  query: string,
+  filters: Record<string, string | number | boolean | undefined>,
+) {
   const hasQuery = tokenize(query).length > 0;
   const hasFilters = Object.values(filters).some(Boolean);
   if (hasQuery && hasFilters) return 'hybrid' as const;

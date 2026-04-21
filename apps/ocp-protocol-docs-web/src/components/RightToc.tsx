@@ -23,12 +23,16 @@ export function RightToc({ headings }: RightTocProps) {
                 key={heading.id}
                 className={heading.level > 2 ? 'pl-3 border-l border-slate-200' : ''}
               >
-                <a
-                  href={`#${heading.id}`}
-                  className="block hover:text-indigo-600 transition-colors"
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById(heading.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="block hover:text-indigo-600 transition-colors text-left"
                 >
                   {heading.text}
-                </a>
+                </button>
               </li>
             ))}
           </ul>

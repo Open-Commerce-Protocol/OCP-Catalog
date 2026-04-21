@@ -23,6 +23,7 @@ type ToastState = { tone: 'success' | 'danger'; message: string } | null;
 
 const availabilityOptions = ['in_stock', 'low_stock', 'out_of_stock', 'preorder', 'unknown'] as const;
 const statusOptions = ['active', 'inactive', 'draft'] as const;
+const priceTypeOptions = ['fixed', 'range'] as const;
 
 const fallbackImages = [
   'https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=1200&q=80',
@@ -41,6 +42,8 @@ const emptyProductForm: ProductFormInput = {
   image_urls: [],
   currency: 'USD',
   amount: 0,
+  list_amount: undefined,
+  price_type: 'fixed',
   availability_status: 'in_stock',
   quantity: 0,
   status: 'active',
@@ -78,6 +81,9 @@ export function App() {
     () => products.filter((product) => product.availabilityStatus === 'in_stock' || product.availabilityStatus === 'low_stock').length,
     [products],
   );
+  const qualitySummary = providerStatus?.local_quality ?? null;
+  const publishReadiness = providerStatus?.publish_readiness ?? null;
+  const catalogQuality = providerStatus?.catalog_quality ?? null;
   const latestRun = syncRuns[0] ?? null;
 
   async function reloadAll() {
@@ -257,6 +263,71 @@ export function App() {
           />
         </div>
 
+        {qualitySummary ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Metric label="Missing images" value={qualitySummary.missing_image_count} note="Products without a primary visual" />
+            <Metric label="Missing list price" value={qualitySummary.missing_list_price_count} note="No compare-at price or no discount context" />
+            <Metric label="Missing URL" value={qualitySummary.missing_product_url_count} note="Products that cannot deep-link cleanly" />
+            <Metric label="Missing brand/category" value={qualitySummary.missing_brand_or_category_count} note="Thin taxonomy data lowers retrieval quality" />
+          </div>
+        ) : null}
+
+        {(publishReadiness || catalogQuality) ? (
+          <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+            <Panel className="p-5">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/55">Pre-publish</div>
+                  <div className="font-display text-3xl leading-none">Feed readiness</div>
+                </div>
+                {publishReadiness ? (
+                  <div className="space-y-3 text-sm text-ink/68">
+                    <Badge tone={publishReadiness.ready ? 'success' : 'warning'}>
+                      {publishReadiness.ready ? 'ready to publish' : 'needs cleanup'}
+                    </Badge>
+                    <div>Ready products: {qualitySummary?.ready_for_publish_count ?? 0} / {qualitySummary?.active_count ?? 0} active rows</div>
+                    {publishReadiness.blocking_issues.length ? (
+                      <div className="rounded-md border border-ember/15 bg-ember/5 p-3">
+                        {publishReadiness.blocking_issues.map((issue) => (
+                          <div key={issue} className="text-ember">{issue}</div>
+                        ))}
+                      </div>
+                    ) : null}
+                    {publishReadiness.warnings.length ? (
+                      <div className="rounded-md border border-brass/15 bg-brass/5 p-3">
+                        {publishReadiness.warnings.map((warning) => (
+                          <div key={warning} className="text-ink/72">{warning}</div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </Panel>
+
+            <Panel className="p-5">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold uppercase tracking-[0.16em] text-ink/55">Catalog feedback</div>
+                  <div className="font-display text-3xl leading-none">Indexed quality</div>
+                </div>
+                {catalogQuality ? (
+                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <Metric label="Indexed" value={catalogQuality.object_count} note="Provider objects observed by catalog" />
+                    <Metric label="Rich" value={catalogQuality.rich_entry_count} note="Best result-card quality" />
+                    <Metric label="Standard" value={catalogQuality.standard_entry_count} note="Normal commerce rows" />
+                    <Metric label="Basic" value={catalogQuality.basic_entry_count} note="Thin rows that still index" />
+                  </div>
+                ) : (
+                  <div className="rounded-md border border-dashed border-ink/15 bg-paper/50 p-4 text-sm text-ink/58">
+                    Catalog feedback will appear after registration and sync.
+                  </div>
+                )}
+              </div>
+            </Panel>
+          </div>
+        ) : null}
+
         <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
           <Panel className="overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 px-5 py-4">
@@ -352,7 +423,10 @@ export function App() {
                         </div>
                         <div>
                           <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Price</dt>
-                          <dd className="mt-1 font-medium text-ink">{formatMoney(product.amount, product.currency)}</dd>
+                          <dd className="mt-1 font-medium text-ink">
+                            {formatMoney(product.amount, product.currency)}
+                            {product.listAmount && product.listAmount > product.amount ? ` · was ${formatMoney(product.listAmount, product.currency)}` : ''}
+                          </dd>
                         </div>
                         <div>
                           <dt className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Quantity</dt>
@@ -555,6 +629,20 @@ function ProductModal({
           <Field label="Amount">
             <TextInput type="number" min="0" step="0.01" value={form.amount} onChange={(event) => setForm({ ...form, amount: Number(event.target.value || 0) })} required />
           </Field>
+          <Field label="List amount">
+            <TextInput
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.list_amount ?? ''}
+              onChange={(event) => setForm({ ...form, list_amount: event.target.value ? Number(event.target.value) : undefined })}
+            />
+          </Field>
+          <Field label="Price type">
+            <Select value={form.price_type} onChange={(event) => setForm({ ...form, price_type: event.target.value as ProductFormInput['price_type'] })}>
+              {priceTypeOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+            </Select>
+          </Field>
           <Field label="Availability">
             <Select value={form.availability_status} onChange={(event) => setForm({ ...form, availability_status: event.target.value as ProductFormInput['availability_status'] })}>
               {availabilityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
@@ -618,6 +706,8 @@ function toFormInput(record: ProductRecord | null): ProductFormInput {
     image_urls: record.imageUrls,
     currency: record.currency,
     amount: record.amount / 100,
+    list_amount: record.listAmount ? record.listAmount / 100 : undefined,
+    price_type: record.priceType,
     availability_status: record.availabilityStatus,
     quantity: record.quantity,
     status: record.status,

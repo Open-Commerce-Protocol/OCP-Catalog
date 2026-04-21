@@ -12,6 +12,7 @@ import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq } from 'drizzle-orm';
 import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogScenarioModule } from './scenario';
+import { asProjection } from './projection';
 
 export type RequestMeta = {
   sourceIp?: string | null;
@@ -143,6 +144,17 @@ export class RegistrationService {
       .where(eq(schema.providerRegistrations.id, state.activeRegistrationId))
       .limit(1);
 
+    const entryRows = await this.db
+      .select({
+        entryStatus: schema.catalogEntries.entryStatus,
+        projection: schema.catalogEntries.searchProjection,
+      })
+      .from(schema.catalogEntries)
+      .where(and(
+        eq(schema.catalogEntries.catalogId, this.config.CATALOG_ID),
+        eq(schema.catalogEntries.providerId, providerId),
+      ));
+
     return {
       provider_id: providerId,
       catalog_id: state.catalogId,
@@ -151,6 +163,10 @@ export class RegistrationService {
       declared_packs: state.declaredPacks,
       guaranteed_fields: state.guaranteedFields,
       registration: registration?.registration ?? null,
+      catalog_quality: summarizeCatalogProviderQuality(entryRows.map((row) => ({
+        entryStatus: row.entryStatus,
+        projection: asProjection(row.projection),
+      }))),
       updated_at: state.updatedAt.toISOString(),
     };
   }
@@ -398,3 +414,42 @@ function matchDeclarationToContracts(
 
   return { matches, warnings, errors, missingRequiredFields: unique(missingRequiredFields) };
 }
+
+function summarizeCatalogProviderQuality(rows: Array<{
+  entryStatus: string;
+  projection: Record<string, unknown>;
+}>) {
+  const summary = {
+    object_count: rows.length,
+    active_entry_count: 0,
+    rich_entry_count: 0,
+    standard_entry_count: 0,
+    basic_entry_count: 0,
+    out_of_stock_count: 0,
+    missing_image_count: 0,
+    missing_product_url_count: 0,
+  };
+
+  for (const row of rows) {
+    if (row.entryStatus === 'active') summary.active_entry_count += 1;
+
+    const qualityTier = stringValue(row.projection.quality_tier);
+    if (qualityTier === 'rich') summary.rich_entry_count += 1;
+    else if (qualityTier === 'standard') summary.standard_entry_count += 1;
+    else summary.basic_entry_count += 1;
+
+    if (stringValue(row.projection.availability_status) === 'out_of_stock') summary.out_of_stock_count += 1;
+    if (row.projection.has_image !== true) summary.missing_image_count += 1;
+    if (row.projection.has_product_url !== true) summary.missing_product_url_count += 1;
+  }
+
+  return summary;
+}
+
+function stringValue(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
+}
+
+export const __registrationServiceTestOnly = {
+  summarizeCatalogProviderQuality,
+};

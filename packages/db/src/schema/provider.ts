@@ -12,6 +12,8 @@ export const providerProducts = pgTable('provider_products', {
   imageUrls: jsonb('image_urls').$type<string[]>().notNull().default([]),
   currency: text('currency').notNull(),
   amount: integer('amount_cents').notNull(),
+  listAmount: integer('list_amount_cents'),
+  priceType: text('price_type').notNull().default('fixed'),
   availabilityStatus: text('availability_status').notNull(),
   quantity: integer('quantity').notNull().default(0),
   status: text('status').notNull().default('active'),

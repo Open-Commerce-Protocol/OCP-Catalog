@@ -45,6 +45,8 @@ const product: typeof schema.providerProducts.$inferSelect = {
   imageUrls: ['http://localhost:4200/images/sku-1.jpg'],
   currency: 'USD',
   amount: 12999,
+  listAmount: 15999,
+  priceType: 'fixed',
   availabilityStatus: 'in_stock',
   quantity: 7,
   status: 'active',
@@ -60,6 +62,12 @@ describe('provider-mapper', () => {
     expect(registration.catalog_id).toBe(config.CATALOG_ID);
     expect(registration.registration_version).toBe(3);
     expect(registration.provider.provider_id).toBe(config.COMMERCE_PROVIDER_ID);
+    expect(registration.object_declarations[0]?.guaranteed_fields).toEqual([
+      'ocp.commerce.product.core.v1#/title',
+      'ocp.commerce.price.v1#/currency',
+      'ocp.commerce.price.v1#/amount',
+      'ocp.commerce.product.core.v1#/product_url',
+    ]);
     expect(registration.object_declarations[0]?.sync).toEqual({
       preferred_capabilities: ['ocp.push.batch'],
       avoid_capabilities_unless_necessary: [],
@@ -76,17 +84,18 @@ describe('provider-mapper', () => {
     expect(pricePack?.data).toEqual({
       currency: 'USD',
       amount: 129.99,
+      list_amount: 159.99,
       price_type: 'fixed',
     });
   });
 
-  test('marks out_of_stock active products as inactive commercial objects', () => {
+  test('keeps out_of_stock active products discoverable as active commercial objects', () => {
     const object = mapProductToCommercialObject(config, {
       ...product,
       availabilityStatus: 'out_of_stock',
     });
 
-    expect(object.status).toBe('inactive');
+    expect(object.status).toBe('active');
   });
 
   test('builds sync request with deterministic batch id when clock is injected', () => {

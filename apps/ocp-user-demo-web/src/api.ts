@@ -62,6 +62,11 @@ export type QuerySession = {
     currency?: string;
     availability_status?: string;
     provider_id?: string;
+    sku?: string;
+    min_amount?: number;
+    max_amount?: number;
+    in_stock_only?: boolean;
+    has_image?: boolean;
   };
   queryMode?: 'keyword' | 'filter' | 'semantic' | 'hybrid';
   queryPack?: string;
@@ -128,7 +133,7 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
   query: string;
   queryMode?: string;
   queryPack?: string;
-  filters?: Record<string, string>;
+  filters?: Record<string, string | number | boolean>;
 }) {
   const queryUrl = routeHint?.query_url || fallbackCatalogQueryUrl;
   return request<{ items: CatalogQueryItem[]; explain: string[]; query_mode: string }>(queryUrl, {

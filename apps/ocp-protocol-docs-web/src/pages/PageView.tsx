@@ -100,7 +100,7 @@ function createHeadingComponents(): Components {
   };
 }
 
-export function PageView({ section }: { section?: string }) {
+export function PageView({ section, slug }: { section?: string; slug?: string }) {
   const params = useParams();
   const { setHeadings } = useOutletContext<LayoutContext>();
   const { locale, text } = useDocsLocale();
@@ -114,8 +114,8 @@ export function PageView({ section }: { section?: string }) {
   const headings = useMemo(() => extractHeadings(content), [content]);
   const markdownComponents = useMemo(() => createHeadingComponents(), [content]);
 
-  const resolvedSection = params.section ?? section;
-  const pageSlug = params.slug ?? 'overview';
+  const resolvedSection = params.section ?? section ?? 'docs';
+  const pageSlug = params.slug ?? slug ?? 'overview';
   const routePath = resolvedSection ? `/${resolvedSection}/${pageSlug}` : `/${pageSlug}`;
 
   useEffect(() => {
@@ -182,18 +182,9 @@ export function PageView({ section }: { section?: string }) {
   }, [artifacts, headings, setHeadings, text]);
 
   useEffect(() => {
-    if (!window.location.hash) {
-      return;
-    }
-
-    const targetId = decodeURIComponent(window.location.hash.slice(1));
-    const targetElement = document.getElementById(targetId);
-
-    if (!targetElement) {
-      return;
-    }
-
-    targetElement.scrollIntoView({ block: 'start' });
+    // With HashRouter, the URL hash is used for routing (e.g. `#/overview`),
+    // so we can't use it for page anchors. We rely entirely on the manual
+    // `scrollIntoView` calls in RightToc for in-page navigation.
   }, [artifacts, content]);
 
   return (

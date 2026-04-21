@@ -13,6 +13,8 @@ export type ProductRecord = {
   imageUrls: string[];
   currency: string;
   amount: number;
+  listAmount: number | null;
+  priceType: 'fixed' | 'range';
   availabilityStatus: AvailabilityStatus;
   quantity: number;
   status: ProductStatus;
@@ -31,6 +33,8 @@ export type ProductFormInput = {
   image_urls: string[];
   currency: string;
   amount: number;
+  list_amount?: number;
+  price_type: 'fixed' | 'range';
   availability_status: AvailabilityStatus;
   quantity: number;
   status: ProductStatus;
@@ -58,6 +62,32 @@ export type ProviderStatusRecord = {
   active_registration_version: number | null;
   next_registration_version: number;
   sync_batch_size: number;
+  local_quality: {
+    product_count: number;
+    ready_for_publish_count: number;
+    missing_price_count: number;
+    missing_list_price_count: number;
+    missing_product_url_count: number;
+    missing_image_count: number;
+    missing_brand_or_category_count: number;
+    out_of_stock_count: number;
+    active_count: number;
+  };
+  publish_readiness: {
+    ready: boolean;
+    blocking_issues: string[];
+    warnings: string[];
+  };
+  catalog_quality: {
+    object_count: number;
+    active_entry_count: number;
+    rich_entry_count: number;
+    standard_entry_count: number;
+    basic_entry_count: number;
+    out_of_stock_count: number;
+    missing_image_count: number;
+    missing_product_url_count: number;
+  } | null;
 };
 
 const API_PREFIX = '/api/provider-admin';

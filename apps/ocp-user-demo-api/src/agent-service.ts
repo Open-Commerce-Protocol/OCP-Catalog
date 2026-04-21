@@ -68,6 +68,11 @@ const querySessionSchema = z.object({
     currency: z.string().optional(),
     availability_status: z.string().optional(),
     provider_id: z.string().optional(),
+    sku: z.string().optional(),
+    min_amount: z.number().optional(),
+    max_amount: z.number().optional(),
+    in_stock_only: z.boolean().optional(),
+    has_image: z.boolean().optional(),
   }),
   queryMode: z.enum(['keyword', 'filter', 'semantic', 'hybrid']).optional(),
   queryPack: z.string().optional(),
@@ -117,6 +122,11 @@ type AgentPlan = {
     currency?: string;
     availability_status?: string;
     provider_id?: string;
+    sku?: string;
+    min_amount?: number;
+    max_amount?: number;
+    in_stock_only?: boolean;
+    has_image?: boolean;
   };
 };
 
@@ -133,6 +143,11 @@ const agentPlanSchema = z.object({
     currency: z.string().optional(),
     availability_status: z.string().optional(),
     provider_id: z.string().optional(),
+    sku: z.string().optional(),
+    min_amount: z.number().optional(),
+    max_amount: z.number().optional(),
+    in_stock_only: z.boolean().optional(),
+    has_image: z.boolean().optional(),
   }),
 });
 
@@ -242,7 +257,7 @@ export class UserDemoAgentService {
         'Decide how to refine the user request into a catalog query plan.',
         'Return JSON only.',
         'Never auto-register a catalog locally. Registration must be explicit user consent.',
-        'Supported filters: category, brand, currency, availability_status, provider_id.',
+        'Supported filters: category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, has_image.',
         'Use sort_preference price_asc only when the user clearly asks for cheaper/lower price.',
         'Use query_mode keyword by default, hybrid when both keyword and filters matter, filter only when there is no search phrase.',
         'When the user speaks Chinese but the available catalog metadata indicates English-oriented search, you may translate the search phrase to English.',

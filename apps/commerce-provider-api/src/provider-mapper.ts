@@ -22,15 +22,22 @@ export function buildProviderRegistration(config: AppConfig, registrationVersion
     },
     object_declarations: [
       {
-        guaranteed_fields: ['ocp.commerce.product.core.v1#/title'],
+        guaranteed_fields: [
+          'ocp.commerce.product.core.v1#/title',
+          'ocp.commerce.price.v1#/currency',
+          'ocp.commerce.price.v1#/amount',
+          'ocp.commerce.product.core.v1#/product_url',
+        ],
         optional_fields: [
           'ocp.commerce.product.core.v1#/summary',
           'ocp.commerce.product.core.v1#/brand',
           'ocp.commerce.product.core.v1#/category',
-          'ocp.commerce.product.core.v1#/product_url',
+          'ocp.commerce.product.core.v1#/sku',
+          'ocp.commerce.product.core.v1#/image_urls',
           'ocp.commerce.price.v1#/currency',
           'ocp.commerce.price.v1#/amount',
           'ocp.commerce.inventory.v1#/availability_status',
+          'ocp.commerce.inventory.v1#/quantity',
         ],
         sync: {
           preferred_capabilities: ['ocp.push.batch'],
@@ -70,7 +77,7 @@ export function mapProductToCommercialObject(config: AppConfig, product: Provide
     provider_id: config.COMMERCE_PROVIDER_ID,
     title: product.title,
     summary: product.summary,
-    status: product.status === 'active' && product.availabilityStatus !== 'out_of_stock' ? 'active' : 'inactive',
+    status: product.status === 'active' ? 'active' : 'inactive',
     source_url: product.productUrl,
     descriptors: [
       {
@@ -91,7 +98,8 @@ export function mapProductToCommercialObject(config: AppConfig, product: Provide
         data: {
           currency: product.currency,
           amount: product.amount / 100,
-          price_type: 'fixed',
+          ...(product.listAmount !== null ? { list_amount: product.listAmount / 100 } : {}),
+          price_type: product.priceType === 'range' ? 'range' : 'fixed',
         },
       },
       {

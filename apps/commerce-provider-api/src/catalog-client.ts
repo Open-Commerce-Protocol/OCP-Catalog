@@ -9,6 +9,16 @@ export type CatalogProviderState = {
   declared_packs: string[];
   guaranteed_fields: string[];
   registration: Record<string, unknown> | null;
+  catalog_quality?: {
+    object_count: number;
+    active_entry_count: number;
+    rich_entry_count: number;
+    standard_entry_count: number;
+    basic_entry_count: number;
+    out_of_stock_count: number;
+    missing_image_count: number;
+    missing_product_url_count: number;
+  };
   updated_at: string;
 };
 

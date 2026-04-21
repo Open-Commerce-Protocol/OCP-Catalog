@@ -43,15 +43,20 @@ function buildCommerceObjectContracts(): ObjectContract[] {
     {
       required_fields: [
         'ocp.commerce.product.core.v1#/title',
+        'ocp.commerce.price.v1#/currency',
+        'ocp.commerce.price.v1#/amount',
       ],
       optional_fields: [
         'ocp.commerce.product.core.v1#/summary',
         'ocp.commerce.product.core.v1#/brand',
         'ocp.commerce.product.core.v1#/category',
+        'ocp.commerce.product.core.v1#/sku',
         'ocp.commerce.product.core.v1#/product_url',
+        'ocp.commerce.product.core.v1#/image_urls',
         'ocp.commerce.price.v1#/currency',
         'ocp.commerce.price.v1#/amount',
         'ocp.commerce.inventory.v1#/availability_status',
+        'ocp.commerce.inventory.v1#/quantity',
       ],
       additional_fields_policy: 'allow',
     },
@@ -142,16 +147,23 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
         { name: 'filters.currency', type: 'string', required: false },
         { name: 'filters.availability_status', type: 'string', required: false },
         { name: 'filters.provider_id', type: 'string', required: false },
+        { name: 'filters.sku', type: 'string', required: false },
+        { name: 'filters.min_amount', type: 'number', required: false },
+        { name: 'filters.max_amount', type: 'number', required: false },
+        { name: 'filters.in_stock_only', type: 'boolean', required: false },
+        { name: 'filters.has_image', type: 'boolean', required: false },
       ],
       searchable_field_refs: [
         'ocp.commerce.product.core.v1#/title',
         'ocp.commerce.product.core.v1#/summary',
         'ocp.commerce.product.core.v1#/brand',
         'ocp.commerce.product.core.v1#/category',
+        'ocp.commerce.product.core.v1#/sku',
       ],
       filterable_field_refs: [
         'ocp.commerce.product.core.v1#/category',
         'ocp.commerce.product.core.v1#/brand',
+        'ocp.commerce.product.core.v1#/sku',
         'ocp.commerce.price.v1#/currency',
         'ocp.commerce.inventory.v1#/availability_status',
       ],
@@ -160,7 +172,7 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       supports_resolve: true,
       metadata: {
         query_hints: {
-          filter_fields: ['category', 'brand', 'currency', 'availability_status', 'provider_id'],
+          filter_fields: ['category', 'brand', 'currency', 'availability_status', 'provider_id', 'sku', 'min_amount', 'max_amount', 'in_stock_only', 'has_image'],
           supported_query_languages: ['en'],
           content_languages: ['en'],
         },
@@ -193,18 +205,36 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
   const brand = stringField(readDescriptorField(object, 'ocp.commerce.product.core.v1#/brand'));
   const currency = stringField(readDescriptorField(object, 'ocp.commerce.price.v1#/currency'));
   const amount = numberField(readDescriptorField(object, 'ocp.commerce.price.v1#/amount'));
+  const listAmount = numberField(readDescriptorField(object, 'ocp.commerce.price.v1#/list_amount'));
+  const priceType = stringField(readDescriptorField(object, 'ocp.commerce.price.v1#/price_type'));
   const availabilityStatus = stringField(readDescriptorField(object, 'ocp.commerce.inventory.v1#/availability_status'));
+  const quantity = numberField(readDescriptorField(object, 'ocp.commerce.inventory.v1#/quantity'));
+  const sku = stringField(readDescriptorField(object, 'ocp.commerce.product.core.v1#/sku'));
   const productUrl = stringField(readDescriptorField(object, 'ocp.commerce.product.core.v1#/product_url'));
+  const imageUrls = readDescriptorField(object, 'ocp.commerce.product.core.v1#/image_urls');
+  const primaryImageUrl = Array.isArray(imageUrls) ? stringField(imageUrls[0]) : undefined;
+  const hasImage = Boolean(primaryImageUrl);
+  const hasProductUrl = Boolean(productUrl || object.source_url);
+  const qualityTier = deriveQualityTier({
+    summary,
+    brand,
+    category,
+    sku,
+    amount,
+    listAmount,
+    availabilityStatus,
+    hasImage,
+    hasProductUrl,
+  });
 
   const title = stringField(descriptorTitle) ?? object.title;
   const text = [
     title,
     summary,
-    category,
     brand,
-    currency,
-    availabilityStatus,
-    object.provider_id,
+    category,
+    sku,
+    summarizeFacetValues(object),
   ].filter(Boolean).join(' ').toLowerCase();
 
   return {
@@ -214,8 +244,17 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
     ...(brand ? { brand } : {}),
     ...(currency ? { currency } : {}),
     ...(amount !== undefined ? { amount } : {}),
+    ...(listAmount !== undefined ? { list_amount: listAmount } : {}),
+    ...(priceType ? { price_type: priceType } : {}),
+    ...(sku ? { sku } : {}),
     ...(availabilityStatus ? { availability_status: availabilityStatus } : {}),
+    ...(quantity !== undefined ? { quantity } : {}),
     ...(productUrl ? { product_url: productUrl } : {}),
+    ...(primaryImageUrl ? { primary_image_url: primaryImageUrl } : {}),
+    discount_present: amount !== undefined && listAmount !== undefined && listAmount > amount,
+    has_image: hasImage,
+    has_product_url: hasProductUrl,
+    quality_tier: qualityTier,
     ...(object.source_url ? { source_url: object.source_url } : {}),
     provider_id: object.provider_id,
     object_id: object.object_id,
@@ -236,8 +275,8 @@ function buildEmbeddingText(_object: CommercialObject, projection: SearchProject
     projection.summary,
     projection.brand,
     projection.category,
-    projection.currency,
-    projection.availability_status,
+    projection.sku,
+    typeof projection.list_amount === 'number' ? `list price ${projection.list_amount}` : undefined,
     projection.text,
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n');
 }
@@ -260,4 +299,34 @@ function buildResolveActions(projection: Record<string, unknown>): ActionBinding
       method: 'GET',
     },
   ];
+}
+
+function deriveQualityTier(input: {
+  summary?: string;
+  brand?: string;
+  category?: string;
+  sku?: string;
+  amount?: number;
+  listAmount?: number;
+  availabilityStatus?: string;
+  hasImage: boolean;
+  hasProductUrl: boolean;
+}) {
+  const hasPrice = input.amount !== undefined && Number.isFinite(input.amount) && input.amount > 0;
+  const hasCatalogBasics = hasPrice && Boolean(input.hasProductUrl) && Boolean(input.availabilityStatus) && (Boolean(input.brand) || Boolean(input.category));
+  const hasRichFields = input.hasImage && Boolean(input.summary) && Boolean(input.sku);
+
+  if (hasCatalogBasics && hasRichFields) return 'rich';
+  if (hasCatalogBasics) return 'standard';
+  return 'basic';
+}
+
+function summarizeFacetValues(object: CommercialObject) {
+  const attributes = readDescriptorField(object, 'ocp.commerce.product.core.v1#/attributes');
+  if (!attributes || typeof attributes !== 'object') return undefined;
+
+  return Object.entries(attributes as Record<string, unknown>)
+    .filter(([key, value]) => ['color', 'size', 'material', 'model', 'capacity'].includes(key) && typeof value === 'string')
+    .map(([key, value]) => `${key} ${value}`)
+    .join(' ');
 }
