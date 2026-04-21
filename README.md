@@ -147,12 +147,9 @@ packages/
 
 它的目标不是做通用 marketplace，而是作为 OCP Catalog 的第一个垂直场景实现，承载：
 
-- `object_type = product`
 - commerce descriptor packs
 - 商品搜索和 resolve
 - Provider 注册与内容同步
-
-这里的 `object_type = product` 是当前 catalog 运行时场景标签，不再是 handshake 协议里 provider registration 的匹配前提。
 
 它的 profile 和 query capability 当前会声明：
 
@@ -190,7 +187,6 @@ CommercialObject
 当前检索机制包括：
 
 - 结构化过滤下推到 DB
-  - `object_type`
   - `provider_id`
   - `category`
   - `brand`

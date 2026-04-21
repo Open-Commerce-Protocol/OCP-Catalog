@@ -74,6 +74,19 @@ Provider registration 需要同时匹配 catalog 发布的 `ObjectContract` 和 
 - `guaranteed_fields`
 - `required_fields`
 
+## 为什么只做字段级匹配
+
+这不是契约变弱，而是协议边界的刻意收敛。
+
+握手层只需要判断两件事：
+
+- provider 能否保证 catalog 所要求的字段
+- 双方能否协商出一条可用的 sync capability
+
+它不要求双方先共享同一套对象类型命名，也不要求 catalog 在 registration 阶段暴露自己的内部 query 分区或索引模型。
+
+这样协议就会稳定地落在最可验证的一层：字段保证与能力协商，而不是命名体系对齐。
+
 ## 示例同步路径
 
 示例同步链路是：

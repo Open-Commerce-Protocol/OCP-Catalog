@@ -39,13 +39,6 @@
       "enum": ["public", "partner", "private"],
       "default": "public"
     },
-    "supported_object_types": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      },
-      "uniqueItems": true
-    },
     "endpoints": {
       "type": "object",
       "required": ["query", "resolve", "provider_registration", "contracts", "object_sync"],
@@ -83,13 +76,6 @@
           },
           "description": {
             "type": "string"
-          },
-          "target_object_types": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "uniqueItems": true
           },
           "query_packs": {
             "type": "array",

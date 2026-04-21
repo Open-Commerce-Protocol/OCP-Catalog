@@ -47,7 +47,6 @@
   "capability_id": "ocp.push.batch",
   "direction": "provider_to_catalog",
   "transport": "http_push",
-  "object_types": [],
   "sync_model": {
     "snapshot": true,
     "delta": false,

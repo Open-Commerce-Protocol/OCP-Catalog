@@ -19,7 +19,6 @@
     "filters": {
       "type": "object",
       "properties": {
-        "object_type": { "type": "string" },
         "query_mode": { "type": "string" },
         "query_pack": { "type": "string" },
         "supports_resolve": { "type": "boolean" },

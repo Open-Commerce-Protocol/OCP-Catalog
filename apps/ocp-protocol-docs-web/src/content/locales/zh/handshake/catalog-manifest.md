@@ -50,7 +50,6 @@
         "capability_id": "ocp.push.batch",
         "direction": "provider_to_catalog",
         "transport": "http_push",
-        "object_types": ["product"],
         "sync_model": {
           "snapshot": true,
           "delta": false,
@@ -85,8 +84,6 @@
   ]
 }
 ```
-
-`target_object_types` 可以作为 catalog 自己写入的提示字段出现，但它不是 query negotiation 的主协议轴。
 
 协议层真正要求 catalog 声明的是：
 

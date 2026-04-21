@@ -199,13 +199,6 @@
           "type": "string",
           "minLength": 1
         },
-        "object_types": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "uniqueItems": true
-        },
         "sync_model": {
           "$ref": "#/$defs/SyncModel"
         },

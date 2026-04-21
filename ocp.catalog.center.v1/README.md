@@ -99,7 +99,6 @@ Center 回答的问题是：
 - `query_url`
 - `resolve_url`
 - `supported_query_packs`
-- `supported_object_types`
 - `verification_status`
 - `trust_tier`
 - `health_status`

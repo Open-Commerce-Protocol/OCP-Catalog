@@ -12,7 +12,6 @@
   "properties": {
     "filters": {
       "properties": {
-        "object_type": { "type": "string" },
         "query_mode": { "type": "string" },
         "query_pack": { "type": "string" },
         "supports_resolve": { "type": "boolean" },
@@ -36,7 +35,6 @@
   "catalog_id": "commerce_catalog_local_dev",
   "catalog_name": "Commerce Catalog Local Dev",
   "score": 0.96,
-  "matched_object_types": ["product"],
   "matched_query_capabilities": ["commerce_product_search"],
   "route_hint": {
     "catalog_id": "commerce_catalog_local_dev",
@@ -44,7 +42,6 @@
     "manifest_url": "http://localhost:4000/ocp/manifest"
   },
   "explain": [
-    "Matched object type product",
     "Matched supported query pack ocp.commerce.product.search.v1"
   ]
 }

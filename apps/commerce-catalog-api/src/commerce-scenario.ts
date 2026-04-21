@@ -65,7 +65,6 @@ function buildCommerceSyncCapabilities(): SyncCapability[] {
       description: 'Provider pushes batched product objects to the catalog sync API.',
       direction: 'provider_to_catalog',
       transport: 'http_push',
-      object_types: [],
       sync_model: {
         snapshot: true,
         delta: false,

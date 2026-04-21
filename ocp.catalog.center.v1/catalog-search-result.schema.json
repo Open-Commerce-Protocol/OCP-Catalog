@@ -25,7 +25,6 @@
           "catalog_id",
           "catalog_name",
           "score",
-          "matched_object_types",
           "matched_query_capabilities",
           "verification_status",
           "trust_tier",
@@ -38,10 +37,6 @@
           "catalog_name": { "type": "string", "minLength": 1 },
           "description": { "type": "string" },
           "score": { "type": "number" },
-          "matched_object_types": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
           "matched_query_capabilities": {
             "type": "array",
             "items": { "type": "string" }

@@ -50,7 +50,6 @@ Example:
         "capability_id": "ocp.push.batch",
         "direction": "provider_to_catalog",
         "transport": "http_push",
-        "object_types": ["product"],
         "sync_model": {
           "snapshot": true,
           "delta": false,
@@ -85,8 +84,6 @@ The search contract is expressed through `query_capabilities[*].query_packs`.
   ]
 }
 ```
-
-`target_object_types` may appear as a catalog-authored hint, but it is not the main protocol axis for query negotiation.
 
 The protocol only requires the catalog to declare:
 

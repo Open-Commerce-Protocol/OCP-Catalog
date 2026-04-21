@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 export type DocsLocale = 'en' | 'zh';
@@ -93,6 +93,17 @@ export function resolveDocsLocale(value: string | null | undefined): DocsLocale 
   return value === 'zh' ? 'zh' : 'en';
 }
 
+export function detectSystemDocsLocale(): DocsLocale {
+  if (typeof navigator === 'undefined') {
+    return 'en';
+  }
+
+  const preferredLocales = navigator.languages.length > 0 ? navigator.languages : [navigator.language];
+  const matchedLocale = preferredLocales.find((locale) => locale.toLowerCase().startsWith('zh'));
+
+  return matchedLocale ? 'zh' : 'en';
+}
+
 export function getLocalizedText(text: LocalizedText, locale: DocsLocale): string {
   return text[locale];
 }
@@ -107,7 +118,18 @@ export function withDocsLocale(path: string, locale: DocsLocale): string {
 
 export function useDocsLocale() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const locale = resolveDocsLocale(searchParams.get('lang'));
+  const requestedLocale = searchParams.get('lang');
+  const locale = requestedLocale ? resolveDocsLocale(requestedLocale) : detectSystemDocsLocale();
+
+  useEffect(() => {
+    if (requestedLocale) {
+      return;
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.set('lang', locale);
+    setSearchParams(next, { replace: true });
+  }, [locale, requestedLocale, searchParams, setSearchParams]);
 
   const api = useMemo(
     () => ({

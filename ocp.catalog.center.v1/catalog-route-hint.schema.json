@@ -7,7 +7,6 @@
     "catalog_name",
     "manifest_url",
     "query_url",
-    "supported_object_types",
     "verification_status",
     "trust_tier",
     "health_status",
@@ -23,10 +22,6 @@
     "query_url": { "type": "string", "format": "uri" },
     "resolve_url": { "type": "string", "format": "uri" },
     "supported_query_packs": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "supported_object_types": {
       "type": "array",
       "items": { "type": "string" }
     },

@@ -210,7 +210,6 @@ ocp.catalog.handshake.v1/
 可选声明：
 
 - `description`
-- `object_types`
 - `batching`
 - `cursoring`
 - `streaming`
@@ -226,7 +225,6 @@ ocp.catalog.handshake.v1/
   "description": "Provider pushes batched product objects to the catalog sync API.",
   "direction": "provider_to_catalog",
   "transport": "http_push",
-  "object_types": ["product"],
   "sync_model": {
     "snapshot": true,
     "delta": false,
@@ -272,8 +270,6 @@ ocp.catalog.handshake.v1/
 - 接受哪些输入字段
 - 哪些字段可 filter / search / sort
 - request schema 在哪里
-
-`target_object_types` 可以作为 Catalog 自己声明的提示字段存在，但它不是 query negotiation 的主协议轴，也不应被视为 Provider 接入前提。
 
 ---
 
@@ -360,7 +356,26 @@ Catalog 对 `object_declarations[*]` 的匹配必须基于：
 
 也就是说，在协议层，Provider 只要其声明满足某个 `ObjectContract` 的必需字段要求，就可以完成握手匹配。
 
-### 8.5 sync 声明面
+### 8.5 为什么只做字段级握手匹配
+
+这里的设计重点不是弱化契约，而是收紧协议边界。
+
+握手层的目标是判断：
+
+- Provider 是否能满足 Catalog 的最低字段要求
+- 双方是否存在共同可用的 sync capability
+
+协议层不要求 Provider 先采用某种统一对象类型命名，也不要求 Catalog 暴露自己的内部索引分桶、query 主分类或场景模型。
+
+这样设计有三个原因：
+
+- 字段要求是 Catalog 真正可验证的接入条件
+- 字段匹配不依赖双方预先共享 taxonomy 或 pack 命名体系
+- Catalog 可以保留自己的运行时分类、projection 和索引实现，而不把这些内部结构上升为协议约束
+
+因此，字段级握手表达的是“是否满足接入契约”，不是“对象在语义上属于哪一类”。
+
+### 8.6 sync 声明面
 
 `sync` 当前应包含：
 
@@ -375,7 +390,7 @@ Catalog 对 `object_declarations[*]` 的匹配必须基于：
 
 如果 capability 没出现在这两个 capability 列表中，它就不参与协商。
 
-### 8.6 provider_endpoints 规范
+### 8.7 provider_endpoints 规范
 
 `provider_endpoints` 是 endpoint map。
 
@@ -402,7 +417,7 @@ Catalog 对 `object_declarations[*]` 的匹配必须基于：
 - webhook callback
 - delta cursor bootstrap endpoint
 
-### 8.7 guaranteed_fields 规范
+### 8.8 guaranteed_fields 规范
 
 一旦字段被声明为 guaranteed，Provider 在该注册版本下提交的该类契约对象均应保证包含这些字段。
 

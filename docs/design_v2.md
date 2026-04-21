@@ -488,7 +488,6 @@ Catalog 需要允许“兼容满足”而不是只接受“完全同名字段”
 - canonical_name
 - domains[]
 - description
-- supported_object_types[]
 - supported_query_packs[]
 - default_visibility_policy
 - auth_requirements
@@ -583,7 +582,6 @@ Catalog 需要允许“兼容满足”而不是只接受“完全同名字段”
 - query_pack
 - input_schema
 - output_schema
-- supported_object_types
 - auth_scheme
 - rate_limit_policy
 - supports_explain
@@ -974,7 +972,6 @@ Explain 不是可选装饰，而是 Agent 可用性的核心部分。
 建议由 query_pack 驱动，而不是拆成过多固定 endpoint。
 请求中包含：
 - query_pack
-- target_object_types
 - input_payload
 - requestor_context
 - purpose_context

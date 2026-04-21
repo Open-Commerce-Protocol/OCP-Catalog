@@ -64,7 +64,6 @@ export const syncCapabilitySchema = z.object({
   description: z.string().optional(),
   direction: syncCapabilityDirectionSchema,
   transport: z.string().min(1),
-  object_types: z.array(z.string().min(1)).default([]),
   sync_model: syncModelSchema,
   mutation_semantics: mutationSemanticsSchema,
   batching: z.object({

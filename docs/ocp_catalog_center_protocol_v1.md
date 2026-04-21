@@ -221,7 +221,6 @@ GET /ocp/center/manifest
       "capability_id": "center.catalog.keyword.v1",
       "query_modes": ["keyword", "filter"],
       "filter_fields": [
-        "object_type",
         "query_mode",
         "query_pack",
         "verification_status",
@@ -490,12 +489,10 @@ Center 对已拉取并校验的 CatalogManifest 生成 `CatalogProfileSnapshot`�
   "homepage": "https://catalog.example.com",
   "well_known_url": "https://catalog.example.com/.well-known/ocp-catalog",
   "manifest_url": "https://catalog.example.com/ocp/manifest",
-  "supported_object_types": ["product"],
   "query_capabilities": [
     {
       "capability_id": "query.keyword.default.v1",
       "query_modes": ["keyword", "filter"],
-      "target_object_types": ["product"],
       "supports_explain": true,
       "supports_resolve": true
     }
@@ -533,7 +530,6 @@ description
 homepage
 manifest_url
 well_known_url
-supported_object_types
 supported_query_modes
 supported_query_packs
 supports_resolve
@@ -555,7 +551,6 @@ updated_at
 - Catalog 名称。
 - 描述。
 - tags。
-- supported object types。
 - query capability names。
 - object contract summaries。
 - domain。
@@ -577,7 +572,6 @@ POST /ocp/catalogs/search
   "kind": "CatalogSearchRequest",
   "query": "commerce product search",
   "filters": {
-    "object_type": "product",
     "query_mode": "keyword",
     "supports_resolve": true,
     "verification_status": "verified"
@@ -589,7 +583,6 @@ POST /ocp/catalogs/search
 
 支持的 MVP filters：
 
-- `object_type`
 - `query_mode`
 - `query_pack`
 - `supports_resolve`
@@ -614,7 +607,6 @@ POST /ocp/catalogs/search
       "catalog_name": "Demo Commerce Catalog",
       "description": "Product and service discovery catalog.",
       "score": 0.91,
-      "matched_object_types": ["product"],
       "matched_query_capabilities": ["query.keyword.default.v1"],
       "verification_status": "verified",
       "trust_tier": "verified_domain",
@@ -625,7 +617,6 @@ POST /ocp/catalogs/search
         "query_url": "https://catalog.example.com/ocp/query",
         "resolve_url": "https://catalog.example.com/ocp/resolve",
         "supported_query_modes": ["keyword", "filter"],
-        "supported_object_types": ["product"],
         "auth_requirements": {
           "query": "none",
           "resolve": "none"
@@ -633,7 +624,6 @@ POST /ocp/catalogs/search
         "cache_ttl_seconds": 86400
       },
       "explain": [
-        "Catalog supports object_type product.",
         "Catalog supports keyword query.",
         "Catalog domain is verified."
       ]
@@ -658,7 +648,6 @@ query_url
 resolve_url
 supported_query_modes
 supported_query_packs
-supported_object_types
 auth_requirements
 verification_status
 trust_tier
@@ -873,7 +862,6 @@ catalog_manifest_snapshots
   discovery_payload
   manifest_payload
   manifest_hash
-  supported_object_types
   query_capabilities
   object_contract_summaries
   created_at
@@ -888,7 +876,6 @@ catalog_index_entries
   description
   tags
   domains
-  supported_object_types
   supported_query_modes
   supported_query_packs
   supports_resolve

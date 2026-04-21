@@ -81,9 +81,7 @@
 
 ### 2.1 支持的对象
 
-- `object_type = product`
-
-这里的 `object_type` 是当前 catalog 的运行时分类与索引标签。Provider registration 的握手匹配基于 `guaranteed_fields` 与 object contract 的 `required_fields`。
+- 商品类 commerce descriptors 与对应搜索投影
 
 ### 2.2 使用的 descriptor packs
 
@@ -157,7 +155,6 @@ DB schema 在：
 
 当前 `catalog_entries` 已去规范化出过滤字段，直接用于 DB 筛选：
 
-- `object_type`
 - `provider_id`
 - `category`
 - `brand`

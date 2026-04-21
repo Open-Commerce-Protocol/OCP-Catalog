@@ -11,7 +11,6 @@
     "catalog_name",
     "manifest_url",
     "query_url",
-    "supported_object_types",
     "verification_status",
     "trust_tier",
     "health_status",
@@ -33,7 +32,6 @@
   "query_url": "http://localhost:4000/ocp/query",
   "resolve_url": "http://localhost:4000/ocp/resolve",
   "supported_query_packs": ["ocp.commerce.product.search.v1"],
-  "supported_object_types": ["product"],
   "metadata": {
     "query_hints": {
       "supported_query_modes": ["keyword", "filter", "semantic", "hybrid"],

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import type { Components } from 'react-markdown';
@@ -20,6 +20,46 @@ function slugify(value: string): string {
     .replace(/\s+/g, '-');
 }
 
+function normalizeHeadingText(value: string): string {
+  return value
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/<\/?[^>]+>/g, '')
+    .replace(/[*_~]/g, '')
+    .replace(/\\([\\`*_{}[\]()#+\-.!])/g, '$1')
+    .trim();
+}
+
+function getHeadingId(text: string, counts: Map<string, number>): string {
+  const normalizedText = normalizeHeadingText(text);
+  const baseId = slugify(normalizedText);
+  const seen = counts.get(baseId) ?? 0;
+  counts.set(baseId, seen + 1);
+
+  return seen === 0 ? baseId : `${baseId}-${seen + 1}`;
+}
+
+function extractTextFromNode(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') {
+    return '';
+  }
+
+  if (typeof node === 'string' || typeof node === 'number') {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map((child) => extractTextFromNode(child)).join('');
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    return extractTextFromNode(node.props.children);
+  }
+
+  return Children.toArray(node).map((child) => extractTextFromNode(child)).join('');
+}
+
 function extractHeadings(markdown: string): TocHeading[] {
   const counts = new Map<string, number>();
 
@@ -29,13 +69,10 @@ function extractHeadings(markdown: string): TocHeading[] {
     .filter((match): match is RegExpMatchArray => Boolean(match))
     .map((match) => {
       const level = match[1].length;
-      const text = match[2].trim();
-      const baseId = slugify(text);
-      const seen = counts.get(baseId) ?? 0;
-      counts.set(baseId, seen + 1);
+      const text = normalizeHeadingText(match[2]);
 
       return {
-        id: seen === 0 ? baseId : `${baseId}-${seen + 1}`,
+        id: getHeadingId(text, counts),
         level,
         text,
       };
@@ -46,22 +83,13 @@ function createHeadingComponents(): Components {
   const counts = new Map<string, number>();
 
   function nextId(children: ReactNode) {
-    const text = Array.isArray(children)
-      ? children.join('')
-      : typeof children === 'string'
-        ? children
-        : String(children ?? '');
-    const baseId = slugify(text);
-    const seen = counts.get(baseId) ?? 0;
-    counts.set(baseId, seen + 1);
-
-    return seen === 0 ? baseId : `${baseId}-${seen + 1}`;
+    return getHeadingId(extractTextFromNode(children), counts);
   }
 
   return {
-    h1: ({ children }) => <h1 id={nextId(children)}>{children}</h1>,
-    h2: ({ children }) => <h2 id={nextId(children)}>{children}</h2>,
-    h3: ({ children }) => <h3 id={nextId(children)}>{children}</h3>,
+    h1: ({ children }) => <h1 id={nextId(children)} className="scroll-mt-24">{children}</h1>,
+    h2: ({ children }) => <h2 id={nextId(children)} className="scroll-mt-24">{children}</h2>,
+    h3: ({ children }) => <h3 id={nextId(children)} className="scroll-mt-24">{children}</h3>,
     pre: ({ children }) => (
       <div className="docs-code-shell not-prose">
         <pre className="docs-code-block">
@@ -152,6 +180,21 @@ export function PageView({ section }: { section?: string }) {
       setHeadings([]);
     };
   }, [artifacts, headings, setHeadings, text]);
+
+  useEffect(() => {
+    if (!window.location.hash) {
+      return;
+    }
+
+    const targetId = decodeURIComponent(window.location.hash.slice(1));
+    const targetElement = document.getElementById(targetId);
+
+    if (!targetElement) {
+      return;
+    }
+
+    targetElement.scrollIntoView({ block: 'start' });
+  }, [artifacts, content]);
 
   return (
     <>

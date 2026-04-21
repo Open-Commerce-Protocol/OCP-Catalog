@@ -74,6 +74,19 @@ At the protocol layer, the catalog matches declarations by contract requirements
 - `guaranteed_fields`
 - `required_fields`
 
+## Why Matching Is Field-Level
+
+This is a boundary choice, not a weaker contract model.
+
+The handshake only needs to determine:
+
+- whether the provider can guarantee the fields required by the catalog
+- whether both sides can negotiate one usable sync capability
+
+It does not require a shared object taxonomy, and it does not require the catalog to expose its internal query partitions or indexing model during registration.
+
+That keeps the protocol focused on the most stable compatibility surface: verifiable field guarantees plus capability negotiation.
+
 ## Example Sync Path
 
 The example sync path is:
