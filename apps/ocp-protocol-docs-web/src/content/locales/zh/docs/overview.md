@@ -61,6 +61,14 @@ Catalog 启动
 -> Agent resolve 选中的结果
 ```
 
+这条链路背后的 live example 现在已经明确是一个 commerce product catalog：
+
+- catalog 的最低 object contract 要求 `title + price.currency + price.amount`
+- provider 的默认 registration 还会额外保证 `product_url`
+- sync 进来的商品会被投影成带价格、图片、库存、质量信号的 commerce search entry
+- provider admin flow 会展示 `local_quality`、`publish_readiness`、`catalog_quality`
+- 在启用 embedding 时，semantic 和 hybrid retrieval 也属于已验证的实现路径
+
 ## 当前设计约定
 
 当前实现有两条重要约定。
@@ -76,16 +84,23 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
   "query_packs": [
     {
       "pack_id": "ocp.commerce.product.search.v1",
-      "query_modes": ["keyword", "filter", "semantic", "hybrid"],
+      "query_modes": ["keyword", "hybrid"],
       "metadata": {
         "query_hints": {
-          "supported_query_languages": ["en"]
+          "supported_query_languages": ["en"],
+          "filter_fields": ["category", "brand", "currency", "availability_status", "provider_id", "sku", "min_amount", "max_amount", "in_stock_only", "has_image"]
         }
       }
     }
   ]
 }
 ```
+
+当前仓库里的真实 commerce manifest 实际上会在同一个 capability 下发布多个 query pack：
+
+- `ocp.query.keyword.v1`
+- `ocp.query.filter.v1`
+- 启用 embedding 时的 `ocp.query.semantic.v1`
 
 ### 可选提示统一放在 Metadata 中
 

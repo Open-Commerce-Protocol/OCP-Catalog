@@ -47,3 +47,16 @@
 - 当前激活版本是否发生变化
 
 这些反馈都应该在 Provider Admin UI 里展示出来，然后再决定是否继续 full sync。
+
+## 当前仓库里的真实行为
+
+在当前 commerce provider 示例里，成功路径通常会是：
+
+- `status = "accepted_full"`
+- `matched_object_contract_count = 1`
+- `selected_sync_capability.capability_id = "ocp.push.batch"`
+- `warnings = []`
+
+这个 accepted 结果随后会先被记录到 provider 侧的 run log 中，然后 provider 才继续执行 `sync_all`。
+
+schema 仍然支持 `accepted_limited`，但当前 commerce catalog/provider 这对默认实现被刻意配置成在默认 registration declaration 下走一个更强的 fully accepted path。

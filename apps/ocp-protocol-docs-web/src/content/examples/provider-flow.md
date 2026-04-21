@@ -1,31 +1,83 @@
 # Provider Flow
 
-This example flow shows how a commerce provider joins the catalog.
+This example flow describes the real commerce provider implementation that ships in this repository.
 
-## Lifecycle
+## Real Lifecycle
 
 ```text
-Provider startup
--> fetch catalog manifest
--> inspect object contracts
--> inspect provider_contract.sync_capabilities
--> submit ProviderRegistration
--> receive RegistrationResult
--> if selected_sync_capability is catalog-hosted push, sync CommercialObject batches
+provider admin seeds or edits products
+-> provider reads catalog manifest and object contracts
+-> provider builds ProviderRegistration with guaranteed_fields and preferred sync capability
+-> catalog returns RegistrationResult with selected_sync_capability = ocp.push.batch
+-> provider publishes CommercialObject batches
+-> catalog projects product data into searchable entries
+-> provider status page shows local_quality, publish_readiness, and catalog_quality
 ```
 
-## Repository Behavior
+## What The Provider Actually Publishes
+
+The current provider implementation is not publishing anonymous objects. It maps local product rows into `CommercialObject` payloads with:
+
+- product core fields such as `title`, `summary`, `brand`, `category`, `sku`, `product_url`, and `image_urls`
+- price fields such as `currency`, `amount`, `list_amount`, and `price_type`
+- inventory fields such as `availability_status` and `quantity`
+
+The provider currently guarantees at registration time:
+
+- `ocp.commerce.product.core.v1#/title`
+- `ocp.commerce.price.v1#/currency`
+- `ocp.commerce.price.v1#/amount`
+- `ocp.commerce.product.core.v1#/product_url`
+
+## Real Repository Behavior
 
 In the current workspace:
 
-- the provider admin API can seed demo products
+- the provider admin API can seed realistic demo products
 - the provider can register itself to the commerce catalog
 - the catalog negotiates `ocp.push.batch`
-- the provider then publishes product objects into the catalog
-- full sync runs are recorded and surfaced in the provider admin UI
+- the provider can publish all products or sync one product at a time
+- publish runs are stored in `provider_sync_runs`
+- the provider admin UI shows the last runs, local feed quality, publish readiness, and catalog-side quality feedback
 
-## Important Rule
+## What `publish-to-catalog` Means Right Now
 
-The provider must be active for the selected registration version before sync succeeds.
+`POST /provider/publish-to-catalog` is an orchestration helper in the provider API. It performs:
 
-That rule is what protects the catalog from accepting objects against stale declarations.
+1. `registerToCatalog`
+2. `syncAll`
+
+Its response returns both run records:
+
+- `register_run`
+- `sync_run`
+
+This is important because the flow example is not a theoretical handshake. It is an actual provider-side workflow wrapper over the real registration and sync APIs.
+
+## Quality Feedback Loop
+
+The provider now exposes three different quality views:
+
+- `local_quality`
+  Counts issues in the provider's own product rows, such as missing price, missing image, missing URL, or missing taxonomy.
+- `publish_readiness`
+  Computes whether the provider currently has enough active products to perform a meaningful publish.
+- `catalog_quality`
+  Reads back what the catalog indexed for that provider, including `basic`, `standard`, and `rich` entry counts plus missing-image, missing-URL, and out-of-stock counts.
+
+That makes the provider flow much closer to a real commerce feed lifecycle.
+
+## Important Runtime Rules
+
+- The provider must have an active registration version before object sync succeeds.
+- `out_of_stock` does not mean deletion. The product can remain active and searchable, while ranking and filters decide how it is shown.
+- The selected sync capability is negotiated at registration time. In the current repository that live path is `ocp.push.batch`.
+
+## Why This Flow Matters
+
+The provider example now demonstrates a realistic split of responsibilities:
+
+- the handshake decides whether the provider can meet the catalog's minimum field baseline
+- the provider chooses how rich its declarations and payloads are
+- the catalog decides how to rank, filter, and expose those products after sync
+- the provider admin surface closes the loop by showing whether the feed is merely accepted or actually high quality

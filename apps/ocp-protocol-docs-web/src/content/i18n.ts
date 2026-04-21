@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export type DocsLocale = 'en' | 'zh';
 
@@ -117,7 +117,9 @@ export function withDocsLocale(path: string, locale: DocsLocale): string {
 }
 
 export function useDocsLocale() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const requestedLocale = searchParams.get('lang');
   const locale = requestedLocale ? resolveDocsLocale(requestedLocale) : detectSystemDocsLocale();
 
@@ -128,8 +130,15 @@ export function useDocsLocale() {
 
     const next = new URLSearchParams(searchParams);
     next.set('lang', locale);
-    setSearchParams(next, { replace: true });
-  }, [locale, requestedLocale, searchParams, setSearchParams]);
+    navigate(
+      {
+        pathname: location.pathname,
+        search: `?${next.toString()}`,
+        hash: location.hash,
+      },
+      { replace: true },
+    );
+  }, [locale, location.hash, location.pathname, navigate, requestedLocale, searchParams]);
 
   const api = useMemo(
     () => ({
@@ -137,7 +146,14 @@ export function useDocsLocale() {
       setLocale(nextLocale: DocsLocale) {
         const next = new URLSearchParams(searchParams);
         next.set('lang', nextLocale);
-        setSearchParams(next, { replace: true });
+        navigate(
+          {
+            pathname: location.pathname,
+            search: `?${next.toString()}`,
+            hash: location.hash,
+          },
+          { replace: true },
+        );
       },
       localizePath(path: string) {
         return withDocsLocale(path, locale);
@@ -146,7 +162,7 @@ export function useDocsLocale() {
         return getLocalizedText(label, locale);
       },
     }),
-    [locale, searchParams, setSearchParams],
+    [locale, location.hash, location.pathname, navigate, searchParams],
   );
 
   return api;

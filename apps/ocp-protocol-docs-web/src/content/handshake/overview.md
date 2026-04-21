@@ -58,6 +58,15 @@ GET /.well-known/ocp-catalog
 -> start object sync if the selected capability is catalog-hosted push
 ```
 
+In the current repository, that flow resolves to a concrete commerce path:
+
+```text
+provider guarantees title + price.currency + price.amount + product_url
+-> catalog matches the commerce ObjectContract
+-> catalog selects ocp.push.batch
+-> provider pushes CommercialObject batches with product core, price, and inventory descriptor packs
+```
+
 ## Sync Capability Negotiation
 
 The handshake protocol negotiates sync through named capabilities.
@@ -93,12 +102,11 @@ Inside `CatalogManifest`, the main search contract is expressed through `query_p
   "capability_id": "ocp.commerce.product.search.v1",
   "query_packs": [
     {
-      "pack_id": "ocp.commerce.product.search.v1",
+      "pack_id": "ocp.query.keyword.v1",
       "query_modes": ["keyword", "filter", "semantic", "hybrid"],
       "metadata": {
         "query_hints": {
-          "supported_query_languages": ["en"],
-          "content_languages": ["en"]
+          "supported_query_languages": ["en"]
         }
       }
     }
@@ -113,3 +121,9 @@ That structure remains intentional:
 - extra hints live in `metadata`
 
 The handshake package does not require every catalog to share one protocol-level query classification axis. Query semantics should follow the catalog's own declared contract.
+
+In the current commerce catalog implementation, the full query capability is richer than the minimal fragment above:
+
+- keyword, filter, and hybrid are always exposed
+- semantic is exposed only when an embedding provider is enabled
+- the advertised commerce filters include `category`, `brand`, `currency`, `availability_status`, `provider_id`, `sku`, `min_amount`, `max_amount`, `in_stock_only`, and `has_image`

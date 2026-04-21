@@ -58,6 +58,15 @@ GET /.well-known/ocp-catalog
 -> 如果选中的是 catalog-hosted push，则开始 object sync
 ```
 
+在当前仓库里，这条流程会收敛成一个更具体的 commerce path：
+
+```text
+provider 保证 title + price.currency + price.amount + product_url
+-> catalog 匹配 commerce ObjectContract
+-> catalog 选择 ocp.push.batch
+-> provider 推送带有 product core、price、inventory descriptor pack 的 CommercialObject batch
+```
+
 ## 同步能力协商
 
 握手协议通过命名 capability 协商同步路径。
@@ -93,12 +102,11 @@ GET /.well-known/ocp-catalog
   "capability_id": "ocp.commerce.product.search.v1",
   "query_packs": [
     {
-      "pack_id": "ocp.commerce.product.search.v1",
+      "pack_id": "ocp.query.keyword.v1",
       "query_modes": ["keyword", "filter", "semantic", "hybrid"],
       "metadata": {
         "query_hints": {
-          "supported_query_languages": ["en"],
-          "content_languages": ["en"]
+          "supported_query_languages": ["en"]
         }
       }
     }
@@ -113,3 +121,9 @@ GET /.well-known/ocp-catalog
 - 扩展提示放在 `metadata` 中
 
 handshake package 不要求所有 catalog 共享一个协议级 query 分类轴。query 语义应以 catalog 自己声明的 contract 为准。
+
+在当前 commerce catalog 实现里，真实 query capability 比上面的最小片段更丰富：
+
+- keyword、filter、hybrid 会始终暴露
+- semantic 只会在启用 embedding provider 时暴露
+- 当前声明的 commerce filters 包括 `category`、`brand`、`currency`、`availability_status`、`provider_id`、`sku`、`min_amount`、`max_amount`、`in_stock_only`、`has_image`

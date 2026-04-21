@@ -21,6 +21,14 @@
 - 不直接把 raw tool result 扔给用户
 - 先让 agent 消化 Center 和 Catalog 的返回，再转述给用户
 
+当前仓库里的这条 example 已经比“泛化搜索某个 catalog”更具体：
+
+- Center search 会返回 commerce catalog 的 route hint
+- agent 会用 `query_pack = ocp.commerce.product.search.v1` 去查询 commerce catalog
+- catalog 可以使用 keyword、filter、hybrid，以及启用时的 semantic retrieval
+- query result 现在会带上价格、图片、库存、质量层级等 commerce attributes
+- agent resolve 的是选中的 `entry_id`，而不只是一个 `object_id`
+
 ## 为什么 Center 和 Catalog 要分开
 
 Agent 先解决的是：
@@ -32,3 +40,16 @@ Agent 先解决的是：
 > 这个 Catalog 里我应该展示哪个商品？
 
 这正是协议拆成两层的意义。
+
+## 当前仓库里的真实示例
+
+当前 workspace 中已经验证过的路径是：
+
+```text
+用户说要找 travel headphones
+-> agent 先去 Center 搜索具备 commerce 能力的 catalog
+-> agent 拿到 commerce catalog 的 route hint
+-> agent 用价格、图片、库存感知的排序去查询该 catalog
+-> agent 拿到 rich 和 basic 两类商品候选
+-> agent 再把选中的 entry resolve 成带可见商品字段和 view_product action 的 ResolvableReference
+```

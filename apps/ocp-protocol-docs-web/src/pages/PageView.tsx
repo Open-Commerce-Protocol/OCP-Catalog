@@ -13,11 +13,13 @@ type LayoutContext = {
 };
 
 function slugify(value: string): string {
-  return value
+  const normalized = value
     .toLowerCase()
     .trim()
-    .replace(/[^\w\s-]/g, '')
+    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
     .replace(/\s+/g, '-');
+
+  return normalized || 'section';
 }
 
 function normalizeHeadingText(value: string): string {

@@ -151,8 +151,22 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           catalog_id: 'commerce_catalog_local_dev',
           contracts: [
             {
-              required_fields: ['ocp.commerce.product.core.v1#/title'],
-              optional_fields: ['ocp.commerce.price.v1#/amount'],
+              required_fields: [
+                'ocp.commerce.product.core.v1#/title',
+                'ocp.commerce.price.v1#/currency',
+                'ocp.commerce.price.v1#/amount',
+              ],
+              optional_fields: [
+                'ocp.commerce.product.core.v1#/summary',
+                'ocp.commerce.product.core.v1#/brand',
+                'ocp.commerce.product.core.v1#/category',
+                'ocp.commerce.product.core.v1#/sku',
+                'ocp.commerce.product.core.v1#/product_url',
+                'ocp.commerce.product.core.v1#/image_urls',
+                'ocp.commerce.inventory.v1#/availability_status',
+                'ocp.commerce.inventory.v1#/quantity',
+              ],
+              additional_fields_policy: 'allow',
             },
           ],
         },
@@ -242,7 +256,21 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           },
           object_declarations: [
             {
-              guaranteed_fields: ['ocp.commerce.product.core.v1#/title'],
+              guaranteed_fields: [
+                'ocp.commerce.product.core.v1#/title',
+                'ocp.commerce.price.v1#/currency',
+                'ocp.commerce.price.v1#/amount',
+                'ocp.commerce.product.core.v1#/product_url',
+              ],
+              optional_fields: [
+                'ocp.commerce.product.core.v1#/summary',
+                'ocp.commerce.product.core.v1#/brand',
+                'ocp.commerce.product.core.v1#/category',
+                'ocp.commerce.product.core.v1#/sku',
+                'ocp.commerce.product.core.v1#/image_urls',
+                'ocp.commerce.inventory.v1#/availability_status',
+                'ocp.commerce.inventory.v1#/quantity',
+              ],
               sync: {
                 preferred_capabilities: ['ocp.push.batch'],
                 avoid_capabilities_unless_necessary: [],
@@ -308,19 +336,49 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
               object_id: 'electronics-headphones-001',
               object_type: 'product',
               provider_id: 'commerce_provider_local_dev',
-              title: 'Wireless Noise Cancelling Headphones',
+              title: 'Noise Cancelling Headphones',
+              summary: 'Wireless over-ear headphones with travel case.',
               descriptors: [
                 {
                   pack_id: 'ocp.commerce.product.core.v1',
-                  data: { title: 'Wireless Noise Cancelling Headphones' },
+                  data: {
+                    title: 'Noise Cancelling Headphones',
+                    summary: 'Wireless over-ear headphones with travel case.',
+                    brand: 'North Audio',
+                    category: 'electronics',
+                    sku: 'electronics-headphones-001',
+                    product_url: 'http://localhost:4200/products/electronics-headphones-001',
+                    image_urls: ['https://commerce-provider.example.test/images/electronics-headphones-001.jpg'],
+                    attributes: {
+                      color: 'black',
+                    },
+                  },
+                },
+                {
+                  pack_id: 'ocp.commerce.price.v1',
+                  data: {
+                    currency: 'USD',
+                    amount: 129,
+                    list_amount: 159,
+                    price_type: 'fixed',
+                  },
+                },
+                {
+                  pack_id: 'ocp.commerce.inventory.v1',
+                  data: {
+                    availability_status: 'low_stock',
+                    quantity: 4,
+                  },
                 },
               ],
             },
           ],
         },
         response: {
+          kind: 'ObjectSyncResult',
           accepted_count: 1,
           rejected_count: 0,
+          status: 'accepted',
         },
       },
     ],
@@ -356,7 +414,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/providers/register',
         response: {
           kind: 'RegistrationResult',
-          status: 'accepted_limited',
+          status: 'accepted_full',
           effective_registration_version: 3,
           matched_object_contract_count: 1,
           selected_sync_capability: {
@@ -364,7 +422,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
             reason: 'provider_preferred_and_supported_by_catalog',
           },
           missing_required_fields: [],
-          warnings: ['Semantic search hints unavailable for this provider declaration.'],
+          warnings: [],
         },
       },
     ],
@@ -487,7 +545,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/catalogs/search',
         request: {
-          query: 'wireless noise cancelling headphones',
+          query: 'travel headphones under 150 with image',
           filters: {
             query_pack: 'ocp.commerce.product.search.v1',
           },
@@ -645,22 +703,51 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/query',
         request: {
-          query: 'wireless noise cancelling headphones',
+          kind: 'CatalogQueryRequest',
+          query: 'travel headphones',
           query_pack: 'ocp.commerce.product.search.v1',
           query_mode: 'hybrid',
           filters: {
-            object_type: 'product',
-            availability_status: 'in_stock',
+            category: 'electronics',
+            in_stock_only: true,
+            has_image: true,
+            min_amount: 100,
+            max_amount: 150,
           },
+          explain: true,
         },
         response: {
+          kind: 'CatalogQueryResult',
+          query_mode: 'hybrid',
           result_count: 3,
           items: [
             {
+              entry_id: 'centry_01_example',
+              provider_id: 'commerce_provider_local_dev',
               object_id: 'electronics-headphones-001',
-              title: 'Wireless Noise Cancelling Headphones',
+              title: 'Noise Cancelling Headphones',
               score: 0.97,
+              attributes: {
+                category: 'electronics',
+                brand: 'North Audio',
+                sku: 'electronics-headphones-001',
+                amount: 129,
+                list_amount: 159,
+                availability_status: 'low_stock',
+                primary_image_url: 'https://commerce-provider.example.test/images/electronics-headphones-001.jpg',
+                quality_tier: 'rich',
+                has_image: true,
+                discount_present: true,
+              },
+              explain: [
+                'Using query_mode: hybrid.',
+                'Matched category filter: electronics.',
+                'Applied semantic ANN shortlist with exact cosine rerank.',
+              ],
             },
+          ],
+          explain: [
+            'Returned commerce product entries ranked with keyword, filter, and quality signals.',
           ],
         },
       },
@@ -669,12 +756,33 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/resolve',
         request: {
-          object_id: 'electronics-headphones-001',
-          action_id: 'view_product',
+          kind: 'ResolveRequest',
+          entry_id: 'centry_01_example',
         },
         response: {
-          action_id: 'view_product',
-          url: 'http://localhost:4200/products/electronics-headphones-001',
+          kind: 'ResolvableReference',
+          entry_id: 'centry_01_example',
+          object_id: 'electronics-headphones-001',
+          title: 'Noise Cancelling Headphones',
+          visible_attributes: {
+            category: 'electronics',
+            brand: 'North Audio',
+            amount: 129,
+            list_amount: 159,
+            availability_status: 'low_stock',
+            primary_image_url: 'https://commerce-provider.example.test/images/electronics-headphones-001.jpg',
+            quality_tier: 'rich',
+            discount_present: true,
+          },
+          action_bindings: [
+            {
+              action_id: 'view_product',
+              action_type: 'url',
+              label: 'View product',
+              url: 'http://localhost:4200/products/electronics-headphones-001',
+              method: 'GET',
+            },
+          ],
         },
       },
     ],
@@ -706,16 +814,71 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           registration_version: 3,
         },
         response: {
-          registration: {
-            status: 'accepted_full',
-            selected_sync_capability: {
-              capability_id: 'ocp.push.batch',
-              reason: 'provider_preferred_and_supported_by_catalog',
+          provider_id: 'commerce_provider_local_dev',
+          registration_version: 3,
+          status: 'succeeded',
+          register_run: {
+            runType: 'register',
+            status: 'succeeded',
+            registrationVersion: 3,
+            resultPayload: {
+              status: 'accepted_full',
+              selected_sync_capability: {
+                capability_id: 'ocp.push.batch',
+                reason: 'provider_preferred_and_supported_by_catalog',
+              },
             },
           },
-          sync: {
-            accepted_count: 5,
-            rejected_count: 0,
+          sync_run: {
+            runType: 'sync_all',
+            status: 'succeeded',
+            registrationVersion: 3,
+            resultPayload: {
+              accepted_count: 5,
+              rejected_count: 0,
+              status: 'accepted',
+            },
+          },
+        },
+      },
+      {
+        title: { en: 'Inspect provider status and quality feedback', zh: '查看 provider 状态与质量反馈' },
+        method: 'GET',
+        path: '/provider/status',
+        headers: {
+          'x-admin-key': '<provider-admin-key>',
+        },
+        response: {
+          provider_id: 'commerce_provider_local_dev',
+          catalog_id: 'commerce_catalog_local_dev',
+          status: 'active',
+          active_registration_version: 3,
+          next_registration_version: 4,
+          local_quality: {
+            product_count: 5,
+            ready_for_publish_count: 5,
+            missing_price_count: 0,
+            missing_list_price_count: 1,
+            missing_product_url_count: 0,
+            missing_image_count: 0,
+            missing_brand_or_category_count: 0,
+            out_of_stock_count: 0,
+            active_count: 5,
+          },
+          publish_readiness: {
+            ready: true,
+            blocking_issues: [],
+            warnings: ['1 product(s) have no useful list price.'],
+          },
+          catalog_quality: {
+            object_count: 5,
+            active_entry_count: 5,
+            rich_entry_count: 4,
+            standard_entry_count: 1,
+            basic_entry_count: 0,
+            missing_image_count: 0,
+            missing_product_url_count: 0,
+            out_of_stock_count: 0,
           },
         },
       },
@@ -738,11 +901,11 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/agent/turn',
         request: {
-          message: 'I want wireless noise cancelling headphones',
+          message: 'I want travel headphones under 150 with images',
           localCatalogProfiles: [],
         },
         response: {
-          reply: 'I found a commerce catalog that can search products. Do you want to register it locally?',
+          reply: 'I found a commerce catalog that can search products with price and availability filters. Do you want to register it locally?',
           state: {
             pendingCatalogRegistration: {
               catalog_id: 'commerce_catalog_local_dev',

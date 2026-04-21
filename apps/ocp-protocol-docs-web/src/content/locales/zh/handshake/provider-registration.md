@@ -48,7 +48,18 @@ Provider 会在这些时机提交 registration：
     {
       "guaranteed_fields": [
         "ocp.commerce.product.core.v1#/title",
-        "ocp.commerce.price.v1#/amount"
+        "ocp.commerce.price.v1#/currency",
+        "ocp.commerce.price.v1#/amount",
+        "ocp.commerce.product.core.v1#/product_url"
+      ],
+      "optional_fields": [
+        "ocp.commerce.product.core.v1#/summary",
+        "ocp.commerce.product.core.v1#/brand",
+        "ocp.commerce.product.core.v1#/category",
+        "ocp.commerce.product.core.v1#/sku",
+        "ocp.commerce.product.core.v1#/image_urls",
+        "ocp.commerce.inventory.v1#/availability_status",
+        "ocp.commerce.inventory.v1#/quantity"
       ],
       "sync": {
         "preferred_capabilities": ["ocp.push.batch"],
@@ -67,7 +78,11 @@ Provider registration 需要同时匹配 catalog 发布的 `ObjectContract` 和 
 在 commerce catalog 示例中，registration 只有在以下条件满足时才会成功：
 
 - 必需字段 `ocp.commerce.product.core.v1#/title`
+- 必需字段 `ocp.commerce.price.v1#/currency`
+- 必需字段 `ocp.commerce.price.v1#/amount`
 - 至少存在一个和 catalog 互相支持的 sync capability
+
+在当前仓库里，live provider 实现通常会比这个最低门槛再强一些，还会保证 `product_url`，因为它要产出的是可 resolve 的商品结果，而不只是勉强通过接入校验。
 
 在协议层，catalog 按以下 contract 条件匹配 declaration：
 
@@ -97,6 +112,17 @@ Provider registration 需要同时匹配 catalog 发布的 `ObjectContract` 和 
 - 通过 catalog sync API 做 batched object sync
 
 像 `ocp.feed.url` 这样的保留能力，应在 provider-hosted endpoint 和 catalog pull path 都实现后再由 provider 声明。
+
+## 当前仓库里的真实运行路径
+
+当前 provider API 同时暴露了底层路径和编排路径：
+
+- `POST /provider/register-to-catalog`
+- `POST /provider/sync-to-catalog`
+- `POST /provider/sync-product/:id`
+- `POST /provider/publish-to-catalog`
+
+其中 `publish-to-catalog` 是仓库里的“先注册，再同步全部商品”的便捷路径，provider admin UI 当前就是围绕这条 operator flow 构建的。
 
 ## 版本规则
 

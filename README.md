@@ -139,7 +139,7 @@ packages/
   - API endpoint 示例
   - 仓库实现映射
 
-实现总览见 [docs/implementation-overview.md](./docs/implementation-overview.md)。
+协议与设计文档见 `docs/` 下的正式协议稿与设计稿。
 
 ## 当前示例 Catalog 是什么
 
@@ -151,23 +151,61 @@ packages/
 - 商品搜索和 resolve
 - Provider 注册与内容同步
 
+当前这个 commerce catalog 的真实接入基线已经不再是“只有 title 就能进”。
+
+当前 live object contract 最低要求：
+
+- `ocp.commerce.product.core.v1#/title`
+- `ocp.commerce.price.v1#/currency`
+- `ocp.commerce.price.v1#/amount`
+
+当前 provider 默认 registration 还会额外保证：
+
+- `ocp.commerce.product.core.v1#/product_url`
+
+也就是说，当前仓库里的 commerce 示例已经明确朝“可消费商品目录”收敛，而不是只演示一个抽象对象索引。
+
 它的 profile 和 query capability 当前会声明：
 
 - 支持的 query modes：`keyword`、`filter`、`hybrid`
 - 开启 embedding 时还支持：`semantic`
 - 支持的 query packs：
-  - `ocp.commerce.product.search.v1`
   - `ocp.query.keyword.v1`
   - `ocp.query.filter.v1`
   - 可选 `ocp.query.semantic.v1`
 - `supported_query_languages: ["en"]`
 - `content_languages: ["en"]`
+- `filter_fields`
+  - `category`
+  - `brand`
+  - `currency`
+  - `availability_status`
+  - `provider_id`
+  - `sku`
+  - `min_amount`
+  - `max_amount`
+  - `in_stock_only`
+  - `has_image`
 
 provider-facing sync capability 当前会声明：
 
 - `ocp.push.batch`
 
 之所以显式声明英文能力，是因为当前 catalog 内的样例商品内容主要是英文；用户侧 agent 会在需要时把中文购物意图转换成英文检索短语，再调用 catalog。
+
+当前 commerce catalog 返回的结果也不再只是标题列表，而是围绕真实商品目录信号建模：
+
+- 价格与对比价
+- 主图
+- 库存状态与数量
+- `quality_tier`
+- resolve 后的 `view_product` action
+
+provider 侧也会回流质量反馈：
+
+- `local_quality`
+- `publish_readiness`
+- `catalog_quality`
 
 ## 索引和检索机制
 
@@ -192,6 +230,10 @@ CommercialObject
   - `brand`
   - `currency`
   - `availability_status`
+  - `sku`
+  - `min_amount` / `max_amount`
+  - `in_stock_only`
+  - `has_image`
 - keyword 检索基于 `search_text`
 - hybrid 检索会融合 keyword 和 semantic 分数
 - semantic 检索使用 `pgvector`
@@ -205,7 +247,7 @@ CommercialObject
 ANN shortlist -> exact cosine rerank -> final merge/rank
 ```
 
-具体实现细节见 [docs/implementation-overview.md](./docs/implementation-overview.md)。
+实现边界和协议约束优先参考 `README.md`、`docs/ocp_catalog_handshake_protocol_v1.md`、`docs/ocp_catalog_center_protocol_v1.md`。
 
 ## 快速开始
 
@@ -311,7 +353,6 @@ bun run test
 
 ## 主要文档
 
-- [docs/implementation-overview.md](./docs/implementation-overview.md)
 - [docs/repo-architecture.md](./docs/repo-architecture.md)
 - [docs/ocp_catalog_center_protocol_v1.md](./docs/ocp_catalog_center_protocol_v1.md)
 - [docs/ocp_catalog_handshake_protocol_v1.md](./docs/ocp_catalog_handshake_protocol_v1.md)

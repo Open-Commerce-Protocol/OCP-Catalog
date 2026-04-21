@@ -48,7 +48,18 @@ A provider submits a registration:
     {
       "guaranteed_fields": [
         "ocp.commerce.product.core.v1#/title",
-        "ocp.commerce.price.v1#/amount"
+        "ocp.commerce.price.v1#/currency",
+        "ocp.commerce.price.v1#/amount",
+        "ocp.commerce.product.core.v1#/product_url"
+      ],
+      "optional_fields": [
+        "ocp.commerce.product.core.v1#/summary",
+        "ocp.commerce.product.core.v1#/brand",
+        "ocp.commerce.product.core.v1#/category",
+        "ocp.commerce.product.core.v1#/sku",
+        "ocp.commerce.product.core.v1#/image_urls",
+        "ocp.commerce.inventory.v1#/availability_status",
+        "ocp.commerce.inventory.v1#/quantity"
       ],
       "sync": {
         "preferred_capabilities": ["ocp.push.batch"],
@@ -67,7 +78,11 @@ The provider registration is matched against the catalog's published `ObjectCont
 In the commerce catalog example, the registration succeeds only if the declaration can satisfy:
 
 - required field `ocp.commerce.product.core.v1#/title`
+- required field `ocp.commerce.price.v1#/currency`
+- required field `ocp.commerce.price.v1#/amount`
 - at least one mutually supported sync capability
+
+In the current repository, the live provider implementation usually goes beyond that minimum and also guarantees `product_url`, because the provider is trying to produce resolvable commerce results rather than just pass the acceptance gate.
 
 At the protocol layer, the catalog matches declarations by contract requirements:
 
@@ -97,6 +112,17 @@ The example sync path is:
 - batched object sync over the catalog sync API
 
 Reserved capabilities such as `ocp.feed.url` should be declared only when the provider-hosted endpoint and the catalog pull path are both implemented.
+
+## Current Runtime Behavior In This Repository
+
+The current provider API exposes both low-level and orchestrated paths:
+
+- `POST /provider/register-to-catalog`
+- `POST /provider/sync-to-catalog`
+- `POST /provider/sync-product/:id`
+- `POST /provider/publish-to-catalog`
+
+`publish-to-catalog` is the repository's convenience path for "register, then sync all", and the provider admin UI uses it as the main operator flow.
 
 ## Version Rule
 

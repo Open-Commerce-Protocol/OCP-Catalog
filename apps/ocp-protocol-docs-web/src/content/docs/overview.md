@@ -61,6 +61,14 @@ Catalog startup
 -> Agent resolves a chosen result
 ```
 
+The current live example behind that path is specifically a commerce product catalog:
+
+- the catalog's minimum object contract requires `title + price.currency + price.amount`
+- the provider's default registration also guarantees `product_url`
+- synced products are projected into commerce search entries with price, image, availability, and quality signals
+- the provider admin flow surfaces `local_quality`, `publish_readiness`, and `catalog_quality`
+- semantic and hybrid retrieval are part of the verified implementation path when embeddings are enabled
+
 ## Design Notes
 
 The current implementation follows two important conventions.
@@ -76,16 +84,23 @@ Example:
   "query_packs": [
     {
       "pack_id": "ocp.commerce.product.search.v1",
-      "query_modes": ["keyword", "filter", "semantic", "hybrid"],
+      "query_modes": ["keyword", "hybrid"],
       "metadata": {
         "query_hints": {
-          "supported_query_languages": ["en"]
+          "supported_query_languages": ["en"],
+          "filter_fields": ["category", "brand", "currency", "availability_status", "provider_id", "sku", "min_amount", "max_amount", "in_stock_only", "has_image"]
         }
       }
     }
   ]
 }
 ```
+
+The real commerce manifest in this repository actually publishes multiple query packs under the same capability:
+
+- `ocp.query.keyword.v1`
+- `ocp.query.filter.v1`
+- `ocp.query.semantic.v1` when embeddings are enabled
 
 ### Optional Hints Live in Metadata
 

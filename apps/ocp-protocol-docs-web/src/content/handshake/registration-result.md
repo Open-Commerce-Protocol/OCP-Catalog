@@ -49,3 +49,16 @@ It tells the provider:
 - whether the active version changed
 
 That feedback is what a provider admin UI should surface before attempting full sync.
+
+## Current Repository Behavior
+
+In the current commerce provider example, the successful path is typically:
+
+- `status = "accepted_full"`
+- `matched_object_contract_count = 1`
+- `selected_sync_capability.capability_id = "ocp.push.batch"`
+- `warnings = []`
+
+That accepted result is then recorded in the provider-side run log before the provider starts `sync_all`.
+
+The schema still supports `accepted_limited`, but the current commerce catalog/provider pair is intentionally configured to hit a stronger fully accepted path when the provider sends its default registration declaration.

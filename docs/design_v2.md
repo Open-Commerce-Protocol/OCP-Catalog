@@ -5,7 +5,8 @@
 > 当前仓库的真实实现状态请优先参考：
 >
 > - [../README.md](../README.md)
-> - [implementation-overview.md](./implementation-overview.md)
+> - [ocp_catalog_handshake_protocol_v1.md](./ocp_catalog_handshake_protocol_v1.md)
+> - [ocp_catalog_center_protocol_v1.md](./ocp_catalog_center_protocol_v1.md)
 >
 > 当前已落地的是 Phase 1 可运行闭环，包含：
 >

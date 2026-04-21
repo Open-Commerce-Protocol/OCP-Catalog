@@ -65,12 +65,19 @@ ocp.commerce.price.v1#/amount
 ```json
 {
   "required_fields": [
-    "ocp.commerce.product.core.v1#/title"
+    "ocp.commerce.product.core.v1#/title",
+    "ocp.commerce.price.v1#/currency",
+    "ocp.commerce.price.v1#/amount"
   ],
   "optional_fields": [
     "ocp.commerce.product.core.v1#/summary",
-    "ocp.commerce.price.v1#/amount",
-    "ocp.commerce.inventory.v1#/availability_status"
+    "ocp.commerce.product.core.v1#/brand",
+    "ocp.commerce.product.core.v1#/category",
+    "ocp.commerce.product.core.v1#/sku",
+    "ocp.commerce.product.core.v1#/product_url",
+    "ocp.commerce.product.core.v1#/image_urls",
+    "ocp.commerce.inventory.v1#/availability_status",
+    "ocp.commerce.inventory.v1#/quantity"
   ],
   "additional_fields_policy": "allow"
 }
@@ -79,5 +86,11 @@ ocp.commerce.price.v1#/amount
 因此最小注册条件是：
 
 - 保证 `ocp.commerce.product.core.v1#/title`
+- 保证 `ocp.commerce.price.v1#/currency`
+- 保证 `ocp.commerce.price.v1#/amount`
+
+当前仓库里的 provider 示例实际上还会额外保证 `ocp.commerce.product.core.v1#/product_url`。
+
+这属于实现选择，而不是协议强制要求。catalog 发布的是自己做 commerce 索引所需的最低条件，而 provider 可以承诺更丰富的 payload。
 
 同步传输路径通过 `sync_capabilities` 单独协商。
