@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const userDemoAgentApiBaseUrl = env.VITE_USER_DEMO_AGENT_API_BASE_URL || 'http://localhost:4230';
 
   return {
+    envDir: '../../../',
     plugins: [react()],
     build: {
       outDir: '../ocp-user-demo-api/public/dist',

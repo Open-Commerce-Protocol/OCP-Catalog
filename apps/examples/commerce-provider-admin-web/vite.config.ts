@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   const providerAdminPort = Number(env.PROVIDER_ADMIN_UI_PORT || 4210);
 
   return {
+    envDir: '../../../',
     plugins: [react()],
     build: {
       outDir: '../commerce-provider-api/public/dist',

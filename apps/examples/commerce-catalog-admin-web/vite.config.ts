@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   const catalogAdminPort = Number(env.CATALOG_ADMIN_UI_PORT || 4240);
 
   return {
+    envDir: '../../../',
     plugins: [react(), tailwindcss()],
     build: {
       outDir: '../commerce-catalog-api/public/dist',
