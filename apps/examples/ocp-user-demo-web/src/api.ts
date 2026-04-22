@@ -104,7 +104,6 @@ const userDemoApiPrefix = '/api/user-demo';
 
 export async function searchCenter(input: {
   query: string;
-  queryMode?: string;
   queryPack?: string;
   verificationStatus?: string;
   supportsResolve?: boolean;
@@ -116,7 +115,6 @@ export async function searchCenter(input: {
       kind: 'CatalogSearchRequest',
       query: input.query,
       filters: {
-        ...(input.queryMode ? { query_mode: input.queryMode } : {}),
         ...(input.queryPack ? { query_pack: input.queryPack } : {}),
         ...(input.verificationStatus ? { verification_status: input.verificationStatus } : {}),
         ...(input.supportsResolve !== undefined ? { supports_resolve: input.supportsResolve } : {}),
@@ -131,19 +129,17 @@ export async function searchCenter(input: {
 
 export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | null, input: {
   query: string;
-  queryMode?: string;
   queryPack?: string;
   filters?: Record<string, string | number | boolean>;
 }) {
   const queryUrl = routeHint?.query_url || fallbackCatalogQueryUrl;
-  return request<{ items: CatalogQueryItem[]; explain: string[]; query_mode: string }>(queryUrl, {
+  return request<{ items: CatalogQueryItem[]; explain: string[] }>(queryUrl, {
     method: 'POST',
     body: {
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: routeHint?.catalog_id,
       query_pack: input.queryPack || undefined,
-      query_mode: input.queryMode || undefined,
       query: input.query,
       filters: input.filters || {},
       limit: 12,
@@ -168,7 +164,6 @@ export async function resolveEntry(routeHint: CatalogSearchItem['route_hint'] | 
 export async function runAgentRoute(input: {
   centerQuery: string;
   catalogQuery: string;
-  queryMode?: string;
   queryPack?: string;
 }) {
   const timeline: string[] = [];
@@ -176,7 +171,6 @@ export async function runAgentRoute(input: {
   timeline.push('Searching OCP Center for candidate catalogs.');
   const center = await searchCenter({
     query: input.centerQuery,
-    queryMode: input.queryMode,
     queryPack: input.queryPack,
     verificationStatus: 'verified',
     supportsResolve: true,
@@ -191,7 +185,6 @@ export async function runAgentRoute(input: {
 
   const catalog = await queryCatalog(selectedCatalog.route_hint, {
     query: input.catalogQuery,
-    queryMode: input.queryMode,
     queryPack: input.queryPack,
     filters: {},
   });

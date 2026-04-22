@@ -148,7 +148,7 @@ export class CatalogRegistryService {
         homepage: registration.homepage,
         wellKnownUrl: registration.well_known_url,
         claimedDomains: registration.claimed_domains,
-        operator: registration.operator as Record<string, unknown>,
+        operator: (registration.operator ?? {}) as Record<string, unknown>,
       })
       .onConflictDoUpdate({
         target: [schema.registeredCatalogs.centerId, schema.registeredCatalogs.catalogId],
@@ -165,7 +165,7 @@ export class CatalogRegistryService {
           homepage: registration.homepage,
           wellKnownUrl: registration.well_known_url,
           claimedDomains: registration.claimed_domains,
-          operator: registration.operator as Record<string, unknown>,
+          operator: (registration.operator ?? {}) as Record<string, unknown>,
           updatedAt: new Date(),
         },
       });
@@ -784,7 +784,6 @@ function matchesCatalogFilters(
   projection: Record<string, unknown>,
   filters: Record<string, unknown>,
 ) {
-  if (filters.query_mode && !row.supportedQueryModes.includes(String(filters.query_mode))) return false;
   if (filters.query_pack && !row.supportedQueryPacks.includes(String(filters.query_pack))) return false;
   if (filters.supports_resolve !== undefined && Boolean(row.supportsResolve) !== filters.supports_resolve) return false;
   if (filters.verification_status && row.verificationStatus !== filters.verification_status) return false;
@@ -819,7 +818,6 @@ function explainCatalog(
 ) {
   const explain: string[] = [];
   if (terms.length > 0) explain.push(`Catalog metadata keyword score ${score} from term(s): ${terms.join(', ')}.`);
-  if (filters.query_mode) explain.push(`Catalog supports query_mode ${filters.query_mode}.`);
   if (row.verificationStatus === 'verified') explain.push('Catalog domain is verified.');
   if (row.healthStatus === 'healthy') explain.push('Catalog query endpoint is healthy.');
   return explain.length ? explain : ['Matched active catalog index entry.'];

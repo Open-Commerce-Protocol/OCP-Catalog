@@ -17,6 +17,8 @@ catalog admin 提交 CatalogRegistration
 -> 后续 refresh 会重新拉 discovery / manifest，并更新 active snapshot
 ```
 
+在当前实现里，`operator` 只是可选元数据。一个 catalog 真正必须做到的是：声明自己的 `catalog_id`、暴露 discovery / manifest / query，并在 Center 要求时证明域名控制权。
+
 ## 当前实现实际会持久化什么
 
 当前 Center runtime 不是只存一条 registration 行，而是会分层持久化：

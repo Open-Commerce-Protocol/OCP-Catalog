@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), tailwindcss()],
     build: {
-      outDir: '../commerce-catalog-api/public/catalog-admin',
+      outDir: '../commerce-catalog-api/public/dist',
       emptyOutDir: true,
     },
     server: {

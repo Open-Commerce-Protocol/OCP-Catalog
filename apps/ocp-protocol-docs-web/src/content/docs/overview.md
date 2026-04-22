@@ -113,6 +113,7 @@ This keeps the protocol stable while still giving agents useful planning hints.
 - Start with [Roles](/roles)
 - If you want to build quickly, read [Getting Started](/getting-started)
 - If you have practical onboarding questions, read [FAQ](/faq)
+- If you want the smallest concrete implementation, read [Minimal Catalog](/examples/minimal-catalog) and [Minimal Provider](/examples/minimal-provider)
 - Then read the Handshake overview
 - Then read the Center overview
 - Finally inspect the example flows

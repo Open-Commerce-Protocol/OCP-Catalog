@@ -140,7 +140,6 @@ describe('commerce catalog semantic integration', () => {
       explain: true,
     });
 
-    expect(semanticResult.query_mode).toBe('semantic');
     expect(semanticResult.items).toHaveLength(1);
     expect(semanticResult.items[0]?.title).toContain(providerId);
     expect(semanticResult.items[0]?.attributes.quality_tier).toBe('rich');
@@ -158,7 +157,6 @@ describe('commerce catalog semantic integration', () => {
       explain: true,
     });
 
-    expect(hybridResult.query_mode).toBe('hybrid');
     expect(hybridResult.items.length).toBeGreaterThanOrEqual(2);
     expect(hybridResult.items[0]?.attributes.quality_tier).toBe('rich');
     expect(hybridResult.items[0]?.score).toBeGreaterThan(hybridResult.items[1]?.score ?? 0);

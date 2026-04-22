@@ -90,7 +90,6 @@ export type CatalogQueryItem = {
 };
 
 export type CatalogQueryResult = {
-  query_mode: string;
   result_count: number;
   items: CatalogQueryItem[];
   explain: string[];
@@ -242,7 +241,6 @@ export async function fetchCatalogContracts() {
 export async function runCatalogQuery(input: {
   catalogId: string;
   query: string;
-  queryMode?: 'keyword' | 'filter' | 'semantic' | 'hybrid';
   queryPack?: string;
   filters?: Record<string, unknown>;
   limit?: number;
@@ -256,7 +254,6 @@ export async function runCatalogQuery(input: {
       kind: 'CatalogQueryRequest',
       catalog_id: input.catalogId,
       query: input.query,
-      query_mode: input.queryMode,
       query_pack: input.queryPack,
       filters: input.filters ?? {},
       limit: input.limit ?? 12,

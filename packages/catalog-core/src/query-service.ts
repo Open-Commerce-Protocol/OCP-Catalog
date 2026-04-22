@@ -29,10 +29,10 @@ export class QueryService {
 
   async query(input: unknown, meta: QueryMeta = {}): Promise<CatalogQueryResult> {
     const request = catalogQueryRequestSchema.parse(input);
-    const queryMode = request.query_mode ?? inferQueryMode(request.query, request.filters);
+    const queryMode = inferQueryModeForRequest(this.scenario, request.query_pack, request.query, request.filters);
     validateQueryCapability(this.scenario, request.query_pack, queryMode);
     if (queryMode === 'semantic' && !this.embeddings) {
-      throw new AppError('validation_error', 'semantic query_mode is not enabled for this Catalog yet', 400);
+      throw new AppError('validation_error', 'semantic query capability is not enabled for this Catalog yet', 400);
     }
 
     const catalogId = request.catalog_id ?? this.config.CATALOG_ID;
@@ -106,14 +106,13 @@ export class QueryService {
       id: newId('qres'),
       catalog_id: catalogId,
       ...(request.query_pack ? { query_pack: request.query_pack } : {}),
-      query_mode: queryMode,
       query: request.query,
       result_count: items.length,
       items,
       explain: request.explain
         ? [
           `Scanned ${rows.length} candidate catalog entries after indexed filtering.`,
-          `Using query_mode: ${queryMode}.`,
+          `Inferred query strategy: ${queryMode}.`,
           ...(usesSemanticScore ? ['Applied semantic ANN shortlist with exact cosine rerank.'] : []),
           `Applied filters: ${Object.keys(request.filters).length ? Object.keys(request.filters).join(', ') : 'none'}.`,
           `Returned top ${items.length} result(s).`,
@@ -165,7 +164,7 @@ function validateQueryCapability(
   ].filter((value): value is string => Boolean(value))));
 
   if (!supportedModes.has(requestedMode)) {
-    throw new AppError('validation_error', `Unsupported query_mode: ${requestedMode}`, 400, {
+    throw new AppError('validation_error', `Unsupported query strategy: ${requestedMode}`, 400, {
       supported_query_modes: [...supportedModes],
     });
   }
@@ -175,6 +174,24 @@ function validateQueryCapability(
       supported_query_packs: [...supportedPacks],
     });
   }
+}
+
+function inferQueryModeForRequest(
+  scenario: CatalogScenarioModule,
+  requestedPack: string | undefined,
+  query: string,
+  filters: CatalogQueryRequest['filters'],
+) {
+  if (!requestedPack) return inferQueryMode(query, filters);
+
+  const packModes = queryModesForPack(scenario, requestedPack);
+  if (packModes.includes('semantic')) return 'semantic' as const;
+  if (packModes.includes('hybrid') && query.trim() && Object.values(filters).some(Boolean)) return 'hybrid' as const;
+  if (packModes.includes('filter') && !query.trim()) return 'filter' as const;
+  if (packModes.includes('keyword')) return 'keyword' as const;
+  if (packModes.includes('hybrid')) return 'hybrid' as const;
+  if (packModes.includes('filter')) return 'filter' as const;
+  return inferQueryMode(query, filters);
 }
 
 function tokenize(query: string) {
@@ -268,6 +285,14 @@ function queryModesFromCapability(capability: Record<string, unknown>) {
 
 function queryPackIdsFromCapability(capability: Record<string, unknown>) {
   return queryPackDescriptors(capability).map((descriptor) => descriptor.pack_id);
+}
+
+function queryModesForPack(scenario: CatalogScenarioModule, requestedPack: string) {
+  return scenario
+    .queryCapabilities()
+    .flatMap((capability) => queryPackDescriptors(capability))
+    .filter((descriptor) => descriptor.pack_id === requestedPack)
+    .flatMap((descriptor) => descriptor.query_modes);
 }
 
 function queryPackDescriptors(capability: Record<string, unknown>) {

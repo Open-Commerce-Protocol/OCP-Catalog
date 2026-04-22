@@ -207,7 +207,6 @@ export class UserDemoAgentService {
     const nextSession = buildNextSession(plan, request.user_input);
     const result = await this.queryCatalog(selectedProfile.route_hint, {
       query: nextSession.baseIntent,
-      query_mode: nextSession.queryMode ?? 'keyword',
       query_pack: nextSession.queryPack,
       filters: nextSession.activeFilters,
     });
@@ -227,7 +226,6 @@ export class UserDemoAgentService {
     const request = confirmRegistrationRequestSchema.parse(input);
     const result = await this.queryCatalog(request.pending_catalog.route_hint, {
       query: request.session.baseIntent,
-      query_mode: request.session.queryMode ?? 'keyword',
       query_pack: request.session.queryPack,
       filters: request.session.activeFilters,
     });
@@ -398,7 +396,6 @@ export class UserDemoAgentService {
     routeHint: SavedCatalogProfile['route_hint'] | CatalogSearchItem['route_hint'],
     request: {
       query: string;
-      query_mode: 'keyword' | 'filter' | 'semantic' | 'hybrid';
       query_pack?: string;
       filters: QuerySession['activeFilters'];
     },
@@ -408,7 +405,6 @@ export class UserDemoAgentService {
       kind: 'CatalogQueryRequest',
       catalog_id: routeHint.catalog_id,
       query_pack: request.query_pack,
-      query_mode: request.query_mode,
       query: request.query,
       filters: request.filters,
       limit: 12,

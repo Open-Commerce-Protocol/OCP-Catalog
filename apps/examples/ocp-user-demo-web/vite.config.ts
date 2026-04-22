@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     build: {
-      outDir: '../ocp-user-demo-api/public/user-demo',
+      outDir: '../ocp-user-demo-api/public/dist',
       emptyOutDir: true,
     },
     server: {
@@ -19,7 +19,6 @@ export default defineConfig(({ mode }) => {
         '/api/user-demo': {
           target: userDemoAgentApiBaseUrl,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/user-demo/, ''),
         },
       },
     },

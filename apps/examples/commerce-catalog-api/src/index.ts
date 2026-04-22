@@ -21,7 +21,7 @@ const embeddingService = embeddingProvider
 const services = createCatalogServices(db, config, commerceCatalogScenario, {
   embeddings: embeddingService,
 });
-const catalogAdminSite = createSpaStaticSiteHandler(new URL('../public/catalog-admin', import.meta.url).pathname);
+const catalogAdminSite = createSpaStaticSiteHandler(new URL('../public/dist', import.meta.url).pathname);
 
 const app = new Elysia()
   .use(cors())
@@ -136,7 +136,7 @@ const app = new Elysia()
 
 console.log(`Commerce Catalog API listening on http://localhost:${app.server?.port}`);
 if (await catalogAdminSite('/')) {
-  console.log(`Commerce Catalog Admin static site mounted from apps/examples/commerce-catalog-api/public/catalog-admin`);
+  console.log('Commerce Catalog Admin static site mounted from apps/examples/commerce-catalog-api/public/dist');
 }
 
 function assertWriteAuth(headers: Record<string, string | undefined>) {
@@ -335,11 +335,6 @@ async function registerCatalogInCenter() {
     homepage: config.CATALOG_PUBLIC_BASE_URL,
     well_known_url: `${config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '')}/.well-known/ocp-catalog`,
     claimed_domains: [hostname],
-    operator: {
-      operator_id: 'catalog_admin_console',
-      display_name: `${config.CATALOG_NAME} Operator`,
-      contact_email: config.COMMERCE_PROVIDER_CONTACT_EMAIL,
-    },
     intended_visibility: 'public',
     tags: ['commerce', 'demo'],
   });

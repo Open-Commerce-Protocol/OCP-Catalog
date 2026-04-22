@@ -12,8 +12,7 @@
     "updated_at",
     "homepage",
     "well_known_url",
-    "claimed_domains",
-    "operator"
+    "claimed_domains"
   ],
   "properties": {
     "ocp_version": {

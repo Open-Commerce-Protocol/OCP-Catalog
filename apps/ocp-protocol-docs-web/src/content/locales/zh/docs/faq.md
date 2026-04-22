@@ -103,6 +103,12 @@ OCP 不是围绕一个强制性的全局 Center 设计的：
 
 如果它还想支持 provider 接入，那就进一步支持 provider registration 和 object sync。
 
+这份文档里已经补了一个最小可实现例子，见 [快速接入](/getting-started) 里的 `hello_catalog`：
+
+- 只有一个布尔字段 `example_filed`
+- query 总是返回一个确定性的固定对象
+- 然后再用一条 catalog registration 请求把它注册到 Center
+
 ## 我能构建的最小可用 Provider 是什么样？
 
 一个很小的 provider 只要能做到这些，就已经能参与：
@@ -145,6 +151,8 @@ register
 建议从这里开始：
 
 - [快速接入](/getting-started)
+- [最小 Catalog](/examples/minimal-catalog)
+- [最小 Provider](/examples/minimal-provider)
 - [角色](/roles)
-- [提供方流程](/example/provider-flow)
-- [Center 流程](/example/center-flow)
+- [提供方流程](/examples/provider-flow)
+- [Center 流程](/examples/center-flow)

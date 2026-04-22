@@ -25,6 +25,12 @@
 
 - `/ocp/resolve`
 
+相关协议页建议一起看：
+
+- [CatalogManifest](/handshake/catalog-manifest)
+- [CatalogRegistration](/center/catalog-registration)
+- [查询契约原则](/query-contract-principles)
+
 ## 最小 Catalog Discovery
 
 ```json
@@ -60,15 +66,24 @@ await fetch('https://center.example.com/ocp/catalogs/register', {
     homepage: 'https://catalog.example.com',
     well_known_url: 'https://catalog.example.com/.well-known/ocp-catalog',
     claimed_domains: ['catalog.example.com'],
-    operator: {
-      operator_id: 'my_team',
-      display_name: 'My Team',
-    },
     intended_visibility: 'public',
-    tags: ['commerce'],
+    tags: ['example'],
   }),
 });
 ```
+
+## 最小实现指南
+
+真正的最小实现现在已经拆成独立的 example 页面：
+
+- [构建一个最小 Catalog](/examples/minimal-catalog)
+- [构建一个最小 Provider](/examples/minimal-provider)
+
+这两页会直接给出：
+
+- 最小可运行代码
+- 最小生命周期
+- 具体的 registration 或 sync 请求形状
 
 ## 如果你想作为 Provider 接入 Catalog
 
@@ -219,6 +234,8 @@ provider 准备源数据
 - [角色](/roles)
 - [ProviderRegistration](/handshake/provider-registration)
 - [CatalogRegistration](/center/catalog-registration)
-- [提供方流程](/example/provider-flow)
-- [Center 流程](/example/center-flow)
+- [最小 Catalog](/examples/minimal-catalog)
+- [最小 Provider](/examples/minimal-provider)
+- [提供方流程](/examples/provider-flow)
+- [Center 流程](/examples/center-flow)
 - [FAQ](/faq)

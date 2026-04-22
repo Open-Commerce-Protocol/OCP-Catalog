@@ -103,6 +103,12 @@ A very small catalog can still be useful if it can:
 
 If it also wants provider onboarding, then it should additionally support provider registration and object sync.
 
+The minimal concrete example in this repository's docs is the `hello_catalog` pattern in [Getting Started](/getting-started):
+
+- one boolean field: `example_filed`
+- one deterministic query response
+- one catalog registration request to a Center
+
 ## What Is The Smallest Useful Provider I Can Build?
 
 A very small provider can still participate if it can:
@@ -145,6 +151,8 @@ register
 Start here:
 
 - [Getting Started](/getting-started)
+- [Minimal Catalog](/examples/minimal-catalog)
+- [Minimal Provider](/examples/minimal-provider)
 - [Roles](/roles)
-- [Provider Flow](/example/provider-flow)
-- [Center Flow](/example/center-flow)
+- [Provider Flow](/examples/provider-flow)
+- [Center Flow](/examples/center-flow)

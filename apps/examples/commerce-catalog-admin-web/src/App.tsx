@@ -536,7 +536,6 @@ function QueryLabPage({
   onError: (message: string) => void;
 }) {
   const [query, setQuery] = useState('travel headphones');
-  const [queryMode, setQueryMode] = useState<'keyword' | 'filter' | 'semantic' | 'hybrid'>('keyword');
   const [queryPack, setQueryPack] = useState('');
   const [providerId, setProviderId] = useState('');
   const [category, setCategory] = useState('');
@@ -551,7 +550,6 @@ function QueryLabPage({
       const next = await runCatalogQuery({
         catalogId,
         query,
-        queryMode,
         queryPack: queryPack || undefined,
         apiKey,
         filters: {
@@ -594,15 +592,6 @@ function QueryLabPage({
           <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full rounded-sm border border-operator-border bg-operator-bg px-3 py-2" />
         </label>
         <label className="space-y-2 text-sm">
-          <span className="text-xs uppercase tracking-wider text-operator-muted">Mode</span>
-          <select value={queryMode} onChange={(event) => setQueryMode(event.target.value as typeof queryMode)} className="w-full rounded-sm border border-operator-border bg-operator-bg px-3 py-2">
-            <option value="keyword">keyword</option>
-            <option value="filter">filter</option>
-            <option value="semantic">semantic</option>
-            <option value="hybrid">hybrid</option>
-          </select>
-        </label>
-        <label className="space-y-2 text-sm">
           <span className="text-xs uppercase tracking-wider text-operator-muted">Query pack</span>
           <select value={queryPack} onChange={(event) => setQueryPack(event.target.value)} className="w-full rounded-sm border border-operator-border bg-operator-bg px-3 py-2">
             <option value="">default</option>
@@ -635,7 +624,7 @@ function QueryLabPage({
           ) : (
             <div className="space-y-4">
               <div className="rounded-sm border border-operator-border bg-operator-bg p-3 text-xs text-operator-muted operator-mono">
-                mode: {result.query_mode} · results: {result.result_count} · pack: {queryPack || 'default'}
+                results: {result.result_count} · pack: {queryPack || 'default'}
               </div>
               {result.explain.length > 0 ? (
                 <div className="rounded-sm border border-operator-border bg-operator-bg p-3">

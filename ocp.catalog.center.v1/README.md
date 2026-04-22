@@ -76,9 +76,12 @@ Center 回答的问题是：
 - `homepage`
 - `well_known_url`
 - `claimed_domains`
-- `operator`
 - `intended_visibility`
 - `tags`
+
+还可以带可选元数据，例如：
+
+- `operator`
 
 版本规则：
 

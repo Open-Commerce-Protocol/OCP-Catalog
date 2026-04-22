@@ -17,6 +17,8 @@ catalog admin submits CatalogRegistration
 -> later refresh re-fetches discovery/manifest and updates the active snapshot
 ```
 
+In the current implementation, `operator` metadata is optional. A catalog only needs to identify itself, expose discovery/manifest/query, and prove domain control when the Center requires verification.
+
 ## What The Current Implementation Actually Persists
 
 The current Center runtime stores several layers of state, not just one registration row:

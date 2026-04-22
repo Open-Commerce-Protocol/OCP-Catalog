@@ -1,5 +1,5 @@
-node_modules
-dist
+**/node_modules
+**/dist
 .turbo
 .env
 .env.local
@@ -10,6 +10,3 @@ coverage
 drizzle
 .playwright-cli
 .workspace
-apps/examples/commerce-catalog-api/public/catalog-admin
-apps/examples/commerce-provider-api/public/provider-admin
-apps/examples/ocp-user-demo-api/public/user-demo

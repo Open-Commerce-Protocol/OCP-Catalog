@@ -46,7 +46,7 @@ provider admin seed 或编辑商品
 
 ## 当前 `publish-to-catalog` 的真实含义
 
-`POST /provider/publish-to-catalog` 是 provider API 上的一层 orchestration helper。它当前会顺序执行：
+`POST /api/provider-admin/provider/publish-to-catalog` 是 provider API 上的一层 orchestration helper。它当前会顺序执行：
 
 1. `registerToCatalog`
 2. `syncAll`

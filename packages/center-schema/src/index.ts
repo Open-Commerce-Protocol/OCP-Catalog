@@ -52,7 +52,7 @@ export const catalogRegistrationSchema = z.object({
     operator_id: z.string().min(1).optional(),
     display_name: z.string().min(1),
     contact_email: z.string().email().optional(),
-  }).passthrough(),
+  }).passthrough().optional(),
   intended_visibility: z.enum(['public', 'partner', 'private']).default('public'),
   tags: z.array(z.string().min(1)).default([]),
 });
@@ -171,7 +171,6 @@ export const catalogIndexEntrySchema = z.object({
 });
 
 export const catalogSearchFiltersSchema = z.object({
-  query_mode: z.string().min(1).optional(),
   query_pack: z.string().min(1).optional(),
   supports_resolve: z.boolean().optional(),
   verification_status: z.string().min(1).optional(),

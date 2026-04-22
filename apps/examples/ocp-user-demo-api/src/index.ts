@@ -8,7 +8,7 @@ import { AgentError } from './errors';
 
 const config = loadConfig();
 const agent = new UserDemoAgentService(config);
-const userDemoSite = createSpaStaticSiteHandler(new URL('../public/user-demo', import.meta.url).pathname);
+const userDemoSite = createSpaStaticSiteHandler(new URL('../public/dist', import.meta.url).pathname);
 
 const app = new Elysia()
   .use(cors())
@@ -37,14 +37,12 @@ const app = new Elysia()
     service: 'ocp-user-demo-api',
     model: config.USER_DEMO_AGENT_MODEL,
   }))
-  .post('/agent/turn', async ({ body }) => agent.turn(body))
   .post('/api/user-demo/agent/turn', async ({ body }) => agent.turn(body))
-  .post('/agent/confirm-registration', async ({ body }) => agent.confirmRegistration(body))
   .post('/api/user-demo/agent/confirm-registration', async ({ body }) => agent.confirmRegistration(body))
   .get('/', () => serveUserDemo('/'))
   .get('/*', async ({ request }) => {
     const pathname = new URL(request.url).pathname;
-    if (pathname.startsWith('/api/user-demo/') || pathname.startsWith('/agent/') || pathname === '/health') {
+    if (pathname.startsWith('/api/user-demo/') || pathname === '/health') {
       return new Response('Not Found', { status: 404 });
     }
 
@@ -54,7 +52,7 @@ const app = new Elysia()
 
 console.log(`OCP User Demo API listening on http://localhost:${app.server?.port}`);
 if (await userDemoSite('/')) {
-  console.log(`OCP User Demo static site mounted from apps/examples/ocp-user-demo-api/public/user-demo`);
+  console.log('OCP User Demo static site mounted from apps/examples/ocp-user-demo-api/public/dist');
 }
 
 async function serveUserDemo(pathname: string) {

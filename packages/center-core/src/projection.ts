@@ -40,6 +40,7 @@ export function buildCatalogSearchProjection(
   trustTier: string,
   healthStatus: string,
 ) {
+  const operatorDisplayName = stringValue(asRecord(registration.operator).display_name);
   const modes = supportedQueryModes(manifest);
   const queryPacks = supportedQueryPacks(manifest);
   const queryLanguages = supportedQueryLanguages(manifest);
@@ -48,7 +49,7 @@ export function buildCatalogSearchProjection(
   const text = [
     manifest.catalog_name,
     manifest.description,
-    registration.operator.display_name,
+    operatorDisplayName,
     ...registration.tags,
     ...registration.claimed_domains,
     ...modes,
@@ -63,7 +64,7 @@ export function buildCatalogSearchProjection(
   return {
     catalog_name: manifest.catalog_name,
     description: manifest.description,
-    operator: registration.operator.display_name,
+    ...(operatorDisplayName ? { operator: operatorDisplayName } : {}),
     tags: registration.tags,
     domains: registration.claimed_domains,
     supported_query_modes: modes,

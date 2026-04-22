@@ -46,7 +46,7 @@ In the current workspace:
 
 ## What `publish-to-catalog` Means Right Now
 
-`POST /provider/publish-to-catalog` is an orchestration helper in the provider API. It performs:
+`POST /api/provider-admin/provider/publish-to-catalog` is an orchestration helper in the provider API. It performs:
 
 1. `registerToCatalog`
 2. `syncAll`

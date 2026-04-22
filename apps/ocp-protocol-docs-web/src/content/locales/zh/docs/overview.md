@@ -113,6 +113,7 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
 - 先看 [角色](/roles)
 - 如果你想快速参与建设，先看 [快速接入](/getting-started)
 - 如果你有一些接入层面的简单问题，先看 [FAQ](/faq)
+- 如果你想先看最小可实现版本，先看 [最小 Catalog](/examples/minimal-catalog) 和 [最小 Provider](/examples/minimal-provider)
 - 再看 Handshake 概览
 - 再看 Center 概览
 - 最后看示例流程

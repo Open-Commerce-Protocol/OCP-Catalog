@@ -25,6 +25,12 @@ If your catalog supports object resolution, it should also provide:
 
 - `/ocp/resolve`
 
+The relevant protocol pages are:
+
+- [CatalogManifest](/handshake/catalog-manifest)
+- [CatalogRegistration](/center/catalog-registration)
+- [Query Contract Principles](/query-contract-principles)
+
 ## Minimal Catalog Discovery
 
 ```json
@@ -60,15 +66,24 @@ await fetch('https://center.example.com/ocp/catalogs/register', {
     homepage: 'https://catalog.example.com',
     well_known_url: 'https://catalog.example.com/.well-known/ocp-catalog',
     claimed_domains: ['catalog.example.com'],
-    operator: {
-      operator_id: 'my_team',
-      display_name: 'My Team',
-    },
     intended_visibility: 'public',
-    tags: ['commerce'],
+    tags: ['example'],
   }),
 });
 ```
+
+## Minimal Build Guides
+
+The actual minimal implementations now live on dedicated example pages:
+
+- [Build A Minimal Catalog](/examples/minimal-catalog)
+- [Build A Minimal Provider](/examples/minimal-provider)
+
+Those pages contain:
+
+- the smallest runnable code example
+- the minimal lifecycle
+- the exact registration or sync request shape
 
 ## If You Want To Join As A Provider
 
@@ -219,6 +234,8 @@ provider prepares source data
 - [Roles](/roles)
 - [ProviderRegistration](/handshake/provider-registration)
 - [CatalogRegistration](/center/catalog-registration)
-- [Provider Flow](/example/provider-flow)
-- [Center Flow](/example/center-flow)
+- [Minimal Catalog](/examples/minimal-catalog)
+- [Minimal Provider](/examples/minimal-provider)
+- [Provider Flow](/examples/provider-flow)
+- [Center Flow](/examples/center-flow)
 - [FAQ](/faq)

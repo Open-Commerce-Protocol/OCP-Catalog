@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     build: {
-      outDir: '../commerce-provider-api/public/provider-admin',
+      outDir: '../commerce-provider-api/public/dist',
       emptyOutDir: true,
     },
     server: {
@@ -19,7 +19,6 @@ export default defineConfig(({ mode }) => {
         '/api/provider-admin': {
           target: providerApiBaseUrl,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api\/provider-admin/, ''),
         },
       },
     },

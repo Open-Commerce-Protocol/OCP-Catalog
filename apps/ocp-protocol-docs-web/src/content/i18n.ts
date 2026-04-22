@@ -16,8 +16,8 @@ export const docsUiText = {
     zh: 'OCP Catalog 协议文档',
   },
   version: {
-    en: 'v1.0',
-    zh: 'v1.0',
+    en: 'v1.0-dev',
+    zh: 'v1.0-dev',
   },
   searchPlaceholder: {
     en: 'Search documentation...',

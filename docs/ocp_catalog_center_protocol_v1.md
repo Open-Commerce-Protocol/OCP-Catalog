@@ -229,7 +229,6 @@ GET /ocp/center/manifest
       "capability_id": "center.catalog.keyword.v1",
       "query_modes": ["keyword", "filter"],
       "filter_fields": [
-        "query_mode",
         "query_pack",
         "verification_status",
         "trust_tier",
@@ -266,11 +265,6 @@ POST /ocp/catalogs/register
   "homepage": "https://catalog.example.com",
   "well_known_url": "https://catalog.example.com/.well-known/ocp-catalog",
   "claimed_domains": ["catalog.example.com"],
-  "operator": {
-    "operator_id": "org_demo_catalog",
-    "display_name": "Demo Catalog Operator",
-    "contact_email": "ops@catalog.example.com"
-  },
   "intended_visibility": "public",
   "tags": ["commerce", "product", "retail"]
 }
@@ -283,9 +277,12 @@ POST /ocp/catalogs/register
 - `registration_version`：Catalog 对 Center 的注册版本。
 - `well_known_url`：Center 用于拉取 Catalog discovery document 的入口。
 - `claimed_domains`：Catalog 声称控制的域名集合。
-- `operator`：Catalog 运营方身份声明。
 - `intended_visibility`：希望被 Center 公开索引的范围。
 - `tags`：Center 建索引用的轻量场景标签。
+
+可选字段：
+
+- `operator`：Catalog 自愿提供的运营方身份元数据，可用于展示、审计或治理，但不应成为注册成功的前提条件。
 
 ## 8. CatalogRegistrationResult
 
@@ -595,7 +592,7 @@ updated_at
 - query capability names。
 - object contract summaries。
 - domain。
-- operator display name。
+- optional operator display name。
 
 ## 13. Catalog Search
 
@@ -624,7 +621,6 @@ POST /ocp/catalogs/search
 
 支持的 MVP filters：
 
-- `query_mode`
 - `query_pack`
 - `supports_resolve`
 - `verification_status`
@@ -847,7 +843,7 @@ Center 至少要记录：
 - verification timestamp。
 - challenge id。
 - manifest snapshot id。
-- operator contact。
+- optional operator contact。
 - source IP / user agent。
 
 ### 16.4 搜索治理
@@ -881,7 +877,7 @@ registered_catalogs
   homepage
   well_known_url
   claimed_domains
-  operator
+  operator (optional)
   created_at
   updated_at
 

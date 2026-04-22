@@ -471,7 +471,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
             registration_version: schema.properties?.registration_version,
             well_known_url: schema.properties?.well_known_url,
             claimed_domains: schema.properties?.claimed_domains,
-            operator: schema.properties?.operator,
+            intended_visibility: schema.properties?.intended_visibility,
+            tags: schema.properties?.tags,
           },
         }),
       },
@@ -499,9 +500,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           homepage: 'http://localhost:4000',
           well_known_url: 'http://localhost:4000/.well-known/ocp-catalog',
           claimed_domains: ['localhost'],
-          operator: {
-            display_name: 'Commerce Catalog Local Dev',
-          },
+          intended_visibility: 'public',
+          tags: ['commerce', 'products'],
         },
         response: {
           status: 'accepted',
@@ -706,7 +706,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           kind: 'CatalogQueryRequest',
           query: 'travel headphones',
           query_pack: 'ocp.commerce.product.search.v1',
-          query_mode: 'hybrid',
           filters: {
             category: 'electronics',
             in_stock_only: true,
@@ -718,7 +717,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         },
         response: {
           kind: 'CatalogQueryResult',
-          query_mode: 'hybrid',
           result_count: 3,
           items: [
             {
@@ -740,7 +738,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
                 discount_present: true,
               },
               explain: [
-                'Using query_mode: hybrid.',
+                'Inferred query strategy: hybrid.',
                 'Matched category filter: electronics.',
                 'Applied semantic ANN shortlist with exact cosine rerank.',
               ],
@@ -787,6 +785,149 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
+  '/examples/minimal-catalog': {
+    implementationRefs: [
+      {
+        label: { en: 'Catalog manifest schema', zh: 'Catalog manifest schema' },
+        path: 'ocp.catalog.handshake.v1/catalog-manifest.schema.json',
+      },
+      {
+        label: { en: 'Catalog registration schema', zh: 'Catalog 注册 schema' },
+        path: 'ocp.catalog.center.v1/catalog-registration.schema.json',
+      },
+    ],
+    endpointExamples: [
+      {
+        title: { en: 'Serve minimal discovery', zh: '提供最小 discovery' },
+        method: 'GET',
+        path: '/.well-known/ocp-catalog',
+        response: {
+          kind: 'WellKnownCatalogDiscovery',
+          catalog_id: 'hello_catalog',
+          manifest_url: 'https://catalog.example.com/ocp/manifest',
+          query_url: 'https://catalog.example.com/ocp/query',
+        },
+      },
+      {
+        title: { en: 'Serve minimal query', zh: '提供最小 query' },
+        method: 'POST',
+        path: '/ocp/query',
+        request: {
+          example_filed: true,
+        },
+        response: {
+          kind: 'CatalogQueryResult',
+          catalog_id: 'hello_catalog',
+          result_count: 1,
+          items: [
+            {
+              entry_id: 'hello_entry',
+              title: 'hello world! true example filed',
+            },
+          ],
+        },
+      },
+      {
+        title: { en: 'Register minimal catalog to Center', zh: '把最小 catalog 注册到 Center' },
+        method: 'POST',
+        path: '/ocp/catalogs/register',
+        request: {
+          kind: 'CatalogRegistration',
+          center_id: 'my_center',
+          catalog_id: 'hello_catalog',
+          registration_version: 1,
+          homepage: 'https://catalog.example.com',
+          well_known_url: 'https://catalog.example.com/.well-known/ocp-catalog',
+          claimed_domains: ['catalog.example.com'],
+          intended_visibility: 'public',
+          tags: ['example'],
+        },
+        response: {
+          kind: 'CatalogRegistrationResult',
+          status: 'accepted_pending_verification',
+          effective_registration_version: 1,
+        },
+      },
+    ],
+  },
+  '/examples/minimal-provider': {
+    implementationRefs: [
+      {
+        label: { en: 'Provider registration schema', zh: 'Provider 注册 schema' },
+        path: 'ocp.catalog.handshake.v1/provider-registration.schema.json',
+      },
+      {
+        label: { en: 'Commercial object schema', zh: 'CommercialObject schema' },
+        path: 'ocp.catalog.handshake.v1/commercial-object.schema.json',
+      },
+    ],
+    endpointExamples: [
+      {
+        title: { en: 'Register minimal provider', zh: '注册最小 provider' },
+        method: 'POST',
+        path: '/ocp/providers/register',
+        headers: {
+          'x-api-key': '<catalog-write-key>',
+        },
+        request: {
+          kind: 'ProviderRegistration',
+          catalog_id: 'hello_catalog',
+          registration_version: 1,
+          provider: {
+            provider_id: 'hello_provider',
+            entity_type: 'merchant',
+            display_name: 'Hello Provider',
+          },
+          object_declarations: [
+            {
+              guaranteed_fields: ['hello.example.object.v1#/message'],
+              optional_fields: [],
+              sync: {
+                preferred_capabilities: ['ocp.push.batch'],
+                avoid_capabilities_unless_necessary: [],
+                provider_endpoints: {},
+              },
+            },
+          ],
+        },
+        response: {
+          kind: 'RegistrationResult',
+          status: 'accepted_full',
+          effective_registration_version: 1,
+        },
+      },
+      {
+        title: { en: 'Sync one provider object', zh: '同步一个 provider 对象' },
+        method: 'POST',
+        path: '/ocp/objects/sync',
+        headers: {
+          'x-api-key': '<catalog-write-key>',
+        },
+        request: {
+          kind: 'ObjectSyncRequest',
+          catalog_id: 'hello_catalog',
+          provider_id: 'hello_provider',
+          registration_version: 1,
+          batch_id: 'batch_hello_001',
+          objects: [
+            {
+              kind: 'CommercialObject',
+              object_id: 'hello_object',
+              object_type: 'example',
+              provider_id: 'hello_provider',
+              title: 'hello world object',
+            },
+          ],
+        },
+        response: {
+          kind: 'ObjectSyncResult',
+          status: 'accepted',
+          accepted_count: 1,
+          rejected_count: 0,
+        },
+      },
+    ],
+  },
   '/examples/center-flow': {
     implementationRefs: [
       {
@@ -815,10 +956,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           homepage: 'http://localhost:4000',
           well_known_url: 'http://localhost:4000/.well-known/ocp-catalog',
           claimed_domains: ['localhost'],
-          operator: {
-            operator_id: 'catalog_admin_console',
-            display_name: 'Commerce Catalog Local Dev Operator',
-          },
+          intended_visibility: 'public',
+          tags: ['commerce', 'demo'],
         },
         response: {
           kind: 'CatalogRegistrationResult',
@@ -901,7 +1040,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       {
         title: { en: 'Publish provider to catalog in one step', zh: '一步完成 provider 发布到 catalog' },
         method: 'POST',
-        path: '/provider/publish-to-catalog',
+        path: '/api/provider-admin/provider/publish-to-catalog',
         headers: {
           'x-admin-key': '<provider-admin-key>',
         },
@@ -939,7 +1078,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       {
         title: { en: 'Inspect provider status and quality feedback', zh: '查看 provider 状态与质量反馈' },
         method: 'GET',
-        path: '/provider/status',
+        path: '/api/provider-admin/provider/status',
         headers: {
           'x-admin-key': '<provider-admin-key>',
         },
@@ -994,7 +1133,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       {
         title: { en: 'Agent-centered OCP turn', zh: '以 agent 为中心的一次 OCP 交互' },
         method: 'POST',
-        path: '/agent/turn',
+        path: '/api/user-demo/agent/turn',
         request: {
           message: 'I want travel headphones under 150 with images',
           localCatalogProfiles: [],
@@ -1042,10 +1181,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           homepage: 'https://catalog.example.com',
           well_known_url: 'https://catalog.example.com/.well-known/ocp-catalog',
           claimed_domains: ['catalog.example.com'],
-          operator: {
-            operator_id: 'my_team',
-            display_name: 'My Team',
-          },
+          intended_visibility: 'public',
+          tags: ['example'],
         },
         response: {
           kind: 'CatalogRegistrationResult',

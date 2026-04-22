@@ -16,8 +16,7 @@
     "updated_at",
     "homepage",
     "well_known_url",
-    "claimed_domains",
-    "operator"
+    "claimed_domains"
   ]
 }
 ```
@@ -31,13 +30,14 @@
   "homepage": "http://localhost:4000",
   "well_known_url": "http://localhost:4000/.well-known/ocp-catalog",
   "claimed_domains": ["localhost"],
-  "operator": {
-    "display_name": "Commerce Catalog Local Dev"
-  },
   "intended_visibility": "public",
   "tags": ["commerce", "products"]
 }
 ```
+
+## 可选元数据
+
+`operator` 仍然可以作为可选元数据传递，但它不再是注册成功的前提。
 
 ## 版本规则
 

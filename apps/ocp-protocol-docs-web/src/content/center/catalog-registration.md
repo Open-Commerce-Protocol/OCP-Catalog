@@ -16,8 +16,7 @@
     "updated_at",
     "homepage",
     "well_known_url",
-    "claimed_domains",
-    "operator"
+    "claimed_domains"
   ]
 }
 ```
@@ -31,13 +30,14 @@
   "homepage": "http://localhost:4000",
   "well_known_url": "http://localhost:4000/.well-known/ocp-catalog",
   "claimed_domains": ["localhost"],
-  "operator": {
-    "display_name": "Commerce Catalog Local Dev"
-  },
   "intended_visibility": "public",
   "tags": ["commerce", "products"]
 }
 ```
+
+## Optional Metadata
+
+`operator` can still be supplied as optional metadata, but it is not required for registration.
 
 ## Version Rule
 
