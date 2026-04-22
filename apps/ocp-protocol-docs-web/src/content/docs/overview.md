@@ -111,6 +111,8 @@ This keeps the protocol stable while still giving agents useful planning hints.
 ## How To Read This Site
 
 - Start with [Roles](/roles)
+- If you want to build quickly, read [Getting Started](/getting-started)
+- If you have practical onboarding questions, read [FAQ](/faq)
 - Then read the Handshake overview
 - Then read the Center overview
 - Finally inspect the example flows

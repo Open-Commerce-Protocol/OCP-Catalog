@@ -4,6 +4,8 @@ export const navigation = [
     links: [
       { title: { en: 'Overview', zh: '总览' }, href: '/overview' },
       { title: { en: 'Roles', zh: '角色' }, href: '/roles' },
+      { title: { en: 'Getting Started', zh: '快速接入' }, href: '/getting-started' },
+      { title: { en: 'FAQ', zh: 'FAQ' }, href: '/faq' },
     ],
   },
   {

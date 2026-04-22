@@ -8,7 +8,18 @@ Center 主要回答的问题是：
 
 > 下一步应该去问哪个 Catalog？
 
-Center 不直接提供商品。它索引的是 catalog 元数据、可信状态、route hint 和 manifest snapshot。
+Center 最好理解成“catalog 的 catalog”。
+
+它不直接提供商品，而是索引 catalog 元数据、可信状态、route hint 和 manifest snapshot，帮助 agent 决定下一步应该使用哪个 catalog。
+
+更重要的是，OCP Center 不是协议里的强制中心权威。这个协议本身是明确去中心化的：
+
+- 任何人都可以独立运行一个 OCP Center
+- 不同运营方可以运行不同的 Center，并采用不同的 intake、trust 与治理策略
+- catalog 可以自行选择注册到哪个或哪些 Center
+- agent 或应用也可以自行选择信任哪个或哪些 Center
+
+这意味着，即使存在一个公开或官方的 Center，也不等于协议本身会因此变成中心化协议。
 
 ## Catalog
 
@@ -61,3 +72,9 @@ Provider -> Catalog -> Center
 - 网络级发现
 
 这正是当前 demo 可以同时支持多个 provider 和多个 catalog 的原因。
+
+它也让协议权力保持分散：
+
+- provider 不需要依赖单一 discovery authority
+- catalog 不需要得到某个全局中心的许可才能存在
+- Center 可以彼此竞争、分工或垂直化，而不需要改变 handshake 协议本身

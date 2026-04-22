@@ -1,5 +1,6 @@
 import type { TocHeading } from './Layout';
 import { docsUiText, useDocsLocale } from '../content/i18n';
+import { scrollToElementById } from '../lib/scroll';
 
 type RightTocProps = {
   headings: TocHeading[];
@@ -27,7 +28,7 @@ export function RightToc({ headings }: RightTocProps) {
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
-                    document.getElementById(heading.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    scrollToElementById(heading.id);
                   }}
                   className="block hover:text-indigo-600 transition-colors text-left"
                 >

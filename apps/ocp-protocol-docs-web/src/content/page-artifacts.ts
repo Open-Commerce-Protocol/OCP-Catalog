@@ -1014,6 +1014,130 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
+  '/getting-started': {
+    implementationRefs: [
+      {
+        label: { en: 'Catalog registration orchestration', zh: 'Catalog 注册编排' },
+        path: 'packages/center-core/src/catalog-registry-service.ts',
+      },
+      {
+        label: { en: 'Provider registration builder', zh: 'Provider 注册构造器' },
+        path: 'apps/examples/commerce-provider-api/src/provider-mapper.ts',
+      },
+      {
+        label: { en: 'Provider publish orchestration', zh: 'Provider 发布编排' },
+        path: 'apps/examples/commerce-provider-api/src/provider-service.ts',
+      },
+    ],
+    endpointExamples: [
+      {
+        title: { en: 'Minimal catalog registration', zh: '最小 catalog 注册示例' },
+        method: 'POST',
+        path: '/ocp/catalogs/register',
+        request: {
+          kind: 'CatalogRegistration',
+          center_id: 'my_center',
+          catalog_id: 'my_catalog',
+          registration_version: 1,
+          homepage: 'https://catalog.example.com',
+          well_known_url: 'https://catalog.example.com/.well-known/ocp-catalog',
+          claimed_domains: ['catalog.example.com'],
+          operator: {
+            operator_id: 'my_team',
+            display_name: 'My Team',
+          },
+        },
+        response: {
+          kind: 'CatalogRegistrationResult',
+          status: 'accepted_pending_verification',
+          effective_registration_version: 1,
+        },
+      },
+      {
+        title: { en: 'Minimal provider registration', zh: '最小 provider 注册示例' },
+        method: 'POST',
+        path: '/ocp/providers/register',
+        headers: {
+          'x-api-key': '<catalog-write-key>',
+        },
+        request: {
+          kind: 'ProviderRegistration',
+          catalog_id: 'my_catalog',
+          registration_version: 1,
+          provider: {
+            provider_id: 'my_provider',
+            entity_type: 'merchant',
+            display_name: 'My Provider',
+          },
+          object_declarations: [
+            {
+              guaranteed_fields: [
+                'ocp.commerce.product.core.v1#/title',
+                'ocp.commerce.price.v1#/currency',
+                'ocp.commerce.price.v1#/amount',
+              ],
+              sync: {
+                preferred_capabilities: ['ocp.push.batch'],
+                avoid_capabilities_unless_necessary: [],
+                provider_endpoints: {},
+              },
+            },
+          ],
+        },
+        response: {
+          kind: 'RegistrationResult',
+          status: 'accepted_full',
+          effective_registration_version: 1,
+        },
+      },
+      {
+        title: { en: 'Minimal object sync', zh: '最小对象同步示例' },
+        method: 'POST',
+        path: '/ocp/objects/sync',
+        headers: {
+          'x-api-key': '<catalog-write-key>',
+        },
+        request: {
+          kind: 'ObjectSyncRequest',
+          catalog_id: 'my_catalog',
+          provider_id: 'my_provider',
+          registration_version: 1,
+          batch_id: 'batch_001',
+          objects: [
+            {
+              kind: 'CommercialObject',
+              object_id: 'sku_001',
+              object_type: 'product',
+              provider_id: 'my_provider',
+              title: 'Example product',
+            },
+          ],
+        },
+        response: {
+          kind: 'ObjectSyncResult',
+          status: 'accepted',
+          accepted_count: 1,
+          rejected_count: 0,
+        },
+      },
+    ],
+  },
+  '/faq': {
+    implementationRefs: [
+      {
+        label: { en: 'Center verification and refresh logic', zh: 'Center 验证与刷新逻辑' },
+        path: 'packages/center-core/src/catalog-registry-service.ts',
+      },
+      {
+        label: { en: 'Provider registration state handling', zh: 'Provider 注册状态处理' },
+        path: 'packages/catalog-core/src/registration-service.ts',
+      },
+      {
+        label: { en: 'Object sync runtime checks', zh: '对象同步运行时检查' },
+        path: 'packages/catalog-core/src/object-sync-service.ts',
+      },
+    ],
+  },
   '/protocol-principles': {
     implementationRefs: [
       {

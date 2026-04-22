@@ -111,6 +111,8 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
 ## 推荐阅读顺序
 
 - 先看 [角色](/roles)
+- 如果你想快速参与建设，先看 [快速接入](/getting-started)
+- 如果你有一些接入层面的简单问题，先看 [FAQ](/faq)
 - 再看 Handshake 概览
 - 再看 Center 概览
 - 最后看示例流程

@@ -1,5 +1,5 @@
 import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useOutletContext, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import type { Components } from 'react-markdown';
 import { useDocsLocale } from '../content/i18n';
@@ -7,6 +7,7 @@ import { loadPageContent } from '../content/loader';
 import { loadPageArtifacts, type LoadedPageArtifacts } from '../content/page-artifacts';
 import type { TocHeading } from '../components/Layout';
 import { PageArtifacts } from '../components/PageArtifacts';
+import { scrollToElementById } from '../lib/scroll';
 
 type LayoutContext = {
   setHeadings: (headings: TocHeading[]) => void;
@@ -81,7 +82,10 @@ function extractHeadings(markdown: string): TocHeading[] {
     });
 }
 
-function createHeadingComponents(): Components {
+function createHeadingComponents(
+  navigate: ReturnType<typeof useNavigate>,
+  localizePath: (path: string) => string,
+): Components {
   const counts = new Map<string, number>();
 
   function nextId(children: ReactNode) {
@@ -92,6 +96,51 @@ function createHeadingComponents(): Components {
     h1: ({ children }) => <h1 id={nextId(children)} className="scroll-mt-24">{children}</h1>,
     h2: ({ children }) => <h2 id={nextId(children)} className="scroll-mt-24">{children}</h2>,
     h3: ({ children }) => <h3 id={nextId(children)} className="scroll-mt-24">{children}</h3>,
+    a: ({ href, children }) => {
+      if (!href) {
+        return <span>{children}</span>;
+      }
+
+      if (href.startsWith('#')) {
+        const targetId = href.slice(1);
+        return (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              scrollToElementById(targetId);
+            }}
+            className="text-indigo-600 hover:text-indigo-500 underline underline-offset-2"
+          >
+            {children}
+          </button>
+        );
+      }
+
+      const isExternal = /^[a-z]+:/i.test(href) || href.startsWith('//');
+      if (isExternal) {
+        return (
+          <a href={href} className="text-indigo-600 hover:text-indigo-500">
+            {children}
+          </a>
+        );
+      }
+
+      const normalizedPath = href.startsWith('/') ? href : `/${href.replace(/^\/+/, '')}`;
+      const target = localizePath(normalizedPath);
+      return (
+        <a
+          href={target}
+          onClick={(event) => {
+            event.preventDefault();
+            navigate(target);
+          }}
+          className="text-indigo-600 hover:text-indigo-500"
+        >
+          {children}
+        </a>
+      );
+    },
     pre: ({ children }) => (
       <div className="docs-code-shell not-prose">
         <pre className="docs-code-block">
@@ -104,8 +153,9 @@ function createHeadingComponents(): Components {
 
 export function PageView({ section, slug }: { section?: string; slug?: string }) {
   const params = useParams();
+  const navigate = useNavigate();
   const { setHeadings } = useOutletContext<LayoutContext>();
-  const { locale, text } = useDocsLocale();
+  const { locale, text, localizePath } = useDocsLocale();
   const [content, setContent] = useState<string>('# Loading...');
   const [artifacts, setArtifacts] = useState<LoadedPageArtifacts>({
     schemaSections: [],
@@ -114,7 +164,10 @@ export function PageView({ section, slug }: { section?: string; slug?: string })
     endpointExamples: [],
   });
   const headings = useMemo(() => extractHeadings(content), [content]);
-  const markdownComponents = useMemo(() => createHeadingComponents(), [content]);
+  const markdownComponents = useMemo(
+    () => createHeadingComponents(navigate, localizePath),
+    [content, localizePath, navigate],
+  );
 
   const resolvedSection = params.section ?? section ?? 'docs';
   const pageSlug = params.slug ?? slug ?? 'overview';

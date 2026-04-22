@@ -1,5 +1,6 @@
 import type { LoadedPageArtifacts } from '../content/page-artifacts';
 import { docsUiText, resolveLocalizedText, useDocsLocale } from '../content/i18n';
+import { scrollToElementById } from '../lib/scroll';
 
 type PageArtifactsProps = {
   artifacts: LoadedPageArtifacts;
@@ -39,12 +40,13 @@ export function PageArtifacts({ artifacts }: PageArtifactsProps) {
                         {section.sourcePath}
                       </div>
                     </div>
-                    <a
-                      href={`#${section.packageAnchorId}`}
+                    <button
+                      type="button"
+                      onClick={() => scrollToElementById(section.packageAnchorId)}
                       className="shrink-0 inline-flex items-center rounded-md border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
                     >
                       {text(docsUiText.openFullSchema)}
-                    </a>
+                    </button>
                   </div>
                   {section.description && (
                     <p className="text-sm text-slate-600 mt-2">

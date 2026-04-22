@@ -8,7 +8,18 @@ The Center helps answer:
 
 > Which catalog should the agent ask next?
 
-The Center does not serve products directly. It indexes catalog metadata, trust state, route hints, and manifest snapshots.
+The Center is best understood as a catalog of catalogs.
+
+It does not serve products directly. It indexes catalog metadata, trust state, route hints, and manifest snapshots so that agents can decide which catalog to use.
+
+Just as importantly, OCP Center is not a mandatory central authority. The protocol is explicitly decentralized:
+
+- anyone can run an OCP Center
+- different operators can run different Centers with different intake, trust, and governance policies
+- a catalog can choose which Center or Centers to register with
+- an agent or application can choose which Center or Centers to trust
+
+That means the existence of one public or official Center does not make the protocol itself centralized.
 
 ## Catalog
 
@@ -61,3 +72,9 @@ This split keeps three different concerns separate:
 - network-level discovery
 
 That separation is what makes the current demo chain workable with more than one provider and more than one catalog.
+
+It also keeps protocol power distributed:
+
+- providers do not depend on a single discovery authority
+- catalogs do not need permission from one global operator to exist
+- Centers can compete or specialize without changing the handshake protocol
