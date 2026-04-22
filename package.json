@@ -10,6 +10,8 @@
   ],
   "scripts": {
     "dev": "turbo dev",
+    "dev:demo": "turbo run dev --filter=@ocp-catalog/ocp-center-api --filter=@ocp-catalog/commerce-catalog-api --filter=@ocp-catalog/commerce-provider-api --filter=@ocp-catalog/ocp-user-demo-api --filter=ocp-protocol-docs-web",
+    "start:demo": "turbo run start --filter=@ocp-catalog/ocp-center-api --filter=@ocp-catalog/commerce-catalog-api --filter=@ocp-catalog/commerce-provider-api --filter=@ocp-catalog/ocp-user-demo-api --filter=ocp-protocol-docs-web",
     "build": "turbo build",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
