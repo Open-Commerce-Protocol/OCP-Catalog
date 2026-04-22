@@ -82,7 +82,7 @@ In the commerce catalog example, the registration succeeds only if the declarati
 - required field `ocp.commerce.price.v1#/amount`
 - at least one mutually supported sync capability
 
-In the current repository, the live provider implementation usually goes beyond that minimum and also guarantees `product_url`, because the provider is trying to produce resolvable commerce results rather than just pass the acceptance gate.
+A provider implementation may go beyond that minimum and also guarantee fields such as `product_url`, because many catalogs want results that are not only acceptable for indexing but also directly resolvable or actionable.
 
 At the protocol layer, the catalog matches declarations by contract requirements:
 
@@ -113,16 +113,14 @@ The example sync path is:
 
 Reserved capabilities such as `ocp.feed.url` should be declared only when the provider-hosted endpoint and the catalog pull path are both implemented.
 
-## Current Runtime Behavior In This Repository
+## Repository Example
 
-The current provider API exposes both low-level and orchestrated paths:
+Repository-specific operator flows belong in the example pages rather than the protocol definition.
 
-- `POST /provider/register-to-catalog`
-- `POST /provider/sync-to-catalog`
-- `POST /provider/sync-product/:id`
-- `POST /provider/publish-to-catalog`
+See:
 
-`publish-to-catalog` is the repository's convenience path for "register, then sync all", and the provider admin UI uses it as the main operator flow.
+- `/examples/provider-flow`
+- `/examples/commerce-catalog`
 
 ## Version Rule
 

@@ -787,6 +787,101 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
+  '/examples/center-flow': {
+    implementationRefs: [
+      {
+        label: { en: 'Center API', zh: 'Center API' },
+        path: 'apps/ocp-center-api/src/index.ts',
+      },
+      {
+        label: { en: 'Catalog registry service', zh: 'Catalog 注册服务' },
+        path: 'packages/center-core/src/catalog-registry-service.ts',
+      },
+      {
+        label: { en: 'Center state persistence schema', zh: 'Center 状态持久化 schema' },
+        path: 'packages/db/src/schema/center.ts',
+      },
+    ],
+    endpointExamples: [
+      {
+        title: { en: 'Register catalog into Center', zh: '向 Center 注册 catalog' },
+        method: 'POST',
+        path: '/ocp/catalogs/register',
+        request: {
+          kind: 'CatalogRegistration',
+          center_id: 'ocp_center_local_dev',
+          catalog_id: 'commerce_catalog_local_dev',
+          registration_version: 1,
+          homepage: 'http://localhost:4000',
+          well_known_url: 'http://localhost:4000/.well-known/ocp-catalog',
+          claimed_domains: ['localhost'],
+          operator: {
+            operator_id: 'catalog_admin_console',
+            display_name: 'Commerce Catalog Local Dev Operator',
+          },
+        },
+        response: {
+          kind: 'CatalogRegistrationResult',
+          status: 'accepted_indexed',
+          effective_registration_version: 1,
+          manifest_fetch_status: 'fetched',
+          verification_status: 'verified',
+          health_status: 'healthy',
+          indexed: true,
+          catalog_access_token: '<catalog-token>',
+        },
+      },
+      {
+        title: { en: 'Refresh active snapshot', zh: '刷新 active snapshot' },
+        method: 'POST',
+        path: '/ocp/catalogs/:catalogId/refresh',
+        headers: {
+          'x-catalog-token': '<catalog-token>',
+        },
+        request: {},
+        response: {
+          kind: 'CatalogRefreshResult',
+          status: 'refreshed',
+          catalog_id: 'commerce_catalog_local_dev',
+          snapshot_id: 'catsnap_example_01',
+          health_status: 'healthy',
+          indexed: true,
+          warnings: [],
+        },
+      },
+      {
+        title: { en: 'Search the Center index', zh: '搜索 Center 索引' },
+        method: 'POST',
+        path: '/ocp/catalogs/search',
+        request: {
+          query: 'commerce products',
+          filters: {
+            verification_status: 'verified',
+            health_status: 'healthy',
+          },
+          limit: 5,
+        },
+        response: {
+          kind: 'CatalogSearchResult',
+          result_count: 1,
+          items: [
+            {
+              catalog_id: 'commerce_catalog_local_dev',
+              catalog_name: 'Commerce Catalog Local Dev',
+              verification_status: 'verified',
+              trust_tier: 'local_dev',
+              health_status: 'healthy',
+              route_hint: {
+                manifest_url: 'http://localhost:4000/ocp/manifest',
+                query_url: 'http://localhost:4000/ocp/query',
+                resolve_url: 'http://localhost:4000/ocp/resolve',
+              },
+            },
+          ],
+        },
+      },
+    ],
+  },
   '/examples/provider-flow': {
     implementationRefs: [
       {

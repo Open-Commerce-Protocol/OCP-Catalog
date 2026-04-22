@@ -52,6 +52,8 @@
 
 也就是说，provider 的声明刻意比 catalog 最低门槛更强。这更接近真实 merchant feed：provider 会承诺那些能让搜索结果真正可消费的字段。
 
+在当前仓库里，这份声明是由 provider 本地 mapper 直接构造出来的；demo provider 目前不会先去拉取 catalog manifest / contracts，再动态合成 registration。
+
 ## 当前 demo products
 
 provider 自带的 demo 数据包括：
@@ -152,8 +154,8 @@ provider 自带的 demo 数据包括：
 
 ```text
 seed provider demo products
--> provider 获取 catalog manifest 和 contracts
--> provider 提交 ProviderRegistration
+-> provider 先读取 catalog 当前 active provider state
+-> provider 提交下一版 ProviderRegistration
 -> catalog 接受注册并选择 ocp.push.batch
 -> provider 发布 CommercialObject batch
 -> catalog 生成 projection，并在启用时写入 embedding
@@ -161,6 +163,11 @@ seed provider demo products
 -> resolve 返回带可见商品字段和 view_product action 的 ResolvableReference
 -> provider status 暴露 local_quality、publish_readiness 和 catalog_quality
 ```
+
+这里还有两个当前实现层面的细节：
+
+- provider runtime 会先根据 catalog 当前 active provider state 计算 `next_registration_version`
+- `publish-to-catalog` 是 `registerToCatalog` 再 `syncAll` 的编排 helper，而 `syncAll` 当前按每批 25 条商品切分发送
 
 ## 为什么这个示例重要
 

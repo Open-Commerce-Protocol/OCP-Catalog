@@ -6,13 +6,15 @@
 
 ```text
 provider admin seed 或编辑商品
--> provider 读取 catalog manifest 和 object contracts
--> provider 基于 guaranteed_fields 和 preferred sync capability 构造 ProviderRegistration
+-> provider 先从 catalog 当前 provider state 推导 next registration_version
+-> provider 基于本地 provider mapper 构造 ProviderRegistration
 -> catalog 返回 RegistrationResult，并选中 selected_sync_capability = ocp.push.batch
 -> provider 发布 CommercialObject batch
 -> catalog 把商品数据投影成可搜索 entry
 -> provider status 页面显示 local_quality、publish_readiness 和 catalog_quality
 ```
+
+这里要注意：当前 demo provider 并不会先去拉取 manifest / contracts 再动态生成 declaration。它是在本地构造 registration，然后由 catalog 来决定接受、限缩接受还是拒绝。
 
 ## Provider 现在实际发布什么
 
@@ -37,6 +39,8 @@ provider admin seed 或编辑商品
 - provider 可以向 commerce catalog 发起注册
 - catalog 会协商出 `ocp.push.batch`
 - provider 可以一次发布全部商品，也可以单条同步某个商品
+- provider 会先根据 catalog 当前 active provider state 推导 `next_registration_version`
+- `syncAll` 当前按每批 25 条商品发送
 - publish run 会被记录到 `provider_sync_runs`
 - provider admin UI 会展示最近 run、本地 feed 质量、发布前 readiness，以及 catalog 侧的质量反馈
 
@@ -53,6 +57,16 @@ provider admin seed 或编辑商品
 - `sync_run`
 
 所以这个流程示例不是理论上的“握手演示”，而是对真实 provider-side workflow wrapper 的描述。
+
+## Registration 与 Sync 的状态关系
+
+当前实现里，registration 和 sync 是两层不同的运行时状态：
+
+- registration 会写入版本化 `ProviderRegistration` 记录，并且可能更新 provider 的 active contract state
+- object sync 只有在 provider 已经拥有 active registration version 时才允许执行
+- 每次 sync 请求里的 `registration_version` 必须和当前 active provider contract state 完全一致
+
+也就是说，“记录过 registration” 还不够；如果版本是旧的，或者没有成为 active version，就不能驱动 sync。
 
 ## 质量反馈闭环
 

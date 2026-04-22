@@ -82,7 +82,7 @@ Provider registration 需要同时匹配 catalog 发布的 `ObjectContract` 和 
 - 必需字段 `ocp.commerce.price.v1#/amount`
 - 至少存在一个和 catalog 互相支持的 sync capability
 
-在当前仓库里，live provider 实现通常会比这个最低门槛再强一些，还会保证 `product_url`，因为它要产出的是可 resolve 的商品结果，而不只是勉强通过接入校验。
+具体 provider 实现可以比这个最低门槛更强，例如额外保证 `product_url`。这属于实现选择，不是协议强制要求；很多 catalog 会希望结果不只是能被索引，还能直接被 resolve 或消费。
 
 在协议层，catalog 按以下 contract 条件匹配 declaration：
 
@@ -113,16 +113,14 @@ Provider registration 需要同时匹配 catalog 发布的 `ObjectContract` 和 
 
 像 `ocp.feed.url` 这样的保留能力，应在 provider-hosted endpoint 和 catalog pull path 都实现后再由 provider 声明。
 
-## 当前仓库里的真实运行路径
+## 仓库示例
 
-当前 provider API 同时暴露了底层路径和编排路径：
+仓库里的具体 operator flow 属于示例实现，不属于协议定义本身。
 
-- `POST /provider/register-to-catalog`
-- `POST /provider/sync-to-catalog`
-- `POST /provider/sync-product/:id`
-- `POST /provider/publish-to-catalog`
+相关内容见：
 
-其中 `publish-to-catalog` 是仓库里的“先注册，再同步全部商品”的便捷路径，provider admin UI 当前就是围绕这条 operator flow 构建的。
+- `/examples/provider-flow`
+- `/examples/commerce-catalog`
 
 ## 版本规则
 

@@ -52,6 +52,8 @@ The current provider implementation declares:
 
 So the provider is intentionally stronger than the catalog minimum. That mirrors a more realistic merchant feed: the provider promises the fields that make a catalog result actually actionable.
 
+In this repository, that declaration is currently built from the provider's local mapping layer. The demo provider does not fetch the catalog manifest or contracts first and then synthesize a registration dynamically.
+
 ## Real Demo Products
 
 The seeded provider demo data includes examples such as:
@@ -152,8 +154,8 @@ The current verified flow is:
 
 ```text
 seed provider demo products
--> provider fetches catalog manifest and contracts
--> provider submits ProviderRegistration
+-> provider reads current active provider state from the catalog
+-> provider submits the next version of ProviderRegistration
 -> catalog accepts and selects ocp.push.batch
 -> provider publishes CommercialObject batches
 -> catalog builds projections and optional embeddings
@@ -161,6 +163,11 @@ seed provider demo products
 -> resolve returns a ResolvableReference with visible commerce fields and view_product action
 -> provider status surfaces local_quality, publish_readiness, and catalog_quality
 ```
+
+Two concrete implementation details matter here:
+
+- the current provider runtime computes `next_registration_version` from the catalog's active provider state
+- `publish-to-catalog` is an orchestration helper over `registerToCatalog` followed by `syncAll`, and `syncAll` currently chunks products into batches of 25
 
 ## Why This Example Matters
 

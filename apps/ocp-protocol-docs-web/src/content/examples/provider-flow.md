@@ -6,13 +6,15 @@ This example flow describes the real commerce provider implementation that ships
 
 ```text
 provider admin seeds or edits products
--> provider reads catalog manifest and object contracts
--> provider builds ProviderRegistration with guaranteed_fields and preferred sync capability
+-> provider computes the next registration_version from current catalog state
+-> provider builds ProviderRegistration from its local provider mapping
 -> catalog returns RegistrationResult with selected_sync_capability = ocp.push.batch
 -> provider publishes CommercialObject batches
 -> catalog projects product data into searchable entries
 -> provider status page shows local_quality, publish_readiness, and catalog_quality
 ```
+
+This wording matters: the current demo provider does not dynamically derive its declaration by fetching the catalog manifest or contracts first. It constructs the registration locally and then relies on the catalog to accept, limit, or reject that declaration.
 
 ## What The Provider Actually Publishes
 
@@ -37,6 +39,8 @@ In the current workspace:
 - the provider can register itself to the commerce catalog
 - the catalog negotiates `ocp.push.batch`
 - the provider can publish all products or sync one product at a time
+- the provider derives `next_registration_version` from the catalog's current active provider state
+- `syncAll` currently sends products in batches of 25
 - publish runs are stored in `provider_sync_runs`
 - the provider admin UI shows the last runs, local feed quality, publish readiness, and catalog-side quality feedback
 
@@ -53,6 +57,16 @@ Its response returns both run records:
 - `sync_run`
 
 This is important because the flow example is not a theoretical handshake. It is an actual provider-side workflow wrapper over the real registration and sync APIs.
+
+## Registration And Sync State
+
+The current implementation keeps registration and sync as two separate runtime states:
+
+- registration writes a versioned `ProviderRegistration` record and may update the provider's active contract state
+- object sync is allowed only when the provider already has an active registration version
+- each sync request must use the same `registration_version` as the active provider contract state
+
+That means a recorded registration is not automatically enough. A stale or non-activated version cannot drive sync.
 
 ## Quality Feedback Loop
 

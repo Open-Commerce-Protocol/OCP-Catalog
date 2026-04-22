@@ -32,6 +32,7 @@ export const navigation = [
   {
     title: { en: 'Flows', zh: '流程示例' },
     links: [
+      { title: { en: 'Center Flow', zh: 'Center 流程' }, href: '/example/center-flow' },
       { title: { en: 'Commerce Catalog', zh: '电商目录示例' }, href: '/example/commerce-catalog' },
       { title: { en: 'Provider Flow', zh: '提供方流程' }, href: '/example/provider-flow' },
       { title: { en: 'User / Agent Flow', zh: '用户 / Agent 流程' }, href: '/example/user-agent-flow' },
