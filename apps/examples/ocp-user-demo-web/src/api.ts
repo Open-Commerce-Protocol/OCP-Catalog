@@ -97,10 +97,21 @@ export type ResolvableReference = {
   expires_at: string;
 };
 
-const centerBaseUrl = import.meta.env.VITE_CENTER_API_BASE_URL || 'http://localhost:4100';
-const fallbackCatalogQueryUrl = import.meta.env.VITE_DEFAULT_CATALOG_QUERY_URL || 'http://localhost:4000/ocp/query';
-const fallbackCatalogResolveUrl = import.meta.env.VITE_DEFAULT_CATALOG_RESOLVE_URL || 'http://localhost:4000/ocp/resolve';
+const fallbackCatalogQueryUrl = resolveOptionalApiUrl(
+  import.meta.env.VITE_DEFAULT_CATALOG_QUERY_URL,
+  'http://localhost:4000/ocp/query',
+);
+const fallbackCatalogResolveUrl = resolveOptionalApiUrl(
+  import.meta.env.VITE_DEFAULT_CATALOG_RESOLVE_URL,
+  'http://localhost:4000/ocp/resolve',
+);
 const userDemoApiPrefix = '/api/user-demo';
+
+const resolvedCenterBaseUrl = resolveRequiredApiUrl(
+  'VITE_CENTER_API_BASE_URL',
+  import.meta.env.VITE_CENTER_API_BASE_URL,
+  'http://localhost:4100',
+);
 
 export async function searchCenter(input: {
   query: string;
@@ -108,7 +119,7 @@ export async function searchCenter(input: {
   verificationStatus?: string;
   supportsResolve?: boolean;
 }) {
-  const payload = await request<{ items: CatalogSearchItem[]; explain: string[] }>(`${centerBaseUrl}/ocp/catalogs/search`, {
+  const payload = await request<{ items: CatalogSearchItem[]; explain: string[] }>(`${resolvedCenterBaseUrl}/ocp/catalogs/search`, {
     method: 'POST',
     body: {
       ocp_version: '1.0',
@@ -132,7 +143,10 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
   queryPack?: string;
   filters?: Record<string, string | number | boolean>;
 }) {
-  const queryUrl = routeHint?.query_url || fallbackCatalogQueryUrl;
+  const queryUrl = routeHint?.query_url || requireConfiguredUrl(
+    'VITE_DEFAULT_CATALOG_QUERY_URL',
+    fallbackCatalogQueryUrl,
+  );
   return request<{ items: CatalogQueryItem[]; explain: string[] }>(queryUrl, {
     method: 'POST',
     body: {
@@ -149,7 +163,10 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
 }
 
 export async function resolveEntry(routeHint: CatalogSearchItem['route_hint'] | null, entryId: string) {
-  const resolveUrl = routeHint?.resolve_url || fallbackCatalogResolveUrl;
+  const resolveUrl = routeHint?.resolve_url || requireConfiguredUrl(
+    'VITE_DEFAULT_CATALOG_RESOLVE_URL',
+    fallbackCatalogResolveUrl,
+  );
   return request<ResolvableReference>(resolveUrl, {
     method: 'POST',
     body: {
@@ -269,4 +286,27 @@ async function request<T>(url: string, options: { method: 'POST'; body: unknown 
   }
 
   return payload as T;
+}
+
+function resolveRequiredApiUrl(
+  envName: string,
+  configuredValue: string | undefined,
+  devDefault?: string,
+) {
+  const value = configuredValue?.trim();
+  if (value) return value.replace(/\/$/, '');
+  if (import.meta.env.DEV && devDefault) return devDefault.replace(/\/$/, '');
+  throw new Error(`${envName} must be configured for this deployment build.`);
+}
+
+function resolveOptionalApiUrl(configuredValue: string | undefined, devDefault?: string) {
+  const value = configuredValue?.trim();
+  if (value) return value;
+  if (import.meta.env.DEV && devDefault) return devDefault;
+  return undefined;
+}
+
+function requireConfiguredUrl(envName: string, value: string | undefined) {
+  if (value) return value;
+  throw new Error(`${envName} must be configured when no route hint URL is available.`);
 }

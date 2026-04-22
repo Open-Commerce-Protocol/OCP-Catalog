@@ -176,8 +176,17 @@ export type CenterActionResult = Record<string, unknown> & {
   catalog_access_token?: string;
 };
 
-const catalogBaseUrl = import.meta.env.VITE_CATALOG_API_BASE_URL || (import.meta.env.DEV ? 'http://localhost:4000' : window.location.origin);
-const centerBaseUrl = import.meta.env.VITE_CENTER_API_BASE_URL || 'http://localhost:4100';
+const catalogBaseUrl = resolveApiBaseUrl(
+  'VITE_CATALOG_API_BASE_URL',
+  import.meta.env.VITE_CATALOG_API_BASE_URL,
+  'http://localhost:4000',
+  window.location.origin,
+);
+const centerBaseUrl = resolveApiBaseUrl(
+  'VITE_CENTER_API_BASE_URL',
+  import.meta.env.VITE_CENTER_API_BASE_URL,
+  'http://localhost:4100',
+);
 const adminPrefix = '/api/catalog-admin';
 
 export async function fetchCatalogAdminOverview(apiKey: string) {
@@ -359,4 +368,17 @@ async function request<T>(url: string, options: RequestOptions): Promise<T> {
   }
 
   return payload as T;
+}
+
+function resolveApiBaseUrl(
+  envName: string,
+  configuredValue: string | undefined,
+  devDefault?: string,
+  prodDefault?: string,
+) {
+  const value = configuredValue?.trim();
+  if (value) return value.replace(/\/$/, '');
+  if (import.meta.env.DEV && devDefault) return devDefault.replace(/\/$/, '');
+  if (prodDefault) return prodDefault.replace(/\/$/, '');
+  throw new Error(`${envName} must be configured for this deployment build.`);
 }
