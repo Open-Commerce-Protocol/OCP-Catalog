@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ocp.dev/schema/ocp.catalog.handshake.v1/catalog-manifest.schema.json",
+  "type": "object",
+  "required": [
+    "ocp_version",
+    "kind",
+    "id",
+    "catalog_id",
+    "catalog_name",
+    "endpoints",
+    "query_capabilities",
+    "provider_contract",
+    "object_contracts"
+  ],
+  "properties": {
+    "ocp_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "kind": {
+      "type": "string",
+      "const": "CatalogManifest"
+    },
+    "id": {
+      "type": "string"
+    },
+    "catalog_id": {
+      "type": "string"
+    },
+    "catalog_name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "registry_visibility": {
+      "type": "string",
+      "enum": ["public", "partner", "private"],
+      "default": "public"
+    },
+    "endpoints": {
+      "type": "object",
+      "required": ["query", "resolve", "provider_registration", "contracts", "object_sync"],
+      "properties": {
+        "query": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
+        "resolve": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
+        "provider_registration": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
+        "contracts": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
+        "object_sync": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        }
+      },
+      "additionalProperties": false
+    },
+    "query_capabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["capability_id"],
+        "properties": {
+          "capability_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "query_packs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pack_id"],
+              "properties": {
+                "pack_id": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "query_modes": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["keyword", "filter", "semantic", "hybrid"]
+                  },
+                  "uniqueItems": true
+                },
+                "request_schema_uri": {
+                  "type": "string",
+                  "format": "uri"
+                },
+                "metadata": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": false
+            },
+            "default": []
+          },
+          "searchable_field_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/FieldRef"
+            },
+            "uniqueItems": true
+          },
+          "filterable_field_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/FieldRef"
+            },
+            "uniqueItems": true
+          },
+          "sortable_field_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/FieldRef"
+            },
+            "uniqueItems": true
+          },
+          "input_fields": {
+            "type": "array",
+            "items": {
+              "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/QueryInputField"
+            }
+          },
+          "supports_explain": {
+            "type": "boolean",
+            "default": true
+          },
+          "supports_resolve": {
+            "type": "boolean",
+            "default": true
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "provider_contract": {
+      "type": "object",
+      "required": ["field_rules", "sync_capabilities"],
+      "properties": {
+        "field_rules": {
+          "type": "array",
+          "items": {
+            "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/FieldRule"
+          }
+        },
+        "sync_capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/SyncCapability"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "object_contracts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/object-contract.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

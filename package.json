@@ -1,0 +1,41 @@
+{
+  "name": "ocp-catalog-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.12",
+  "workspaces": [
+    "apps/*",
+    "apps/examples/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:demo": "turbo run dev --filter=@ocp-catalog/ocp-center-api --filter=@ocp-catalog/commerce-catalog-api --filter=@ocp-catalog/commerce-provider-api --filter=@ocp-catalog/ocp-user-demo-api --filter=ocp-protocol-docs-web",
+    "start:demo": "turbo run start --filter=@ocp-catalog/ocp-center-api --filter=@ocp-catalog/commerce-catalog-api --filter=@ocp-catalog/commerce-provider-api --filter=@ocp-catalog/ocp-user-demo-api --filter=ocp-protocol-docs-web",
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "commerce:catalog:api": "bun run --cwd apps/examples/commerce-catalog-api start",
+    "commerce:catalog:admin": "bun run --cwd apps/examples/commerce-catalog-admin-web start",
+    "center:api": "bun run --cwd apps/ocp-center-api start",
+    "commerce:provider:api": "bun run --cwd apps/examples/commerce-provider-api start",
+    "commerce:provider:admin": "bun run --cwd apps/examples/commerce-provider-admin-web dev",
+    "user:demo:api": "bun run --cwd apps/examples/ocp-user-demo-api start",
+    "user:demo": "bun run --cwd apps/examples/ocp-user-demo-web dev",
+    "protocol:docs": "bun run --cwd apps/ocp-protocol-docs-web dev",
+    "protocol:docs:host": "bun run --cwd apps/ocp-protocol-docs-web start",
+    "validate:mvp": "bun scripts/validate-mvp.ts",
+    "validate:center": "bun scripts/validate-center.ts",
+    "db:generate": "bun run --cwd packages/db generate",
+    "db:migrate": "bun run --cwd packages/db migrate",
+    "db:studio": "bun run --cwd packages/db studio"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.1",
+    "drizzle-kit": "^0.31.8",
+    "turbo": "^2.5.8",
+    "typescript": "^5.9.3"
+  }
+}

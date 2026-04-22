@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-operator-bg: #F4F3EE;
+  --color-operator-surface: #FCFCFA;
+  --color-operator-border: #E2DFD8;
+  --color-operator-text: #1a1b18;
+  --color-operator-muted: #6e6f6a;
+  
+  --color-accent-teal: #14726e;
+  --color-accent-brass: #b58900;
+  --color-accent-rust: #a0432b;
+  
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-operator-bg);
+  color: var(--color-operator-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.operator-panel {
+  background-color: var(--color-operator-surface);
+  border: 1px solid var(--color-operator-border);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.operator-heading {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.operator-mono {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+

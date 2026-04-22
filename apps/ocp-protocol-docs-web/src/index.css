@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .docs-prose {
+    @apply text-slate-700;
+  }
+
+  .docs-prose :not(pre) > code {
+    @apply rounded bg-indigo-50 px-1.5 py-0.5 text-[0.9em] text-indigo-950;
+  }
+
+  .docs-code-shell {
+    @apply my-6;
+  }
+
+  .docs-code-block {
+    @apply overflow-x-auto rounded-xl border border-slate-800/70 bg-slate-950 px-5 py-4 text-sm leading-7 text-slate-100 shadow-lg;
+  }
+
+  .docs-code-block code {
+    @apply block min-w-max bg-transparent p-0 font-mono text-[0.95rem] text-slate-100;
+    white-space: pre;
+  }
+
+  .docs-prose code::before,
+  .docs-prose code::after {
+    content: none !important;
+  }
+
+  .docs-code-block::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .docs-code-block::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-700;
+  }
+
+  .docs-code-block::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+}

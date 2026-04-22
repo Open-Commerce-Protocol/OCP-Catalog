@@ -1,0 +1,58 @@
+# CatalogRegistration
+
+`CatalogRegistration` is the catalog's versioned declaration to the Center.
+
+## Required Fields
+
+```json
+{
+  "required": [
+    "ocp_version",
+    "kind",
+    "id",
+    "center_id",
+    "catalog_id",
+    "registration_version",
+    "updated_at",
+    "homepage",
+    "well_known_url",
+    "claimed_domains",
+    "operator"
+  ]
+}
+```
+
+## Example Fragment
+
+```json
+{
+  "catalog_id": "commerce_catalog_local_dev",
+  "registration_version": 3,
+  "homepage": "http://localhost:4000",
+  "well_known_url": "http://localhost:4000/.well-known/ocp-catalog",
+  "claimed_domains": ["localhost"],
+  "operator": {
+    "display_name": "Commerce Catalog Local Dev"
+  },
+  "intended_visibility": "public",
+  "tags": ["commerce", "products"]
+}
+```
+
+## Version Rule
+
+Like provider registration, this object is versioned.
+
+For one `catalog_id`:
+
+- a higher `registration_version` supersedes the previous one
+- `updated_at` is an audit timestamp, not the primary ordering key
+
+## What The Center Does Next
+
+After accepting a registration, the Center can:
+
+- verify catalog control
+- fetch the catalog manifest
+- create a snapshot
+- index routeable metadata
