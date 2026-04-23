@@ -3,6 +3,7 @@ import { AgentError } from './errors';
 
 export class OpenAiCompatibleClient {
   private readonly baseUrl: string;
+  private readonly timeoutMs = 180000;
 
   constructor(
     private readonly config: AppConfig,
@@ -35,21 +36,39 @@ export class OpenAiCompatibleClient {
       throw new AgentError(400, 'validation_error', 'OPENAI_API_KEY is required for the user demo agent');
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${this.config.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${this.config.OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          temperature: 0.2,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new AgentError(504, 'upstream_timeout', `Agent model request timed out after ${Math.floor(this.timeoutMs / 1000)}s`);
+      }
+      throw new AgentError(
+        502,
+        'upstream_unavailable',
+        'Agent model request failed before a response was received',
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {

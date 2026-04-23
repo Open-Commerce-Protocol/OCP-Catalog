@@ -282,9 +282,17 @@ async function request<T>(url: string, options: { method: 'POST'; body: unknown 
     body: JSON.stringify(options.body),
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const text = await response.text();
+  let payload: unknown = {};
+  if (text.trim()) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new Error(`Request to ${url} failed with status ${response.status} and returned non-JSON content`);
+    }
+  }
   if (!response.ok) {
-    throw new Error(payload?.error?.message ?? `Request failed with status ${response.status}`);
+    throw new Error((payload as { error?: { message?: string } })?.error?.message ?? `Request failed with status ${response.status}`);
   }
 
   return payload as T;

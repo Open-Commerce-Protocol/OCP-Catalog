@@ -56,6 +56,7 @@ export default function App() {
   const [trustFilter, setTrustFilter] = useState<'all' | string>('all');
   const [catalogToken, setCatalogToken] = useState('');
   const [toast, setToast] = useState<ToastState>(null);
+  const safeCatalogs = Array.isArray(catalogs) ? catalogs : [];
 
   useEffect(() => {
     window.localStorage.setItem('center-admin-api-key', apiKey);
@@ -72,10 +73,10 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
-    if (!selectedCatalogId && catalogs[0]) {
-      setSelectedCatalogId(catalogs[0].catalog_id);
+    if (!selectedCatalogId && safeCatalogs[0]) {
+      setSelectedCatalogId(safeCatalogs[0].catalog_id);
     }
-  }, [catalogs, selectedCatalogId]);
+  }, [safeCatalogs, selectedCatalogId]);
 
   useEffect(() => {
     if (!selectedCatalogId) return;
@@ -84,7 +85,7 @@ export default function App() {
 
   const filteredCatalogs = useMemo(() => {
     const query = filter.trim().toLowerCase();
-    return catalogs.filter((catalog) => {
+    return safeCatalogs.filter((catalog) => {
       if (verificationFilter !== 'all' && catalog.verification_status !== verificationFilter) return false;
       if (healthFilter !== 'all' && catalog.health_status !== healthFilter) return false;
       if (trustFilter !== 'all' && catalog.trust_tier !== trustFilter) return false;
@@ -99,7 +100,7 @@ export default function App() {
       ].join(' ').toLowerCase();
       return haystack.includes(query);
     });
-  }, [catalogs, filter, verificationFilter, healthFilter, trustFilter]);
+  }, [safeCatalogs, filter, verificationFilter, healthFilter, trustFilter]);
 
   async function reloadAll() {
     try {
@@ -171,9 +172,9 @@ export default function App() {
   }
 
   const metrics = overview?.metrics;
-  const verificationOptions = ['all', ...unique(catalogs.map((catalog) => catalog.verification_status))];
-  const healthOptions = ['all', ...unique(catalogs.map((catalog) => catalog.health_status))];
-  const trustOptions = ['all', ...unique(catalogs.map((catalog) => catalog.trust_tier))];
+  const verificationOptions = ['all', ...unique(safeCatalogs.map((catalog) => catalog.verification_status))];
+  const healthOptions = ['all', ...unique(safeCatalogs.map((catalog) => catalog.health_status))];
+  const trustOptions = ['all', ...unique(safeCatalogs.map((catalog) => catalog.trust_tier))];
 
   return (
     <div className="min-h-screen center-grid">

@@ -69,11 +69,12 @@ export function App() {
 
   const selectedTopAction = resolvedItem?.action_bindings[0] ?? null;
 
-  async function withAction(actionKey: string, fn: () => Promise<void>) {
+  async function withAction(actionKey: string, fn: () => Promise<void>, onError?: (error: unknown) => void) {
     try {
       setBusyAction(actionKey);
       await fn();
     } catch (error) {
+      onError?.(error);
       setToast({
         tone: 'danger',
         message: error instanceof Error ? error.message : 'Unexpected error',
@@ -87,6 +88,12 @@ export function App() {
     setAgentMessages((current) => [...current, { id: crypto.randomUUID(), role, content }]);
   }
 
+  function buildAgentErrorMessage(error: unknown, fallback: string) {
+    const message = error instanceof Error ? error.message.trim() : '';
+    if (!message) return fallback;
+    return `${fallback}\n\n错误信息：${message}`;
+  }
+
   async function handleUserTurn() {
     const userText = draftMessage.trim();
     if (!userText) return;
@@ -95,25 +102,37 @@ export function App() {
     setDraftMessage('');
     setResolvedItem(null);
 
-    await withAction('agent-turn', async () => {
-      const response = await agentTurn({
-        userInput: userText,
-        savedProfiles,
-        activeCatalogId: activeProfile?.catalog_id ?? null,
-        pendingCatalog,
-        session: querySession,
-        previousResults: catalogResults,
-      });
+    await withAction(
+      'agent-turn',
+      async () => {
+        const response = await agentTurn({
+          userInput: userText,
+          savedProfiles,
+          activeCatalogId: activeProfile?.catalog_id ?? null,
+          pendingCatalog,
+          session: querySession,
+          previousResults: catalogResults,
+        });
 
-      setPendingCatalog(response.pending_catalog);
-      setQuerySession(response.next_session);
-      setCatalogResults(response.result_items);
-      if (response.selected_catalog_id) {
-        const selected = savedProfiles.find((profile) => profile.catalog_id === response.selected_catalog_id) ?? null;
-        if (selected) setActiveProfile(selected);
-      }
-      pushMessage('agent', response.agent_message);
-    });
+        setPendingCatalog(response.pending_catalog);
+        setQuerySession(response.next_session);
+        setCatalogResults(response.result_items);
+        if (response.selected_catalog_id) {
+          const selected = savedProfiles.find((profile) => profile.catalog_id === response.selected_catalog_id) ?? null;
+          if (selected) setActiveProfile(selected);
+        }
+        pushMessage('agent', response.agent_message);
+      },
+      (error) => {
+        pushMessage(
+          'agent',
+          buildAgentErrorMessage(
+            error,
+            '这次 agent 请求没有成功完成，我暂时没法继续当前这轮检索。请稍后重试，或先检查 user-demo agent 的模型与网络配置。',
+          ),
+        );
+      },
+    );
   }
 
   async function handleRegisterPendingCatalog() {
@@ -134,15 +153,27 @@ export function App() {
     setSavedProfiles((current) => [profile, ...current.filter((item) => item.catalog_id !== profile.catalog_id)]);
     setActiveProfile(profile);
     setPendingCatalog(null);
-    await withAction('direct-query', async () => {
-      const response = await confirmCatalogRegistration({
-        pendingCatalog,
-        session: querySession,
-      });
-      setCatalogResults(response.result_items);
-      setQuerySession(response.next_session);
-      pushMessage('agent', response.agent_message);
-    });
+    await withAction(
+      'direct-query',
+      async () => {
+        const response = await confirmCatalogRegistration({
+          pendingCatalog,
+          session: querySession,
+        });
+        setCatalogResults(response.result_items);
+        setQuerySession(response.next_session);
+        pushMessage('agent', response.agent_message);
+      },
+      (error) => {
+        pushMessage(
+          'agent',
+          buildAgentErrorMessage(
+            error,
+            'catalog profile 已保存，但继续查询这一步失败了。请稍后重试，或检查 agent 模型与 catalog 查询链路。',
+          ),
+        );
+      },
+    );
   }
 
   function handleClearMemory() {

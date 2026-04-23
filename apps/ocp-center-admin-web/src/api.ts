@@ -126,7 +126,7 @@ export async function fetchCenterAdminOverview(apiKey: string) {
 
 export async function fetchCenterAdminCatalogs(apiKey: string) {
   const payload = await request<{ center_id: string; catalogs: CenterCatalogListItem[] }>('/api/center-admin/catalogs', { method: 'GET', apiKey });
-  return payload.catalogs;
+  return Array.isArray(payload.catalogs) ? payload.catalogs : [];
 }
 
 export async function fetchCenterAdminRegistrations(apiKey: string, catalogId: string) {
@@ -134,12 +134,12 @@ export async function fetchCenterAdminRegistrations(apiKey: string, catalogId: s
     `/api/center-admin/catalogs/${catalogId}/registrations`,
     { method: 'GET', apiKey },
   );
-  return payload.registrations;
+  return Array.isArray(payload.registrations) ? payload.registrations : [];
 }
 
 export async function fetchCenterAdminSearchAudits(apiKey: string) {
   const payload = await request<{ center_id: string; audits: CenterSearchAudit[] }>('/api/center-admin/search-audits', { method: 'GET', apiKey });
-  return payload.audits;
+  return Array.isArray(payload.audits) ? payload.audits : [];
 }
 
 export async function fetchCenterCatalog(catalogId: string) {
@@ -203,7 +203,15 @@ async function request<T>(url: string, options: RequestOptions): Promise<T> {
     ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const text = await response.text();
+  let payload: unknown = {};
+  if (text.trim()) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw new Error(`Expected JSON response from ${url}, received non-JSON content`);
+    }
+  }
   if (!response.ok) {
     throw new Error((payload as { error?: { message?: string } })?.error?.message ?? `Request failed with status ${response.status}`);
   }
