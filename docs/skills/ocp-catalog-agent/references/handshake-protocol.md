@@ -62,7 +62,7 @@ The search contract is expressed through:
 
 - `query_capabilities`
 - `query_capabilities[*].query_packs[*].pack_id`
-- query-pack metadata and query-mode hints
+- query-pack metadata
 - input fields, searchable fields, filterable fields, and sortable fields
 
 The agent should inspect the declared packs before constructing a query.
@@ -74,7 +74,7 @@ The agent must follow these rules:
 - only use a `query_pack` that the selected catalog declares
 - do not invent `query_pack` ids
 - if the catalog does not declare the desired pack, choose a compatible declared pack or omit `query_pack`
-- use query modes and filters consistently with the selected pack
+- use filters and input fields consistently with the selected pack and manifest
 
 Common canonical pack ids may include:
 
@@ -92,7 +92,7 @@ Before calling `/ocp/query`, inspect:
 2. `endpoints.resolve.url` if resolve is needed
 3. `query_capabilities`
 4. each declared `pack_id`
-5. query-mode hints
+5. query-pack metadata
 6. language hints
 7. accepted filter or input fields
 
@@ -102,4 +102,3 @@ Before calling `/ocp/query`, inspect:
 - treating every catalog as if it supports the same packs
 - assuming semantic or hybrid search always exists
 - ignoring the manifest and guessing request shape
-

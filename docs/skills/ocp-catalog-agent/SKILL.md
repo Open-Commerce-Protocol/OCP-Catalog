@@ -25,16 +25,121 @@ Hard rules:
 
 Follow this order:
 
-1. Reuse a saved local `CatalogRouteHint` when it is still suitable.
-2. If no suitable local catalog exists, search Registration node for catalogs.
-3. Choose a catalog using health, trust, verification, language hints, endpoints, and supported query packs.
-4. Inspect the selected route hint.
-5. Fetch the manifest only when the route hint is insufficient.
-6. Build the query only from declared catalog capabilities.
-7. Call the catalog `query_url`.
-8. Call `resolve_url` only after a concrete result entry is selected.
+1. Classify the user's intent before choosing a catalog.
+2. Load saved local catalog profiles from the local profile store.
+3. Reuse a saved profile only when domain, geography, language, health, trust, endpoints, and query capabilities fit the intent.
+4. If no suitable local catalog exists, discover or use a Registration node and search it for catalogs.
+5. Choose a catalog using health, trust, verification, language hints, geographic hints, endpoints, and supported query packs.
+6. Inspect the selected route hint.
+7. Fetch the manifest when the route hint is insufficient or stale.
+8. Build the query only from declared catalog capabilities.
+9. Call the catalog `query_url`.
+10. Call `resolve_url` only after a concrete result entry is selected.
 
 Never skip from Registration node search to product results. Registration node only routes the agent to a catalog.
+
+## Local Catalog Profiles
+
+Agents should keep a small local routing cache of known catalogs.
+
+Preferred local files:
+
+- JSON: `~/.ocp/catalogs.json`
+- YAML: `~/.ocp/catalogs.yaml`
+
+Use whichever file already exists. If neither exists and the agent can write files, create `~/.ocp/catalogs.json`. Keep the file human-readable and do not store catalog secrets or provider credentials.
+
+Recommended JSON shape:
+
+```json
+{
+  "version": 1,
+  "updated_at": "2026-04-24T00:00:00.000Z",
+  "catalogs": [
+    {
+      "catalog_id": "cat_commerce_demo",
+      "name": "Commerce Catalog",
+      "base_url": "https://ocp.catalog.example",
+      "manifest_url": "https://ocp.catalog.example/ocp/manifest",
+      "query_url": "https://ocp.catalog.example/ocp/query",
+      "resolve_url": "https://ocp.catalog.example/ocp/resolve",
+      "domains": ["commerce", "shopping", "products"],
+      "geographies": ["global"],
+      "languages": ["zh", "en"],
+      "supported_query_packs": ["ocp.query.keyword.v1", "ocp.query.filter.v1"],
+      "health_status": "healthy",
+      "trust_tier": "standard",
+      "verification_status": "verified",
+      "snapshot_id": "optional-center-snapshot-id",
+      "snapshot_fetched_at": "2026-04-24T00:00:00.000Z",
+      "source_center_url": "https://ocp.center.example"
+    }
+  ]
+}
+```
+
+Equivalent YAML shape:
+
+```yaml
+version: 1
+updated_at: "2026-04-24T00:00:00.000Z"
+catalogs:
+  - catalog_id: cat_commerce_demo
+    name: Commerce Catalog
+    base_url: https://ocp.catalog.example
+    manifest_url: https://ocp.catalog.example/ocp/manifest
+    query_url: https://ocp.catalog.example/ocp/query
+    resolve_url: https://ocp.catalog.example/ocp/resolve
+    domains:
+      - commerce
+      - shopping
+      - products
+    geographies:
+      - global
+    languages:
+      - zh
+      - en
+    supported_query_packs:
+      - ocp.query.keyword.v1
+      - ocp.query.filter.v1
+    health_status: healthy
+    trust_tier: standard
+    verification_status: verified
+    snapshot_id: optional-center-snapshot-id
+    snapshot_fetched_at: "2026-04-24T00:00:00.000Z"
+    source_center_url: https://ocp.center.example
+```
+
+Local profile matching is strict:
+
+- Match domain first. A commerce/product catalog is not suitable for local life, restaurants, city services, jobs, real estate, travel, or medical queries unless its profile explicitly says so.
+- Match geography when the user expresses a location. For example, "杭州本地生活" needs a catalog whose geography or metadata covers Hangzhou, Zhejiang, China, or local-life content.
+- Match language when the user expects a language-specific result.
+- Match query capability. Do not choose a catalog that cannot support the required keyword, filter, semantic, or resolve flow.
+- Respect health and trust. Do not use unhealthy or unverified catalogs unless the user explicitly asks to try them.
+
+If local profiles contain only commerce catalogs and the user asks for Hangzhou local-life content, report that no local catalog is suitable and search a Registration node for a local-life catalog instead.
+
+After selecting a new catalog from a Registration node, save or update its local profile when allowed. Store route hints, capability summaries, trust/health status, relevant domain and geography tags, and the source Registration node. Do not cache product results as catalog profiles.
+
+## Registration Node Discovery
+
+When local profiles are missing or unsuitable, use a Registration node.
+
+If the user provides a center `base_url`, first fetch:
+
+```text
+GET {base_url}/.well-known/ocp-center
+```
+
+Use that discovery document to find the center manifest and catalog search endpoints. If the user provides a full discovery URL, use it directly.
+
+If the user does not provide a center, use the agent's configured default Registration node. Do not guess random public centers. If no default exists, ask for a center URL.
+
+Search the Registration node for catalogs matching the intent, not for products. For example:
+
+- For "杭州本地生活", search for catalog profiles with local-life, city service, restaurant, events, travel, or Hangzhou/Zhejiang/China location hints.
+- For "买一双帆布鞋", a commerce product catalog may be suitable.
 
 ## Query Pack Rules
 

@@ -16,9 +16,11 @@ This reference is for agents that need a compact, practical map of how to use OC
 ## The Correct Order
 
 ```text
-local saved catalog?
--> yes: inspect route hint and query the catalog
--> no: search Registration node for catalogs
+classify user intent
+-> load local catalog profiles
+-> suitable local catalog?
+-> yes: inspect route hint or manifest, then query the catalog
+-> no: discover/search Registration node for catalogs
 -> choose a catalog
 -> inspect route hint or manifest
 -> query the catalog
@@ -26,6 +28,49 @@ local saved catalog?
 ```
 
 This ordering matters because Registration node is not a product search engine.
+
+## Local Profile Store
+
+Agents should treat local catalog profiles as a routing cache.
+
+Preferred local files:
+
+- `~/.ocp/catalogs.json`
+- `~/.ocp/catalogs.yaml`
+
+Use whichever exists. If neither exists and local writes are allowed, create `~/.ocp/catalogs.json`.
+
+A profile should store:
+
+- catalog id and name
+- catalog base URL
+- manifest, query, and resolve URLs
+- supported query packs
+- domain tags such as commerce, local-life, jobs, travel, restaurants, or services
+- geography tags such as global, China, Zhejiang, Hangzhou
+- language hints
+- health, trust, and verification status
+- source Registration node URL
+- snapshot id and fetch time when provided
+
+Do not store product query results, provider credentials, API keys, or user-private data in this file.
+
+## Intent Fit
+
+Before reusing a local profile, verify that it fits the user's intent.
+
+Check:
+
+- domain fit
+- geography fit
+- language fit
+- health and trust fit
+- query capability fit
+- endpoint availability
+
+Do not use a merely available catalog when the domain is wrong. For example, if the user asks for Hangzhou local-life content and the local cache only has a commerce product catalog, the correct action is to search a Registration node for a local-life catalog.
+
+If no default Registration node is configured and the user did not provide one, ask for a center base URL instead of guessing.
 
 ## What Registration node Is For
 
@@ -88,9 +133,9 @@ Before calling `/ocp/query`, check:
 
 1. Which catalog was selected?
 2. What query packs does it declare?
-3. Which query modes does it hint?
+3. Which domain and geography does it cover?
 4. Which languages does it hint?
-5. Does the request need free text, filters, or both?
+5. Does the request need free text, filters, semantic retrieval, or resolve?
 6. Are the chosen filters actually consistent with the catalog's declared or hinted fields?
 
 ## Resolve Checklist
