@@ -38,6 +38,7 @@ const searchIndexWorker = new SearchIndexWorker(
   new SearchIndexJobHandlerService(searchDocumentService, searchIndexJobs, searchEmbeddingService),
 );
 const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
+const searchIndexScheduler = startSearchIndexWorkerScheduler();
 
 const app = new Elysia()
   .use(cors())
@@ -208,6 +209,9 @@ console.log(`Commerce Catalog API listening on http://localhost:${app.server?.po
 if (await catalogAdminSite('/')) {
   console.log('Commerce Catalog Admin static site mounted from apps/examples/commerce-catalog-api/public/dist');
 }
+if (searchIndexScheduler) {
+  console.log(`Commerce Catalog search index worker enabled every ${config.CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS}s`);
+}
 
 function assertWriteAuth(headers: Record<string, string | undefined>) {
   requireApiKey(firstHeader(headers['x-api-key']), config.API_KEY_DEV, config.API_KEYS);
@@ -228,6 +232,146 @@ function firstHeader(value: string | string[] | undefined) {
 async function serveCatalogAdmin(pathname: string) {
   const response = await catalogAdminSite(pathname);
   return response ?? new Response('Not Found', { status: 404 });
+}
+
+function startSearchIndexWorkerScheduler() {
+  if (!config.CATALOG_SEARCH_INDEX_WORKER_ENABLED) return null;
+
+  let running = false;
+
+  const runOnce = async (reason: string) => {
+    if (running) return;
+    running = true;
+    const startedAt = performance.now();
+    try {
+      if (reason === 'startup' && config.CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP) {
+        const reconciled = await reconcileSearchIndexQueue();
+        if (reconciled.enqueued_document_jobs > 0 || reconciled.enqueued_embedding_jobs > 0) {
+          console.log(JSON.stringify({
+            ts: new Date().toISOString(),
+            level: 'info',
+            event: 'search_index_reconcile',
+            reason,
+            ...reconciled,
+          }));
+        }
+      }
+
+      const result = await searchIndexWorker.runBatch({
+        catalogId: config.CATALOG_ID,
+        limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
+        retryDelayMs: 30_000,
+      });
+      if (result.claimedCount > 0) {
+        console.log(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: result.failedCount > 0 ? 'warn' : 'info',
+          event: 'search_index_worker_batch',
+          reason,
+          duration_ms: Number((performance.now() - startedAt).toFixed(2)),
+          ...result,
+        }));
+      }
+    } catch (error) {
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'error',
+        event: 'search_index_worker_error',
+        reason,
+        duration_ms: Number((performance.now() - startedAt).toFixed(2)),
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    } finally {
+      running = false;
+    }
+  };
+
+  void runOnce('startup');
+  const timer = setInterval(() => {
+    void runOnce('interval');
+  }, config.CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS * 1000);
+
+  return timer;
+}
+
+async function reconcileSearchIndexQueue() {
+  const [entries, documents, embeddings, jobs] = await Promise.all([
+    db.select().from(schema.catalogEntries),
+    db.select().from(schema.catalogSearchDocuments),
+    db.select().from(schema.catalogSearchEmbeddings),
+    db.select().from(schema.catalogSearchIndexJobs),
+  ]);
+
+  const catalogEntries = entries.filter((row) => row.catalogId === config.CATALOG_ID && row.entryStatus === 'active');
+  const activeDocumentByEntryId = new Map(
+    documents
+      .filter((row) => row.catalogId === config.CATALOG_ID && row.documentStatus === 'active')
+      .map((row) => [row.catalogEntryId, row] as const),
+  );
+  const readyEmbeddingDocumentIds = new Set(
+    embeddings
+      .filter((row) => row.catalogId === config.CATALOG_ID && row.status === 'ready')
+      .map((row) => row.catalogSearchDocumentId),
+  );
+  const activeJobs = jobs.filter((row) => (
+    row.catalogId === config.CATALOG_ID && (row.status === 'pending' || row.status === 'running')
+  ));
+  const activeDocumentJobEntryIds = new Set(
+    activeJobs
+      .filter((row) => row.jobType === 'upsert_document' || row.jobType === 'rebuild_document')
+      .map((row) => row.catalogEntryId)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const activeEmbeddingJobDocumentIds = new Set(
+    activeJobs
+      .filter((row) => row.jobType === 'refresh_embedding')
+      .map((row) => stringPayload(row.payload, 'search_document_id'))
+      .filter((value): value is string => Boolean(value)),
+  );
+
+  let enqueuedDocumentJobs = 0;
+  let enqueuedEmbeddingJobs = 0;
+  for (const entry of catalogEntries) {
+    const document = activeDocumentByEntryId.get(entry.id);
+    if (!document) {
+      if (!activeDocumentJobEntryIds.has(entry.id)) {
+        await searchIndexJobs.enqueueDocumentUpsert({
+          catalogId: entry.catalogId,
+          providerId: entry.providerId,
+          catalogEntryId: entry.id,
+          commercialObjectId: entry.commercialObjectId,
+          payload: {
+            reason: 'startup_reconcile_missing_document',
+            object_id: entry.objectId,
+          },
+        });
+        enqueuedDocumentJobs += 1;
+      }
+      continue;
+    }
+
+    if (!readyEmbeddingDocumentIds.has(document.id) && !activeEmbeddingJobDocumentIds.has(document.id)) {
+      await searchIndexJobs.enqueueEmbeddingRefresh({
+        catalogId: document.catalogId,
+        providerId: document.providerId,
+        catalogEntryId: document.catalogEntryId,
+        commercialObjectId: document.commercialObjectId,
+        payload: {
+          reason: 'startup_reconcile_missing_embedding',
+          search_document_id: document.id,
+        },
+      });
+      enqueuedEmbeddingJobs += 1;
+    }
+  }
+
+  return {
+    active_entry_count: catalogEntries.length,
+    active_document_count: activeDocumentByEntryId.size,
+    ready_embedding_count: readyEmbeddingDocumentIds.size,
+    enqueued_document_jobs: enqueuedDocumentJobs,
+    enqueued_embedding_jobs: enqueuedEmbeddingJobs,
+  };
 }
 
 async function getCatalogAdminOverview() {
@@ -505,6 +649,11 @@ async function postCenterJson(pathname: string, body: Record<string, unknown>, c
 function getBodyString(body: unknown, key: string) {
   if (!body || typeof body !== 'object') return undefined;
   const value = (body as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function stringPayload(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
