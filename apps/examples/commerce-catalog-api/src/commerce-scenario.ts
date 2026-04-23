@@ -126,7 +126,7 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       metadata: {
         semantic_search: {
           enabled: true,
-          embedding_index: 'catalog_entry_embeddings',
+          embedding_index: 'catalog_search_embeddings',
         },
       },
     });
@@ -178,7 +178,7 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
         },
         semantic_search: {
           enabled: Boolean(options.semanticSearchEnabled),
-          embedding_index: 'catalog_entry_embeddings',
+          embedding_index: 'catalog_search_embeddings',
         },
       },
     },

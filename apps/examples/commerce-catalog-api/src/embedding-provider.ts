@@ -1,5 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { EmbeddingProvider, EmbeddingResult } from '@ocp-catalog/catalog-core';
+import type { EmbeddingProvider, EmbeddingResult } from './search/indexing/search-embedding-service';
 import { createHash } from 'node:crypto';
 
 export function createCommerceEmbeddingProvider(config: AppConfig): EmbeddingProvider | undefined {

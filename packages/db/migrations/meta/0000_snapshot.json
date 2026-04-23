@@ -1,5 +1,5 @@
 {
-  "id": "87274557-98ee-4b83-b366-46e59c9840ff",
+  "id": "efb4b5b9-5b2f-493c-9652-1d104de45987",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -307,8 +307,75 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.catalog_entry_embeddings": {
-      "name": "catalog_entry_embeddings",
+    "public.catalog_profiles": {
+      "name": "catalog_profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "catalog_id": {
+          "name": "catalog_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "catalog_name": {
+          "name": "catalog_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "manifest": {
+          "name": "manifest",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "catalog_profiles_catalog_id_unique": {
+          "name": "catalog_profiles_catalog_id_unique",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.catalog_search_documents": {
+      "name": "catalog_search_documents",
       "schema": "",
       "columns": {
         "id": {
@@ -325,6 +392,569 @@
         },
         "catalog_entry_id": {
           "name": "catalog_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "commercial_object_id": {
+          "name": "commercial_object_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider_id": {
+          "name": "provider_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "object_id": {
+          "name": "object_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "object_type": {
+          "name": "object_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_status": {
+          "name": "document_status",
+          "type": "catalog_search_document_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "normalized_title": {
+          "name": "normalized_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "brand": {
+          "name": "brand",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "normalized_brand": {
+          "name": "normalized_brand",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "normalized_category": {
+          "name": "normalized_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sku": {
+          "name": "sku",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "normalized_sku": {
+          "name": "normalized_sku",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "availability_status": {
+          "name": "availability_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "list_amount": {
+          "name": "list_amount",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "has_image": {
+          "name": "has_image",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "has_product_url": {
+          "name": "has_product_url",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "discount_present": {
+          "name": "discount_present",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "quality_tier": {
+          "name": "quality_tier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "availability_rank": {
+          "name": "availability_rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "quality_rank": {
+          "name": "quality_rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "search_text": {
+          "name": "search_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "search_vector": {
+          "name": "search_vector",
+          "type": "tsvector",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "facet_payload": {
+          "name": "facet_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "ranking_features": {
+          "name": "ranking_features",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "visible_attributes_payload": {
+          "name": "visible_attributes_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "explain_payload": {
+          "name": "explain_payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "source_updated_at": {
+          "name": "source_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "indexed_at": {
+          "name": "indexed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "catalog_search_documents_catalog_entry_unique": {
+          "name": "catalog_search_documents_catalog_entry_unique",
+          "columns": [
+            {
+              "expression": "catalog_entry_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_status_idx": {
+          "name": "catalog_search_documents_catalog_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_provider_status_idx": {
+          "name": "catalog_search_documents_catalog_provider_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_category_status_idx": {
+          "name": "catalog_search_documents_catalog_category_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_brand_status_idx": {
+          "name": "catalog_search_documents_catalog_brand_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "brand",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_availability_status_idx": {
+          "name": "catalog_search_documents_catalog_availability_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "availability_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_sku_status_idx": {
+          "name": "catalog_search_documents_catalog_sku_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sku",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_currency_status_idx": {
+          "name": "catalog_search_documents_catalog_currency_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "currency",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_amount_status_idx": {
+          "name": "catalog_search_documents_catalog_amount_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "amount",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_quality_status_idx": {
+          "name": "catalog_search_documents_catalog_quality_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "quality_tier",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_documents_catalog_updated_idx": {
+          "name": "catalog_search_documents_catalog_updated_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "catalog_search_documents_catalog_entry_id_catalog_entries_id_fk": {
+          "name": "catalog_search_documents_catalog_entry_id_catalog_entries_id_fk",
+          "tableFrom": "catalog_search_documents",
+          "tableTo": "catalog_entries",
+          "columnsFrom": [
+            "catalog_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "catalog_search_documents_commercial_object_id_commercial_objects_id_fk": {
+          "name": "catalog_search_documents_commercial_object_id_commercial_objects_id_fk",
+          "tableFrom": "catalog_search_documents",
+          "tableTo": "commercial_objects",
+          "columnsFrom": [
+            "commercial_object_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.catalog_search_embeddings": {
+      "name": "catalog_search_embeddings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "catalog_id": {
+          "name": "catalog_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "catalog_search_document_id": {
+          "name": "catalog_search_document_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -401,11 +1031,11 @@
         }
       },
       "indexes": {
-        "catalog_entry_embeddings_entry_model_unique": {
-          "name": "catalog_entry_embeddings_entry_model_unique",
+        "catalog_search_embeddings_document_model_unique": {
+          "name": "catalog_search_embeddings_document_model_unique",
           "columns": [
             {
-              "expression": "catalog_entry_id",
+              "expression": "catalog_search_document_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -422,8 +1052,8 @@
           "method": "btree",
           "with": {}
         },
-        "catalog_entry_embeddings_catalog_model_status_idx": {
-          "name": "catalog_entry_embeddings_catalog_model_status_idx",
+        "catalog_search_embeddings_catalog_model_status_idx": {
+          "name": "catalog_search_embeddings_catalog_model_status_idx",
           "columns": [
             {
               "expression": "catalog_id",
@@ -451,12 +1081,12 @@
         }
       },
       "foreignKeys": {
-        "catalog_entry_embeddings_catalog_entry_id_catalog_entries_id_fk": {
-          "name": "catalog_entry_embeddings_catalog_entry_id_catalog_entries_id_fk",
-          "tableFrom": "catalog_entry_embeddings",
-          "tableTo": "catalog_entries",
+        "catalog_search_embeddings_catalog_search_document_id_catalog_search_documents_id_fk": {
+          "name": "catalog_search_embeddings_catalog_search_document_id_catalog_search_documents_id_fk",
+          "tableFrom": "catalog_search_embeddings",
+          "tableTo": "catalog_search_documents",
           "columnsFrom": [
-            "catalog_entry_id"
+            "catalog_search_document_id"
           ],
           "columnsTo": [
             "id"
@@ -471,8 +1101,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.catalog_profiles": {
-      "name": "catalog_profiles",
+    "public.catalog_search_index_jobs": {
+      "name": "catalog_search_index_jobs",
       "schema": "",
       "columns": {
         "id": {
@@ -487,17 +1117,84 @@
           "primaryKey": false,
           "notNull": true
         },
-        "catalog_name": {
-          "name": "catalog_name",
+        "provider_id": {
+          "name": "provider_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "catalog_entry_id": {
+          "name": "catalog_entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "commercial_object_id": {
+          "name": "commercial_object_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "job_type": {
+          "name": "job_type",
+          "type": "catalog_search_index_job_type",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
-        "manifest": {
-          "name": "manifest",
+        "status": {
+          "name": "status",
+          "type": "catalog_search_index_job_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "attempt_count": {
+          "name": "attempt_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "max_attempts": {
+          "name": "max_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 5
+        },
+        "scheduled_at": {
+          "name": "scheduled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'{}'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -515,23 +1212,116 @@
         }
       },
       "indexes": {
-        "catalog_profiles_catalog_id_unique": {
-          "name": "catalog_profiles_catalog_id_unique",
+        "catalog_search_index_jobs_catalog_status_scheduled_idx": {
+          "name": "catalog_search_index_jobs_catalog_status_scheduled_idx",
           "columns": [
             {
               "expression": "catalog_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "scheduled_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
             }
           ],
-          "isUnique": true,
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_index_jobs_catalog_type_status_idx": {
+          "name": "catalog_search_index_jobs_catalog_type_status_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "job_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "catalog_search_index_jobs_catalog_provider_created_idx": {
+          "name": "catalog_search_index_jobs_catalog_provider_created_idx",
+          "columns": [
+            {
+              "expression": "catalog_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "catalog_search_index_jobs_catalog_entry_id_catalog_entries_id_fk": {
+          "name": "catalog_search_index_jobs_catalog_entry_id_catalog_entries_id_fk",
+          "tableFrom": "catalog_search_index_jobs",
+          "tableTo": "catalog_entries",
+          "columnsFrom": [
+            "catalog_entry_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "catalog_search_index_jobs_commercial_object_id_commercial_objects_id_fk": {
+          "name": "catalog_search_index_jobs_commercial_object_id_commercial_objects_id_fk",
+          "tableFrom": "catalog_search_index_jobs",
+          "tableTo": "commercial_objects",
+          "columnsFrom": [
+            "commercial_object_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -2768,6 +3558,39 @@
     }
   },
   "enums": {
+    "public.catalog_search_document_status": {
+      "name": "catalog_search_document_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "active",
+        "inactive",
+        "stale",
+        "failed"
+      ]
+    },
+    "public.catalog_search_index_job_status": {
+      "name": "catalog_search_index_job_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "running",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "public.catalog_search_index_job_type": {
+      "name": "catalog_search_index_job_type",
+      "schema": "public",
+      "values": [
+        "upsert_document",
+        "rebuild_document",
+        "delete_document",
+        "refresh_embedding",
+        "rebuild_all_for_provider"
+      ]
+    },
     "public.entry_status": {
       "name": "entry_status",
       "schema": "public",

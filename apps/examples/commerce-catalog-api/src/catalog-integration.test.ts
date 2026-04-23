@@ -4,12 +4,16 @@ import { loadConfig, type AppConfig } from '@ocp-catalog/config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
 import { createDb } from '@ocp-catalog/db';
 import { createCommerceCatalogScenario } from './commerce-scenario';
+import { CommerceQueryService } from './query/commerce-query-service';
+import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 
 const baseConfig = loadConfig();
 const db = createDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, { max: 1 });
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
 const services = createCatalogServices(db, baseConfig, scenario);
+const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
+const commerceQueryService = new CommerceQueryService(db, baseConfig, scenario);
 
 const providerId = `itest_provider_${Date.now()}`;
 const queryText = `travel headphones ${providerId}`;
@@ -83,6 +87,10 @@ describe('commerce catalog integration', () => {
 
     expect(syncResult.status).toBe('accepted');
     expect(syncResult.accepted_count).toBe(2);
+    expect(await searchDocumentUpsertService.upsertForProvider({
+      catalogId: baseConfig.CATALOG_ID,
+      providerId,
+    })).toHaveLength(2);
 
     const providerStatus = await services.registrations.getProvider(providerId);
     expect(providerStatus.catalog_quality?.object_count).toBe(2);
@@ -90,7 +98,7 @@ describe('commerce catalog integration', () => {
     expect(providerStatus.catalog_quality?.basic_entry_count).toBe(1);
     expect(providerStatus.catalog_quality?.out_of_stock_count).toBe(1);
 
-    const queryResult = await services.query.query({
+    const queryResult = await commerceQueryService.query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
@@ -105,7 +113,7 @@ describe('commerce catalog integration', () => {
     expect(queryResult.items[0]?.attributes.has_image).toBe(true);
     expect(queryResult.items[0]?.score).toBeGreaterThan(queryResult.items[1]?.score ?? 0);
 
-    const filteredQuery = await services.query.query({
+    const filteredQuery = await commerceQueryService.query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,

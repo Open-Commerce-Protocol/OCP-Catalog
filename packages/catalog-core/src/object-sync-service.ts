@@ -13,7 +13,6 @@ import { and, eq } from 'drizzle-orm';
 import { isPresent, readDescriptorField } from './field-ref';
 import type { CatalogScenarioModule, SearchProjection } from './scenario';
 import type { RegistrationService } from './registration-service';
-import type { CatalogEmbeddingService } from './embedding-service';
 
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
 
@@ -23,7 +22,6 @@ export class ObjectSyncService {
     private readonly config: AppConfig,
     private readonly registrations: RegistrationService,
     private readonly scenario: CatalogScenarioModule,
-    private readonly embeddings?: CatalogEmbeddingService,
   ) {}
 
   async sync(input: unknown): Promise<ObjectSyncResult> {
@@ -272,13 +270,6 @@ export class ObjectSyncService {
         warnings: [],
       };
     }
-
-    await this.embeddings?.upsertEntryEmbedding({
-      catalogId: context.catalogId,
-      catalogEntryId: entry.id,
-      object,
-      projection,
-    });
 
     return {
       object_id: object.object_id,

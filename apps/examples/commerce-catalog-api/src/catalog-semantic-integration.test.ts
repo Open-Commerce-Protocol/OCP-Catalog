@@ -2,9 +2,13 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import postgres from 'postgres';
 import { loadConfig } from '@ocp-catalog/config';
-import { CatalogEmbeddingService, createCatalogServices, type EmbeddingProvider, type EmbeddingResult } from '@ocp-catalog/catalog-core';
+import { createCatalogServices } from '@ocp-catalog/catalog-core';
 import { createDb } from '@ocp-catalog/db';
 import { createCommerceCatalogScenario } from './commerce-scenario';
+import { CommerceQueryService } from './query/commerce-query-service';
+import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
+import { SearchEmbeddingService, type EmbeddingProvider, type EmbeddingResult } from './search/indexing/search-embedding-service';
+import { SearchRetrievalService } from './search/retrieval/search-retrieval-service';
 
 const baseConfig = loadConfig();
 const db = createDb(baseConfig.DATABASE_URL);
@@ -107,16 +111,27 @@ describe('commerce catalog semantic integration', () => {
 
     expect(syncResult.accepted_count).toBe(2);
 
+    const indexedDocuments = await searchDocumentUpsertService.upsertForProvider({
+      catalogId: baseConfig.CATALOG_ID,
+      providerId,
+    });
+    expect(indexedDocuments).toHaveLength(2);
+
+    for (const document of indexedDocuments) {
+      const refresh = await searchEmbeddingService.refreshForSearchDocument(document.documentId);
+      expect(refresh?.status).toBe('ready');
+    }
+
     const embeddingRows = await sql<{
       embedding_model: string;
       embedding_dimension: number | string;
       status: string;
     }[]>`
       select embedding_model, embedding_dimension, status
-      from catalog_entry_embeddings
+      from catalog_search_embeddings
       where catalog_id = ${baseConfig.CATALOG_ID}
-        and catalog_entry_id in (
-          select id from catalog_entries where provider_id = ${providerId}
+        and catalog_search_document_id in (
+          select id from catalog_search_documents where provider_id = ${providerId}
         )
       order by created_at
     `;
@@ -126,7 +141,7 @@ describe('commerce catalog semantic integration', () => {
     expect(embeddingRows.every((row) => Number(row.embedding_dimension) === 64)).toBe(true);
     expect(embeddingRows.every((row) => row.status === 'ready')).toBe(true);
 
-    const semanticResult = await services.query.query({
+    const semanticResult = await commerceQueryService.query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
@@ -145,7 +160,7 @@ describe('commerce catalog semantic integration', () => {
     expect(semanticResult.items[0]?.attributes.quality_tier).toBe('rich');
     expect(semanticResult.items[0]?.score).toBeGreaterThan(0);
 
-    const hybridResult = await services.query.query({
+    const hybridResult = await commerceQueryService.query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
@@ -272,5 +287,13 @@ function normalize(vector: number[]) {
   return vector.map((value) => Number((value / magnitude).toFixed(6)));
 }
 
-const embeddings = new CatalogEmbeddingService(db, scenario, new LocalHashEmbeddingProvider('local-hash-v1', 64));
-const services = createCatalogServices(db, baseConfig, scenario, { embeddings });
+const embeddingProvider = new LocalHashEmbeddingProvider('local-hash-v1', 64);
+const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
+const searchEmbeddingService = new SearchEmbeddingService(db, embeddingProvider);
+const services = createCatalogServices(db, baseConfig, scenario);
+const commerceQueryService = new CommerceQueryService(
+  db,
+  baseConfig,
+  scenario,
+  new SearchRetrievalService(db, embeddingProvider),
+);

@@ -1,4 +1,4 @@
-export function inferQueryMode(
+export function inferCommerceQueryMode(
   query: string,
   filters: Record<string, string | number | boolean | undefined>,
 ) {

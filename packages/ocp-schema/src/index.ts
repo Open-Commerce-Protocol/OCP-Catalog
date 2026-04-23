@@ -259,6 +259,7 @@ export const catalogQueryRequestSchema = z.object({
   kind: z.literal('CatalogQueryRequest').optional(),
   catalog_id: z.string().min(1).optional(),
   query_pack: z.string().min(1).optional(),
+  query_mode: catalogQueryModeSchema.optional(),
   query: z.string().max(500).optional().default(''),
   filters: catalogQueryFiltersSchema.optional().default({}),
   limit: z.number().int().min(1).max(50).optional().default(20),

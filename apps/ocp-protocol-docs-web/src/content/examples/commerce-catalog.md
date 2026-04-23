@@ -141,7 +141,7 @@ That tier then affects ranking, provider quality reporting, and resolve output.
 
 ## Semantic Search In The Real Example
 
-When embeddings are enabled, the catalog writes vectors into `catalog_entry_embeddings` and supports:
+When embeddings are enabled, the catalog writes vectors into `catalog_search_embeddings` and supports:
 
 - semantic-only retrieval
 - hybrid keyword + semantic reranking

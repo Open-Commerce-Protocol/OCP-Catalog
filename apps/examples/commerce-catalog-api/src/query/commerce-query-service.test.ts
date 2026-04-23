@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { CatalogQueryRequest } from '@ocp-catalog/ocp-schema';
-import { __queryServiceTestOnly } from './query-service';
+import { __commerceQueryServiceTestOnly } from './commerce-query-service';
 
 const filters: CatalogQueryRequest['filters'] = {
   min_amount: 50,
@@ -9,21 +9,21 @@ const filters: CatalogQueryRequest['filters'] = {
   has_image: true,
 };
 
-describe('query-service commerce helpers', () => {
+describe('commerce-query-service helpers', () => {
   test('matches extended commerce filters', () => {
-    expect(__queryServiceTestOnly.matchesFilters({
+    expect(__commerceQueryServiceTestOnly.matchesFilters({
       amount: 99,
       availability_status: 'in_stock',
       has_image: true,
     }, filters)).toBe(true);
 
-    expect(__queryServiceTestOnly.matchesFilters({
+    expect(__commerceQueryServiceTestOnly.matchesFilters({
       amount: 199,
       availability_status: 'in_stock',
       has_image: true,
     }, filters)).toBe(false);
 
-    expect(__queryServiceTestOnly.matchesFilters({
+    expect(__commerceQueryServiceTestOnly.matchesFilters({
       amount: 99,
       availability_status: 'out_of_stock',
       has_image: true,
@@ -31,7 +31,7 @@ describe('query-service commerce helpers', () => {
   });
 
   test('applies commerce quality score to richer, in-stock products', () => {
-    const richScore = __queryServiceTestOnly.commerceQualityScore({
+    const richScore = __commerceQueryServiceTestOnly.commerceQualityScore({
       amount: 99,
       list_amount: 129,
       has_product_url: true,
@@ -40,7 +40,7 @@ describe('query-service commerce helpers', () => {
       quality_tier: 'rich',
     }, {});
 
-    const thinScore = __queryServiceTestOnly.commerceQualityScore({
+    const thinScore = __commerceQueryServiceTestOnly.commerceQualityScore({
       amount: 99,
       has_product_url: false,
       has_image: false,
@@ -52,7 +52,7 @@ describe('query-service commerce helpers', () => {
   });
 
   test('boosts sku matches in keyword scoring', () => {
-    const score = __queryServiceTestOnly.scoreProjection({
+    const score = __commerceQueryServiceTestOnly.scoreProjection({
       title: 'Travel Headphones',
       sku: 'sku-123',
       brand: 'North Audio',

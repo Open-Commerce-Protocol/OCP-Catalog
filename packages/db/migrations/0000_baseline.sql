@@ -1,5 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;--> statement-breakpoint
 CREATE EXTENSION IF NOT EXISTS vector;--> statement-breakpoint
+CREATE TYPE "public"."catalog_search_document_status" AS ENUM('pending', 'active', 'inactive', 'stale', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."catalog_search_index_job_status" AS ENUM('pending', 'running', 'completed', 'failed', 'cancelled');--> statement-breakpoint
+CREATE TYPE "public"."catalog_search_index_job_type" AS ENUM('upsert_document', 'rebuild_document', 'delete_document', 'refresh_embedding', 'rebuild_all_for_provider');--> statement-breakpoint
 CREATE TYPE "public"."entry_status" AS ENUM('active', 'inactive', 'rejected', 'pending_verification');--> statement-breakpoint
 CREATE TYPE "public"."object_sync_batch_status" AS ENUM('accepted', 'partial', 'rejected');--> statement-breakpoint
 CREATE TYPE "public"."object_sync_item_status" AS ENUM('accepted', 'rejected');--> statement-breakpoint
@@ -27,10 +30,59 @@ CREATE TABLE "catalog_entries" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "catalog_entry_embeddings" (
+CREATE TABLE "catalog_profiles" (
+	"id" text PRIMARY KEY NOT NULL,
+	"catalog_id" text NOT NULL,
+	"catalog_name" text NOT NULL,
+	"manifest" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "catalog_search_documents" (
 	"id" text PRIMARY KEY NOT NULL,
 	"catalog_id" text NOT NULL,
 	"catalog_entry_id" text NOT NULL,
+	"commercial_object_id" text NOT NULL,
+	"provider_id" text DEFAULT '' NOT NULL,
+	"object_id" text DEFAULT '' NOT NULL,
+	"object_type" text NOT NULL,
+	"document_status" "catalog_search_document_status" DEFAULT 'pending' NOT NULL,
+	"title" text DEFAULT '' NOT NULL,
+	"normalized_title" text DEFAULT '' NOT NULL,
+	"summary" text,
+	"brand" text,
+	"normalized_brand" text DEFAULT '' NOT NULL,
+	"category" text,
+	"normalized_category" text DEFAULT '' NOT NULL,
+	"sku" text,
+	"normalized_sku" text DEFAULT '' NOT NULL,
+	"currency" text,
+	"availability_status" text,
+	"amount" double precision,
+	"list_amount" double precision,
+	"has_image" boolean DEFAULT false NOT NULL,
+	"has_product_url" boolean DEFAULT false NOT NULL,
+	"discount_present" boolean DEFAULT false NOT NULL,
+	"quality_tier" text,
+	"availability_rank" integer DEFAULT 0 NOT NULL,
+	"quality_rank" integer DEFAULT 0 NOT NULL,
+	"search_text" text DEFAULT '' NOT NULL,
+	"search_vector" "tsvector",
+	"facet_payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"ranking_features" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"visible_attributes_payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"explain_payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"source_updated_at" timestamp with time zone,
+	"indexed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "catalog_search_embeddings" (
+	"id" text PRIMARY KEY NOT NULL,
+	"catalog_id" text NOT NULL,
+	"catalog_search_document_id" text NOT NULL,
 	"embedding_provider" text NOT NULL,
 	"embedding_model" text NOT NULL,
 	"embedding_dimension" integer NOT NULL,
@@ -44,11 +96,21 @@ CREATE TABLE "catalog_entry_embeddings" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "catalog_profiles" (
+CREATE TABLE "catalog_search_index_jobs" (
 	"id" text PRIMARY KEY NOT NULL,
 	"catalog_id" text NOT NULL,
-	"catalog_name" text NOT NULL,
-	"manifest" jsonb NOT NULL,
+	"provider_id" text,
+	"catalog_entry_id" text,
+	"commercial_object_id" text,
+	"job_type" "catalog_search_index_job_type" NOT NULL,
+	"status" "catalog_search_index_job_status" DEFAULT 'pending' NOT NULL,
+	"attempt_count" integer DEFAULT 0 NOT NULL,
+	"max_attempts" integer DEFAULT 5 NOT NULL,
+	"scheduled_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"started_at" timestamp with time zone,
+	"finished_at" timestamp with time zone,
+	"error" text,
+	"payload" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -312,7 +374,11 @@ CREATE TABLE "registered_catalogs" (
 );
 --> statement-breakpoint
 ALTER TABLE "catalog_entries" ADD CONSTRAINT "catalog_entries_commercial_object_id_commercial_objects_id_fk" FOREIGN KEY ("commercial_object_id") REFERENCES "public"."commercial_objects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "catalog_entry_embeddings" ADD CONSTRAINT "catalog_entry_embeddings_catalog_entry_id_catalog_entries_id_fk" FOREIGN KEY ("catalog_entry_id") REFERENCES "public"."catalog_entries"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "catalog_search_documents" ADD CONSTRAINT "catalog_search_documents_catalog_entry_id_catalog_entries_id_fk" FOREIGN KEY ("catalog_entry_id") REFERENCES "public"."catalog_entries"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "catalog_search_documents" ADD CONSTRAINT "catalog_search_documents_commercial_object_id_commercial_objects_id_fk" FOREIGN KEY ("commercial_object_id") REFERENCES "public"."commercial_objects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "catalog_search_embeddings" ADD CONSTRAINT "catalog_search_embeddings_catalog_search_document_id_catalog_search_documents_id_fk" FOREIGN KEY ("catalog_search_document_id") REFERENCES "public"."catalog_search_documents"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "catalog_search_index_jobs" ADD CONSTRAINT "catalog_search_index_jobs_catalog_entry_id_catalog_entries_id_fk" FOREIGN KEY ("catalog_entry_id") REFERENCES "public"."catalog_entries"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "catalog_search_index_jobs" ADD CONSTRAINT "catalog_search_index_jobs_commercial_object_id_commercial_objects_id_fk" FOREIGN KEY ("commercial_object_id") REFERENCES "public"."commercial_objects"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "descriptor_instances" ADD CONSTRAINT "descriptor_instances_commercial_object_id_commercial_objects_id_fk" FOREIGN KEY ("commercial_object_id") REFERENCES "public"."commercial_objects"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "object_sync_item_results" ADD CONSTRAINT "object_sync_item_results_sync_batch_id_object_sync_batches_id_fk" FOREIGN KEY ("sync_batch_id") REFERENCES "public"."object_sync_batches"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "object_sync_item_results" ADD CONSTRAINT "object_sync_item_results_commercial_object_id_commercial_objects_id_fk" FOREIGN KEY ("commercial_object_id") REFERENCES "public"."commercial_objects"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -327,12 +393,29 @@ CREATE INDEX "catalog_entries_catalog_brand_status_idx" ON "catalog_entries" USI
 CREATE INDEX "catalog_entries_catalog_availability_status_idx" ON "catalog_entries" USING btree ("catalog_id","availability_status","entry_status");--> statement-breakpoint
 CREATE UNIQUE INDEX "catalog_entries_commercial_object_unique" ON "catalog_entries" USING btree ("commercial_object_id");--> statement-breakpoint
 CREATE INDEX "catalog_entries_search_text_trgm_idx" ON "catalog_entries" USING gin ("search_text" gin_trgm_ops);--> statement-breakpoint
-CREATE UNIQUE INDEX "catalog_entry_embeddings_entry_model_unique" ON "catalog_entry_embeddings" USING btree ("catalog_entry_id","embedding_model");--> statement-breakpoint
-CREATE INDEX "catalog_entry_embeddings_catalog_model_status_idx" ON "catalog_entry_embeddings" USING btree ("catalog_id","embedding_model","status");--> statement-breakpoint
-CREATE INDEX "catalog_entry_embeddings_catalog_model_status_entry_idx" ON "catalog_entry_embeddings" USING btree ("catalog_id","embedding_model","status","catalog_entry_id");--> statement-breakpoint
-CREATE INDEX "catalog_entry_embeddings_embedding_hnsw_64_idx" ON "catalog_entry_embeddings" USING hnsw (("embedding_vector_pg"::vector(64)) vector_cosine_ops) WHERE ("status" = 'ready' AND "embedding_dimension" = 64 AND "embedding_vector_pg" IS NOT NULL);--> statement-breakpoint
-CREATE INDEX "catalog_entry_embeddings_embedding_hnsw_1024_idx" ON "catalog_entry_embeddings" USING hnsw (("embedding_vector_pg"::vector(1024)) vector_cosine_ops) WHERE ("status" = 'ready' AND "embedding_dimension" = 1024 AND "embedding_vector_pg" IS NOT NULL);--> statement-breakpoint
 CREATE UNIQUE INDEX "catalog_profiles_catalog_id_unique" ON "catalog_profiles" USING btree ("catalog_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "catalog_search_documents_catalog_entry_unique" ON "catalog_search_documents" USING btree ("catalog_entry_id");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_provider_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","provider_id","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_category_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","category","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_brand_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","brand","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_availability_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","availability_status","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_sku_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","sku","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_currency_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","currency","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_amount_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","amount","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_quality_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","quality_tier","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_updated_idx" ON "catalog_search_documents" USING btree ("catalog_id","document_status","updated_at");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_catalog_has_image_status_idx" ON "catalog_search_documents" USING btree ("catalog_id","has_image","document_status");--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_search_text_trgm_idx" ON "catalog_search_documents" USING gin ("search_text" gin_trgm_ops);--> statement-breakpoint
+CREATE INDEX "catalog_search_documents_search_vector_idx" ON "catalog_search_documents" USING gin ("search_vector");--> statement-breakpoint
+CREATE UNIQUE INDEX "catalog_search_embeddings_document_model_unique" ON "catalog_search_embeddings" USING btree ("catalog_search_document_id","embedding_model");--> statement-breakpoint
+CREATE INDEX "catalog_search_embeddings_catalog_model_status_idx" ON "catalog_search_embeddings" USING btree ("catalog_id","embedding_model","status");--> statement-breakpoint
+CREATE INDEX "catalog_search_embeddings_catalog_model_status_document_idx" ON "catalog_search_embeddings" USING btree ("catalog_id","embedding_model","status","catalog_search_document_id");--> statement-breakpoint
+CREATE INDEX "catalog_search_embeddings_embedding_hnsw_64_idx" ON "catalog_search_embeddings" USING hnsw (("embedding_vector_pg"::vector(64)) vector_cosine_ops) WHERE ("status" = 'ready' AND "embedding_dimension" = 64 AND "embedding_vector_pg" IS NOT NULL);--> statement-breakpoint
+CREATE INDEX "catalog_search_embeddings_embedding_hnsw_1024_idx" ON "catalog_search_embeddings" USING hnsw (("embedding_vector_pg"::vector(1024)) vector_cosine_ops) WHERE ("status" = 'ready' AND "embedding_dimension" = 1024 AND "embedding_vector_pg" IS NOT NULL);--> statement-breakpoint
+CREATE INDEX "catalog_search_index_jobs_catalog_status_scheduled_idx" ON "catalog_search_index_jobs" USING btree ("catalog_id","status","scheduled_at");--> statement-breakpoint
+CREATE INDEX "catalog_search_index_jobs_catalog_type_status_idx" ON "catalog_search_index_jobs" USING btree ("catalog_id","job_type","status");--> statement-breakpoint
+CREATE INDEX "catalog_search_index_jobs_catalog_provider_created_idx" ON "catalog_search_index_jobs" USING btree ("catalog_id","provider_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "commercial_objects_provider_object_unique" ON "commercial_objects" USING btree ("catalog_id","provider_id","object_id");--> statement-breakpoint
 CREATE INDEX "commercial_objects_catalog_type_idx" ON "commercial_objects" USING btree ("catalog_id","object_type");--> statement-breakpoint
 CREATE INDEX "descriptor_instances_object_pack_idx" ON "descriptor_instances" USING btree ("commercial_object_id","pack_id");--> statement-breakpoint

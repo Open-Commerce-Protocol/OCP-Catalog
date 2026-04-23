@@ -1,8 +1,8 @@
 # @ocp-catalog/catalog-core
 
-Core domain package for an OCP Catalog Node.
+Minimal protocol runtime package for an OCP Catalog Node.
 
-This package contains the protocol-facing business logic used by `apps/examples/commerce-catalog-api`: manifest construction, provider registration rules, object sync orchestration, query execution, and resolve reference generation.
+This package contains protocol-facing building blocks used by runtime apps: manifest construction, provider registration rules, object sync orchestration, projection helpers, and resolve reference generation. Scenario-specific search, query packs, ranking, and index maintenance belong in the app that owns the scenario.
 
 This package is not the OCP Center / Catalog Registry implementation. It implements the `Provider -> Catalog Node` side of the protocol. The `Catalog Node -> OCP Center` handshake is documented in `docs/ocp_catalog_center_protocol_v1.md`.
 
@@ -21,9 +21,7 @@ The package intentionally does not start an HTTP server. Runtime adapters such a
 - Validate synced `CommercialObject` payloads.
 - Delegate descriptor pack validation to the runtime scenario module.
 - Delegate normalized search and explain projections to the runtime scenario module.
-- Optionally maintain catalog entry embeddings through an injected embedding provider.
 - Upsert commercial objects, descriptor instances, and catalog entries.
-- Run MVP keyword and structured-filter query.
 - Resolve active entries into `ResolvableReference` payloads.
 
 ## Non-Responsibilities
@@ -34,6 +32,7 @@ The package intentionally does not start an HTTP server. Runtime adapters such a
 - Process configuration loading.
 - Database connection creation.
 - UI or provider demo behavior.
+- Scenario-specific query modes, query packs, search ranking, retrieval indexes, or index jobs.
 - Long-term provider identity verification.
 
 Those concerns live in runtime packages such as `apps/examples/commerce-catalog-api`, `packages/config`, and `packages/auth-core`.
@@ -48,8 +47,6 @@ src/
   scenario.ts               Scenario module interface
   registration-service.ts   Provider registration validation and versioning
   object-sync-service.ts    Object sync validation and persistence
-  query-service.ts          Keyword/filter query and query audit records
-  embedding-service.ts      Optional embedding index and semantic scoring service
   resolve-service.ts        ResolvableReference creation and persistence
   index.ts                  Public workspace exports
 ```
@@ -67,7 +64,7 @@ const db = createDb(config.DATABASE_URL);
 const services = createCatalogServices(db, config, commerceCatalogScenario);
 
 const manifest = buildCatalogManifest(config, commerceCatalogScenario);
-const queryResult = await services.query.query({ query: 'orchid' });
+const resolved = await services.resolve.resolve({ entry_id: 'entry_...' });
 ```
 
 Most runtime code should use `createCatalogServices(db, config, scenario)` instead of manually wiring service constructors.
@@ -84,7 +81,6 @@ buildCatalogManifest(config, scenario)
 
 RegistrationService
 ObjectSyncService
-QueryService
 ResolveService
 
 parseFieldRef(fieldRef)
@@ -132,18 +128,9 @@ Rejected objects produce item-level structured errors in `object_sync_item_resul
 
 ## Query and Resolve Model
 
-Query searches active accepted catalog entries only. It uses the normalized `search_projection`, not raw object payloads. Supported Phase 1 filters are:
-
-- `object_type`
-- `category`
-- `brand`
-- `currency`
-- `availability_status`
-- `provider_id`
-
 Resolve accepts an `entry_id`, verifies that the entry and underlying object are active, then returns a short-lived `ResolvableReference` with visible attributes and controlled URL action bindings.
 
-Semantic query is optional. Runtime apps can inject `CatalogEmbeddingService` when they have an enabled `EmbeddingProvider`; otherwise semantic query modes should not be advertised by the scenario module.
+Query execution is app-owned. A runtime app should implement its own query service from its declared query packs, filters, ranking policy, retrieval indexes, and embedding provider choices. `apps/examples/commerce-catalog-api` contains the commerce-specific implementation.
 
 ## Publishing Preparation
 
@@ -153,7 +140,7 @@ Before publishing this package publicly, do the following:
 2. Add declaration output or a dedicated package build step if publishing compiled artifacts.
 3. Replace workspace dependency ranges with npm-publishable semver ranges.
 4. Review which service classes should remain public.
-5. Add package-level tests for registration, sync validation, projection, query, and resolve behavior.
+5. Add package-level tests for registration, sync validation, projection, and resolve behavior.
 6. Remove `"private": true` only when the package API is ready to support external users.
 
 Current package metadata already includes `files`, `description`, `keywords`, and `sideEffects` to keep the future publish shape explicit without changing workspace development.

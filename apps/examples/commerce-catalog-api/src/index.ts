@@ -1,7 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
-import { buildCatalogManifest, buildWellKnownDiscovery, CatalogEmbeddingService, createCatalogServices } from '@ocp-catalog/catalog-core';
+import {
+  buildCatalogManifest,
+  buildWellKnownDiscovery,
+  createCatalogServices,
+} from '@ocp-catalog/catalog-core';
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb, schema } from '@ocp-catalog/db';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
@@ -9,6 +13,13 @@ import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 import { createCommerceEmbeddingProvider } from './embedding-provider';
+import { CommerceQueryService } from './query/commerce-query-service';
+import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
+import { SearchEmbeddingService } from './search/indexing/search-embedding-service';
+import { SearchIndexJobHandlerService } from './search/indexing/search-index-job-handler';
+import { SearchIndexJobService } from './search/indexing/index-job-service';
+import { SearchIndexWorker } from './search/indexing/index-worker';
+import { SearchRetrievalService } from './search/retrieval/search-retrieval-service';
 
 const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
@@ -16,12 +27,20 @@ const embeddingProvider = createCommerceEmbeddingProvider(config);
 const commerceCatalogScenario = createCommerceCatalogScenario({
   semanticSearchEnabled: Boolean(embeddingProvider),
 });
-const embeddingService = embeddingProvider
-  ? new CatalogEmbeddingService(db, commerceCatalogScenario, embeddingProvider)
+const services = createCatalogServices(db, config, commerceCatalogScenario);
+const searchRetrievalService = embeddingProvider
+  ? new SearchRetrievalService(db, embeddingProvider)
   : undefined;
-const services = createCatalogServices(db, config, commerceCatalogScenario, {
-  embeddings: embeddingService,
-});
+const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
+const searchIndexJobs = new SearchIndexJobService(db);
+const searchDocumentService = new SearchDocumentUpsertService(db);
+const searchEmbeddingService = embeddingProvider
+  ? new SearchEmbeddingService(db, embeddingProvider)
+  : undefined;
+const searchIndexWorker = new SearchIndexWorker(
+  searchIndexJobs,
+  new SearchIndexJobHandlerService(searchDocumentService, searchIndexJobs, searchEmbeddingService),
+);
 const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
 const app = new Elysia()
@@ -105,9 +124,31 @@ const app = new Elysia()
     const token = getBodyString(body, 'catalog_token');
     return postCenterJson(`/ocp/catalogs/${config.CATALOG_ID}/token/rotate`, {}, token);
   })
+  .post('/api/catalog-admin/search-index/run', async ({ headers, body }) => {
+    assertAdminAuth(headers);
+    return searchIndexWorker.runBatch({
+      catalogId: config.CATALOG_ID,
+      limit: getBodyNumber(body, 'limit') ?? 25,
+      retryDelayMs: getBodyNumber(body, 'retry_delay_ms') ?? 30_000,
+    });
+  })
+  .post('/api/catalog-admin/search-index/rebuild-provider', async ({ headers, body }) => {
+    assertAdminAuth(headers);
+    const providerId = getBodyString(body, 'provider_id') ?? config.COMMERCE_PROVIDER_ID;
+    return searchIndexJobs.enqueue({
+      catalogId: config.CATALOG_ID,
+      providerId,
+      jobType: 'rebuild_all_for_provider',
+      payload: {
+        requested_from: 'catalog-admin',
+      },
+    });
+  })
   .post('/ocp/objects/sync', async ({ body, headers }) => {
     assertWriteAuth(headers);
-    return services.objects.sync(body);
+    const result = await services.objects.sync(body);
+    await enqueueSearchIndexJobs(result);
+    return result;
   })
   .get('/ocp/providers/:providerId/objects', async ({ params }) => ({
     catalog_id: config.CATALOG_ID,
@@ -115,7 +156,7 @@ const app = new Elysia()
     objects: await services.objects.listProviderObjects(params.providerId),
   }))
   .get('/ocp/objects/:objectId', async ({ params }) => services.objects.getObject(params.objectId))
-  .post('/ocp/query', async ({ body, headers }) => services.query.query(body, {
+  .post('/ocp/query', async ({ body, headers }) => commerceQueryService.query(body, {
     requesterKey: firstHeader(headers['x-api-key']),
   }))
   .post('/ocp/resolve', async ({ body }) => services.resolve.resolve(body))
@@ -363,6 +404,46 @@ function getBodyString(body: unknown, key: string) {
   if (!body || typeof body !== 'object') return undefined;
   const value = (body as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function getBodyNumber(body: unknown, key: string) {
+  if (!body || typeof body !== 'object') return undefined;
+  const value = (body as Record<string, unknown>)[key];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+async function enqueueSearchIndexJobs(result: {
+  catalog_id: string;
+  provider_id: string;
+  registration_version: number;
+  items: Array<{
+    status: string;
+    object_id?: string;
+    commercial_object_id?: string;
+    catalog_entry_id?: string;
+    warnings: string[];
+  }>;
+}) {
+  for (const item of result.items) {
+    if (item.status !== 'accepted' || !item.catalog_entry_id || !item.commercial_object_id) continue;
+    try {
+      await searchIndexJobs.enqueueDocumentUpsert({
+        catalogId: result.catalog_id,
+        providerId: result.provider_id,
+        catalogEntryId: item.catalog_entry_id,
+        commercialObjectId: item.commercial_object_id,
+        payload: {
+          object_id: item.object_id,
+          registration_version: result.registration_version,
+        },
+      });
+    } catch (error) {
+      item.warnings.push(`Search index job enqueue failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 function summarizeEntryQuality(rows: Array<{

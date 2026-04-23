@@ -1,4 +1,4 @@
-import { customType, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, customType, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 const pgVector = customType<{ data: number[] | null; driverData: string | null }>({
   dataType() {
@@ -16,6 +16,18 @@ const pgVector = customType<{ data: number[] | null; driverData: string | null }
   },
 });
 
+const pgTsVector = customType<{ data: string | null; driverData: string | null }>({
+  dataType() {
+    return 'tsvector';
+  },
+  toDriver(value) {
+    return value;
+  },
+  fromDriver(value) {
+    return typeof value === 'string' ? value : null;
+  },
+});
+
 export const registrationStatus = pgEnum('registration_status', [
   'accepted_full',
   'accepted_limited',
@@ -30,6 +42,18 @@ export const providerContractStateStatus = pgEnum('provider_contract_state_statu
 export const objectSyncBatchStatus = pgEnum('object_sync_batch_status', ['accepted', 'partial', 'rejected']);
 
 export const objectSyncItemStatus = pgEnum('object_sync_item_status', ['accepted', 'rejected']);
+
+export const catalogSearchDocumentStatus = pgEnum('catalog_search_document_status', ['pending', 'active', 'inactive', 'stale', 'failed']);
+
+export const catalogSearchIndexJobStatus = pgEnum('catalog_search_index_job_status', ['pending', 'running', 'completed', 'failed', 'cancelled']);
+
+export const catalogSearchIndexJobType = pgEnum('catalog_search_index_job_type', [
+  'upsert_document',
+  'rebuild_document',
+  'delete_document',
+  'refresh_embedding',
+  'rebuild_all_for_provider',
+]);
 
 export const catalogProfiles = pgTable('catalog_profiles', {
   id: text('id').primaryKey(),
@@ -159,12 +183,68 @@ export const catalogEntries = pgTable('catalog_entries', {
   commercialObjectUnique: uniqueIndex('catalog_entries_commercial_object_unique').on(table.commercialObjectId),
 }));
 
-export const catalogEntryEmbeddings = pgTable('catalog_entry_embeddings', {
+export const catalogSearchDocuments = pgTable('catalog_search_documents', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
   catalogEntryId: text('catalog_entry_id')
     .notNull()
     .references(() => catalogEntries.id, { onDelete: 'cascade' }),
+  commercialObjectId: text('commercial_object_id')
+    .notNull()
+    .references(() => commercialObjects.id, { onDelete: 'cascade' }),
+  providerId: text('provider_id').notNull().default(''),
+  objectId: text('object_id').notNull().default(''),
+  objectType: text('object_type').notNull(),
+  documentStatus: catalogSearchDocumentStatus('document_status').notNull().default('pending'),
+  title: text('title').notNull().default(''),
+  normalizedTitle: text('normalized_title').notNull().default(''),
+  summary: text('summary'),
+  brand: text('brand'),
+  normalizedBrand: text('normalized_brand').notNull().default(''),
+  category: text('category'),
+  normalizedCategory: text('normalized_category').notNull().default(''),
+  sku: text('sku'),
+  normalizedSku: text('normalized_sku').notNull().default(''),
+  currency: text('currency'),
+  availabilityStatus: text('availability_status'),
+  amount: doublePrecision('amount'),
+  listAmount: doublePrecision('list_amount'),
+  hasImage: boolean('has_image').notNull().default(false),
+  hasProductUrl: boolean('has_product_url').notNull().default(false),
+  discountPresent: boolean('discount_present').notNull().default(false),
+  qualityTier: text('quality_tier'),
+  availabilityRank: integer('availability_rank').notNull().default(0),
+  qualityRank: integer('quality_rank').notNull().default(0),
+  searchText: text('search_text').notNull().default(''),
+  searchVector: pgTsVector('search_vector'),
+  facetPayload: jsonb('facet_payload').$type<Record<string, unknown>>().notNull().default({}),
+  rankingFeatures: jsonb('ranking_features').$type<Record<string, unknown>>().notNull().default({}),
+  visibleAttributesPayload: jsonb('visible_attributes_payload').$type<Record<string, unknown>>().notNull().default({}),
+  explainPayload: jsonb('explain_payload').$type<Record<string, unknown>>().notNull().default({}),
+  sourceUpdatedAt: timestamp('source_updated_at', { withTimezone: true }),
+  indexedAt: timestamp('indexed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  catalogEntryUnique: uniqueIndex('catalog_search_documents_catalog_entry_unique').on(table.catalogEntryId),
+  catalogStatusIdx: index('catalog_search_documents_catalog_status_idx').on(table.catalogId, table.documentStatus),
+  providerStatusIdx: index('catalog_search_documents_catalog_provider_status_idx').on(table.catalogId, table.providerId, table.documentStatus),
+  categoryStatusIdx: index('catalog_search_documents_catalog_category_status_idx').on(table.catalogId, table.category, table.documentStatus),
+  brandStatusIdx: index('catalog_search_documents_catalog_brand_status_idx').on(table.catalogId, table.brand, table.documentStatus),
+  availabilityStatusIdx: index('catalog_search_documents_catalog_availability_status_idx').on(table.catalogId, table.availabilityStatus, table.documentStatus),
+  skuStatusIdx: index('catalog_search_documents_catalog_sku_status_idx').on(table.catalogId, table.sku, table.documentStatus),
+  currencyStatusIdx: index('catalog_search_documents_catalog_currency_status_idx').on(table.catalogId, table.currency, table.documentStatus),
+  amountStatusIdx: index('catalog_search_documents_catalog_amount_status_idx').on(table.catalogId, table.amount, table.documentStatus),
+  qualityStatusIdx: index('catalog_search_documents_catalog_quality_status_idx').on(table.catalogId, table.qualityTier, table.documentStatus),
+  updatedAtIdx: index('catalog_search_documents_catalog_updated_idx').on(table.catalogId, table.documentStatus, table.updatedAt),
+}));
+
+export const catalogSearchEmbeddings = pgTable('catalog_search_embeddings', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  catalogSearchDocumentId: text('catalog_search_document_id')
+    .notNull()
+    .references(() => catalogSearchDocuments.id, { onDelete: 'cascade' }),
   embeddingProvider: text('embedding_provider').notNull(),
   embeddingModel: text('embedding_model').notNull(),
   embeddingDimension: integer('embedding_dimension').notNull(),
@@ -177,8 +257,31 @@ export const catalogEntryEmbeddings = pgTable('catalog_entry_embeddings', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
-  entryModelUnique: uniqueIndex('catalog_entry_embeddings_entry_model_unique').on(table.catalogEntryId, table.embeddingModel),
-  catalogModelStatusIdx: index('catalog_entry_embeddings_catalog_model_status_idx').on(table.catalogId, table.embeddingModel, table.status),
+  documentModelUnique: uniqueIndex('catalog_search_embeddings_document_model_unique').on(table.catalogSearchDocumentId, table.embeddingModel),
+  catalogModelStatusIdx: index('catalog_search_embeddings_catalog_model_status_idx').on(table.catalogId, table.embeddingModel, table.status),
+}));
+
+export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  providerId: text('provider_id'),
+  catalogEntryId: text('catalog_entry_id').references(() => catalogEntries.id, { onDelete: 'set null' }),
+  commercialObjectId: text('commercial_object_id').references(() => commercialObjects.id, { onDelete: 'set null' }),
+  jobType: catalogSearchIndexJobType('job_type').notNull(),
+  status: catalogSearchIndexJobStatus('status').notNull().default('pending'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(5),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  error: text('error'),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  catalogStatusScheduledIdx: index('catalog_search_index_jobs_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
+  catalogTypeStatusIdx: index('catalog_search_index_jobs_catalog_type_status_idx').on(table.catalogId, table.jobType, table.status),
+  providerCreatedIdx: index('catalog_search_index_jobs_catalog_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
 }));
 
 export const resolvableReferences = pgTable('resolvable_references', {

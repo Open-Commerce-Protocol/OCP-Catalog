@@ -1,4 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
+import type { CatalogScenarioModule } from '@ocp-catalog/catalog-core';
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import {
@@ -8,30 +9,28 @@ import {
   type QueryResultItem,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
-import { and, desc, eq, ilike, inArray, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { asProjection, visibleAttributes } from './projection';
-import type { CatalogScenarioModule } from './scenario';
-import type { CatalogEmbeddingService } from './embedding-service';
-import { inferQueryMode } from './query-mode';
+import type { SearchRetrievalService } from '../search/retrieval/search-retrieval-service';
+import { inferCommerceQueryMode } from './query-mode';
 
-export type QueryMeta = {
+export type CommerceQueryMeta = {
   requesterKey?: string | null;
 };
 
-export class QueryService {
+export class CommerceQueryService {
   constructor(
     private readonly db: Db,
     private readonly config: AppConfig,
     private readonly scenario: CatalogScenarioModule,
-    private readonly embeddings?: CatalogEmbeddingService,
+    private readonly retrieval?: SearchRetrievalService,
   ) {}
 
-  async query(input: unknown, meta: QueryMeta = {}): Promise<CatalogQueryResult> {
+  async query(input: unknown, meta: CommerceQueryMeta = {}): Promise<CatalogQueryResult> {
     const request = catalogQueryRequestSchema.parse(input);
-    const queryMode = inferQueryModeForRequest(this.scenario, request.query_pack, request.query, request.filters);
+    const queryMode = request.query_mode ?? inferQueryModeForRequest(this.scenario, request.query_pack, request.query, request.filters);
     validateQueryCapability(this.scenario, request.query_pack, queryMode);
-    if (queryMode === 'semantic' && !this.embeddings) {
+    if (queryMode === 'semantic' && !this.retrieval) {
       throw new AppError('validation_error', 'semantic query capability is not enabled for this Catalog yet', 400);
     }
 
@@ -42,27 +41,29 @@ export class QueryService {
 
     const terms = queryMode === 'filter' || queryMode === 'semantic' ? [] : tokenize(request.query);
     const baseConditions: SQL<unknown>[] = [
-      eq(schema.catalogEntries.catalogId, catalogId),
-      eq(schema.catalogEntries.entryStatus, 'active'),
+      eq(schema.catalogSearchDocuments.catalogId, catalogId),
+      eq(schema.catalogSearchDocuments.documentStatus, 'active'),
     ];
-    if (request.filters.provider_id) baseConditions.push(eq(schema.catalogEntries.providerId, request.filters.provider_id));
-    if (request.filters.category) baseConditions.push(eq(schema.catalogEntries.category, request.filters.category));
-    if (request.filters.brand) baseConditions.push(eq(schema.catalogEntries.brand, request.filters.brand));
-    if (request.filters.currency) baseConditions.push(eq(schema.catalogEntries.currency, request.filters.currency));
-    if (request.filters.availability_status) baseConditions.push(eq(schema.catalogEntries.availabilityStatus, request.filters.availability_status));
+    if (request.filters.provider_id) baseConditions.push(eq(schema.catalogSearchDocuments.providerId, request.filters.provider_id));
+    if (request.filters.category) baseConditions.push(eq(schema.catalogSearchDocuments.normalizedCategory, normalize(request.filters.category)));
+    if (request.filters.brand) baseConditions.push(eq(schema.catalogSearchDocuments.normalizedBrand, normalize(request.filters.brand)));
+    if (request.filters.currency) baseConditions.push(eq(schema.catalogSearchDocuments.currency, request.filters.currency));
+    if (request.filters.availability_status) baseConditions.push(eq(schema.catalogSearchDocuments.availabilityStatus, request.filters.availability_status));
+    if (request.filters.sku) baseConditions.push(eq(schema.catalogSearchDocuments.normalizedSku, normalize(request.filters.sku)));
 
-    const keywordConditions = [...baseConditions];
-    if (terms.length > 0 && queryMode !== 'semantic') {
-      keywordConditions.push(or(...terms.map((term) => ilike(schema.catalogEntries.searchText, `%${escapeLike(term)}%`)))!);
-    }
+    const fullTextQuery = terms.length > 0 && queryMode !== 'semantic' ? request.query : undefined;
 
-    const usesSemanticScore = Boolean(this.embeddings && request.query.trim() && (queryMode === 'semantic' || queryMode === 'hybrid'));
+    const usesSemanticScore = Boolean(this.retrieval && request.query.trim() && (queryMode === 'semantic' || queryMode === 'hybrid'));
     const keywordRows = queryMode === 'semantic'
       ? []
-      : await this.selectCandidateRows(keywordConditions, computeCandidateLimit(request.limit, queryMode, terms.length));
+      : await this.selectCandidateRows({
+        conditions: baseConditions,
+        limit: computeCandidateLimit(request.limit, queryMode, terms.length),
+        fullTextQuery,
+      });
 
     const semanticScores = usesSemanticScore
-      ? await this.embeddings!.nearestNeighbors({
+      ? await this.retrieval!.nearestNeighbors({
         catalogId,
         query: request.query,
         limit: computeSemanticResultLimit(request.limit, queryMode),
@@ -71,16 +72,21 @@ export class QueryService {
       })
       : new Map<string, number>();
     const semanticRows = semanticScores.size > 0
-      ? await this.selectCandidateRows([...baseConditions, inArray(schema.catalogEntries.id, [...semanticScores.keys()])], semanticScores.size)
+      ? await this.selectCandidateRows({
+        conditions: [...baseConditions, inArray(schema.catalogSearchDocuments.id, [...semanticScores.keys()])],
+        limit: semanticScores.size,
+      })
       : [];
     const rows = mergeRows(keywordRows, semanticRows);
     const items = rows
       .map((row): QueryResultItem | null => {
-        const projection = asProjection(row.projection);
+        const projection = asRecord(row.visibleAttributesPayload);
         if (!matchesFilters(projection, request.filters)) return null;
 
-        const keywordScore = terms.length > 0 ? scoreProjection(projection, terms) : queryMode === 'semantic' ? 0 : 1;
-        const semanticScore = semanticScores.get(row.entryId) ?? 0;
+        const keywordScore = terms.length > 0
+          ? scoreProjection(projection, terms, row.fullTextRank)
+          : queryMode === 'semantic' ? 0 : 1;
+        const semanticScore = semanticScores.get(row.documentId) ?? 0;
         const score = combinedScore(queryMode, keywordScore, semanticScore, projection, request.filters);
         if (queryMode === 'semantic' && semanticScore <= 0) return null;
         if (queryMode !== 'semantic' && terms.length > 0 && keywordScore <= 0 && semanticScore <= 0) return null;
@@ -89,10 +95,10 @@ export class QueryService {
           entry_id: row.entryId,
           provider_id: row.providerId,
           object_id: row.objectId,
-          title: stringValue(projection.title) ?? row.objectId,
-          ...(stringValue(projection.summary) ? { summary: stringValue(projection.summary) } : {}),
+          title: row.title || stringValue(projection.title) || row.objectId,
+          ...(row.summary || stringValue(projection.summary) ? { summary: row.summary ?? stringValue(projection.summary) } : {}),
           score,
-          attributes: visibleAttributes(projection),
+          attributes: projection,
           explain: request.explain ? buildItemExplain(projection, request.filters, terms, keywordScore, semanticScore, queryMode) : [],
         };
       })
@@ -132,22 +138,40 @@ export class QueryService {
     return result;
   }
 
-  private async selectCandidateRows(conditions: SQL<unknown>[], limit: number) {
+  private async selectCandidateRows(input: {
+    conditions: SQL<unknown>[];
+    limit: number;
+    fullTextQuery?: string;
+  }) {
+    const conditions = [...input.conditions];
+    const fullTextRank = input.fullTextQuery
+      ? sql<number>`ts_rank(${schema.catalogSearchDocuments.searchVector}, plainto_tsquery('simple', ${input.fullTextQuery}))`
+      : sql<number>`0`;
+    const orderBy = input.fullTextQuery
+      ? [desc(fullTextRank), desc(schema.catalogSearchDocuments.updatedAt)]
+      : [desc(schema.catalogSearchDocuments.updatedAt)];
+
+    if (input.fullTextQuery) {
+      conditions.push(sql`${schema.catalogSearchDocuments.searchVector} @@ plainto_tsquery('simple', ${input.fullTextQuery})`);
+    }
+
     return this.db
       .select({
-        entryId: schema.catalogEntries.id,
-        title: schema.catalogEntries.title,
-        summary: schema.catalogEntries.summary,
-        providerId: schema.catalogEntries.providerId,
-        objectId: schema.catalogEntries.objectId,
-        searchText: schema.catalogEntries.searchText,
-        projection: schema.catalogEntries.searchProjection,
-        explainProjection: schema.catalogEntries.explainProjection,
+        documentId: schema.catalogSearchDocuments.id,
+        entryId: schema.catalogSearchDocuments.catalogEntryId,
+        title: schema.catalogSearchDocuments.title,
+        summary: schema.catalogSearchDocuments.summary,
+        providerId: schema.catalogSearchDocuments.providerId,
+        objectId: schema.catalogSearchDocuments.objectId,
+        searchText: schema.catalogSearchDocuments.searchText,
+        fullTextRank,
+        visibleAttributesPayload: schema.catalogSearchDocuments.visibleAttributesPayload,
+        explainPayload: schema.catalogSearchDocuments.explainPayload,
       })
-      .from(schema.catalogEntries)
+      .from(schema.catalogSearchDocuments)
       .where(and(...conditions))
-      .orderBy(desc(schema.catalogEntries.updatedAt))
-      .limit(limit);
+      .orderBy(...orderBy)
+      .limit(input.limit);
   }
 }
 
@@ -182,7 +206,7 @@ function inferQueryModeForRequest(
   query: string,
   filters: CatalogQueryRequest['filters'],
 ) {
-  if (!requestedPack) return inferQueryMode(query, filters);
+  if (!requestedPack) return inferCommerceQueryMode(query, filters);
 
   const packModes = queryModesForPack(scenario, requestedPack);
   if (packModes.includes('semantic')) return 'semantic' as const;
@@ -191,7 +215,7 @@ function inferQueryModeForRequest(
   if (packModes.includes('keyword')) return 'keyword' as const;
   if (packModes.includes('hybrid')) return 'hybrid' as const;
   if (packModes.includes('filter')) return 'filter' as const;
-  return inferQueryMode(query, filters);
+  return inferCommerceQueryMode(query, filters);
 }
 
 function tokenize(query: string) {
@@ -219,11 +243,11 @@ function matchesFilters(projection: Record<string, unknown>, filters: CatalogQue
   return true;
 }
 
-function scoreProjection(projection: Record<string, unknown>, terms: string[]) {
+function scoreProjection(projection: Record<string, unknown>, terms: string[], fullTextRank = 0) {
   if (terms.length === 0) return 1;
 
   const text = stringValue(projection.text)?.toLowerCase() ?? '';
-  let score = 0;
+  let score = fullTextRank * 10;
   for (const term of terms) {
     if (text.includes(term)) score += 1;
     if (normalize(projection.title).includes(term)) score += 2;
@@ -277,6 +301,10 @@ function stringValue(value: unknown) {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 function queryModesFromCapability(capability: Record<string, unknown>) {
@@ -359,10 +387,6 @@ function computeSemanticOversampleFactor(queryMode: 'keyword' | 'filter' | 'sema
   return 1;
 }
 
-function escapeLike(value: string) {
-  return value.replace(/[%_\\]/g, (match) => `\\${match}`);
-}
-
 function mergeRows<
   T extends {
     entryId: string;
@@ -402,7 +426,7 @@ function commerceQualityScore(
   return score;
 }
 
-export const __queryServiceTestOnly = {
+export const __commerceQueryServiceTestOnly = {
   matchesFilters,
   scoreProjection,
   commerceQualityScore,

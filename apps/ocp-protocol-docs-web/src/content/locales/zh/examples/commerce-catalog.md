@@ -141,7 +141,7 @@ provider 自带的 demo 数据包括：
 
 ## 真实语义检索链路
 
-当启用 embedding 时，catalog 会把向量写入 `catalog_entry_embeddings`，并支持：
+当启用 embedding 时，catalog 会把向量写入 `catalog_search_embeddings`，并支持：
 
 - semantic-only retrieval
 - hybrid keyword + semantic rerank
