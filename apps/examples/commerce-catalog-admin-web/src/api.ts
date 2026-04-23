@@ -9,6 +9,7 @@ export type CatalogAdminOverview = {
     active_entry_count: number;
     active_search_document_count: number;
     ready_embedding_count: number;
+    failed_embedding_count: number;
     pending_index_job_count: number;
     running_index_job_count: number;
     failed_index_job_count: number;
@@ -23,6 +24,8 @@ export type CatalogAdminOverview = {
   search_index: {
     active_document_count: number;
     ready_embedding_count: number;
+    failed_embedding_count: number;
+    latest_failed_embedding_error: string | null;
     active_documents_missing_embedding_count: number;
     embedding_readiness_ratio: number;
     pending_job_count: number;

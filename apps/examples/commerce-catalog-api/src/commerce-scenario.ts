@@ -206,7 +206,7 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
           filter_search: 'For category, brand, price, stock, image, provider, or SKU constraints, use filters. Query text is optional.',
           semantic_search: 'Use ocp.query.semantic.v1 only when declared. Semantic results depend on asynchronous embedding readiness.',
           pagination: 'Use limit and offset. Continue with page.next_offset while page.has_more is true.',
-          resolve: 'Use endpoints.resolve.url only after selecting one returned entry_id.',
+          resolve: 'Use endpoints.resolve.url only after selecting one returned entry_id. The request kind is ResolveRequest.',
           request_field_policy: 'Do not send fields that are not listed in input_fields unless this catalog documents them elsewhere.',
         },
         request_examples: {
@@ -248,6 +248,12 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
                 explain: true,
               }
             : undefined,
+          resolve_selected_entry: {
+            ocp_version: '1.0',
+            kind: 'ResolveRequest',
+            catalog_id: '<catalog_id>',
+            entry_id: '<entry_id from query result>',
+          },
         },
         response_contract: {
           pagination: {

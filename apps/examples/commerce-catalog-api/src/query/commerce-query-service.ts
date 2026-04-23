@@ -128,7 +128,8 @@ export class CommerceQueryService {
         ? [
           `Scanned ${rows.length} candidate catalog entries after indexed filtering.`,
           `Inferred query strategy: ${queryMode}.`,
-          ...(usesSemanticScore ? ['Applied semantic ANN shortlist with exact cosine rerank.'] : []),
+          ...(usesSemanticScore && semanticScores.size > 0 ? ['Applied semantic ANN shortlist with exact cosine rerank.'] : []),
+          ...(usesSemanticScore && semanticScores.size === 0 ? ['Semantic retrieval ran but found no ready embedding candidates. Check embedding readiness and pending index jobs.'] : []),
           `Applied filters: ${Object.keys(request.filters).length ? Object.keys(request.filters).join(', ') : 'none'}.`,
           `Returned ${items.length} result(s) at offset ${request.offset}.`,
         ]

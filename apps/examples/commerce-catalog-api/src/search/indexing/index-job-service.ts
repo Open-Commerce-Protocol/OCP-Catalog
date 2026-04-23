@@ -1,7 +1,7 @@
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
-import { and, asc, eq, lte } from 'drizzle-orm';
+import { and, asc, eq, lte, sql } from 'drizzle-orm';
 
 export type SearchIndexJobType =
   | 'upsert_document'
@@ -102,6 +102,14 @@ export class SearchIndexJobService {
       .from(schema.catalogSearchIndexJobs)
       .where(and(...conditions))
       .orderBy(
+        sql`case ${schema.catalogSearchIndexJobs.jobType}
+          when 'refresh_embedding' then 0
+          when 'upsert_document' then 1
+          when 'rebuild_document' then 1
+          when 'rebuild_all_for_provider' then 2
+          when 'delete_document' then 3
+          else 4
+        end`,
         asc(schema.catalogSearchIndexJobs.scheduledAt),
         asc(schema.catalogSearchIndexJobs.createdAt),
       )

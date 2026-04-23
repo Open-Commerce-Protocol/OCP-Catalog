@@ -40,6 +40,15 @@ const searchIndexWorker = new SearchIndexWorker(
 const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 const searchIndexScheduler = startSearchIndexWorkerScheduler();
 
+console.log(JSON.stringify({
+  ts: new Date().toISOString(),
+  level: 'info',
+  event: 'embedding_provider_configured',
+  provider: embeddingProvider.providerId,
+  model: embeddingProvider.model,
+  dimension: embeddingProvider.dimension,
+}));
+
 const app = new Elysia()
   .use(cors())
   .derive(({ request }) => ({
@@ -415,6 +424,7 @@ async function getCatalogAdminOverview() {
       active_entry_count: catalogEntries.filter((row) => row.entryStatus === 'active').length,
       active_search_document_count: catalogSearchDocuments.filter((row) => row.documentStatus === 'active').length,
       ready_embedding_count: catalogSearchEmbeddings.filter((row) => row.status === 'ready').length,
+      failed_embedding_count: catalogSearchEmbeddings.filter((row) => row.status === 'failed').length,
       pending_index_job_count: catalogSearchJobs.filter((row) => row.status === 'pending').length,
       running_index_job_count: catalogSearchJobs.filter((row) => row.status === 'running').length,
       failed_index_job_count: catalogSearchJobs.filter((row) => row.status === 'failed').length,
@@ -480,12 +490,17 @@ function summarizeSearchIndex(
   const pendingJobs = jobs.filter((row) => row.status === 'pending');
   const runningJobs = jobs.filter((row) => row.status === 'running');
   const failedJobs = jobs.filter((row) => row.status === 'failed');
+  const failedEmbeddings = embeddings.filter((row) => row.status === 'failed');
   const oldestPendingJob = pendingJobs
     .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())[0] ?? null;
+  const latestFailedEmbedding = failedEmbeddings
+    .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())[0] ?? null;
 
   return {
     active_document_count: activeDocumentCount,
     ready_embedding_count: readyEmbeddingDocumentIds.size,
+    failed_embedding_count: failedEmbeddings.length,
+    latest_failed_embedding_error: latestFailedEmbedding?.error ?? null,
     active_documents_missing_embedding_count: activeDocumentsMissingEmbedding,
     embedding_readiness_ratio: activeDocumentCount > 0
       ? Number(((activeDocumentCount - activeDocumentsMissingEmbedding) / activeDocumentCount).toFixed(4))

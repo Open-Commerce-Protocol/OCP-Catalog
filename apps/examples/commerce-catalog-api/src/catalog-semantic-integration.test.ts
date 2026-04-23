@@ -176,6 +176,25 @@ describe('commerce catalog semantic integration', () => {
     expect(hybridResult.items[0]?.attributes.quality_tier).toBe('rich');
     expect(hybridResult.items[0]?.score).toBeGreaterThan(hybridResult.items[1]?.score ?? 0);
     expect(hybridResult.explain).toContain('Applied semantic ANN shortlist with exact cosine rerank.');
+
+    const noCandidateSemanticResult = await new CommerceQueryService(db, baseConfig, scenario, {
+      async nearestNeighbors() {
+        return new Map<string, number>();
+      },
+    } as unknown as SearchRetrievalService).query({
+      ocp_version: '1.0',
+      kind: 'CatalogQueryRequest',
+      catalog_id: baseConfig.CATALOG_ID,
+      query_pack: 'ocp.query.semantic.v1',
+      query: 'no ready embeddings',
+      filters: {},
+      limit: 5,
+      explain: true,
+    });
+
+    expect(noCandidateSemanticResult.items).toHaveLength(0);
+    expect(noCandidateSemanticResult.explain).toContain('Semantic retrieval ran but found no ready embedding candidates. Check embedding readiness and pending index jobs.');
+    expect(noCandidateSemanticResult.explain).not.toContain('Applied semantic ANN shortlist with exact cosine rerank.');
   });
 });
 

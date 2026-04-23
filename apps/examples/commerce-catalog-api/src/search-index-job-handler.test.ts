@@ -68,6 +68,31 @@ describe('SearchIndexJobHandlerService', () => {
     expect(refreshed).toEqual(['sdoc_test']);
   });
 
+  test('throws when embedding refresh returns failed status', async () => {
+    const handler = new SearchIndexJobHandlerService(
+      {} as SearchDocumentUpsertService,
+      undefined,
+      {
+        async refreshForSearchDocument(documentId: string) {
+          return {
+            status: 'failed' as const,
+            documentId,
+            embeddingId: 'semb_test',
+            embeddingTextHash: 'hash_test',
+            error: 'provider rejected model',
+          };
+        },
+      } as unknown as SearchEmbeddingService,
+    );
+
+    await expect(handler.handle(searchIndexJob({
+      jobType: 'refresh_embedding',
+      payload: {
+        search_document_id: 'sdoc_test',
+      },
+    }))).rejects.toThrow('provider rejected model');
+  });
+
   test('worker processes queued jobs sequentially', async () => {
     const events: string[] = [];
     const jobs = [

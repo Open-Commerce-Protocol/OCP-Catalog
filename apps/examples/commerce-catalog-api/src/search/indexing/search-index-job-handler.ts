@@ -46,7 +46,10 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
       }
       case 'refresh_embedding':
         if (!this.embeddings) throw new Error('refresh_embedding job received but search embeddings are not enabled');
-        await this.embeddings.refreshForSearchDocument(resolveSearchDocumentId(job));
+        const result = await this.embeddings.refreshForSearchDocument(resolveSearchDocumentId(job));
+        if (result?.status === 'failed') {
+          throw new Error(`Embedding refresh failed for ${result.documentId}: ${result.error ?? 'unknown error'}`);
+        }
         return;
       default:
         assertNever(job.jobType);

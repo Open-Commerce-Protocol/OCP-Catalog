@@ -139,6 +139,10 @@ describe('commerce-scenario', () => {
       query_pack: 'ocp.query.semantic.v1',
       offset: 0,
     });
+    expect(requestExamples.resolve_selected_entry).toMatchObject({
+      kind: 'ResolveRequest',
+      entry_id: '<entry_id from query result>',
+    });
     expect(responseContract.pagination).toBeDefined();
     expect(keywordPack?.metadata.example_request).toMatchObject({
       query_pack: 'ocp.query.keyword.v1',

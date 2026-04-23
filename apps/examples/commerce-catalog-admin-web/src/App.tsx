@@ -292,6 +292,11 @@ function Overview({
               <div className="mt-1 text-[10px] text-operator-muted operator-mono">
                 readiness {(overview.search_index.embedding_readiness_ratio * 100).toFixed(1)}% · pending {overview.search_index.pending_job_count} · running {overview.search_index.running_job_count} · failed {overview.search_index.failed_job_count}
               </div>
+              {overview.search_index.latest_failed_embedding_error ? (
+                <div className="mt-1 text-[10px] text-accent-rust operator-mono">
+                  embedding error: {overview.search_index.latest_failed_embedding_error.slice(0, 120)}
+                </div>
+              ) : null}
             </div>
           </div>
           <div className="mt-4 rounded-sm border border-operator-border bg-operator-bg px-3 py-3 text-xs text-operator-muted operator-mono">
@@ -299,6 +304,7 @@ function Overview({
             Missing product URL entries: {overview.metrics.missing_product_url_count}<br />
             Out of stock entries: {overview.metrics.out_of_stock_count}<br />
             Active search documents: {overview.metrics.active_search_document_count}<br />
+            Failed embeddings: {overview.metrics.failed_embedding_count}<br />
             Pending index jobs: {overview.metrics.pending_index_job_count}
           </div>
         </div>

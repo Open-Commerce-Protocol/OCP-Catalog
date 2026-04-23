@@ -7,10 +7,14 @@ export function createCommerceEmbeddingProvider(config: AppConfig): EmbeddingPro
     return new LocalHashEmbeddingProvider(config.EMBEDDING_MODEL, config.EMBEDDING_DIMENSION);
   }
 
+  const model = config.EMBEDDING_MODEL === 'local-hash-v1'
+    ? 'text-embedding-3-small'
+    : config.EMBEDDING_MODEL;
+
   return new OpenAIEmbeddingProvider({
     apiKey: config.OPENAI_API_KEY,
     baseUrl: config.OPENAI_BASE_URL,
-    model: config.EMBEDDING_MODEL,
+    model,
     dimension: config.EMBEDDING_DIMENSION,
   });
 }
@@ -62,16 +66,21 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   }
 
   async embed(input: string): Promise<EmbeddingResult> {
+    const body: Record<string, unknown> = {
+      model: this.model,
+      input,
+    };
+    if (this.model.startsWith('text-embedding-3-') && Number.isInteger(this.dimension) && this.dimension > 0) {
+      body.dimensions = this.dimension;
+    }
+
     const response = await fetch(`${this.baseUrl}/embeddings`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${this.apiKey}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        model: this.model,
-        input,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
