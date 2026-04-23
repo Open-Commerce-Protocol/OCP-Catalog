@@ -4,7 +4,7 @@ This page answers the simplest practical questions that new builders usually ask
 
 ## Do I Need A Domain To Register A Catalog To A Center?
 
-For local development in the current repository, no. `localhost` can be auto-verified by the demo Center.
+For local development in the current repository, no. The demo Center does not require an extra domain-verification challenge.
 
 For public or production-style participation, usually yes:
 

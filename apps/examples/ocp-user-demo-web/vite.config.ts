@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: '../../../',
+    base: './',
     plugins: [react()],
     build: {
       outDir: '../ocp-user-demo-api/public/dist',

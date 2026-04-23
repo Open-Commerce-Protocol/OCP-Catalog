@@ -155,6 +155,11 @@ const agentPlanSchema = z.object({
   }),
 });
 
+function isUsableCenterCatalog(item: { verification_status: string; health_status: string }) {
+  const verificationOk = item.verification_status === 'verified' || item.verification_status === 'not_required';
+  return verificationOk && item.health_status === 'healthy';
+}
+
 export class UserDemoAgentService {
   private readonly model: OpenAiCompatibleClient;
 
@@ -184,10 +189,9 @@ export class UserDemoAgentService {
 
     if (request.saved_profiles.length === 0) {
       const center = await this.searchCenter(plan.center_search_query, {
-        verificationStatus: 'verified',
         supportsResolve: true,
       });
-      const candidate = center.items[0] ?? null;
+      const candidate = center.items.find((item) => isUsableCenterCatalog(item)) ?? null;
       const nextSession = buildNextSession(plan, request.user_input);
       if (!candidate) {
         const fallback = await this.searchCenter('', {
@@ -353,9 +357,9 @@ export class UserDemoAgentService {
     centerSearchQuery: string,
     fallbackItems: CatalogSearchItem[],
   ) {
-    const hasVerifiedCandidate = fallbackItems.some((item) => item.verification_status === 'verified');
-    const unverifiedCandidates = fallbackItems
-      .filter((item) => item.verification_status !== 'verified')
+    const hasUsableCandidate = fallbackItems.some((item) => isUsableCenterCatalog(item));
+    const blockedCandidates = fallbackItems
+      .filter((item) => !isUsableCenterCatalog(item))
       .slice(0, 5)
       .map((item) => ({
         catalog_name: item.catalog_name,
@@ -367,20 +371,21 @@ export class UserDemoAgentService {
     return await this.model.completeText(
       [
         'You are a Chinese shopping agent.',
-        'No immediately usable verified catalog candidate was found from OCP Center for the current request.',
-        'If fallback items exist but are not verified, explain clearly that catalogs may already be registered in Center, but they are not yet usable for the agent because they are not verified.',
-        'If there are verified fallback items, explain that Center has catalogs but the current request did not match their metadata well enough.',
+        'No immediately usable catalog candidate was found from OCP Center for the current request.',
+        'Treat catalogs with verification_status "verified" or "not_required" and health_status "healthy" as usable.',
+        'If fallback items exist but are blocked by trust or health status, explain clearly that catalogs may already be registered in Center, but they are not yet usable for the agent.',
+        'If there are usable fallback items, explain that Center has catalogs but the current request did not match their metadata well enough.',
         'If there are no fallback items at all, explain that Center currently has no usable catalogs.',
         'Keep it concise.',
         'Use Markdown bullet points when listing follow-up suggestions.',
-        'Do not expose raw protocol details beyond mentioning registration versus verification when necessary.',
+        'Do not expose raw protocol details beyond mentioning registration status or health when necessary.',
       ].join(' '),
       JSON.stringify({
         user_input: userInput,
         center_search_query: centerSearchQuery,
         session,
-        has_verified_fallback_candidate: hasVerifiedCandidate,
-        fallback_catalogs: unverifiedCandidates,
+        has_usable_fallback_candidate: hasUsableCandidate,
+        fallback_catalogs: blockedCandidates,
       }),
     );
   }

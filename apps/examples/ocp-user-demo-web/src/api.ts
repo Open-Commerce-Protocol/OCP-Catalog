@@ -189,15 +189,17 @@ export async function runAgentRoute(input: {
   const center = await searchCenter({
     query: input.centerQuery,
     queryPack: input.queryPack,
-    verificationStatus: 'verified',
     supportsResolve: true,
   });
 
-  if (!center.items.length) {
+  const selectedCatalog = center.items.find((item) => (
+    (item.verification_status === 'verified' || item.verification_status === 'not_required') &&
+    item.health_status === 'healthy'
+  ));
+
+  if (!selectedCatalog) {
     throw new Error('No catalogs matched the current center search.');
   }
-
-  const selectedCatalog = center.items[0];
   timeline.push(`Selected catalog ${selectedCatalog.catalog_name} from center results.`);
 
   const catalog = await queryCatalog(selectedCatalog.route_hint, {

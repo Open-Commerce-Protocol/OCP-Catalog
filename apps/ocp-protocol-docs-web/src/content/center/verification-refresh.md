@@ -16,7 +16,7 @@ The current verification request is intentionally small.
 }
 ```
 
-The challenge lifecycle lets the Center confirm that the registering catalog actually controls the claimed endpoint or domain.
+Centers may use this object when they want an extra verification handshake, but the protocol does not require every Center to gate registration on a DNS or HTTPS challenge.
 
 ## Refresh Result
 

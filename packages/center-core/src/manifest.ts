@@ -34,9 +34,9 @@ export function buildCenterManifest(config: AppConfig): CenterManifest {
     },
     catalog_registration: {
       registration_modes: ['open_intake'],
-      default_status: 'pending_verification',
-      requires_domain_verification: true,
-      requires_https: true,
+      default_status: 'accepted_indexed',
+      requires_domain_verification: false,
+      requires_https: false,
     },
     catalog_search_capabilities: [
       {

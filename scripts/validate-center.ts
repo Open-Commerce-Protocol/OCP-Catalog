@@ -56,10 +56,8 @@ await check('Catalog search returns route hint', async () => {
     kind: 'CatalogSearchRequest',
     query: 'commerce product',
     filters: {
-      object_type: 'product',
-      query_mode: 'keyword',
       supports_resolve: true,
-      verification_status: 'verified',
+      verification_status: 'not_required',
     },
     limit: 10,
     explain: true,

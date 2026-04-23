@@ -11,13 +11,12 @@ catalog admin 提交 CatalogRegistration
 -> Center 校验拉取到的身份信息、endpoint 与 domain 一致性
 -> Center 对 catalog query endpoint 做健康检查
 -> Center 落 registration record 和 manifest snapshot
--> 如果是 localhost，Center 会自动验证并立即建索引
--> 否则 Center 会生成 verification challenge，等待 verify
--> verify 成功后，Center 会索引 active snapshot，并且可以下发 catalog_access_token
+-> Center 索引 active snapshot
+-> Center 下发 catalog_access_token
 -> 后续 refresh 会重新拉 discovery / manifest，并更新 active snapshot
 ```
 
-在当前实现里，`operator` 只是可选元数据。一个 catalog 真正必须做到的是：声明自己的 `catalog_id`、暴露 discovery / manifest / query，并在 Center 要求时证明域名控制权。
+在当前实现里，`operator` 只是可选元数据。一个 catalog 真正必须做到的是：声明自己的 `catalog_id`，并暴露可被 Center 拉取的 discovery / manifest / query。
 
 ## 当前实现实际会持久化什么
 
@@ -31,7 +30,7 @@ catalog admin 提交 CatalogRegistration
 - `catalog_health_checks`
 - `catalog_search_audit_records`
 
-这样拆分很重要，因为当前运行时明确把 registration 历史、active catalog 状态、snapshot、搜索索引、verification 和 health 当成相关但不同的生命周期对象。
+这样拆分很重要，因为当前运行时明确把 registration 历史、active catalog 状态、snapshot、搜索索引、可选 verification 记录和 health 当成相关但不同的生命周期对象。
 
 ## 当前仓库里的 registration 状态
 
@@ -39,27 +38,24 @@ catalog admin 提交 CatalogRegistration
 
 - `stale_ignored`
   registration 被记录了，但它的 `registration_version` 没有覆盖当前 active 版本。
-- `accepted_pending_verification`
-  registration 和 snapshot 已经被接受，但 catalog 还没有进入可供 Center 普通搜索的索引状态。
 - `accepted_indexed`
   catalog 已经拥有 active indexed snapshot。
 
-这里有两个当前实现层面的关键行为：
+这个 demo Center 的关键行为是：
 
-- localhost catalog 会被自动验证，并且可以立即索引
-- 非 localhost catalog 会先收到 verification challenge，之后才会进入 indexed 状态
+- 不要求额外的域名 verification
+- registration 在 fetch + health evaluation 之后会立即进入 indexed 状态
 
 ## Verification、Token 与 Refresh 行为
 
 当前实现里还有一条明确的控制面流程：
 
-- `verify` 会检查待处理的 DNS TXT 或 HTTPS well-known challenge
-- verification 成功后会提升 trust 状态，并索引 active snapshot
-- 如果 catalog 进入 indexed 状态时还没有 token，Center 会下发 `catalog_access_token`
+- `verify` 仍然保留为兼容性接口，但 demo Center 不要求额外 challenge
+- registration 成功时，如果还没有 token，Center 会下发 `catalog_access_token`
 - `refresh` 和 `token/rotate` 都要求带这个 catalog token
-- refresh scheduler 只会扫描已经 `verified` 且 `accepted_indexed` 的 catalog
+- refresh scheduler 只会扫描已经 `accepted_indexed` 的 catalog
 
-所以在当前仓库里，verification 不只是 trust metadata；它也是很多 catalog 进入 Center searchable index 的门槛。
+所以在当前仓库里，catalog 进入 Center searchable index 不再依赖额外的域名验证门槛。
 
 ## Health 与 Indexing
 
@@ -67,8 +63,8 @@ catalog admin 提交 CatalogRegistration
 
 这个 health 状态会继续影响：
 
-- 新注册 catalog 能否立即建索引
-- refresh 后的新 snapshot 是否仍然可索引
+- 新注册 catalog 的健康状态
+- refresh 后的新 snapshot 是否仍然健康
 - route hint 里返回的 trust / health 信息
 
 ## 当前仓库里的真实示例
@@ -81,8 +77,8 @@ catalog admin 提交 CatalogRegistration
 -> Center 拉取 manifest
 -> Center 发送一个最小的 POST /ocp/query health probe
 -> Center 落 registration + snapshot
--> localhost demo catalog 被自动验证
 -> Center 写入 catalog_index_entries
+-> Center 下发 catalog_access_token
 -> user-side agent 之后就可以通过 Center search 找到这个 catalog
 -> 后续 refresh 会重新拉 manifest，并更新 active snapshot
 ```
@@ -93,6 +89,6 @@ catalog admin 提交 CatalogRegistration
 
 - registration 是有版本和状态流转的
 - snapshot 是一等运行时对象
-- verification、indexing 和 token issuance 是连在一起的
+- token issuance、health checks 和 indexing 是连在一起的
 - Center search 运行在内部 catalog metadata index 上，而不是直接扫远端 catalog
-- route hint 来源于 active indexed snapshot，而不只是未验证的 registration 输入
+- route hint 来源于 active indexed snapshot，而不只是原始 registration 输入

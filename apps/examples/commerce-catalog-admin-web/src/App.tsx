@@ -818,7 +818,7 @@ function CenterOpsPage({
           </div>
           <div className="space-y-3">
             {verificationRecords.length === 0 ? (
-              <EmptyState title="No verification records." body="Pending and historical domain verification records will be shown here." compact />
+              <EmptyState title="No verification records." body="This demo Center does not require extra domain verification, so this timeline is usually empty." compact />
             ) : (
               verificationRecords.slice(0, 6).map((record) => (
                 <div key={record.id} className="rounded-sm border border-operator-border bg-operator-bg p-3 text-sm">

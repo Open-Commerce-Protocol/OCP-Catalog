@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: '../../../',
+    base: './',
     plugins: [react()],
     build: {
       outDir: '../commerce-provider-api/public/dist',

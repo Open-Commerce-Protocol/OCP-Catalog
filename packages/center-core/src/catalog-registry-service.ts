@@ -19,8 +19,7 @@ import {
 import { AppError, newId, nowIso } from '@ocp-catalog/shared';
 import { and, eq } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import { fetchCatalogProfile, isLocalhost, validateFetchedCatalog } from './catalog-fetcher';
-import { verifyChallenge, type StoredChallenge } from './domain-verification';
+import { fetchCatalogProfile, validateFetchedCatalog } from './catalog-fetcher';
 import {
   asRecord,
   buildCatalogSearchProjection,
@@ -81,14 +80,12 @@ export class CatalogRegistryService {
     warnings.push(...validateFetchedCatalog(registration, discovery, manifest));
 
     const manifestUrl = discovery.manifest_url;
-    const hostname = new URL(registration.well_known_url).hostname;
-    const autoVerified = isLocalhost(hostname) || registration.claimed_domains.every((domain) => isLocalhost(domain));
-    const verificationStatus = autoVerified ? 'verified' : 'challenge_required';
-    const trustTier = autoVerified ? 'local_dev' : 'unverified';
+    const verificationStatus = 'not_required';
+    const trustTier = 'declared';
     const health = await this.checkHealth(registration.catalog_id, manifest.endpoints.query.url);
-    const indexed = autoVerified && health.status === 'healthy';
-    const status = indexed ? 'accepted_indexed' : 'accepted_pending_verification';
-    const issuedToken = indexed ? issueCatalogToken() : undefined;
+    const indexed = health.status === 'healthy';
+    const status = 'accepted_indexed';
+    const issuedToken = issueCatalogToken();
     const issuedAt = issuedToken ? new Date() : null;
 
     const result: CatalogRegistrationResult = {
@@ -104,12 +101,12 @@ export class CatalogRegistryService {
       health_status: health.status,
       indexed,
       warnings,
-      verification_challenges: autoVerified ? [] : await this.buildVerificationChallenges(registration),
+      verification_challenges: [],
       ...(issuedToken ? { catalog_access_token: issuedToken } : {}),
       ...(issuedAt ? { token_issued_at: issuedAt.toISOString() } : {}),
       message: indexed
-        ? 'Catalog registration accepted, verified for local development, and indexed.'
-        : 'Catalog registration accepted but pending domain verification.',
+        ? 'Catalog registration accepted, indexed, and catalog-specific token issued.'
+        : 'Catalog registration accepted and token issued, but the current query endpoint health check is unhealthy.',
     };
 
     const registrationRecord = await this.recordRegistration(registration, result, meta);
@@ -170,68 +167,14 @@ export class CatalogRegistryService {
         },
       });
 
-    if (indexed) {
-      await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, verificationStatus, trustTier, health.status);
-    }
+    await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, verificationStatus, trustTier, health.status);
 
     return result;
   }
 
   async verify(catalogId: string, input: unknown = {}): Promise<CatalogVerificationResult> {
-    const request = catalogVerificationRequestSchema.parse(input);
     const catalog = await this.getCatalog(catalogId);
-    const challenges = await this.db
-      .select()
-      .from(schema.catalogVerificationRecords)
-      .where(and(
-        eq(schema.catalogVerificationRecords.centerId, this.config.CENTER_ID),
-        eq(schema.catalogVerificationRecords.catalogId, catalogId),
-        eq(schema.catalogVerificationRecords.status, 'pending'),
-      ));
-
-    const selected = request.challenge_id
-      ? challenges.filter((challenge) => challenge.id === request.challenge_id)
-      : challenges;
-
-    if (selected.length === 0) {
-      throw new AppError('not_found', `No pending verification challenge found for catalog ${catalogId}`, 404);
-    }
-
-    const verifiedDomains: string[] = [];
-    const failedChallenges: string[] = [];
-
-    for (const record of selected) {
-      const challenge = asRecord(record.challengePayload) as StoredChallenge;
-      const result = await verifyChallenge(challenge, catalogId, this.config.CENTER_ID);
-      if (result.ok) {
-        verifiedDomains.push(result.domain);
-        await this.db
-          .update(schema.catalogVerificationRecords)
-          .set({
-            status: 'verified',
-            verifiedDomain: result.domain,
-            verifiedAt: new Date(),
-          })
-          .where(eq(schema.catalogVerificationRecords.id, record.id));
-      } else {
-        failedChallenges.push(`${record.id}: ${result.reason}`);
-      }
-    }
-
-    if (verifiedDomains.length === 0) {
-      return {
-        ocp_version: '1.0',
-        kind: 'CatalogVerificationResult',
-        id: newId('catverres'),
-        center_id: this.config.CENTER_ID,
-        catalog_id: catalogId,
-        verification_status: 'failed',
-        indexed: false,
-        verified_domains: [],
-        failed_challenges: failedChallenges,
-        message: 'No verification challenge passed.',
-      };
-    }
+    catalogVerificationRequestSchema.parse(input);
 
     const token = catalog.catalogAccessTokenHash ? undefined : issueCatalogToken();
     const tokenIssuedAt = token ? new Date() : catalog.tokenIssuedAt;
@@ -239,8 +182,8 @@ export class CatalogRegistryService {
       .update(schema.registeredCatalogs)
       .set({
         status: 'accepted_indexed',
-        verificationStatus: 'verified',
-        trustTier: 'verified_domain',
+        verificationStatus: 'not_required',
+        trustTier: 'declared',
         ...(token ? { catalogAccessTokenHash: hashCatalogToken(token), tokenIssuedAt } : {}),
         updatedAt: new Date(),
       })
@@ -249,7 +192,7 @@ export class CatalogRegistryService {
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
-    await this.indexActiveSnapshot(catalogId, 'verified', 'verified_domain');
+    await this.indexActiveSnapshot(catalogId, 'not_required', 'declared');
 
     return {
       ocp_version: '1.0',
@@ -257,14 +200,14 @@ export class CatalogRegistryService {
       id: newId('catverres'),
       center_id: this.config.CENTER_ID,
       catalog_id: catalogId,
-      verification_status: 'verified',
-      indexed: true,
-      verified_domains: verifiedDomains,
-      failed_challenges: failedChallenges,
+      verification_status: 'not_required',
+      indexed: Boolean(catalog.activeSnapshotId),
+      verified_domains: [],
+      failed_challenges: [],
       ...(token ? { catalog_access_token: token } : {}),
       message: token
-        ? 'Catalog verified, indexed, and catalog-specific token issued.'
-        : 'Catalog verified and indexed.',
+        ? 'Verification is not required in this Center; catalog-specific token issued.'
+        : 'Verification is not required in this Center.',
     };
   }
 
@@ -279,7 +222,6 @@ export class CatalogRegistryService {
       .from(schema.registeredCatalogs)
       .where(and(
         eq(schema.registeredCatalogs.centerId, this.config.CENTER_ID),
-        eq(schema.registeredCatalogs.verificationStatus, 'verified'),
         eq(schema.registeredCatalogs.status, 'accepted_indexed'),
       ));
 
@@ -435,8 +377,8 @@ export class CatalogRegistryService {
 
   private async refreshTrustedCatalog(catalogId: string): Promise<CatalogRefreshResult> {
     const catalog = await this.getCatalog(catalogId);
-    if (catalog.verificationStatus !== 'verified') {
-      throw new AppError('validation_error', `Catalog ${catalogId} is not verified`, 400);
+    if (catalog.status !== 'accepted_indexed') {
+      throw new AppError('validation_error', `Catalog ${catalogId} is not indexed`, 400);
     }
 
     return this.refreshCatalogWithoutToken(catalogId, catalog);
@@ -479,11 +421,9 @@ export class CatalogRegistryService {
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
-    const indexed = catalog.verificationStatus === 'verified' && health.status === 'healthy';
-    if (indexed) {
-      const projection = buildCatalogSearchProjection(registration, manifest, 'verified', catalog.trustTier, health.status);
-      await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, 'verified', catalog.trustTier, health.status);
-    }
+    const indexed = catalog.status === 'accepted_indexed';
+    const projection = buildCatalogSearchProjection(registration, manifest, catalog.verificationStatus, catalog.trustTier, health.status);
+    await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, catalog.verificationStatus, catalog.trustTier, health.status);
 
     return {
       ocp_version: '1.0',
@@ -718,65 +658,6 @@ export class CatalogRegistryService {
     };
   }
 
-  private async buildVerificationChallenges(registration: CatalogRegistration) {
-    const dns = await this.buildDnsChallenge(registration);
-    const https = await this.buildHttpsChallenge(registration);
-    return [dns, https];
-  }
-
-  private async buildDnsChallenge(registration: CatalogRegistration) {
-    const token = newId('verify');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const domain = registration.claimed_domains[0]!;
-    const challenge = {
-      challenge_id: newId('catchal'),
-      challenge_type: 'dns_txt' as const,
-      domain,
-      name: `_ocp-center.${domain}`,
-      value: `ocp-center-verification=${this.config.CENTER_ID}:${token}`,
-      expires_at: expiresAt.toISOString(),
-    };
-
-    await this.db.insert(schema.catalogVerificationRecords).values({
-      id: challenge.challenge_id,
-      centerId: this.config.CENTER_ID,
-      catalogId: registration.catalog_id,
-      challengeType: challenge.challenge_type,
-      challengePayload: challenge,
-      status: 'pending',
-      verifiedDomain: null,
-      expiresAt,
-    });
-
-    return challenge;
-  }
-
-  private async buildHttpsChallenge(registration: CatalogRegistration) {
-    const token = newId('verify');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    const domain = registration.claimed_domains[0]!;
-    const challenge = {
-      challenge_id: newId('catchal'),
-      challenge_type: 'https_well_known' as const,
-      domain,
-      url: `https://${domain}/.well-known/ocp-center-verification/${this.config.CENTER_ID}.json`,
-      token,
-      expires_at: expiresAt.toISOString(),
-    };
-
-    await this.db.insert(schema.catalogVerificationRecords).values({
-      id: challenge.challenge_id,
-      centerId: this.config.CENTER_ID,
-      catalogId: registration.catalog_id,
-      challengeType: challenge.challenge_type,
-      challengePayload: challenge,
-      status: 'pending',
-      verifiedDomain: null,
-      expiresAt,
-    });
-
-    return challenge;
-  }
 }
 
 function matchesCatalogFilters(
@@ -818,6 +699,7 @@ function explainCatalog(
 ) {
   const explain: string[] = [];
   if (terms.length > 0) explain.push(`Catalog metadata keyword score ${score} from term(s): ${terms.join(', ')}.`);
+  if (row.verificationStatus === 'not_required') explain.push('Catalog registration does not require an extra verification challenge in this Center.');
   if (row.verificationStatus === 'verified') explain.push('Catalog domain is verified.');
   if (row.healthStatus === 'healthy') explain.push('Catalog query endpoint is healthy.');
   return explain.length ? explain : ['Matched active catalog index entry.'];

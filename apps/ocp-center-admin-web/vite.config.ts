@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: '../../',
+    base: './',
     plugins: [react(), tailwindcss()],
     build: {
       outDir: '../ocp-center-api/public/dist',

@@ -4,7 +4,7 @@
 
 ## Catalog 注册到 Center，一定需要域名吗？
 
-在当前仓库的本地开发环境里，不一定。demo Center 会对 `localhost` 做自动验证。
+在当前仓库的本地开发环境里，不一定。demo Center 不要求额外的域名 verification challenge。
 
 但如果你要参与更公开或更接近生产的网络，通常还是需要：
 

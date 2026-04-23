@@ -224,7 +224,7 @@ export default function App() {
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard icon={Globe2} label="Registered catalogs" value={metrics?.registered_catalog_count ?? 0} tone="cyan" />
-          <MetricCard icon={ShieldCheck} label="Verified catalogs" value={metrics?.verified_catalog_count ?? 0} tone="lime" />
+          <MetricCard icon={ShieldCheck} label="Trusted catalogs" value={metrics?.verified_catalog_count ?? 0} tone="lime" />
           <MetricCard icon={Activity} label="Healthy catalogs" value={metrics?.healthy_catalog_count ?? 0} tone="amber" />
           <MetricCard icon={ScanSearch} label="Search audits" value={metrics?.search_audit_count ?? 0} tone="rose" />
         </section>
@@ -351,7 +351,7 @@ export default function App() {
                           subtitle={item.verifiedDomain ?? 'No verified domain yet'}
                           meta={`created ${formatTimestamp(item.createdAt)}${item.verifiedAt ? ` · verified ${formatTimestamp(item.verifiedAt)}` : ''}`}
                         />
-                      )) : <EmptyInline label="No verification records yet" />}
+                      )) : <EmptyInline label="No verification records for this catalog" />}
                     </DetailPanel>
                     <DetailPanel title="Registration history">
                       {detail.registrations.length > 0 ? detail.registrations.slice(0, 6).map((item) => (
@@ -584,7 +584,7 @@ function formatTimestamp(value: string | null | undefined) {
 }
 
 function toneForStatus(status: string): 'good' | 'warn' | 'bad' {
-  if (status === 'verified' || status === 'healthy' || status === 'accepted_indexed') return 'good';
+  if (status === 'verified' || status === 'not_required' || status === 'healthy' || status === 'accepted_indexed') return 'good';
   if (status === 'challenge_required' || status === 'pending' || status === 'accepted_pending_verification') return 'warn';
   return 'bad';
 }

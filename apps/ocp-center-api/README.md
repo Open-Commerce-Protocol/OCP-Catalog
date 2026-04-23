@@ -22,14 +22,11 @@ Current Phase 1 Center capabilities:
 - Catalog `CatalogManifest` fetch and validation.
 - Catalog manifest snapshot persistence.
 - Catalog metadata indexing.
-- Local-dev auto verification for `localhost`.
-- DNS TXT challenge generation and verification for real domains.
-- HTTPS well-known challenge generation and verification for real domains.
-- Catalog-specific token issuance after verification/indexing.
+- Catalog-specific token issuance after registration.
 - Token hash storage; plaintext token is returned only once.
 - Catalog refresh with `x-catalog-token`.
 - Catalog token rotation with `x-catalog-token`.
-- Scheduled refresh of verified/indexed catalogs.
+- Scheduled refresh of indexed catalogs.
 - Catalog search over indexed Catalog metadata.
 - Catalog route hint resolve by `catalog_id`.
 - Health checks against the Catalog query endpoint.
@@ -92,7 +89,7 @@ CENTER_REFRESH_SCHEDULER_ENABLED=true
 CENTER_REFRESH_INTERVAL_SECONDS=300
 ```
 
-The refresh scheduler scans verified/indexed Catalogs and refreshes their discovery, manifest, health status, snapshot, and index entry.
+The refresh scheduler scans indexed Catalogs and refreshes their discovery, manifest, health status, snapshot, and index entry.
 
 ## Endpoints
 
@@ -116,7 +113,7 @@ POST /ocp/catalogs/resolve
 
 ## Register A Catalog
 
-For local development, `localhost` is auto-verified and indexed.
+In the current demo Center, registration is intentionally simple: once the manifest can be fetched, the snapshot is stored, the catalog is indexed, and a catalog token is issued.
 
 ```bash
 curl -X POST http://localhost:4100/ocp/catalogs/register \
@@ -142,13 +139,11 @@ curl -X POST http://localhost:4100/ocp/catalogs/register \
   }'
 ```
 
-The response includes `catalog_access_token` only when the Catalog is verified/indexed immediately.
+The response includes `catalog_access_token` when registration succeeds.
 
-## Verify A Real Domain
+## Verify A Catalog
 
-For non-localhost domains, registration returns DNS TXT and HTTPS well-known challenges.
-
-After publishing either challenge, call:
+The current demo Center does not require an extra domain-verification challenge. The `verify` endpoint remains available as a compatibility no-op for clients that already know about it:
 
 ```bash
 curl -X POST http://localhost:4100/ocp/catalogs/<catalog_id>/verify \
@@ -156,7 +151,7 @@ curl -X POST http://localhost:4100/ocp/catalogs/<catalog_id>/verify \
   -d '{}'
 ```
 
-On success, the Center indexes the Catalog and returns a one-time `catalog_access_token`.
+If the catalog already has a token, the call simply confirms that no extra verification is required.
 
 ## Refresh A Catalog
 
@@ -195,7 +190,7 @@ curl -X POST http://localhost:4100/ocp/catalogs/search \
       "object_type": "product",
       "query_mode": "keyword",
       "supports_resolve": true,
-      "verification_status": "verified"
+      "verification_status": "not_required"
     },
     "limit": 10,
     "explain": true

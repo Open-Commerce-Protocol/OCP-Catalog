@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     envDir: '../../../',
+    base: './',
     plugins: [react(), tailwindcss()],
     build: {
       outDir: '../commerce-catalog-api/public/dist',

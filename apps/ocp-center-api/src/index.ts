@@ -153,7 +153,7 @@ async function getCenterAdminOverview() {
     metrics: {
       registered_catalog_count: centerCatalogs.length,
       indexed_catalog_count: centerIndexEntries.length,
-      verified_catalog_count: centerCatalogs.filter((row) => row.verificationStatus === 'verified').length,
+      verified_catalog_count: centerCatalogs.filter((row) => row.verificationStatus === 'verified' || row.verificationStatus === 'not_required').length,
       healthy_catalog_count: centerCatalogs.filter((row) => row.healthStatus === 'healthy').length,
       challenge_required_count: centerCatalogs.filter((row) => row.verificationStatus === 'challenge_required').length,
       verification_record_count: centerVerificationRecords.length,

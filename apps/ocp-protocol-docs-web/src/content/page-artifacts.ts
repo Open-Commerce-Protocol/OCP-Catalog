@@ -844,7 +844,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         },
         response: {
           kind: 'CatalogRegistrationResult',
-          status: 'accepted_pending_verification',
+          status: 'accepted_indexed',
           effective_registration_version: 1,
         },
       },
@@ -964,7 +964,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           status: 'accepted_indexed',
           effective_registration_version: 1,
           manifest_fetch_status: 'fetched',
-          verification_status: 'verified',
+          verification_status: 'not_required',
           health_status: 'healthy',
           indexed: true,
           catalog_access_token: '<catalog-token>',
@@ -995,7 +995,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         request: {
           query: 'commerce products',
           filters: {
-            verification_status: 'verified',
+            verification_status: 'not_required',
             health_status: 'healthy',
           },
           limit: 5,
@@ -1007,8 +1007,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
             {
               catalog_id: 'commerce_catalog_local_dev',
               catalog_name: 'Commerce Catalog Local Dev',
-              verification_status: 'verified',
-              trust_tier: 'local_dev',
+              verification_status: 'not_required',
+              trust_tier: 'declared',
               health_status: 'healthy',
               route_hint: {
                 manifest_url: 'http://localhost:4000/ocp/manifest',
@@ -1186,7 +1186,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         },
         response: {
           kind: 'CatalogRegistrationResult',
-          status: 'accepted_pending_verification',
+          status: 'accepted_indexed',
           effective_registration_version: 1,
         },
       },
