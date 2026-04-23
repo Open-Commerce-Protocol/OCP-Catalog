@@ -255,7 +255,7 @@ function startSearchIndexWorkerScheduler() {
     try {
       if (reason === 'startup' && config.CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP) {
         const reconciled = await reconcileSearchIndexQueue();
-        if (reconciled.enqueued_document_jobs > 0 || reconciled.enqueued_embedding_jobs > 0) {
+        if (reconciled.upserted_document_count > 0 || reconciled.enqueued_embedding_jobs > 0) {
           console.log(JSON.stringify({
             ts: new Date().toISOString(),
             level: 'info',
@@ -325,12 +325,6 @@ async function reconcileSearchIndexQueue() {
   const activeJobs = jobs.filter((row) => (
     row.catalogId === config.CATALOG_ID && (row.status === 'pending' || row.status === 'running')
   ));
-  const activeDocumentJobEntryIds = new Set(
-    activeJobs
-      .filter((row) => row.jobType === 'upsert_document' || row.jobType === 'rebuild_document')
-      .map((row) => row.catalogEntryId)
-      .filter((value): value is string => Boolean(value)),
-  );
   const activeEmbeddingJobDocumentIds = new Set(
     activeJobs
       .filter((row) => row.jobType === 'refresh_embedding')
@@ -338,23 +332,28 @@ async function reconcileSearchIndexQueue() {
       .filter((value): value is string => Boolean(value)),
   );
 
-  let enqueuedDocumentJobs = 0;
+  let upsertedDocuments = 0;
   let enqueuedEmbeddingJobs = 0;
   for (const entry of catalogEntries) {
     const document = activeDocumentByEntryId.get(entry.id);
     if (!document) {
-      if (!activeDocumentJobEntryIds.has(entry.id)) {
-        await searchIndexJobs.enqueueDocumentUpsert({
+      const upserted = await searchDocumentService.upsertForCatalogEntry(entry.id);
+      if (!upserted) continue;
+      upsertedDocuments += 1;
+
+      if (upserted.documentStatus === 'active' && !activeEmbeddingJobDocumentIds.has(upserted.documentId)) {
+        await searchIndexJobs.enqueueEmbeddingRefresh({
           catalogId: entry.catalogId,
           providerId: entry.providerId,
           catalogEntryId: entry.id,
           commercialObjectId: entry.commercialObjectId,
           payload: {
-            reason: 'startup_reconcile_missing_document',
-            object_id: entry.objectId,
+            reason: 'startup_reconcile_missing_embedding',
+            search_document_id: upserted.documentId,
           },
         });
-        enqueuedDocumentJobs += 1;
+        activeEmbeddingJobDocumentIds.add(upserted.documentId);
+        enqueuedEmbeddingJobs += 1;
       }
       continue;
     }
@@ -370,15 +369,16 @@ async function reconcileSearchIndexQueue() {
           search_document_id: document.id,
         },
       });
+      activeEmbeddingJobDocumentIds.add(document.id);
       enqueuedEmbeddingJobs += 1;
     }
   }
 
   return {
     active_entry_count: catalogEntries.length,
-    active_document_count: activeDocumentByEntryId.size,
+    active_document_count: activeDocumentByEntryId.size + upsertedDocuments,
     ready_embedding_count: readyEmbeddingDocumentIds.size,
-    enqueued_document_jobs: enqueuedDocumentJobs,
+    upserted_document_count: upsertedDocuments,
     enqueued_embedding_jobs: enqueuedEmbeddingJobs,
   };
 }
