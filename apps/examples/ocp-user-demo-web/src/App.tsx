@@ -1,5 +1,5 @@
 import { Bot, Compass, ExternalLink, MemoryStick, Route, Sparkles, Trash2, ArrowRight, LoaderCircle } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
+import { Fragment, useEffect, useState, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   agentTurn,
@@ -296,9 +296,13 @@ export function App() {
                         "rounded-2xl px-5 py-3.5 text-[15px] leading-relaxed shadow-sm",
                         isUser 
                           ? "bg-ink text-white rounded-br-none" 
-                          : "bg-fog/20 text-ink border border-ink/5 rounded-bl-none prose-sm font-medium"
+                          : "bg-fog/20 text-ink border border-ink/5 rounded-bl-none"
                       )}>
-                        {msg.content}
+                        {isUser ? (
+                          msg.content
+                        ) : (
+                          renderAgentMarkdown(msg.content)
+                        )}
                         
                         {/* Pending Catalog Injection Action */}
                         {!isUser && pendingCatalog && i === agentMessages.length - 1 && (
@@ -539,6 +543,93 @@ function readSavedProfiles(): SavedCatalogProfile[] {
 
 function writeSavedProfiles(profiles: SavedCatalogProfile[]) {
   window.localStorage.setItem(localProfilesStorageKey, JSON.stringify(profiles));
+}
+
+function renderAgentMarkdown(content: string) {
+  const lines = content.split(/\r?\n/);
+  const blocks: ReactNode[] = [];
+  let listBuffer: string[] = [];
+  let orderedBuffer: string[] = [];
+
+  const flushLists = () => {
+    if (listBuffer.length > 0) {
+      blocks.push(
+        <ul key={`ul-${blocks.length}`} className="my-2 list-disc space-y-1 pl-5">
+          {listBuffer.map((item, index) => <li key={index}>{renderInlineMarkdown(item)}</li>)}
+        </ul>,
+      );
+      listBuffer = [];
+    }
+
+    if (orderedBuffer.length > 0) {
+      blocks.push(
+        <ol key={`ol-${blocks.length}`} className="my-2 list-decimal space-y-1 pl-5">
+          {orderedBuffer.map((item, index) => <li key={index}>{renderInlineMarkdown(item)}</li>)}
+        </ol>,
+      );
+      orderedBuffer = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushLists();
+      continue;
+    }
+
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.*)$/);
+    if (orderedMatch) {
+      orderedBuffer.push(orderedMatch[1]);
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*]\s+(.*)$/);
+    if (bulletMatch) {
+      listBuffer.push(bulletMatch[1]);
+      continue;
+    }
+
+    flushLists();
+    blocks.push(
+      <p key={`p-${blocks.length}`} className="my-0 whitespace-pre-wrap font-medium leading-relaxed">
+        {renderInlineMarkdown(trimmed)}
+      </p>,
+    );
+  }
+
+  flushLists();
+  return <div className="space-y-2">{blocks}</div>;
+}
+
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g).filter(Boolean);
+  return parts.map((part, index) => {
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch) {
+      return (
+        <a
+          key={index}
+          href={linkMatch[2]}
+          target="_blank"
+          rel="noreferrer"
+          className="text-spruce underline decoration-spruce/30 underline-offset-2"
+        >
+          {linkMatch[1]}
+        </a>
+      );
+    }
+
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-semibold text-ink">{part.slice(2, -2)}</strong>;
+    }
+
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={index} className="rounded bg-ink/5 px-1.5 py-0.5 font-mono text-[0.9em]">{part.slice(1, -1)}</code>;
+    }
+
+    return <Fragment key={index}>{part}</Fragment>;
+  });
 }
 
 function formatMoney(amountInCents: number, currency: string) {

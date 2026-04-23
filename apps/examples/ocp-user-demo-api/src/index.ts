@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { loadConfig } from '@ocp-catalog/config';
 import { Elysia } from 'elysia';
@@ -8,7 +9,7 @@ import { AgentError } from './errors';
 
 const config = loadConfig();
 const agent = new UserDemoAgentService(config);
-const userDemoSite = createSpaStaticSiteHandler(new URL('../public/dist', import.meta.url).pathname);
+const userDemoSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
 const app = new Elysia()
   .use(cors())

@@ -9,6 +9,7 @@ export const envSchema = z.object({
   USER_DEMO_API_PORT: z.coerce.number().default(4230),
   PROTOCOL_DOCS_PORT: z.coerce.number().default(5173),
   CENTER_API_PORT: z.coerce.number().default(4100),
+  CENTER_ADMIN_UI_PORT: z.coerce.number().default(4250),
   CENTER_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4100'),
   CENTER_REFRESH_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
   CENTER_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),

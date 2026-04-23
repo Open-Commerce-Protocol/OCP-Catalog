@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { loadConfig } from '@ocp-catalog/config';
@@ -15,7 +16,7 @@ const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
 const products = new ProductRepository(db, config);
 const provider = new ProviderService(db, config, products, new CatalogClient(config));
-const providerAdminSite = createSpaStaticSiteHandler(new URL('../public/dist', import.meta.url).pathname);
+const providerAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
 const app = new Elysia()
   .use(cors())

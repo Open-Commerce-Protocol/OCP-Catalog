@@ -1,9 +1,10 @@
 import { loadConfig } from '@ocp-catalog/config';
+import { fileURLToPath } from 'node:url';
 import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 
 const config = loadConfig();
-const docsSite = createSpaStaticSiteHandler(new URL('../dist', import.meta.url).pathname);
+const docsSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../dist', import.meta.url)));
 
 const app = new Elysia()
   .get('/health', () => ({

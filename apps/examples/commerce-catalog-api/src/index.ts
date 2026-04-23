@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildCatalogManifest, buildWellKnownDiscovery, CatalogEmbeddingService, createCatalogServices } from '@ocp-catalog/catalog-core';
@@ -21,7 +22,7 @@ const embeddingService = embeddingProvider
 const services = createCatalogServices(db, config, commerceCatalogScenario, {
   embeddings: embeddingService,
 });
-const catalogAdminSite = createSpaStaticSiteHandler(new URL('../public/dist', import.meta.url).pathname);
+const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
 const app = new Elysia()
   .use(cors())

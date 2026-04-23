@@ -108,6 +108,10 @@ type SavedCatalogProfile = z.infer<typeof savedProfileSchema>;
 type QuerySession = z.infer<typeof querySessionSchema>;
 type CatalogSearchItem = z.infer<typeof catalogSearchItemSchema>;
 type CatalogQueryItem = z.infer<typeof catalogQueryItemSchema>;
+type SearchCenterOptions = {
+  verificationStatus?: string;
+  supportsResolve?: boolean;
+};
 
 type AgentPlan = {
   intent_summary: string;
@@ -179,11 +183,22 @@ export class UserDemoAgentService {
     });
 
     if (request.saved_profiles.length === 0) {
-      const center = await this.searchCenter(plan.center_search_query);
+      const center = await this.searchCenter(plan.center_search_query, {
+        verificationStatus: 'verified',
+        supportsResolve: true,
+      });
       const candidate = center.items[0] ?? null;
       const nextSession = buildNextSession(plan, request.user_input);
       if (!candidate) {
-        const message = await this.summarizeCenterMiss(request.user_input, nextSession, plan.center_search_query);
+        const fallback = await this.searchCenter('', {
+          supportsResolve: true,
+        });
+        const message = await this.summarizeCenterMiss(
+          request.user_input,
+          nextSession,
+          plan.center_search_query,
+          fallback.items,
+        );
         return {
           agent_message: message,
           pending_catalog: null,
@@ -336,13 +351,36 @@ export class UserDemoAgentService {
     userInput: string,
     session: QuerySession,
     centerSearchQuery: string,
+    fallbackItems: CatalogSearchItem[],
   ) {
+    const hasVerifiedCandidate = fallbackItems.some((item) => item.verification_status === 'verified');
+    const unverifiedCandidates = fallbackItems
+      .filter((item) => item.verification_status !== 'verified')
+      .slice(0, 5)
+      .map((item) => ({
+        catalog_name: item.catalog_name,
+        verification_status: item.verification_status,
+        trust_tier: item.trust_tier,
+        health_status: item.health_status,
+      }));
+
     return await this.model.completeText(
-      'You are a Chinese shopping agent. No verified catalog candidate was found from OCP Center for the current request. Explain that no suitable catalog is available right now and suggest how the user can refine the request. Keep it concise and do not expose raw protocol details.',
+      [
+        'You are a Chinese shopping agent.',
+        'No immediately usable verified catalog candidate was found from OCP Center for the current request.',
+        'If fallback items exist but are not verified, explain clearly that catalogs may already be registered in Center, but they are not yet usable for the agent because they are not verified.',
+        'If there are verified fallback items, explain that Center has catalogs but the current request did not match their metadata well enough.',
+        'If there are no fallback items at all, explain that Center currently has no usable catalogs.',
+        'Keep it concise.',
+        'Use Markdown bullet points when listing follow-up suggestions.',
+        'Do not expose raw protocol details beyond mentioning registration versus verification when necessary.',
+      ].join(' '),
       JSON.stringify({
         user_input: userInput,
         center_search_query: centerSearchQuery,
         session,
+        has_verified_fallback_candidate: hasVerifiedCandidate,
+        fallback_catalogs: unverifiedCandidates,
       }),
     );
   }
@@ -378,14 +416,14 @@ export class UserDemoAgentService {
     );
   }
 
-  private async searchCenter(query: string) {
+  private async searchCenter(query: string, options: SearchCenterOptions = {}) {
     return requestJson<{ items: CatalogSearchItem[] }>(`${this.config.CENTER_PUBLIC_BASE_URL.replace(/\/$/, '')}/ocp/catalogs/search`, {
       ocp_version: '1.0',
       kind: 'CatalogSearchRequest',
       query,
       filters: {
-        verification_status: 'verified',
-        supports_resolve: true,
+        ...(options.verificationStatus ? { verification_status: options.verificationStatus } : {}),
+        ...(options.supportsResolve !== undefined ? { supports_resolve: options.supportsResolve } : {}),
       },
       limit: 10,
       explain: false,

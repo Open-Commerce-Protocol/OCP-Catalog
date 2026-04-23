@@ -287,27 +287,37 @@ export async function resolveCatalogEntry(input: {
 }
 
 export async function fetchCenterCatalog(catalogId: string) {
-  return request<CenterCatalogRecord>(`${centerBaseUrl}/ocp/catalogs/${catalogId}`, {
+  const payload = await request<Record<string, unknown>>(`${centerBaseUrl}/ocp/catalogs/${catalogId}`, {
     method: 'GET',
   });
+  return mapCenterCatalog(payload);
 }
 
 export async function fetchCenterHealth(catalogId: string) {
-  return request<{ center_id: string; catalog_id: string; checks: CenterHealthRecord[] }>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/health`, {
+  const payload = await request<{ center_id: string; catalog_id: string; checks: Record<string, unknown>[] }>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/health`, {
     method: 'GET',
   });
+  return {
+    ...payload,
+    checks: Array.isArray(payload.checks) ? payload.checks.map(mapCenterHealthRecord) : [],
+  };
 }
 
 export async function fetchCenterVerification(catalogId: string) {
-  return request<{ center_id: string; catalog_id: string; records: CenterVerificationRecord[] }>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/verification`, {
+  const payload = await request<{ center_id: string; catalog_id: string; records: Record<string, unknown>[] }>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/verification`, {
     method: 'GET',
   });
+  return {
+    ...payload,
+    records: Array.isArray(payload.records) ? payload.records.map(mapCenterVerificationRecord) : [],
+  };
 }
 
 export async function fetchCenterManifestSnapshot(catalogId: string) {
-  return request<CenterManifestSnapshot>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/manifest-snapshot`, {
+  const payload = await request<Record<string, unknown>>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/manifest-snapshot`, {
     method: 'GET',
   });
+  return mapCenterManifestSnapshot(payload);
 }
 
 export async function registerCatalogToCenter(apiKey: string) {
@@ -381,4 +391,123 @@ function resolveApiBaseUrl(
   if (import.meta.env.DEV && devDefault) return devDefault.replace(/\/$/, '');
   if (prodDefault) return prodDefault.replace(/\/$/, '');
   throw new Error(`${envName} must be configured for this deployment build.`);
+}
+
+function mapCenterCatalog(payload: Record<string, unknown>): CenterCatalogRecord {
+  return {
+    catalogId: pickString(payload, 'catalogId', 'catalog_id'),
+    verificationStatus: pickString(payload, 'verificationStatus', 'verification_status'),
+    trustTier: pickString(payload, 'trustTier', 'trust_tier'),
+    healthStatus: pickString(payload, 'healthStatus', 'health_status'),
+    activeSnapshotId: pickNullableString(payload, 'activeSnapshotId', 'active_snapshot_id'),
+    activeRegistrationVersion: pickNullableNumber(payload, 'activeRegistrationVersion', 'active_registration_version'),
+    updatedAt: pickTimestamp(payload, 'updatedAt', 'updated_at'),
+    wellKnownUrl: pickString(payload, 'wellKnownUrl', 'well_known_url'),
+    homepage: pickString(payload, 'homepage'),
+    claimedDomains: pickStringArray(payload, 'claimedDomains', 'claimed_domains'),
+  };
+}
+
+function mapCenterHealthRecord(payload: Record<string, unknown>): CenterHealthRecord {
+  return {
+    id: pickString(payload, 'id'),
+    status: pickString(payload, 'status'),
+    checkedUrl: pickString(payload, 'checkedUrl', 'checked_url'),
+    latencyMs: pickNullableNumber(payload, 'latencyMs', 'latency_ms'),
+    error: pickNullableString(payload, 'error'),
+    createdAt: pickTimestamp(payload, 'createdAt', 'created_at', 'checkedAt', 'checked_at'),
+  };
+}
+
+function mapCenterVerificationRecord(payload: Record<string, unknown>): CenterVerificationRecord {
+  return {
+    id: pickString(payload, 'id'),
+    challengeType: pickString(payload, 'challengeType', 'challenge_type'),
+    status: pickString(payload, 'status'),
+    verifiedDomain: pickNullableString(payload, 'verifiedDomain', 'verified_domain'),
+    createdAt: pickTimestamp(payload, 'createdAt', 'created_at'),
+    verifiedAt: pickNullableTimestamp(payload, 'verifiedAt', 'verified_at'),
+    expiresAt: pickNullableTimestamp(payload, 'expiresAt', 'expires_at'),
+    challengePayload: pickRecord(payload, 'challengePayload', 'challenge_payload'),
+  };
+}
+
+function mapCenterManifestSnapshot(payload: Record<string, unknown>): CenterManifestSnapshot {
+  return {
+    id: pickString(payload, 'id'),
+    manifestUrl: pickString(payload, 'manifestUrl', 'manifest_url'),
+    discoveryPayload: pickRecord(payload, 'discoveryPayload', 'discovery_payload'),
+    manifestPayload: pickRecord(payload, 'manifestPayload', 'manifest_payload'),
+    manifestHash: pickString(payload, 'manifestHash', 'manifest_hash'),
+    queryCapabilities: pickArray(payload, 'queryCapabilities', 'query_capabilities'),
+    createdAt: pickTimestamp(payload, 'createdAt', 'created_at'),
+  };
+}
+
+function pickString(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string') return value;
+  }
+  return '';
+}
+
+function pickNullableString(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (value == null) return null;
+    if (typeof value === 'string') return value;
+  }
+  return null;
+}
+
+function pickNullableNumber(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (value == null) return null;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function pickStringArray(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
+  }
+  return [];
+}
+
+function pickArray(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+}
+
+function pickRecord(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (isRecord(value)) return value;
+  }
+  return {};
+}
+
+function pickTimestamp(source: Record<string, unknown>, ...keys: string[]) {
+  return pickNullableTimestamp(source, ...keys) ?? '';
+}
+
+function pickNullableTimestamp(source: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (value == null) return null;
+    if (typeof value === 'string') return value;
+    if (value instanceof Date) return value.toISOString();
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

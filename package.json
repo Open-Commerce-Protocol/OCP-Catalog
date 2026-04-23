@@ -20,6 +20,7 @@
     "commerce:catalog:api": "bun run --cwd apps/examples/commerce-catalog-api start",
     "commerce:catalog:admin": "bun run --cwd apps/examples/commerce-catalog-admin-web start",
     "center:api": "bun run --cwd apps/ocp-center-api start",
+    "center:admin": "bun run --cwd apps/ocp-center-admin-web start",
     "commerce:provider:api": "bun run --cwd apps/examples/commerce-provider-api start",
     "commerce:provider:admin": "bun run --cwd apps/examples/commerce-provider-admin-web dev",
     "user:demo:api": "bun run --cwd apps/examples/ocp-user-demo-api start",
