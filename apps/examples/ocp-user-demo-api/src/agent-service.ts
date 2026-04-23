@@ -113,12 +113,16 @@ type SearchCenterOptions = {
   supportsResolve?: boolean;
 };
 
-type AgentPlan = {
+type CenterSelectionPlan = {
   intent_summary: string;
   center_search_query: string;
+};
+
+type CatalogQueryPlan = {
+  intent_summary: string;
   catalog_query: string;
   query_mode: 'keyword' | 'filter' | 'semantic' | 'hybrid';
-  query_pack: string;
+  query_pack?: string;
   sort_preference: 'relevance' | 'price_asc';
   filters: {
     category?: string;
@@ -134,12 +138,23 @@ type AgentPlan = {
   };
 };
 
-const agentPlanSchema = z.object({
+type QueryPackInput = {
+  queryPack?: string;
+  queryMode?: QuerySession['queryMode'] | CatalogQueryPlan['query_mode'];
+  queryText?: string | null;
+  filters?: QuerySession['activeFilters'] | CatalogQueryPlan['filters'];
+};
+
+const centerSelectionPlanSchema = z.object({
   intent_summary: z.string().min(1),
   center_search_query: z.string().min(1),
+});
+
+const catalogQueryPlanSchema = z.object({
+  intent_summary: z.string().min(1),
   catalog_query: z.string().min(1),
   query_mode: z.enum(['keyword', 'filter', 'semantic', 'hybrid']),
-  query_pack: z.string().min(1),
+  query_pack: z.string().min(1).optional(),
   sort_preference: z.enum(['relevance', 'price_asc']),
   filters: z.object({
     category: z.string().optional(),
@@ -180,62 +195,70 @@ export class UserDemoAgentService {
       };
     }
 
-    const plan = await this.planTurn({
-      userInput: request.user_input,
-      session: request.session ?? null,
-      savedProfiles: request.saved_profiles,
-      previousResults: request.previous_results,
-    });
-
     if (request.saved_profiles.length === 0) {
-      const center = await this.searchCenter(plan.center_search_query, {
+      const centerPlan = await this.planCenterSelection({
+        userInput: request.user_input,
+      });
+      const center = await this.searchCenter(centerPlan.center_search_query, {
         supportsResolve: true,
       });
       const candidate = center.items.find((item) => isUsableCenterCatalog(item)) ?? null;
-      const nextSession = buildNextSession(plan, request.user_input);
       if (!candidate) {
         const fallback = await this.searchCenter('', {
           supportsResolve: true,
         });
         const message = await this.summarizeCenterMiss(
           request.user_input,
-          nextSession,
-          plan.center_search_query,
+          null,
+          centerPlan.center_search_query,
           fallback.items,
         );
         return {
           agent_message: message,
           pending_catalog: null,
-          next_session: nextSession,
+          next_session: null,
           result_items: [] as CatalogQueryItem[],
           selected_catalog_id: null,
         };
       }
 
+      const queryPlan = await this.planCatalogQuery({
+        userInput: request.user_input,
+        session: request.session ?? null,
+        routeHint: candidate.route_hint,
+        previousResults: request.previous_results,
+      });
+      const normalizedSession = buildNextSession(queryPlan, request.user_input, candidate.route_hint.supported_query_packs);
       const message = await this.summarizeCatalogChoice(request.user_input, candidate);
       return {
         agent_message: message,
         pending_catalog: candidate,
-        next_session: nextSession,
+        next_session: normalizedSession,
         result_items: [] as CatalogQueryItem[],
         selected_catalog_id: null,
       };
     }
 
     const selectedProfile = pickProfile(request.saved_profiles, request.active_catalog_id);
-    const nextSession = buildNextSession(plan, request.user_input);
-    const result = await this.queryCatalog(selectedProfile.route_hint, {
-      query: nextSession.baseIntent,
-      query_pack: nextSession.queryPack,
-      filters: nextSession.activeFilters,
+    const queryPlan = await this.planCatalogQuery({
+      userInput: request.user_input,
+      session: request.session ?? null,
+      routeHint: selectedProfile.route_hint,
+      previousResults: request.previous_results,
     });
-    const items = sortItems(result.items, nextSession.sortPreference);
-    const message = await this.summarizeCatalogResults(request.user_input, selectedProfile.catalog_name, nextSession, items);
+    const normalizedSession = buildNextSession(queryPlan, request.user_input, selectedProfile.route_hint.supported_query_packs);
+    const result = await this.queryCatalog(selectedProfile.route_hint, {
+      query: normalizedSession.baseIntent,
+      query_pack: normalizedSession.queryPack,
+      filters: normalizedSession.activeFilters,
+    });
+    const items = sortItems(result.items, normalizedSession.sortPreference);
+    const message = await this.summarizeCatalogResults(request.user_input, selectedProfile.catalog_name, normalizedSession, items);
 
     return {
       agent_message: message,
       pending_catalog: null,
-      next_session: nextSession,
+      next_session: normalizedSession,
       result_items: items,
       selected_catalog_id: selectedProfile.catalog_id,
     };
@@ -243,58 +266,109 @@ export class UserDemoAgentService {
 
   async confirmRegistration(input: unknown) {
     const request = confirmRegistrationRequestSchema.parse(input);
-    const result = await this.queryCatalog(request.pending_catalog.route_hint, {
-      query: request.session.baseIntent,
+    const normalizedSession = buildNextSession({
+      intent_summary: request.session.baseIntent,
+      catalog_query: request.session.baseIntent,
+      query_mode: request.session.queryMode ?? inferQueryModeFromSession(request.session),
       query_pack: request.session.queryPack,
+      sort_preference: request.session.sortPreference ?? 'relevance',
       filters: request.session.activeFilters,
+    }, request.session.latestUserTurn, request.pending_catalog.route_hint.supported_query_packs);
+    const result = await this.queryCatalog(request.pending_catalog.route_hint, {
+      query: normalizedSession.baseIntent,
+      query_pack: normalizedSession.queryPack,
+      filters: normalizedSession.activeFilters,
     });
-    const items = sortItems(result.items, request.session.sortPreference);
+    const items = sortItems(result.items, normalizedSession.sortPreference);
     const message = await this.summarizeCatalogResults(
-      request.session.baseIntent,
+      normalizedSession.baseIntent,
       request.pending_catalog.catalog_name,
-      request.session,
+      normalizedSession,
       items,
       true,
     );
 
     return {
       agent_message: message,
-      next_session: request.session,
+      next_session: normalizedSession,
       result_items: items,
       selected_catalog_id: request.pending_catalog.catalog_id,
     };
   }
 
-  private async planTurn(input: {
+  private async planCenterSelection(input: {
+    userInput: string;
+  }) {
+    const draft = await this.model.completeJson<CenterSelectionPlan>(
+      [
+        'You are an OCP commerce shopping agent and center-selection planner.',
+        'Your job in this phase is only to decide how to search OCP Center for a suitable catalog.',
+        'Do not plan query_pack, query_mode, sort, or catalog filters in this phase.',
+        'Do not assume a catalog before Center discovery happens.',
+        'Return JSON only.',
+        'Schema:',
+        JSON.stringify(z.toJSONSchema(centerSelectionPlanSchema), null, 2),
+      ].join('\n'),
+      JSON.stringify({
+        user_input: input.userInput,
+      }, null, 2),
+    );
+
+    return centerSelectionPlanSchema.parse(draft);
+  }
+
+  private async planCatalogQuery(input: {
     userInput: string;
     session: QuerySession | null;
-    savedProfiles: SavedCatalogProfile[];
+    routeHint: SavedCatalogProfile['route_hint'] | CatalogSearchItem['route_hint'];
     previousResults: CatalogQueryItem[];
   }) {
-    const draft = await this.model.completeJson<AgentPlan>(
+    const draft = await this.model.completeJson<CatalogQueryPlan>(
       [
-        'You are an OCP commerce shopping agent.',
+        'You are an OCP commerce shopping agent and catalog-query planner.',
+        'A catalog has already been selected. Your job in this phase is to produce a valid query plan for that selected catalog only.',
         'Decide how to refine the user request into a catalog query plan.',
+        'You must follow the selected catalog declaration before planning the query.',
+        'Interaction rules:',
+        '1. Inspect the selected catalog route_hint.supported_query_packs and metadata.query_hints before setting query_pack or query_mode.',
+        '2. Only use a query_pack value that exactly matches one of the supported_query_packs declared by the selected catalog.',
+        '3. Never invent query_pack ids, never use natural-language placeholders such as "catalog", "search", or "product".',
+        '4. If the catalog does not clearly support the pack you want, choose a compatible declared pack or leave query_pack empty.',
+        '5. Use query_mode and filters consistently with the declared query pack. Keyword search should usually use ocp.query.keyword.v1, filter-only search should usually use ocp.query.filter.v1, semantic search may only use ocp.query.semantic.v1 when the catalog declares it.',
+        '6. Prefer using the selected catalog route_hint metadata over assumptions.',
         'Return JSON only.',
-        'Never auto-register a catalog locally. Registration must be explicit user consent.',
         'Supported filters: category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, has_image.',
+        'Use canonical query_pack ids when you set query_pack.',
+        'Preferred mappings: keyword -> ocp.query.keyword.v1, filter -> ocp.query.filter.v1, semantic -> ocp.query.semantic.v1 when available.',
         'Use sort_preference price_asc only when the user clearly asks for cheaper/lower price.',
         'Use query_mode keyword by default, hybrid when both keyword and filters matter, filter only when there is no search phrase.',
         'When the user speaks Chinese but the available catalog metadata indicates English-oriented search, you may translate the search phrase to English.',
         'Always return all fields in the schema.',
         'Schema:',
-        JSON.stringify(z.toJSONSchema(agentPlanSchema), null, 2),
+        JSON.stringify(z.toJSONSchema(catalogQueryPlanSchema), null, 2),
       ].join('\n'),
       JSON.stringify({
         user_input: input.userInput,
         current_session: input.session,
-        saved_profiles: input.savedProfiles.map((profile) => ({
-          catalog_id: profile.catalog_id,
-          catalog_name: profile.catalog_name,
-          query_url: profile.route_hint.query_url,
-          supported_query_packs: profile.route_hint.supported_query_packs,
-          metadata: profile.route_hint.metadata,
-        })),
+        selected_catalog: {
+          catalog_id: input.routeHint.catalog_id,
+          catalog_name: input.routeHint.catalog_name,
+          query_url: input.routeHint.query_url,
+          supported_query_packs: input.routeHint.supported_query_packs,
+          metadata: input.routeHint.metadata,
+          verification_status: input.routeHint.verification_status,
+          trust_tier: input.routeHint.trust_tier,
+          health_status: input.routeHint.health_status,
+        },
+        protocol_notes: {
+          query_pack_must_match_catalog_declaration: true,
+          allowed_known_query_packs: [
+            'ocp.query.keyword.v1',
+            'ocp.query.filter.v1',
+            'ocp.query.semantic.v1',
+          ],
+          if_unknown_or_unsupported_query_pack: 'omit_query_pack_or_choose_supported_declared_pack',
+        },
         previous_results: input.previousResults.slice(0, 8).map((item) => ({
           title: item.title,
           provider_id: item.provider_id,
@@ -307,7 +381,7 @@ export class UserDemoAgentService {
       }, null, 2),
     );
 
-    return agentPlanSchema.parse(draft);
+    return catalogQueryPlanSchema.parse(draft);
   }
 
   private async summarizeCatalogChoice(userInput: string, candidate: CatalogSearchItem) {
@@ -353,7 +427,7 @@ export class UserDemoAgentService {
 
   private async summarizeCenterMiss(
     userInput: string,
-    session: QuerySession,
+    session: QuerySession | null,
     centerSearchQuery: string,
     fallbackItems: CatalogSearchItem[],
   ) {
@@ -473,13 +547,18 @@ async function requestJson<T>(url: string, body: unknown) {
   return payload as T;
 }
 
-function buildNextSession(plan: AgentPlan, latestUserTurn: string): QuerySession {
+function buildNextSession(plan: CatalogQueryPlan, latestUserTurn: string, supportedQueryPacks: string[]): QuerySession {
   return {
     baseIntent: plan.catalog_query,
     latestUserTurn,
     activeFilters: plan.filters,
     queryMode: plan.query_mode,
-    queryPack: plan.query_pack,
+    queryPack: normalizeQueryPack(supportedQueryPacks, {
+      queryPack: plan.query_pack,
+      queryMode: plan.query_mode,
+      queryText: plan.catalog_query,
+      filters: plan.filters,
+    }),
     sortPreference: plan.sort_preference,
   };
 }
@@ -511,4 +590,36 @@ function stringValue(value: unknown) {
 
 function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function inferQueryModeFromSession(session: QuerySession) {
+  if (session.queryMode) return session.queryMode;
+  const hasFilters = Object.values(session.activeFilters).some((value) => value !== undefined && value !== null && value !== '');
+  if (!session.baseIntent?.trim()) return 'filter' as const;
+  return hasFilters ? 'hybrid' as const : 'keyword' as const;
+}
+
+function normalizeQueryPack(
+  supportedQueryPacks: string[],
+  input: QueryPackInput,
+) {
+  if (!Array.isArray(supportedQueryPacks) || supportedQueryPacks.length === 0) return undefined;
+  if (input.queryPack && supportedQueryPacks.includes(input.queryPack)) return input.queryPack;
+
+  const preferredByMode = input.queryMode === 'semantic'
+    ? 'ocp.query.semantic.v1'
+    : input.queryMode === 'filter'
+      ? 'ocp.query.filter.v1'
+      : 'ocp.query.keyword.v1';
+
+  if (supportedQueryPacks.includes(preferredByMode)) return preferredByMode;
+
+  const hasFilters = Boolean(input.filters && Object.values(input.filters).some((value) => value !== undefined && value !== null && value !== ''));
+  const hasQueryText = Boolean(input.queryText?.trim());
+
+  if (hasFilters && supportedQueryPacks.includes('ocp.query.filter.v1')) return 'ocp.query.filter.v1';
+  if (hasQueryText && supportedQueryPacks.includes('ocp.query.keyword.v1')) return 'ocp.query.keyword.v1';
+  if (supportedQueryPacks.includes('ocp.query.semantic.v1')) return 'ocp.query.semantic.v1';
+
+  return supportedQueryPacks[0];
 }

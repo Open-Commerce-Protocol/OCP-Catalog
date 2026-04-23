@@ -46,8 +46,6 @@ const product: typeof schema.providerProducts.$inferSelect = {
   imageUrls: ['http://localhost:4200/images/sku-1.jpg'],
   currency: 'USD',
   amount: 12999,
-  listAmount: 15999,
-  priceType: 'fixed',
   availabilityStatus: 'in_stock',
   quantity: 7,
   status: 'active',
@@ -85,8 +83,6 @@ describe('provider-mapper', () => {
     expect(pricePack?.data).toEqual({
       currency: 'USD',
       amount: 129.99,
-      list_amount: 159.99,
-      price_type: 'fixed',
     });
   });
 

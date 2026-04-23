@@ -8,13 +8,6 @@
       "when": 1776768363830,
       "tag": "0000_baseline",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1776792000000,
-      "tag": "0001_commerce_price_richness",
-      "breakpoints": true
     }
   ]
 }

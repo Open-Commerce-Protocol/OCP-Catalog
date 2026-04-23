@@ -202,7 +202,6 @@ function summarizeProductQuality(products: Array<typeof schema.providerProducts.
     product_count: products.length,
     ready_for_publish_count: 0,
     missing_price_count: 0,
-    missing_list_price_count: 0,
     missing_product_url_count: 0,
     missing_image_count: 0,
     missing_brand_or_category_count: 0,
@@ -217,7 +216,6 @@ function summarizeProductQuality(products: Array<typeof schema.providerProducts.
     const hasTaxonomy = Boolean(product.brand) && Boolean(product.category);
     if (product.status === 'active' && hasPrice && hasUrl && hasTaxonomy) summary.ready_for_publish_count += 1;
     if (!product.currency || product.amount <= 0) summary.missing_price_count += 1;
-    if (product.listAmount === null || product.listAmount <= product.amount) summary.missing_list_price_count += 1;
     if (!product.productUrl) summary.missing_product_url_count += 1;
     if (!product.imageUrls.length) summary.missing_image_count += 1;
     if (!product.brand || !product.category) summary.missing_brand_or_category_count += 1;
@@ -242,9 +240,6 @@ function buildPublishReadiness(summary: ReturnType<typeof summarizeProductQualit
   }
   if (summary.missing_image_count > 0) {
     warnings.push(`${summary.missing_image_count} product(s) are missing images.`);
-  }
-  if (summary.missing_list_price_count > 0) {
-    warnings.push(`${summary.missing_list_price_count} product(s) have no useful list price.`);
   }
   if (summary.out_of_stock_count > 0) {
     warnings.push(`${summary.out_of_stock_count} product(s) are currently out of stock.`);

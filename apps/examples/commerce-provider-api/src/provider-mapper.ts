@@ -98,8 +98,6 @@ export function mapProductToCommercialObject(config: AppConfig, product: Provide
         data: {
           currency: product.currency,
           amount: product.amount / 100,
-          ...(product.listAmount !== null ? { list_amount: product.listAmount / 100 } : {}),
-          price_type: product.priceType === 'range' ? 'range' : 'fixed',
         },
       },
       {

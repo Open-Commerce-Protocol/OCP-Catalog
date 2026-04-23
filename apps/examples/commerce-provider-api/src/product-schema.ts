@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const availabilityStatusSchema = z.enum(['in_stock', 'low_stock', 'out_of_stock', 'preorder', 'unknown']);
 export const productStatusSchema = z.enum(['active', 'inactive', 'draft']);
-export const priceTypeSchema = z.enum(['fixed', 'range']);
 
 export const productCreateSchema = z.object({
   sku: z.string().min(1),
@@ -14,8 +13,6 @@ export const productCreateSchema = z.object({
   image_urls: z.array(z.string().url()).default([]),
   currency: z.string().regex(/^[A-Z]{3}$/).default('USD'),
   amount: z.number().nonnegative(),
-  list_amount: z.number().nonnegative().optional(),
-  price_type: priceTypeSchema.default('fixed'),
   availability_status: availabilityStatusSchema.default('in_stock'),
   quantity: z.number().int().min(0).default(0),
   status: productStatusSchema.default('active'),
