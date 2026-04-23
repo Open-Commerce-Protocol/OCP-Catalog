@@ -26,7 +26,6 @@ const config: AppConfig = {
   COMMERCE_PROVIDER_DOMAIN: 'localhost',
   CENTER_ID: 'center_local_dev',
   CENTER_NAME: 'Local OCP Center',
-  EMBEDDING_PROVIDER: 'disabled',
   EMBEDDING_MODEL: 'local-hash-v1',
   EMBEDDING_DIMENSION: 64,
   USER_DEMO_AGENT_MODEL: 'qwen-plus',

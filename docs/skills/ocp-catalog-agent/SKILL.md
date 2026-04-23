@@ -1,29 +1,29 @@
 ---
 name: ocp-catalog-agent
-description: Use this skill when an agent needs to work with the OCP Catalog protocol: understand protocol boundaries, discover catalogs through OCP Center, inspect a catalog's route hint or manifest, choose a valid query strategy, and query or resolve results without inventing unsupported protocol fields.
+description: Use this skill when an agent needs to work with the OCP Catalog protocol: understand protocol boundaries, discover catalogs through OCP Catalog Registration node, inspect a catalog's route hint or manifest, choose a valid query strategy, and query or resolve results without inventing unsupported protocol fields.
 ---
 
 This skill teaches an agent how to interact with OCP Catalog correctly.
 
 Use it when the task involves:
-- understanding what OCP Center, Catalog, Provider, and Agent each do
-- finding a usable catalog through Center
+- understanding what OCP Catalog Registration node, Catalog, Provider, and Agent each do
+- finding a usable catalog through Registration node
 - inspecting a catalog before querying it
 - building valid `/ocp/query` requests
 - using `/ocp/resolve` after choosing a result
-- avoiding protocol mistakes such as querying Center for products or inventing `query_pack` values
+- avoiding protocol mistakes such as querying Registration node for products or inventing `query_pack` values
 
 ## Protocol Model
 
 Treat the system as two separate protocol layers:
 
 - `ocp.catalog.center.v1`
-  Catalog -> Center, and Agent -> Center for catalog discovery
+  Catalog -> Registration node, and Agent -> Registration node for catalog discovery
 - `ocp.catalog.handshake.v1`
   Provider -> Catalog, and Catalog public capability declaration
 
 Important boundary:
-- Center indexes catalogs, not products
+- Registration node indexes catalogs, not products
 - Catalog serves query and resolve over products or other commercial objects
 - Provider registration is not part of agent-side catalog querying
 
@@ -32,8 +32,8 @@ Important boundary:
 Follow this order unless the user explicitly asks for something else:
 
 1. Check whether there is already a saved local catalog profile or route hint.
-2. If no suitable local catalog exists, search OCP Center for catalogs.
-3. Choose a catalog using Center metadata:
+2. If no suitable local catalog exists, search OCP Catalog Registration node for catalogs.
+3. Choose a catalog using Registration node metadata:
    `verification_status`, `trust_tier`, `health_status`, `supported_query_packs`, language hints, and routeable endpoints.
 4. Read the selected catalog's `CatalogRouteHint`.
 5. If more detail is needed, follow `manifest_url` and inspect `CatalogManifest`.
@@ -41,13 +41,13 @@ Follow this order unless the user explicitly asks for something else:
 7. Call the catalog's `/ocp/query`.
 8. If the user needs a concrete action target, call the catalog's `/ocp/resolve` on a selected entry.
 
-Do not skip directly from Center to product results. Center only helps you choose the catalog.
+Do not skip directly from Registration node to product results. Registration node only helps you choose the catalog.
 
 ## Catalog Discovery Rules
 
-When using Center:
+When using Registration node:
 
-- use `/.well-known/ocp-center` to discover Center endpoints
+- use `/.well-known/ocp-center` to discover Registration node endpoints
 - use `/ocp/catalogs/search` to search catalogs
 - use `/ocp/catalogs/resolve` only to resolve a catalog route hint, not a product
 
@@ -113,10 +113,10 @@ If the catalog rejects a request:
 - compare the attempted `query_pack` and filters against the selected catalog declaration
 - retry with a declared pack or a simpler request
 
-If the catalog or Center is unreachable:
+If the catalog or Registration node is unreachable:
 
 - report the exact failing endpoint
-- report whether the failure happened during Center discovery, Center search, catalog query, or catalog resolve
+- report whether the failure happened during Registration node discovery, Registration node search, catalog query, or catalog resolve
 
 If no suitable catalog exists:
 
@@ -129,7 +129,7 @@ Read these references when needed:
 
 - `references/agent-workflow.md`
   Practical protocol map and step-by-step agent behavior
-- `references/center-protocol.md`
-  Center protocol, registration, search, and route hint semantics
+- `references/registration-protocol.md`
+  Registration node protocol, registration, search, and route hint semantics
 - `references/handshake-protocol.md`
   Catalog manifest, query capability, and handshake object boundaries

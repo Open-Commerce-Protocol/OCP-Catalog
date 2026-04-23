@@ -1,10 +1,12 @@
-# Center 概览
+# 注册发现概览
 
-`ocp.catalog.center.v1` 定义的是 Catalog 如何注册到 OCP Center，以及 Agent 如何发现 Catalog。
+OCP Catalog Registration 定义的是 Catalog 如何注册到 registration node，以及 Agent 如何发现 Catalog。
+
+当前实现仍暴露 legacy schema namespace `ocp.catalog.center.v1` 和 legacy `Center*` 对象名。它们只是兼容性命名；概念角色是去中心化协议中的注册与发现。
 
 ## 核心职责
 
-Center 回答的问题是：
+Registration node 回答的问题是：
 
 > 应该去哪个 Catalog 查询？
 
@@ -14,7 +16,7 @@ Center 回答的问题是：
 
 后一个问题属于 Catalog 本身。
 
-## Center 对象
+## Registration 对象
 
 这个包包含：
 
@@ -28,7 +30,7 @@ Center 回答的问题是：
 
 ## 当前运行时角色
 
-在当前仓库里，Center 会：
+在当前仓库里，Registration node 会：
 
 - 存储 catalog registration
 - 获取并索引 manifest snapshot

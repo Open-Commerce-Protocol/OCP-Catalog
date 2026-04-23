@@ -1,6 +1,6 @@
 # 目录路由提示（CatalogRouteHint）
 
-`CatalogRouteHint` 是 Center 返回给调用方的最小路由摘要。
+`CatalogRouteHint` 是 Registration node 返回给调用方的最小路由摘要。
 
 ## 必需字段
 

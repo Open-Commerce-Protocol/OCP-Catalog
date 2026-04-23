@@ -1,6 +1,6 @@
 # 目录搜索（CatalogSearch）
 
-`CatalogSearchRequest` 和 `CatalogSearchResult` 定义的是 Agent 如何向 Center 询问候选 Catalog。
+`CatalogSearchRequest` 和 `CatalogSearchResult` 定义的是 Agent 如何向 Registration node 询问候选 Catalog。
 
 ## 搜索请求
 
@@ -48,6 +48,6 @@
 
 ## 设计意图
 
-Center 负责的是 catalog 选择，不是商品检索。
+Registration node 负责的是 catalog 选择，不是商品检索。
 
 所以 search result 的作用是帮助 agent 先选 catalog，再把具体商品搜索留给该 catalog。

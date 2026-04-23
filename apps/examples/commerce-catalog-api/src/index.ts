@@ -25,18 +25,14 @@ const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
 const embeddingProvider = createCommerceEmbeddingProvider(config);
 const commerceCatalogScenario = createCommerceCatalogScenario({
-  semanticSearchEnabled: Boolean(embeddingProvider),
+  semanticSearchEnabled: true,
 });
 const services = createCatalogServices(db, config, commerceCatalogScenario);
-const searchRetrievalService = embeddingProvider
-  ? new SearchRetrievalService(db, embeddingProvider)
-  : undefined;
+const searchRetrievalService = new SearchRetrievalService(db, embeddingProvider);
 const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
 const searchIndexJobs = new SearchIndexJobService(db);
 const searchDocumentService = new SearchDocumentUpsertService(db);
-const searchEmbeddingService = embeddingProvider
-  ? new SearchEmbeddingService(db, embeddingProvider)
-  : undefined;
+const searchEmbeddingService = new SearchEmbeddingService(db, embeddingProvider);
 const searchIndexWorker = new SearchIndexWorker(
   searchIndexJobs,
   new SearchIndexJobHandlerService(searchDocumentService, searchIndexJobs, searchEmbeddingService),
@@ -227,7 +223,7 @@ async function getCatalogAdminOverview() {
   return {
     catalog_id: config.CATALOG_ID,
     catalog_name: config.CATALOG_NAME,
-    semantic_search_enabled: Boolean(embeddingProvider),
+    semantic_search_enabled: true,
     query_packs: buildCatalogManifest(config, commerceCatalogScenario).query_capabilities.flatMap((capability) => (
       capability.query_packs.map((pack) => pack.pack_id)
     )),

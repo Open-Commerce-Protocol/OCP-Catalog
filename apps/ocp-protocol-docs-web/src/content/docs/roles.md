@@ -2,24 +2,24 @@
 
 This protocol has four practical roles in the current repository.
 
-## Center
+## Registration node
 
-The Center helps answer:
+The Registration node helps answer:
 
 > Which catalog should the agent ask next?
 
-The Center is best understood as a catalog of catalogs.
+The Registration node is best understood as a catalog of catalogs.
 
 It does not serve products directly. It indexes catalog metadata, trust state, route hints, and manifest snapshots so that agents can decide which catalog to use.
 
-Just as importantly, OCP Center is not a mandatory central authority. The protocol is explicitly decentralized:
+Just as importantly, OCP Catalog Registration node is not a mandatory central authority. The protocol is explicitly decentralized:
 
-- anyone can run an OCP Center
-- different operators can run different Centers with different intake, trust, and governance policies
-- a catalog can choose which Center or Centers to register with
-- an agent or application can choose which Center or Centers to trust
+- anyone can run an OCP Catalog Registration node
+- different operators can run different registration nodes with different intake, trust, and governance policies
+- a catalog can choose which registration node or nodes to register with
+- an agent or application can choose which registration node or nodes to trust
 
-That means the existence of one public or official Center does not make the protocol itself centralized.
+That means the existence of one public or official Registration node does not make the protocol itself centralized.
 
 ## Catalog
 
@@ -49,7 +49,7 @@ The Agent is the consuming side.
 
 It is responsible for:
 
-- selecting a catalog through the Center
+- selecting a catalog through the Registration node
 - reading catalog capability information
 - issuing query requests against the selected catalog
 - resolving selected entries into final actions
@@ -57,7 +57,7 @@ It is responsible for:
 ## Role Graph
 
 ```text
-Provider -> Catalog -> Center
+Provider -> Catalog -> Registration node
                  ^
                  |
                Agent
@@ -77,4 +77,4 @@ It also keeps protocol power distributed:
 
 - providers do not depend on a single discovery authority
 - catalogs do not need permission from one global operator to exist
-- Centers can compete or specialize without changing the handshake protocol
+- registration nodes can compete or specialize without changing the handshake protocol

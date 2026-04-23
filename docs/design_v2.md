@@ -6,35 +6,35 @@
 >
 > - [../README.md](../README.md)
 > - [ocp_catalog_handshake_protocol_v1.md](./ocp_catalog_handshake_protocol_v1.md)
-> - [ocp_catalog_center_protocol_v1.md](./ocp_catalog_center_protocol_v1.md)
+> - [ocp_catalog_registration_protocol_v1.md](./ocp_catalog_registration_protocol_v1.md)
 >
 > 当前已落地的是 Phase 1 可运行闭环，包含：
 >
-> - Catalog -> Center 注册与发现
+> - Catalog -> Registration node 注册与发现
 > - Provider -> Catalog 注册与对象同步
-> - User / Agent -> Center -> Catalog 的查询与 resolve
+> - User / Agent -> Registration node -> Catalog 的查询与 resolve
 > - 第一个 commerce product catalog 示例
 
 1. 文档目标
 本文档用于重新定义 OCP Catalog 的产品定位、系统边界、核心概念、数据模型、模块设计、API 设计、权限与治理机制、多协议兼容架构、Remote-first 联邦模式与实施路径，作为后续研发、协议演进与生态接入的基础。
 
 ---
-1.1 关键角色澄清：OCP Center 与 Catalog Node
+1.1 关键角色澄清：OCP Catalog Registration node 与 Catalog Node
 
-为防止后续实现方向混淆，本文档中的 “Catalog” 与 “OCP Center” 必须区分。
+为防止后续实现方向混淆，本文档中的 “Catalog” 与 “OCP Catalog Registration node” 必须区分。
 
-OCP Center 不是单个业务 Catalog，也不是默认存储全网商业对象的中心数据库。OCP Center 是 Catalog 的 Catalog，即 Catalog Registry / Catalog Discovery Center。它负责接收 Catalog 注册、验证 Catalog 身份、拉取 CatalogManifest、索引 Catalog 的查询能力与对象契约，并让用户或 Agent 能够搜索“应该使用哪个 Catalog”。
+OCP Catalog Registration node 不是单个业务 Catalog，也不是默认存储全网商业对象的中心数据库。OCP Catalog Registration node 是 Catalog 的 Catalog，即 Catalog Registry / Catalog Discovery Node。它负责接收 Catalog 注册、验证 Catalog 身份、拉取 CatalogManifest、索引 Catalog 的查询能力与对象契约，并让用户或 Agent 能够搜索“应该使用哪个 Catalog”。
 
 Catalog Node 是具体场景下的对象发现与检索节点，例如电商商品 Catalog、供应商渠道 Catalog、人才 Catalog、本地服务 Catalog。Catalog Node 自己实现索引引擎、Query、Resolve、权限策略和 Provider 接入。
 
-Provider 是对象来源方，通常注册到某个 Catalog Node，而不是直接注册到 OCP Center。
+Provider 是对象来源方，通常注册到某个 Catalog Node，而不是直接注册到 OCP Catalog Registration node。
 
 因此，OCP 体系中的两条握手链路必须拆开：
 
 ```text
-Catalog -> OCP Center
+Catalog -> OCP Catalog Registration node
   使用 ocp.catalog.center.v1
-  目标：让 Catalog 被 Center 收录、验证、索引和发现。
+  目标：让 Catalog 被 Registration node 收录、验证、索引和发现。
 
 Provider -> Catalog
   使用 ocp.catalog.handshake.v1
@@ -45,15 +45,15 @@ Provider -> Catalog
 
 ```text
 1. 先查本地已保存的 Catalog cache。
-2. 如果没有合适 Catalog，再向 OCP Center 搜索 Catalog。
-3. 从 Center 返回的 CatalogRouteHint 中获取 manifest/query/resolve 入口。
+2. 如果没有合适 Catalog，再向 OCP Catalog Registration node 搜索 Catalog。
+3. 从 Registration node 返回的 CatalogRouteHint 中获取 manifest/query/resolve 入口。
 4. 按对应 Catalog 声明的 Query Capability 调用源 Catalog。
 5. 对搜索结果需要进一步交互时，再调用源 Catalog 的 Resolve。
 ```
 
-也就是说，OCP Center 的核心查询对象是 Catalog metadata；Catalog Node 的核心查询对象才是 CommercialObject / CatalogEntry。
+也就是说，OCP Catalog Registration node 的核心查询对象是 Catalog metadata；Catalog Node 的核心查询对象才是 CommercialObject / CatalogEntry。
 
-Catalog 注册到 OCP Center 的协议详见 `docs/ocp_catalog_center_protocol_v1.md`。
+Catalog 注册到 OCP Catalog Registration node 的协议详见 `docs/ocp_catalog_registration_protocol_v1.md`。
 
 ---
 本版设计明确放弃“Catalog 仅服务电商商品发现”的假设，转而将 OCP Catalog 定位为：

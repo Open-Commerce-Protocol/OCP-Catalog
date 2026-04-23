@@ -1,6 +1,6 @@
 # Verification And Refresh
 
-The Center package also includes control-plane objects for catalog verification, refresh, and token rotation.
+The Registration node package also includes control-plane objects for catalog verification, refresh, and token rotation.
 
 ## Verification Request
 
@@ -16,7 +16,7 @@ The current verification request is intentionally small.
 }
 ```
 
-Centers may use this object when they want an extra verification handshake, but the protocol does not require every Center to gate registration on a DNS or HTTPS challenge.
+Registration nodes may use this object when they want an extra verification handshake, but the protocol does not require every registration node to gate registration on a DNS or HTTPS challenge.
 
 ## Refresh Result
 

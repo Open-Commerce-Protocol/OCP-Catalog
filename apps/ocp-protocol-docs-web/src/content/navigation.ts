@@ -21,14 +21,14 @@ export const navigation = [
     ],
   },
   {
-    title: { en: 'Center v1', zh: '中心协议 v1' },
+    title: { en: 'Registration v1', zh: '注册发现协议 v1' },
     links: [
-      { title: { en: 'Overview', zh: '概览' }, href: '/center/overview' },
-      { title: { en: 'CenterDiscovery', zh: '中心发现（CenterDiscovery）' }, href: '/center/center-discovery' },
-      { title: { en: 'CatalogRegistration', zh: '目录注册（CatalogRegistration）' }, href: '/center/catalog-registration' },
-      { title: { en: 'CatalogSearch', zh: '目录搜索（CatalogSearch）' }, href: '/center/catalog-search' },
-      { title: { en: 'CatalogRouteHint', zh: '目录路由提示（CatalogRouteHint）' }, href: '/center/catalog-route-hint' },
-      { title: { en: 'Verification & Refresh', zh: '验证与刷新' }, href: '/center/verification-refresh' },
+      { title: { en: 'Overview', zh: '概览' }, href: '/registration/overview' },
+      { title: { en: 'Discovery', zh: '注册发现' }, href: '/registration/discovery' },
+      { title: { en: 'CatalogRegistration', zh: '目录注册（CatalogRegistration）' }, href: '/registration/catalog-registration' },
+      { title: { en: 'CatalogSearch', zh: '目录搜索（CatalogSearch）' }, href: '/registration/catalog-search' },
+      { title: { en: 'CatalogRouteHint', zh: '目录路由提示（CatalogRouteHint）' }, href: '/registration/catalog-route-hint' },
+      { title: { en: 'Verification & Refresh', zh: '验证与刷新' }, href: '/registration/verification-refresh' },
     ],
   },
   {
@@ -36,7 +36,7 @@ export const navigation = [
     links: [
       { title: { en: 'Minimal Catalog', zh: '最小 Catalog' }, href: '/examples/minimal-catalog' },
       { title: { en: 'Minimal Provider', zh: '最小 Provider' }, href: '/examples/minimal-provider' },
-      { title: { en: 'Center Flow', zh: 'Center 流程' }, href: '/examples/center-flow' },
+      { title: { en: 'Registration Flow', zh: '注册流程' }, href: '/examples/registration-flow' },
       { title: { en: 'Commerce Catalog', zh: '电商目录示例' }, href: '/examples/commerce-catalog' },
       { title: { en: 'Provider Flow', zh: '提供方流程' }, href: '/examples/provider-flow' },
       { title: { en: 'User / Agent Flow', zh: '用户 / Agent 流程' }, href: '/examples/user-agent-flow' },

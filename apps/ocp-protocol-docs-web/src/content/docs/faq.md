@@ -2,15 +2,15 @@
 
 This page answers the simplest practical questions that new builders usually ask first.
 
-## Do I Need A Domain To Register A Catalog To A Center?
+## Do I Need A Domain To Register A Catalog To A Registration node?
 
-For local development in the current repository, no. The demo Center does not require an extra domain-verification challenge.
+For local development in the current repository, no. The demo Registration node does not require an extra domain-verification challenge.
 
 For public or production-style participation, usually yes:
 
-- many Centers will want a stable domain
-- many Centers will require HTTPS
-- domain verification is how a Center decides whether to trust and index your catalog
+- many registration nodes will want a stable domain
+- many registration nodes will require HTTPS
+- domain verification is how a Registration node decides whether to trust and index your catalog
 
 So the short answer is:
 
@@ -49,7 +49,7 @@ In practice, yes, if you want agents to query it.
 
 A catalog is the query-serving node. If it goes offline:
 
-- the Center may still have a route hint
+- the Registration node may still have a route hint
 - but real query and resolve calls will fail
 - health checks may mark it unhealthy
 
@@ -67,30 +67,30 @@ Registration is versioned for a reason:
 
 In other words, registration version is not just metadata. It is part of the runtime contract boundary.
 
-## Can I Join OCP Without Using One Official Center?
+## Can I Join OCP Without Using One Official Registration node?
 
 Yes.
 
-OCP is not designed around one mandatory global Center:
+OCP is not designed around one mandatory global Registration node:
 
-- anyone can run an OCP Center
-- catalogs can register with one Center, many Centers, or a private Center
-- agents can decide which Center or Centers they trust
+- anyone can run an OCP Catalog Registration node
+- catalogs can register with one registration node, many registration nodes, or a private registration node
+- agents can decide which registration node or nodes they trust
 
-One public Center may be useful for discovery, but it does not centralize the protocol itself.
+One public Registration node may be useful for discovery, but it does not centralize the protocol itself.
 
-## Can I Run A Private Center?
+## Can I Run A Private Registration node?
 
 Yes.
 
-A private Center can be useful for:
+A private Registration node can be useful for:
 
 - internal enterprise routing
 - vertical or domain-specific catalog discovery
 - curated trust policies
 - staging and partner integration
 
-Nothing in the protocol requires a Center to be public.
+Nothing in the protocol requires a Registration node to be public.
 
 ## What Is The Smallest Useful Catalog I Can Build?
 
@@ -107,7 +107,7 @@ The minimal concrete example in this repository's docs is the `hello_catalog` pa
 
 - one boolean field: `example_filed`
 - one deterministic query response
-- one catalog registration request to a Center
+- one catalog registration request to a Registration node
 
 ## What Is The Smallest Useful Provider I Can Build?
 
@@ -122,7 +122,7 @@ It does not need to model every optional field on day one.
 
 ## What Happens After Registration?
 
-### Catalog -> Center
+### Catalog -> Registration node
 
 Typical lifecycle:
 
@@ -155,4 +155,4 @@ Start here:
 - [Minimal Provider](/examples/minimal-provider)
 - [Roles](/roles)
 - [Provider Flow](/examples/provider-flow)
-- [Center Flow](/examples/center-flow)
+- [Registration Flow](/examples/registration-flow)

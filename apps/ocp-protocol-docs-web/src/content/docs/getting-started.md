@@ -4,10 +4,10 @@ This page is for builders who want to participate in the OCP network quickly.
 
 There are two common ways to join:
 
-- run a **catalog** and register it to an OCP Center
+- run a **catalog** and register it to an OCP Catalog Registration node
 - run a **provider** and register it to a catalog
 
-## If You Want To Offer A Catalog To A Center
+## If You Want To Offer A Catalog To A Registration node
 
 At minimum, your catalog should provide:
 
@@ -28,7 +28,7 @@ If your catalog supports object resolution, it should also provide:
 The relevant protocol pages are:
 
 - [CatalogManifest](/handshake/catalog-manifest)
-- [CatalogRegistration](/center/catalog-registration)
+- [CatalogRegistration](/registration/catalog-registration)
 - [Query Contract Principles](/query-contract-principles)
 
 ## Minimal Catalog Discovery
@@ -45,12 +45,12 @@ The relevant protocol pages are:
 }
 ```
 
-## Minimal Catalog Registration To Center
+## Minimal Catalog Registration To Registration node
 
-Your catalog can register itself to a Center with a normal HTTP call:
+Your catalog can register itself to a Registration node with a normal HTTP call:
 
 ```ts
-await fetch('https://center.example.com/ocp/catalogs/register', {
+await fetch('https://registration.example.com/ocp/catalogs/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
@@ -195,7 +195,7 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
 - decide your `catalog_id`
 - expose discovery, manifest, and query endpoints
 - decide whether you want provider onboarding
-- choose which Center or Centers to register with
+- choose which registration node or nodes to register with
 - decide whether you want local-dev-only registration or public verified registration
 
 ### For Provider Builders
@@ -213,9 +213,9 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
 ```text
 catalog process starts
 -> catalog serves discovery + manifest + query
--> catalog registers to Center
--> Center fetches and verifies catalog metadata
--> Center indexes routeable catalog information
+-> catalog registers to Registration node
+-> Registration node fetches and verifies catalog metadata
+-> Registration node indexes routeable catalog information
 -> agents discover the catalog through route hints
 ```
 
@@ -233,9 +233,9 @@ provider prepares source data
 
 - [Roles](/roles)
 - [ProviderRegistration](/handshake/provider-registration)
-- [CatalogRegistration](/center/catalog-registration)
+- [CatalogRegistration](/registration/catalog-registration)
 - [Minimal Catalog](/examples/minimal-catalog)
 - [Minimal Provider](/examples/minimal-provider)
 - [Provider Flow](/examples/provider-flow)
-- [Center Flow](/examples/center-flow)
+- [Registration Flow](/examples/registration-flow)
 - [FAQ](/faq)

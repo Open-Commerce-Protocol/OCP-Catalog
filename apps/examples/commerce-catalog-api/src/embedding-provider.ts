@@ -2,15 +2,9 @@ import type { AppConfig } from '@ocp-catalog/config';
 import type { EmbeddingProvider, EmbeddingResult } from './search/indexing/search-embedding-service';
 import { createHash } from 'node:crypto';
 
-export function createCommerceEmbeddingProvider(config: AppConfig): EmbeddingProvider | undefined {
-  if (config.EMBEDDING_PROVIDER === 'disabled') return undefined;
-
-  if (config.EMBEDDING_PROVIDER === 'local') {
-    return new LocalHashEmbeddingProvider(config.EMBEDDING_MODEL, config.EMBEDDING_DIMENSION);
-  }
-
+export function createCommerceEmbeddingProvider(config: AppConfig): EmbeddingProvider {
   if (!config.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai');
+    return new LocalHashEmbeddingProvider(config.EMBEDDING_MODEL, config.EMBEDDING_DIMENSION);
   }
 
   return new OpenAIEmbeddingProvider({

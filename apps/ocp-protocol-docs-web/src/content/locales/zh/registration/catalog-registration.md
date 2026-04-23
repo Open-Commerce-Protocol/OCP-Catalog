@@ -1,6 +1,6 @@
 # 目录注册（CatalogRegistration）
 
-`CatalogRegistration` 是 Catalog 向 Center 发送的版本化声明。
+`CatalogRegistration` 是 Catalog 向 Registration node 发送的版本化声明。
 
 ## 必需字段
 
@@ -46,9 +46,9 @@
 - 更大的 `registration_version` 会覆盖旧版本
 - `updated_at` 只是审计时间，不是主版本排序依据
 
-## Center 接下来会做什么
+## Registration node 接下来会做什么
 
-Center 接受注册后，可以继续：
+Registration node 接受注册后，可以继续：
 
 - 校验 catalog 控制权
 - 拉取 catalog manifest

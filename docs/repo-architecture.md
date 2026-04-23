@@ -60,7 +60,7 @@ Current app ownership:
 - `apps/examples/commerce-provider-admin-web`
   - provider management UI for the provider runtime
 - `apps/ocp-center-api`
-  - catalog registry and routing center
+  - catalog registry and routing Registration node
 - `apps/examples/ocp-user-demo-api`
   - user-side agent backend
 - `apps/examples/ocp-user-demo-web`
@@ -73,11 +73,11 @@ Current app ownership:
 - `packages/ocp-schema`
   - Provider <-> Catalog protocol schemas and types
 - `packages/center-schema`
-  - Catalog <-> Center protocol schemas and types
+  - Catalog <-> Registration node protocol schemas and types
 - `packages/catalog-core`
   - minimal catalog orchestration
 - `packages/center-core`
-  - minimal center orchestration
+  - minimal Registration node orchestration
 - `packages/auth-core`
   - auth helpers
 - `packages/config`
@@ -96,7 +96,7 @@ Current app ownership:
 - `provider.ts`
   - provider-owned source data and sync history
 - `center.ts`
-  - center registry persistence
+  - registration registry persistence
 
 This split is organizational only. The migration history has now been squashed into a fresh baseline under `packages/db/migrations/`.
 

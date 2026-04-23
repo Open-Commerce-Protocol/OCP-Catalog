@@ -1,6 +1,6 @@
 # CatalogRegistration
 
-`CatalogRegistration` is the catalog's versioned declaration to the Center.
+`CatalogRegistration` is the catalog's versioned declaration to the Registration node.
 
 ## Required Fields
 
@@ -48,9 +48,9 @@ For one `catalog_id`:
 - a higher `registration_version` supersedes the previous one
 - `updated_at` is an audit timestamp, not the primary ordering key
 
-## What The Center Does Next
+## What The Registration node Does Next
 
-After accepting a registration, the Center can:
+After accepting a registration, the Registration node can:
 
 - verify catalog control
 - fetch the catalog manifest

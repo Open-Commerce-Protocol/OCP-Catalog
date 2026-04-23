@@ -8,7 +8,7 @@
 - 一个 discovery 文档
 - 一个 manifest
 - 一个 query 接口
-- 一次向 Center 发起的 registration 请求
+- 一次向 Registration node 发起的 registration 请求
 
 ## 这个最小 Catalog 支持什么
 
@@ -116,19 +116,19 @@ new Elysia()
 
 这个很小的服务其实已经满足了 catalog 的核心责任：
 
-- Center 可以从 `/.well-known/ocp-catalog` 拉 discovery
-- Center 可以从 `/ocp/manifest` 拉 manifest
+- Registration node 可以从 `/.well-known/ocp-catalog` 拉 discovery
+- Registration node 可以从 `/ocp/manifest` 拉 manifest
 - agent 可以从 manifest metadata 读到 query contract
 - agent 可以实际调用 `/ocp/query`
 
 它并不丰富，但它已经是一个真正参与协议的 catalog。
 
-## 把 Catalog 注册到 Center
+## 把 Catalog 注册到 Registration node
 
 当 catalog 在线后，注册只是一条普通的 HTTP 请求：
 
 ```ts
-await fetch('https://center.example.com/ocp/catalogs/register', {
+await fetch('https://registration.example.com/ocp/catalogs/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
@@ -155,16 +155,16 @@ await fetch('https://center.example.com/ocp/catalogs/register', {
 ```text
 catalog 进程启动
 -> 对外提供 discovery + manifest + query
--> 向 Center 提交 CatalogRegistration
--> Center 拉取 discovery 和 manifest
--> Center 验证并做健康检查
+-> 向 Registration node 提交 CatalogRegistration
+-> Registration node 拉取 discovery 和 manifest
+-> Registration node 验证并做健康检查
 -> agent 开始把 query 路由到 /ocp/query
 ```
 
 ## 实践说明
 
 - 本地开发时，这个实例可以直接跑在 `localhost`。
-- 如果要参与公开 Center，通常还是要准备稳定域名和 HTTPS。
+- 如果要参与公开 Registration node，通常还是要准备稳定域名和 HTTPS。
 - catalog 通常需要常驻，因为 agent 会直接查询它。
 - `operator` 只是可选元数据，不是注册前提。
 
@@ -172,5 +172,5 @@ catalog 进程启动
 
 - [快速接入](/getting-started)
 - [CatalogManifest](/handshake/catalog-manifest)
-- [CatalogRegistration](/center/catalog-registration)
-- [Center 流程](/examples/center-flow)
+- [CatalogRegistration](/registration/catalog-registration)
+- [注册流程](/examples/registration-flow)

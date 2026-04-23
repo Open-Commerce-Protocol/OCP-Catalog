@@ -1,10 +1,12 @@
-# Center Overview
+# Registration Overview
 
-`ocp.catalog.center.v1` defines how catalogs register into an OCP Center and how agents discover them.
+OCP Catalog Registration defines how catalogs register with a registration node and how agents discover them.
+
+The implementation still exposes the legacy schema namespace `ocp.catalog.center.v1` and legacy `Center*` object names. Those names are compatibility details; the conceptual role is registration and discovery in a decentralized protocol.
 
 ## Core Responsibility
 
-The Center answers:
+The Registration node answers:
 
 > Which catalog should I query next?
 
@@ -14,7 +16,7 @@ It does not answer:
 
 That second question belongs to the catalog itself.
 
-## Center Objects
+## Registration Objects
 
 The package includes:
 
@@ -28,7 +30,7 @@ The package includes:
 
 ## Current Runtime Role
 
-In this repository, the Center:
+In this repository, the Registration node:
 
 - stores catalog registrations
 - fetches and indexes manifest snapshots

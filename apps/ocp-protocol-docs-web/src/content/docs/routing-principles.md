@@ -1,6 +1,6 @@
 # Routing Principles
 
-This page explains how routing is intended to work across Center and Catalog.
+This page explains how routing is intended to work across Registration node and Catalog.
 
 ## Route Hint Is A Summary, Not A Full Mirror
 
@@ -20,23 +20,23 @@ That is why route hint focuses on:
 
 If the agent needs deeper detail, it should follow `manifest_url`.
 
-This keeps Center lightweight and keeps capability truth with the catalog.
+This keeps Registration node lightweight and keeps capability truth with the catalog.
 
 ## Route Selection Happens Before Query Execution
 
 The intended order is:
 
-1. search Center
+1. search Registration node
 2. pick a catalog
 3. inspect route hint or manifest if needed
 4. query the catalog
 5. resolve a result
 
-That ordering is important because it stops Center from turning into a product search engine.
+That ordering is important because it stops Registration node from turning into a product search engine.
 
 ## Trust And Health Matter At Routing Time
 
-The agent should be able to use Center metadata to prefer:
+The agent should be able to use Registration node metadata to prefer:
 
 - verified catalogs
 - healthier catalogs

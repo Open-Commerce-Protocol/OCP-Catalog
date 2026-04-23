@@ -15,8 +15,8 @@
 
 1. Provider 告诉 Catalog 自己能提供哪些对象
 2. Catalog 对这些对象暴露 query 和 resolve 能力
-3. Catalog 把自己注册到 OCP Center
-4. 用户侧 agent 先向 Center 询问应该使用哪个 Catalog
+3. Catalog 把自己注册到 OCP Catalog Registration node
+4. 用户侧 agent 先向 Registration node 询问应该使用哪个 Catalog
 5. agent 再路由到选中的 Catalog，执行 query 和 resolve
 
 ## 协议边界
@@ -33,14 +33,14 @@
 - provider registration
 - 通用 commercial object 包络
 
-它**不**负责 Center 注册或 catalog 联邦发现。
+它**不**负责 Registration node 注册或 catalog 联邦发现。
 
 ### 中心层
 
 `ocp.catalog.center.v1` 负责：
 
-- `Catalog -> Center`
-- Center discovery
+- `Catalog -> Registration node`
+- Registration node discovery
 - catalog registration
 - catalog search
 - route hint 返回
@@ -53,10 +53,10 @@
 
 ```text
 Catalog 启动
--> Catalog 注册到 Center
+-> Catalog 注册到 Registration node
 -> Provider 注册到 Catalog
 -> Provider 同步 commercial object
--> Agent 向 Center 查找 Catalog
+-> Agent 向 Registration node 查找 Catalog
 -> Agent 查询 Catalog
 -> Agent resolve 选中的结果
 ```
@@ -115,5 +115,5 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
 - 如果你有一些接入层面的简单问题，先看 [FAQ](/faq)
 - 如果你想先看最小可实现版本，先看 [最小 Catalog](/examples/minimal-catalog) 和 [最小 Provider](/examples/minimal-provider)
 - 再看 Handshake 概览
-- 再看 Center 概览
+- 再看 注册发现概览
 - 最后看示例流程

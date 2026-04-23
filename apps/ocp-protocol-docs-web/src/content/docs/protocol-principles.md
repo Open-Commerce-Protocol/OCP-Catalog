@@ -7,7 +7,7 @@ This page captures the main design principles behind the current OCP Catalog pro
 The protocol is intentionally divided into:
 
 - `Provider -> Catalog`
-- `Catalog -> Center`
+- `Catalog -> Registration node`
 
 This separation avoids forcing one schema package to carry both supply-side and discovery-side concerns.
 
@@ -39,7 +39,7 @@ The current design places these under `metadata` so they remain useful without b
 
 ## Separate Route Selection From Object Retrieval
 
-Center should help answer:
+Registration node should help answer:
 
 > which catalog should I ask?
 

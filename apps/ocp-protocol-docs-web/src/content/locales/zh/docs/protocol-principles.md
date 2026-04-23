@@ -7,7 +7,7 @@
 当前协议被有意拆成两层：
 
 - `Provider -> Catalog`
-- `Catalog -> Center`
+- `Catalog -> Registration node`
 
 这样可以避免一个 schema 包同时承担供给侧和发现侧的复杂职责。
 
@@ -39,7 +39,7 @@
 
 ## 把路由选择和对象检索分开
 
-Center 应该帮助回答：
+Registration node 应该帮助回答：
 
 > 我应该去问哪个 catalog？
 

@@ -4,10 +4,10 @@
 
 最常见的参与方式有两种：
 
-- 运行一个 **catalog**，并把它注册到 OCP Center
+- 运行一个 **catalog**，并把它注册到 OCP Catalog Registration node
 - 运行一个 **provider**，并把它注册到某个 catalog
 
-## 如果你想把 Catalog 提供给 Center
+## 如果你想把 Catalog 提供给 Registration node
 
 最小情况下，你的 catalog 至少应该提供：
 
@@ -28,7 +28,7 @@
 相关协议页建议一起看：
 
 - [CatalogManifest](/handshake/catalog-manifest)
-- [CatalogRegistration](/center/catalog-registration)
+- [CatalogRegistration](/registration/catalog-registration)
 - [查询契约原则](/query-contract-principles)
 
 ## 最小 Catalog Discovery
@@ -45,12 +45,12 @@
 }
 ```
 
-## 最小 Catalog 注册到 Center 示例
+## 最小 Catalog 注册到 Registration node 示例
 
-你的 catalog 可以像普通 HTTP 请求一样把自己注册到 Center：
+你的 catalog 可以像普通 HTTP 请求一样把自己注册到 Registration node：
 
 ```ts
-await fetch('https://center.example.com/ocp/catalogs/register', {
+await fetch('https://registration.example.com/ocp/catalogs/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
@@ -195,7 +195,7 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
 - 先确定你的 `catalog_id`
 - 暴露 discovery、manifest 和 query 接口
 - 决定是否支持 provider 接入
-- 选择要注册到哪个或哪些 Center
+- 选择要注册到哪个或哪些 Registration node
 - 决定你只是本地开发接入，还是要做公开可验证接入
 
 ### 对 Provider Builder 来说
@@ -213,9 +213,9 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
 ```text
 catalog 进程启动
 -> catalog 对外提供 discovery + manifest + query
--> catalog 注册到 Center
--> Center 拉取并校验 catalog metadata
--> Center 建立可路由索引
+-> catalog 注册到 Registration node
+-> Registration node 拉取并校验 catalog metadata
+-> Registration node 建立可路由索引
 -> agent 通过 route hint 发现这个 catalog
 ```
 
@@ -233,9 +233,9 @@ provider 准备源数据
 
 - [角色](/roles)
 - [ProviderRegistration](/handshake/provider-registration)
-- [CatalogRegistration](/center/catalog-registration)
+- [CatalogRegistration](/registration/catalog-registration)
 - [最小 Catalog](/examples/minimal-catalog)
 - [最小 Provider](/examples/minimal-provider)
 - [提供方流程](/examples/provider-flow)
-- [Center 流程](/examples/center-flow)
+- [注册流程](/examples/registration-flow)
 - [FAQ](/faq)

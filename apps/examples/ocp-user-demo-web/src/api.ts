@@ -97,13 +97,17 @@ export type ResolvableReference = {
   expires_at: string;
 };
 
+const catalogBaseUrl = resolveOptionalApiBaseUrl(
+  import.meta.env.VITE_CATALOG_API_BASE_URL,
+  'http://localhost:4000',
+);
 const fallbackCatalogQueryUrl = resolveOptionalApiUrl(
   import.meta.env.VITE_DEFAULT_CATALOG_QUERY_URL,
-  'http://localhost:4000/ocp/query',
+  catalogBaseUrl ? `${catalogBaseUrl}/ocp/query` : undefined,
 );
 const fallbackCatalogResolveUrl = resolveOptionalApiUrl(
   import.meta.env.VITE_DEFAULT_CATALOG_RESOLVE_URL,
-  'http://localhost:4000/ocp/resolve',
+  catalogBaseUrl ? `${catalogBaseUrl}/ocp/resolve` : undefined,
 );
 const userDemoApiPrefix = '/api/user-demo';
 
@@ -144,7 +148,7 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
   filters?: Record<string, string | number | boolean>;
 }) {
   const queryUrl = routeHint?.query_url || requireConfiguredUrl(
-    'VITE_DEFAULT_CATALOG_QUERY_URL',
+    'VITE_CATALOG_API_BASE_URL or VITE_DEFAULT_CATALOG_QUERY_URL',
     fallbackCatalogQueryUrl,
   );
   return request<{ items: CatalogQueryItem[]; explain: string[] }>(queryUrl, {
@@ -164,7 +168,7 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
 
 export async function resolveEntry(routeHint: CatalogSearchItem['route_hint'] | null, entryId: string) {
   const resolveUrl = routeHint?.resolve_url || requireConfiguredUrl(
-    'VITE_DEFAULT_CATALOG_RESOLVE_URL',
+    'VITE_CATALOG_API_BASE_URL or VITE_DEFAULT_CATALOG_RESOLVE_URL',
     fallbackCatalogResolveUrl,
   );
   return request<ResolvableReference>(resolveUrl, {
@@ -314,6 +318,11 @@ function resolveOptionalApiUrl(configuredValue: string | undefined, devDefault?:
   if (value) return value;
   if (import.meta.env.DEV && devDefault) return devDefault;
   return undefined;
+}
+
+function resolveOptionalApiBaseUrl(configuredValue: string | undefined, devDefault?: string) {
+  const value = resolveOptionalApiUrl(configuredValue, devDefault);
+  return value?.replace(/\/$/, '');
 }
 
 function requireConfiguredUrl(envName: string, value: string | undefined) {

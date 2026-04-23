@@ -2,9 +2,9 @@
 
 这一页集中回答新接入者最常问的一些简单问题。
 
-## Catalog 注册到 Center，一定需要域名吗？
+## Catalog 注册到 Registration node，一定需要域名吗？
 
-在当前仓库的本地开发环境里，不一定。demo Center 不要求额外的域名 verification challenge。
+在当前仓库的本地开发环境里，不一定。demo Registration node 不要求额外的域名 verification challenge。
 
 但如果你要参与更公开或更接近生产的网络，通常还是需要：
 
@@ -49,7 +49,7 @@
 
 Catalog 是 query-serving node。如果它离线：
 
-- Center 可能仍然保留 route hint
+- Registration node 可能仍然保留 route hint
 - 但真实的 query / resolve 请求会失败
 - health check 也可能把它标记为 unhealthy
 
@@ -67,30 +67,30 @@ registration 之所以版本化，不是为了好看，而是因为：
 
 也就是说，registration version 不只是元数据，它本身就是运行时 contract boundary 的一部分。
 
-## 不使用某个官方 Center，也能参与 OCP 吗？
+## 不使用某个官方 Registration node，也能参与 OCP 吗？
 
 可以。
 
-OCP 不是围绕一个强制性的全局 Center 设计的：
+OCP 不是围绕一个强制性的全局 Registration node 设计的：
 
-- 任何人都可以运行 OCP Center
-- catalog 可以注册到一个 Center、多个 Center，或者私有 Center
-- agent 也可以自己决定信任哪个或哪些 Center
+- 任何人都可以运行 OCP Catalog Registration node
+- catalog 可以注册到一个 Registration node、多个 Registration node，或者私有 Registration node
+- agent 也可以自己决定信任哪个或哪些 Registration node
 
-即使有一个公开 Center，它也只是发现入口之一，不会让协议本身变成中心化协议。
+即使有一个公开 Registration node，它也只是发现入口之一，不会让协议本身变成中心化协议。
 
-## 我可以运行私有 Center 吗？
+## 我可以运行私有 Registration node 吗？
 
 可以。
 
-私有 Center 很适合：
+私有 Registration node 很适合：
 
 - 企业内部路由
 - 垂直领域 catalog discovery
 - 自定义 trust policy
 - staging / partner integration
 
-协议本身并不要求 Center 一定公开。
+协议本身并不要求 Registration node 一定公开。
 
 ## 我能构建的最小可用 Catalog 是什么样？
 
@@ -107,7 +107,7 @@ OCP 不是围绕一个强制性的全局 Center 设计的：
 
 - 只有一个布尔字段 `example_filed`
 - query 总是返回一个确定性的固定对象
-- 然后再用一条 catalog registration 请求把它注册到 Center
+- 然后再用一条 catalog registration 请求把它注册到 Registration node
 
 ## 我能构建的最小可用 Provider 是什么样？
 
@@ -122,7 +122,7 @@ OCP 不是围绕一个强制性的全局 Center 设计的：
 
 ## 注册之后会发生什么？
 
-### Catalog -> Center
+### Catalog -> Registration node
 
 典型生命周期：
 
@@ -155,4 +155,4 @@ register
 - [最小 Provider](/examples/minimal-provider)
 - [角色](/roles)
 - [提供方流程](/examples/provider-flow)
-- [Center 流程](/examples/center-flow)
+- [注册流程](/examples/registration-flow)

@@ -1,26 +1,26 @@
-# Center Flow
+# Registration Flow
 
-This example page describes the real `Catalog -> Center` runtime that ships in this repository.
+This example page describes the real `Catalog -> Registration node` runtime that ships in this repository.
 
 ## Real Lifecycle
 
 ```text
 catalog admin submits CatalogRegistration
--> Center validates center_id and registration_version
--> Center fetches /.well-known/ocp-catalog and the catalog manifest
--> Center validates fetched identity and endpoint/domain consistency
--> Center checks the catalog query endpoint for health
--> Center stores registration record and manifest snapshot
--> Center indexes the active snapshot
--> Center issues catalog_access_token
+-> Registration node validates center_id and registration_version
+-> Registration node fetches /.well-known/ocp-catalog and the catalog manifest
+-> Registration node validates fetched identity and endpoint/domain consistency
+-> Registration node checks the catalog query endpoint for health
+-> Registration node stores registration record and manifest snapshot
+-> Registration node indexes the active snapshot
+-> Registration node issues catalog_access_token
 -> later refresh re-fetches discovery/manifest and updates the active snapshot
 ```
 
-In the current implementation, `operator` metadata is optional. A catalog only needs to identify itself and expose discovery/manifest/query endpoints that the Center can fetch.
+In the current implementation, `operator` metadata is optional. A catalog only needs to identify itself and expose discovery/manifest/query endpoints that the Registration node can fetch.
 
 ## What The Current Implementation Actually Persists
 
-The current Center runtime stores several layers of state, not just one registration row:
+The current Registration node runtime stores several layers of state, not just one registration row:
 
 - `catalog_registration_records`
 - `registered_catalogs`
@@ -41,7 +41,7 @@ For one `catalog_id`, the current implementation distinguishes several runtime o
 - `accepted_indexed`
   The catalog has an active indexed snapshot.
 
-The demo Center keeps registration simple:
+The demo Registration node keeps registration simple:
 
 - extra domain verification is not required
 - accepted registrations are indexed immediately after fetch + health evaluation
@@ -50,16 +50,16 @@ The demo Center keeps registration simple:
 
 The current implementation also has a concrete control-plane workflow:
 
-- `verify` is kept as a compatibility endpoint, but no extra challenge is required in the demo Center
+- `verify` is kept as a compatibility endpoint, but no extra challenge is required in the demo Registration node
 - `catalog_access_token` is issued when registration succeeds if no token exists yet
 - `refresh` and `token/rotate` require that catalog token
 - the refresh scheduler scans catalogs that are already `accepted_indexed`
 
-So in this repository, registration no longer waits on a domain-verification gate before the catalog becomes searchable through Center.
+So in this repository, registration no longer waits on a domain-verification gate before the catalog becomes searchable through Registration node.
 
 ## Health And Indexing
 
-The current Center does not treat health as a passive metadata field. It actively checks the catalog by calling the query endpoint and recording the result.
+The current Registration node does not treat health as a passive metadata field. It actively checks the catalog by calling the query endpoint and recording the result.
 
 That health status then feeds into:
 
@@ -73,22 +73,22 @@ The current verified path in this workspace looks like:
 
 ```text
 catalog admin posts CatalogRegistration
--> Center fetches the catalog discovery document
--> Center fetches the manifest
--> Center sends a minimal POST /ocp/query health probe
--> Center stores registration + snapshot
--> Center writes catalog_index_entries
--> Center issues catalog_access_token
--> user-side agent can now find the catalog through Center search
+-> Registration node fetches the catalog discovery document
+-> Registration node fetches the manifest
+-> Registration node sends a minimal POST /ocp/query health probe
+-> Registration node stores registration + snapshot
+-> Registration node writes catalog_index_entries
+-> Registration node issues catalog_access_token
+-> user-side agent can now find the catalog through Registration node search
 -> later refresh re-fetches manifest and updates the active snapshot
 ```
 
 ## Why This Example Matters
 
-This repository's Center flow is more than a schema demo:
+This repository's Registration node flow is more than a schema demo:
 
 - registration is versioned and stateful
 - snapshots are first-class runtime objects
 - token issuance, health checks, and indexing are connected
-- Center search runs over an internal catalog metadata index, not raw remote catalogs
+- Registration node search runs over an internal catalog metadata index, not raw remote catalogs
 - route hints are derived from active indexed snapshots, not from raw registration input alone

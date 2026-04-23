@@ -20,7 +20,7 @@
 - object sync request envelope
 - catalog query request envelope
 - resolve request envelope
-- Center registration
+- Registration node registration
 
 这些关注点不属于 handshake package 本身。
 

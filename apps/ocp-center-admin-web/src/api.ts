@@ -117,28 +117,29 @@ export type CenterSearchAudit = {
 const centerBaseUrl = resolveApiBaseUrl(
   import.meta.env.VITE_CENTER_API_BASE_URL,
   'http://localhost:4100',
-  window.location.origin,
+  resolveCenterApiProdDefault(),
 );
+const centerAdminBaseUrl = `${centerBaseUrl}/api/center-admin`;
 
 export async function fetchCenterAdminOverview(apiKey: string) {
-  return request<CenterOverview>('/api/center-admin/overview', { method: 'GET', apiKey });
+  return request<CenterOverview>(`${centerAdminBaseUrl}/overview`, { method: 'GET', apiKey });
 }
 
 export async function fetchCenterAdminCatalogs(apiKey: string) {
-  const payload = await request<{ center_id: string; catalogs: CenterCatalogListItem[] }>('/api/center-admin/catalogs', { method: 'GET', apiKey });
+  const payload = await request<{ center_id: string; catalogs: CenterCatalogListItem[] }>(`${centerAdminBaseUrl}/catalogs`, { method: 'GET', apiKey });
   return Array.isArray(payload.catalogs) ? payload.catalogs : [];
 }
 
 export async function fetchCenterAdminRegistrations(apiKey: string, catalogId: string) {
   const payload = await request<{ center_id: string; catalog_id: string; registrations: CenterRegistrationRecord[] }>(
-    `/api/center-admin/catalogs/${catalogId}/registrations`,
+    `${centerAdminBaseUrl}/catalogs/${catalogId}/registrations`,
     { method: 'GET', apiKey },
   );
   return Array.isArray(payload.registrations) ? payload.registrations : [];
 }
 
 export async function fetchCenterAdminSearchAudits(apiKey: string) {
-  const payload = await request<{ center_id: string; audits: CenterSearchAudit[] }>('/api/center-admin/search-audits', { method: 'GET', apiKey });
+  const payload = await request<{ center_id: string; audits: CenterSearchAudit[] }>(`${centerAdminBaseUrl}/search-audits`, { method: 'GET', apiKey });
   return Array.isArray(payload.audits) ? payload.audits : [];
 }
 
@@ -224,6 +225,11 @@ function resolveApiBaseUrl(configuredValue: string | undefined, devDefault: stri
   if (value) return value.replace(/\/$/, '');
   if (import.meta.env.DEV) return devDefault.replace(/\/$/, '');
   return prodDefault.replace(/\/$/, '');
+}
+
+function resolveCenterApiProdDefault() {
+  const deployedUnderCenterPrefix = window.location.pathname === '/api/center' || window.location.pathname.startsWith('/api/center/');
+  return `${window.location.origin}${deployedUnderCenterPrefix ? '/api/center' : ''}`;
 }
 
 function mapCenterCatalog(payload: Record<string, unknown>): CenterCatalogRecord {

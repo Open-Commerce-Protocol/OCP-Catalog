@@ -8,7 +8,7 @@ The target is intentionally narrow:
 - one discovery document
 - one manifest
 - one query endpoint
-- one Center registration request
+- one Registration node registration request
 
 ## What This Minimal Catalog Supports
 
@@ -116,19 +116,19 @@ new Elysia()
 
 That tiny server already satisfies the core catalog obligations:
 
-- a Center can fetch discovery from `/.well-known/ocp-catalog`
-- a Center can fetch your manifest from `/ocp/manifest`
+- a Registration node can fetch discovery from `/.well-known/ocp-catalog`
+- a Registration node can fetch your manifest from `/ocp/manifest`
 - an agent can learn the query contract from the manifest metadata
 - an agent can call `/ocp/query`
 
 It is not feature-rich, but it is protocol-participating.
 
-## Registering The Catalog To A Center
+## Registering The Catalog To A Registration node
 
 Once the catalog is online, registration is just one HTTP request:
 
 ```ts
-await fetch('https://center.example.com/ocp/catalogs/register', {
+await fetch('https://registration.example.com/ocp/catalogs/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
@@ -155,16 +155,16 @@ await fetch('https://center.example.com/ocp/catalogs/register', {
 ```text
 catalog process starts
 -> serves discovery + manifest + query
--> posts CatalogRegistration to a Center
--> Center fetches discovery and manifest
--> Center verifies and health-checks the catalog
+-> posts CatalogRegistration to a Registration node
+-> Registration node fetches discovery and manifest
+-> Registration node verifies and health-checks the catalog
 -> agents can route queries to /ocp/query
 ```
 
 ## Practical Notes
 
 - For local development, this can run on `localhost`.
-- For public Center participation, expect to need a stable domain and HTTPS.
+- For public Registration node participation, expect to need a stable domain and HTTPS.
 - The catalog usually needs to stay online, because agents query it directly.
 - `operator` metadata is optional and not required for registration.
 
@@ -172,5 +172,5 @@ catalog process starts
 
 - [Getting Started](/getting-started)
 - [CatalogManifest](/handshake/catalog-manifest)
-- [CatalogRegistration](/center/catalog-registration)
-- [Center Flow](/examples/center-flow)
+- [CatalogRegistration](/registration/catalog-registration)
+- [Registration Flow](/examples/registration-flow)

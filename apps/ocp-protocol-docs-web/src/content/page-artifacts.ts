@@ -427,10 +427,10 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
-  '/center/center-discovery': {
+  '/registration/discovery': {
     schemaSections: [
       {
-        title: { en: 'Center Discovery Schema', zh: 'CenterDiscovery schema' },
+        title: { en: 'Registration node Discovery Schema', zh: 'CenterDiscovery schema' },
         sourcePath: 'ocp.catalog.center.v1/center-discovery.schema.json',
         select: (schema) => ({
           required: schema.required,
@@ -440,26 +440,26 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     ],
     implementationRefs: [
       {
-        label: { en: 'Center API discovery endpoint', zh: 'Center API discovery 入口' },
+        label: { en: 'Registration node API discovery endpoint', zh: 'Registration node API discovery 入口' },
         path: 'apps/ocp-center-api/src/index.ts',
       },
     ],
     endpointExamples: [
       {
-        title: { en: 'Fetch center discovery document', zh: '获取 Center discovery 文档' },
+        title: { en: 'Fetch Registration node discovery document', zh: '获取 Registration node discovery 文档' },
         method: 'GET',
         path: '/.well-known/ocp-center',
         response: {
           kind: 'CenterDiscovery',
           center_id: 'ocp_center_local_dev',
-          manifest_url: 'http://localhost:4100/ocp/center/manifest',
+          manifest_url: 'http://localhost:4100/ocp/registration/manifest',
           catalog_registration_url: 'http://localhost:4100/ocp/catalogs/register',
           catalog_search_url: 'http://localhost:4100/ocp/catalogs/search',
         },
       },
     ],
   },
-  '/center/catalog-registration': {
+  '/registration/catalog-registration': {
     schemaSections: [
       {
         title: { en: 'Catalog Registration Schema', zh: 'Catalog 注册 schema' },
@@ -489,7 +489,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     ],
     endpointExamples: [
       {
-        title: { en: 'Register catalog to center', zh: '将 catalog 注册到 Center' },
+        title: { en: 'Register catalog to Registration node', zh: '将 catalog 注册到 Registration node' },
         method: 'POST',
         path: '/ocp/catalogs/register',
         request: {
@@ -511,7 +511,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
-  '/center/catalog-search': {
+  '/registration/catalog-search': {
     schemaSections: [
       {
         title: { en: 'Catalog Search Request', zh: 'Catalog 搜索请求' },
@@ -531,17 +531,17 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     ],
     implementationRefs: [
       {
-        label: { en: 'Center search query service', zh: 'Center 搜索服务' },
+        label: { en: 'Registration node search query service', zh: 'Registration node 搜索服务' },
         path: 'packages/center-core/src/catalog-search-service.ts',
       },
       {
-        label: { en: 'User demo agent center search client', zh: '用户 demo agent 的 Center 搜索客户端' },
+        label: { en: 'User demo agent Registration node search client', zh: '用户 demo agent 的 Registration node 搜索客户端' },
         path: 'apps/examples/ocp-user-demo-api/src/agent-service.ts',
       },
     ],
     endpointExamples: [
       {
-        title: { en: 'Search center for a catalog', zh: '在 Center 中搜索 catalog' },
+        title: { en: 'Search Registration node for a catalog', zh: '在 Registration node 中搜索 catalog' },
         method: 'POST',
         path: '/ocp/catalogs/search',
         request: {
@@ -567,7 +567,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
-  '/center/catalog-route-hint': {
+  '/registration/catalog-route-hint': {
     schemaSections: [
       {
         title: { en: 'Catalog Route Hint Schema', zh: 'CatalogRouteHint schema' },
@@ -590,7 +590,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     ],
     endpointExamples: [
       {
-        title: { en: 'Route hint fragment returned by center search', zh: 'Center search 返回的 route hint 片段' },
+        title: { en: 'Route hint fragment returned by Registration node search', zh: 'Registration node search 返回的 route hint 片段' },
         method: 'POST',
         path: '/ocp/catalogs/search',
         response: {
@@ -612,7 +612,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
-  '/center/verification-refresh': {
+  '/registration/verification-refresh': {
     schemaSections: [
       {
         title: { en: 'Verification Request', zh: '验证请求' },
@@ -638,7 +638,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     ],
     implementationRefs: [
       {
-        label: { en: 'Center verification and refresh APIs', zh: 'Center 验证与刷新 API' },
+        label: { en: 'Registration node verification and refresh APIs', zh: 'Registration node 验证与刷新 API' },
         path: 'apps/ocp-center-api/src/index.ts',
       },
     ],
@@ -828,7 +828,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         },
       },
       {
-        title: { en: 'Register minimal catalog to Center', zh: '把最小 catalog 注册到 Center' },
+        title: { en: 'Register minimal catalog to Registration node', zh: '把最小 catalog 注册到 Registration node' },
         method: 'POST',
         path: '/ocp/catalogs/register',
         request: {
@@ -928,10 +928,10 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
     ],
   },
-  '/examples/center-flow': {
+  '/examples/registration-flow': {
     implementationRefs: [
       {
-        label: { en: 'Center API', zh: 'Center API' },
+        label: { en: 'Registration node API', zh: 'Registration node API' },
         path: 'apps/ocp-center-api/src/index.ts',
       },
       {
@@ -939,13 +939,13 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: 'packages/center-core/src/catalog-registry-service.ts',
       },
       {
-        label: { en: 'Center state persistence schema', zh: 'Center 状态持久化 schema' },
+        label: { en: 'Registration node state persistence schema', zh: 'Registration node 状态持久化 schema' },
         path: 'packages/db/src/schema/center.ts',
       },
     ],
     endpointExamples: [
       {
-        title: { en: 'Register catalog into Center', zh: '向 Center 注册 catalog' },
+        title: { en: 'Register catalog into Registration node', zh: '向 Registration node 注册 catalog' },
         method: 'POST',
         path: '/ocp/catalogs/register',
         request: {
@@ -989,7 +989,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         },
       },
       {
-        title: { en: 'Search the Center index', zh: '搜索 Center 索引' },
+        title: { en: 'Search the Registration node index', zh: '搜索 Registration node 索引' },
         method: 'POST',
         path: '/ocp/catalogs/search',
         request: {
@@ -1147,8 +1147,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           },
         },
         note: {
-          en: 'The user demo agent digests tool output before replying, rather than exposing raw Center or Catalog payloads directly.',
-          zh: '用户 demo 中的 agent 会先消化工具调用结果，再向用户转述，而不是直接暴露原始 Center 或 Catalog payload。',
+          en: 'The user demo agent digests tool output before replying, rather than exposing raw Registration node or Catalog payloads directly.',
+          zh: '用户 demo 中的 agent 会先消化工具调用结果，再向用户转述，而不是直接暴露原始 Registration node 或 Catalog payload。',
         },
       },
     ],
@@ -1262,7 +1262,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
   '/faq': {
     implementationRefs: [
       {
-        label: { en: 'Center verification and refresh logic', zh: 'Center 验证与刷新逻辑' },
+        label: { en: 'Registration node verification and refresh logic', zh: 'Registration node 验证与刷新逻辑' },
         path: 'packages/center-core/src/catalog-registry-service.ts',
       },
       {
@@ -1298,7 +1298,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
   '/routing-principles': {
     implementationRefs: [
       {
-        label: { en: 'Center projection and route hint shape', zh: 'Center 投影与 route hint 结构' },
+        label: { en: 'Registration node projection and route hint shape', zh: 'Registration node 投影与 route hint 结构' },
         path: 'packages/center-core/src/projection.ts',
       },
       {
@@ -1310,7 +1310,10 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
 };
 
 export async function loadPageArtifacts(routePath: string): Promise<LoadedPageArtifacts> {
-  const definition = artifactRegistry[routePath];
+  const normalizedRoutePath = routePath
+    .replace(/^\/center\//, '/registration/')
+    .replace(/^\/examples\/center-flow$/, '/examples/registration-flow');
+  const definition = artifactRegistry[normalizedRoutePath];
 
   if (!definition) {
     return {

@@ -1,6 +1,6 @@
 # CatalogRouteHint
 
-`CatalogRouteHint` is the Center's minimal routing summary for one catalog.
+`CatalogRouteHint` is the Registration node's minimal routing summary for one catalog.
 
 ## Required Fields
 

@@ -5,10 +5,10 @@
 当前已经具备三条真实运行链路：
 
 ```text
-Catalog -> Center
-  Catalog 注册到 OCP Center
-  Center 拉取 manifest
-  Center 建立 catalog 索引和 route hint
+Catalog -> Registration node
+  Catalog 注册到 OCP Catalog Registration node
+  Registration node 拉取 manifest
+  Registration node 建立 catalog 索引和 route hint
 
 Provider -> Catalog
   Provider 发现 Catalog
@@ -17,9 +17,9 @@ Provider -> Catalog
   Provider 分批同步对象
   Catalog 校验、入库、建索引
 
-User / Agent -> Center -> Catalog
+User / Agent -> Registration node -> Catalog
   用户侧 agent 先查本地 catalog profile
-  缺失时到 Center 找 catalog
+  缺失时到 Registration node 找 catalog
   用户确认后保存本地 profile
   agent 再对 Catalog query / resolve
 ```
@@ -30,7 +30,7 @@ User / Agent -> Center -> Catalog
 
 ```text
 1. ocp-center-api
-   Catalog Registry / Discovery Center
+   Catalog Registration / Discovery Node
 
 2. commerce-catalog-api
    第一个 Catalog 实现，负责 registration / sync / query / resolve
@@ -56,7 +56,7 @@ User / Agent -> Center -> Catalog
 
 ```text
 apps/
-  ocp-center-api/              OCP Center / Catalog Registry
+  ocp-center-api/              OCP Catalog Registration node / Catalog Registry
   ocp-protocol-docs-web/       协议文档站
   examples/
     commerce-catalog-api/        第一个 Catalog 实现，场景为 commerce product catalog
@@ -68,9 +68,9 @@ apps/
 
 packages/
   ocp-schema/                  Provider <-> Catalog 协议 schema
-  center-schema/               Catalog <-> Center 协议 schema
+  center-schema/               Catalog <-> Registration node 协议 schema
   catalog-core/                Catalog 最小编排内核
-  center-core/                 Center 最小编排内核
+  center-core/                 Registration node 最小编排内核
   auth-core/                   auth helpers
   config/                      配置加载
   db/                          Drizzle schema 和 migrations
@@ -81,14 +81,14 @@ packages/
 
 ## 当前实现了什么
 
-### 1. OCP Center
+### 1. OCP Catalog Registration node
 
 - Catalog 注册
 - manifest snapshot 持久化
 - catalog health / verification / refresh
 - catalog search
 - route hint 返回
-- Center 侧索引字段抽取
+- Registration node 侧索引字段抽取
 
 ### 2. Commerce Catalog
 
@@ -126,7 +126,7 @@ packages/
 - `ocp-user-demo-api`
   - 真正接入 agent backend，不是只在前端写规则
   - agent 不直接把 tool raw output 返回给用户
-  - agent 先消化 Center / Catalog 的返回，再转述给用户
+  - agent 先消化 Registration node / Catalog 的返回，再转述给用户
   - 默认不自动保存 catalog profile 到本地
   - 支持多轮 refinement
 - `ocp-user-demo-web`
@@ -250,7 +250,7 @@ CommercialObject
 ANN shortlist -> exact cosine rerank -> final merge/rank
 ```
 
-实现边界和协议约束优先参考 `README.md`、`docs/ocp_catalog_handshake_protocol_v1.md`、`docs/ocp_catalog_center_protocol_v1.md`。
+实现边界和协议约束优先参考 `README.md`、`docs/ocp_catalog_handshake_protocol_v1.md`、`docs/ocp_catalog_registration_protocol_v1.md`。
 
 ## 快速开始
 
@@ -289,7 +289,7 @@ bun run protocol:docs
 默认地址：
 
 - Catalog API: `http://localhost:4000`
-- Center API: `http://localhost:4100`
+- Registration node API: `http://localhost:4100`
 - Provider API: `http://localhost:4200`
 - User Demo API: `http://localhost:4230`
 - Provider Admin Web: `http://localhost:4210`
@@ -309,14 +309,14 @@ bun run protocol:docs
 
 `ocp-protocol-docs-web` 是纯静态站，不依赖后端服务。
 
-### 2. 只启动 Catalog + Center
+### 2. 只启动 Catalog + Registration node
 
 ```bash
 bun run center:api
 bun run commerce:catalog:api
 ```
 
-适合验证 `Catalog -> Center` 注册与发现链路。
+适合验证 `Catalog -> Registration node` 注册与发现链路。
 
 ### 3. 启动 Provider 配套单元
 
@@ -344,7 +344,7 @@ bun run validate:center
 ```
 
 `validate:mvp` 覆盖 Provider -> Catalog 主链路。  
-`validate:center` 覆盖 Catalog -> Center 主链路。
+`validate:center` 覆盖 Catalog -> Registration node 主链路。
 
 ## 常用命令
 
@@ -357,6 +357,6 @@ bun run test
 ## 主要文档
 
 - [docs/repo-architecture.md](./docs/repo-architecture.md)
-- [docs/ocp_catalog_center_protocol_v1.md](./docs/ocp_catalog_center_protocol_v1.md)
+- [docs/ocp_catalog_registration_protocol_v1.md](./docs/ocp_catalog_registration_protocol_v1.md)
 - [docs/ocp_catalog_handshake_protocol_v1.md](./docs/ocp_catalog_handshake_protocol_v1.md)
 - [docs/design_v2.md](./docs/design_v2.md)

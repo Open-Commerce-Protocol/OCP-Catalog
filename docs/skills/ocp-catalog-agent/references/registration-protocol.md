@@ -1,10 +1,10 @@
-# OCP Catalog Center Protocol Reference
+# OCP Catalog Registration Protocol Reference
 
 This reference summarizes the agent-relevant parts of `ocp.catalog.center.v1`.
 
 ## Purpose
 
-The Center protocol is for catalog discovery and routing.
+The Registration node protocol is for catalog discovery and routing.
 
 Use it to answer:
 
@@ -16,16 +16,16 @@ Do not use it as if it were a product search protocol.
 
 ## Role Boundary
 
-- Catalog -> Center
-  Catalogs register themselves to a Center.
-- Agent -> Center
+- Catalog -> Registration node
+  Catalogs register themselves to a Registration node.
+- Agent -> Registration node
   Agents search for catalogs and receive route hints.
 
-The Center does not replace the catalog's own query and resolve logic.
+The Registration node does not replace the catalog's own query and resolve logic.
 
 ## Main Objects
 
-The most important Center-side objects for an agent are:
+The most important Registration node-side objects for an agent are:
 
 - `CenterDiscovery`
 - `CenterManifest`
@@ -43,11 +43,11 @@ For operator or control-plane tasks, these may also matter:
 
 ## Key Endpoints
 
-Typical Center endpoints are:
+Typical Registration node endpoints are:
 
 ```text
 GET  /.well-known/ocp-center
-GET  /ocp/center/manifest
+GET  /ocp/registration/manifest
 POST /ocp/catalogs/search
 POST /ocp/catalogs/resolve
 ```
@@ -70,9 +70,9 @@ POST /ocp/catalogs/:catalogId/token/rotate
 The intended order is:
 
 ```text
-discover Center
--> inspect Center manifest if needed
--> search Center for catalogs
+discover Registration node
+-> inspect Registration node manifest if needed
+-> search Registration node for catalogs
 -> choose a catalog
 -> inspect route hint
 -> query the chosen catalog directly
@@ -103,7 +103,7 @@ Use the manifest when you need the full search contract.
 
 ## Catalog Search Rules
 
-When searching Center:
+When searching Registration node:
 
 - search for catalogs, not products
 - prefer catalogs whose trust and health are suitable for the task
@@ -112,8 +112,8 @@ When searching Center:
 
 ## Common Agent Mistakes
 
-- sending product queries to Center instead of the catalog
-- assuming Center search results are product results
+- sending product queries to Registration node instead of the catalog
+- assuming Registration node search results are product results
 - ignoring trust and health fields during routing
 - skipping route-hint inspection before catalog query
 

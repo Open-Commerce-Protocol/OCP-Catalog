@@ -1,6 +1,6 @@
 # CatalogSearch
 
-`CatalogSearchRequest` and `CatalogSearchResult` define how an agent asks the Center for candidate catalogs.
+`CatalogSearchRequest` and `CatalogSearchResult` define how an agent asks the Registration node for candidate catalogs.
 
 ## Search Request
 
@@ -48,6 +48,6 @@ Each result item includes both ranking and route information.
 
 ## Design Intent
 
-The Center performs catalog selection, not product retrieval.
+The Registration node performs catalog selection, not product retrieval.
 
 So the search result should help the agent choose a catalog and then leave product search to that catalog.

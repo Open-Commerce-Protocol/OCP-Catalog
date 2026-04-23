@@ -15,8 +15,8 @@ At a high level:
 
 1. Providers tell a catalog what objects they can supply.
 2. Catalogs expose query and resolve capability over those objects.
-3. Catalogs register themselves to an OCP Center.
-4. User-side agents ask the Center which catalog to use.
+3. Catalogs register themselves to an OCP Catalog Registration node.
+4. User-side agents ask the Registration node which catalog to use.
 5. Agents route to the selected catalog and perform query and resolve there.
 
 ## Protocol Boundaries
@@ -33,14 +33,14 @@ The protocol is intentionally split.
 - provider registration
 - shared commercial object envelope
 
-It does **not** own Center registration or catalog federation.
+It does **not** own Registration node registration or catalog federation.
 
-### Center
+### Registration node
 
 `ocp.catalog.center.v1` handles:
 
-- `Catalog -> Center`
-- Center discovery
+- `Catalog -> Registration node`
+- Registration node discovery
 - catalog registration
 - catalog search
 - route hint delivery
@@ -53,10 +53,10 @@ This workspace already runs the end-to-end path below:
 
 ```text
 Catalog startup
--> Catalog registers to Center
+-> Catalog registers to Registration node
 -> Provider registers to Catalog
 -> Provider syncs commercial objects
--> Agent asks Center for a Catalog
+-> Agent asks Registration node for a Catalog
 -> Agent queries Catalog
 -> Agent resolves a chosen result
 ```
@@ -115,5 +115,5 @@ This keeps the protocol stable while still giving agents useful planning hints.
 - If you have practical onboarding questions, read [FAQ](/faq)
 - If you want the smallest concrete implementation, read [Minimal Catalog](/examples/minimal-catalog) and [Minimal Provider](/examples/minimal-provider)
 - Then read the Handshake overview
-- Then read the Center overview
+- Then read the Registration node overview
 - Finally inspect the example flows

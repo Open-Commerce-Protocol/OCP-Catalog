@@ -8,34 +8,34 @@ This reference is for agents that need a compact, practical map of how to use OC
   Supplies objects to a catalog. Not the first place an end-user agent should query.
 - Catalog
   The query-serving node. It exposes `/.well-known/ocp-catalog`, `CatalogManifest`, `/ocp/query`, and optionally `/ocp/resolve`.
-- Center
+- Registration node
   The catalog registry. It helps agents discover catalogs and returns route hints.
 - Agent
-  Searches Center for a catalog, then queries the chosen catalog directly.
+  Searches Registration node for a catalog, then queries the chosen catalog directly.
 
 ## The Correct Order
 
 ```text
 local saved catalog?
 -> yes: inspect route hint and query the catalog
--> no: search Center for catalogs
+-> no: search Registration node for catalogs
 -> choose a catalog
 -> inspect route hint or manifest
 -> query the catalog
 -> optionally resolve a chosen entry
 ```
 
-This ordering matters because Center is not a product search engine.
+This ordering matters because Registration node is not a product search engine.
 
-## What Center Is For
+## What Registration node Is For
 
-Use Center to answer:
+Use Registration node to answer:
 
 - which catalog should I query next?
 - which catalogs are healthy or trusted?
 - which catalogs advertise matching query packs?
 
-Do not use Center as if it stores the catalog's product inventory.
+Do not use Registration node as if it stores the catalog's product inventory.
 
 ## What Route Hint Is For
 
@@ -105,7 +105,7 @@ If not, stay at query stage.
 
 ## Common Mistakes To Avoid
 
-- Searching Center for products instead of catalogs
+- Searching Registration node for products instead of catalogs
 - Treating Provider endpoints as query endpoints
 - Using `CatalogRegistration` logic when the task is agent-side discovery
 - Inventing `query_pack` values
@@ -116,5 +116,5 @@ If not, stay at query stage.
 
 For fuller protocol detail, read these bundled references:
 
-- `center-protocol.md`
+- `registration-protocol.md`
 - `handshake-protocol.md`

@@ -23,7 +23,6 @@ export const envSchema = z.object({
   COMMERCE_PROVIDER_DOMAIN: z.string().default('localhost'),
   CENTER_ID: z.string().default('center_local_dev'),
   CENTER_NAME: z.string().default('Local OCP Center'),
-  EMBEDDING_PROVIDER: z.enum(['disabled', 'local', 'openai']).default('disabled'),
   EMBEDDING_MODEL: z.string().default('local-hash-v1'),
   EMBEDDING_DIMENSION: z.coerce.number().int().min(1).default(64),
   USER_DEMO_AGENT_MODEL: z.string().default('qwen-plus'),

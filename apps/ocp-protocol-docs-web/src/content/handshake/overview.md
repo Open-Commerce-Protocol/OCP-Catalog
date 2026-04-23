@@ -20,7 +20,7 @@ This package does **not** freeze:
 - object sync request envelopes
 - catalog query request envelopes
 - resolve request envelopes
-- Center registration
+- Registration node registration
 
 Those concerns live outside this handshake package.
 
