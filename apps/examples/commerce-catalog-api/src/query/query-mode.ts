@@ -6,6 +6,7 @@ export function inferCommerceQueryMode(
   const hasFilters = Object.values(filters).some(Boolean);
   if (hasQuery && hasFilters) return 'hybrid' as const;
   if (hasFilters) return 'filter' as const;
+  if (!hasQuery) return 'filter' as const;
   return 'keyword' as const;
 }
 

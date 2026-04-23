@@ -7,6 +7,11 @@ export type CatalogAdminOverview = {
     provider_count: number;
     object_count: number;
     active_entry_count: number;
+    active_search_document_count: number;
+    ready_embedding_count: number;
+    pending_index_job_count: number;
+    running_index_job_count: number;
+    failed_index_job_count: number;
     query_audit_count: number;
     rich_entry_count: number;
     standard_entry_count: number;
@@ -14,6 +19,16 @@ export type CatalogAdminOverview = {
     missing_image_count: number;
     missing_product_url_count: number;
     out_of_stock_count: number;
+  };
+  search_index: {
+    active_document_count: number;
+    ready_embedding_count: number;
+    active_documents_missing_embedding_count: number;
+    embedding_readiness_ratio: number;
+    pending_job_count: number;
+    running_job_count: number;
+    failed_job_count: number;
+    oldest_pending_job_created_at: string | null;
   };
   latest_sync_batch: {
     provider_id: string;
@@ -91,6 +106,12 @@ export type CatalogQueryItem = {
 
 export type CatalogQueryResult = {
   result_count: number;
+  page: {
+    limit: number;
+    offset: number;
+    has_more: boolean;
+    next_offset?: number;
+  };
   items: CatalogQueryItem[];
   explain: string[];
 };
@@ -253,6 +274,7 @@ export async function runCatalogQuery(input: {
   queryPack?: string;
   filters?: Record<string, unknown>;
   limit?: number;
+  offset?: number;
   apiKey?: string;
 }) {
   return request<CatalogQueryResult>(`${catalogBaseUrl}/ocp/query`, {
@@ -266,6 +288,7 @@ export async function runCatalogQuery(input: {
       query_pack: input.queryPack,
       filters: input.filters ?? {},
       limit: input.limit ?? 12,
+      offset: input.offset ?? 0,
       explain: true,
     },
   });

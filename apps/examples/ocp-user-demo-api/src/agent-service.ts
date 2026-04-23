@@ -74,7 +74,6 @@ const querySessionSchema = z.object({
     in_stock_only: z.boolean().optional(),
     has_image: z.boolean().optional(),
   }),
-  queryMode: z.enum(['keyword', 'filter', 'semantic', 'hybrid']).optional(),
   queryPack: z.string().optional(),
   sortPreference: z.enum(['relevance', 'price_asc']).optional(),
 });
@@ -121,7 +120,6 @@ type CenterSelectionPlan = {
 type CatalogQueryPlan = {
   intent_summary: string;
   catalog_query: string;
-  query_mode: 'keyword' | 'filter' | 'semantic' | 'hybrid';
   query_pack?: string;
   sort_preference: 'relevance' | 'price_asc';
   filters: {
@@ -140,7 +138,6 @@ type CatalogQueryPlan = {
 
 type QueryPackInput = {
   queryPack?: string;
-  queryMode?: QuerySession['queryMode'] | CatalogQueryPlan['query_mode'];
   queryText?: string | null;
   filters?: QuerySession['activeFilters'] | CatalogQueryPlan['filters'];
 };
@@ -153,7 +150,6 @@ const centerSelectionPlanSchema = z.object({
 const catalogQueryPlanSchema = z.object({
   intent_summary: z.string().min(1),
   catalog_query: z.string().min(1),
-  query_mode: z.enum(['keyword', 'filter', 'semantic', 'hybrid']),
   query_pack: z.string().min(1).optional(),
   sort_preference: z.enum(['relevance', 'price_asc']),
   filters: z.object({
@@ -269,7 +265,6 @@ export class UserDemoAgentService {
     const normalizedSession = buildNextSession({
       intent_summary: request.session.baseIntent,
       catalog_query: request.session.baseIntent,
-      query_mode: request.session.queryMode ?? inferQueryModeFromSession(request.session),
       query_pack: request.session.queryPack,
       sort_preference: request.session.sortPreference ?? 'relevance',
       filters: request.session.activeFilters,
@@ -303,7 +298,7 @@ export class UserDemoAgentService {
       [
         'You are an OCP commerce shopping agent and center-selection planner.',
         'Your job in this phase is only to decide how to search OCP Center for a suitable catalog.',
-        'Do not plan query_pack, query_mode, sort, or catalog filters in this phase.',
+        'Do not plan query_pack, sort, or catalog filters in this phase.',
         'Do not assume a catalog before Center discovery happens.',
         'Return JSON only.',
         'Schema:',
@@ -330,18 +325,17 @@ export class UserDemoAgentService {
         'Decide how to refine the user request into a catalog query plan.',
         'You must follow the selected catalog declaration before planning the query.',
         'Interaction rules:',
-        '1. Inspect the selected catalog route_hint.supported_query_packs and metadata.query_hints before setting query_pack or query_mode.',
+        '1. Inspect the selected catalog route_hint.supported_query_packs and metadata.query_hints before setting query_pack.',
         '2. Only use a query_pack value that exactly matches one of the supported_query_packs declared by the selected catalog.',
         '3. Never invent query_pack ids, never use natural-language placeholders such as "catalog", "search", or "product".',
         '4. If the catalog does not clearly support the pack you want, choose a compatible declared pack or leave query_pack empty.',
-        '5. Use query_mode and filters consistently with the declared query pack. Keyword search should usually use ocp.query.keyword.v1, filter-only search should usually use ocp.query.filter.v1, semantic search may only use ocp.query.semantic.v1 when the catalog declares it.',
+        '5. Do not output catalog-specific planning fields unless the selected catalog explicitly declares them as request fields.',
         '6. Prefer using the selected catalog route_hint metadata over assumptions.',
         'Return JSON only.',
         'Supported filters: category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, has_image.',
         'Use canonical query_pack ids when you set query_pack.',
-        'Preferred mappings: keyword -> ocp.query.keyword.v1, filter -> ocp.query.filter.v1, semantic -> ocp.query.semantic.v1 when available.',
+        'Preferred mappings: free-text search -> ocp.query.keyword.v1, filter-only listing -> ocp.query.filter.v1, semantic intent -> ocp.query.semantic.v1 when available.',
         'Use sort_preference price_asc only when the user clearly asks for cheaper/lower price.',
-        'Use query_mode keyword by default, hybrid when both keyword and filters matter, filter only when there is no search phrase.',
         'When the user speaks Chinese but the available catalog metadata indicates English-oriented search, you may translate the search phrase to English.',
         'Always return all fields in the schema.',
         'Schema:',
@@ -552,10 +546,8 @@ function buildNextSession(plan: CatalogQueryPlan, latestUserTurn: string, suppor
     baseIntent: plan.catalog_query,
     latestUserTurn,
     activeFilters: plan.filters,
-    queryMode: plan.query_mode,
     queryPack: normalizeQueryPack(supportedQueryPacks, {
       queryPack: plan.query_pack,
-      queryMode: plan.query_mode,
       queryText: plan.catalog_query,
       filters: plan.filters,
     }),
@@ -592,13 +584,6 @@ function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-function inferQueryModeFromSession(session: QuerySession) {
-  if (session.queryMode) return session.queryMode;
-  const hasFilters = Object.values(session.activeFilters).some((value) => value !== undefined && value !== null && value !== '');
-  if (!session.baseIntent?.trim()) return 'filter' as const;
-  return hasFilters ? 'hybrid' as const : 'keyword' as const;
-}
-
 function normalizeQueryPack(
   supportedQueryPacks: string[],
   input: QueryPackInput,
@@ -606,19 +591,11 @@ function normalizeQueryPack(
   if (!Array.isArray(supportedQueryPacks) || supportedQueryPacks.length === 0) return undefined;
   if (input.queryPack && supportedQueryPacks.includes(input.queryPack)) return input.queryPack;
 
-  const preferredByMode = input.queryMode === 'semantic'
-    ? 'ocp.query.semantic.v1'
-    : input.queryMode === 'filter'
-      ? 'ocp.query.filter.v1'
-      : 'ocp.query.keyword.v1';
-
-  if (supportedQueryPacks.includes(preferredByMode)) return preferredByMode;
-
   const hasFilters = Boolean(input.filters && Object.values(input.filters).some((value) => value !== undefined && value !== null && value !== ''));
   const hasQueryText = Boolean(input.queryText?.trim());
 
-  if (hasFilters && supportedQueryPacks.includes('ocp.query.filter.v1')) return 'ocp.query.filter.v1';
   if (hasQueryText && supportedQueryPacks.includes('ocp.query.keyword.v1')) return 'ocp.query.keyword.v1';
+  if (hasFilters && supportedQueryPacks.includes('ocp.query.filter.v1')) return 'ocp.query.filter.v1';
   if (supportedQueryPacks.includes('ocp.query.semantic.v1')) return 'ocp.query.semantic.v1';
 
   return supportedQueryPacks[0];

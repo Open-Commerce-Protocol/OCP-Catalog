@@ -118,4 +118,31 @@ describe('commerce-scenario', () => {
     expect(inputNames).toContain('filters.in_stock_only');
     expect(inputNames).toContain('filters.has_image');
   });
+
+  test('advertises practical query usage guidance in manifest metadata', () => {
+    const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: true });
+    const capability = scenario.queryCapabilities()[0];
+    const metadata = capability?.metadata as Record<string, unknown>;
+    const usageGuide = metadata.usage_guide as Record<string, unknown>;
+    const requestExamples = metadata.request_examples as Record<string, unknown>;
+    const responseContract = metadata.response_contract as Record<string, unknown>;
+    const keywordPack = capability?.query_packs.find((pack) => pack.pack_id === 'ocp.query.keyword.v1');
+
+    expect(usageGuide.clean_list).toContain('omit query');
+    expect(usageGuide.pagination).toContain('page.next_offset');
+    expect(requestExamples.clean_list).toMatchObject({
+      catalog_id: '<catalog_id>',
+      limit: 20,
+      offset: 0,
+    });
+    expect(requestExamples.semantic_search).toMatchObject({
+      query_pack: 'ocp.query.semantic.v1',
+      offset: 0,
+    });
+    expect(responseContract.pagination).toBeDefined();
+    expect(keywordPack?.metadata.example_request).toMatchObject({
+      query_pack: 'ocp.query.keyword.v1',
+      offset: 0,
+    });
+  });
 });

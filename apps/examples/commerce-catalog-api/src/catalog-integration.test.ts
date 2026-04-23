@@ -113,6 +113,33 @@ describe('commerce catalog integration', () => {
     expect(queryResult.items[0]?.attributes.has_image).toBe(true);
     expect(queryResult.items[0]?.score).toBeGreaterThan(queryResult.items[1]?.score ?? 0);
 
+    const firstListPage = await commerceQueryService.query({
+      ocp_version: '1.0',
+      kind: 'CatalogQueryRequest',
+      catalog_id: baseConfig.CATALOG_ID,
+      limit: 1,
+      explain: true,
+    });
+    const secondListPage = await commerceQueryService.query({
+      ocp_version: '1.0',
+      kind: 'CatalogQueryRequest',
+      catalog_id: baseConfig.CATALOG_ID,
+      limit: 1,
+      offset: 1,
+      explain: true,
+    });
+
+    expect(firstListPage.items).toHaveLength(1);
+    expect(firstListPage.page).toEqual({
+      limit: 1,
+      offset: 0,
+      has_more: true,
+      next_offset: 1,
+    });
+    expect(secondListPage.items).toHaveLength(1);
+    expect(secondListPage.page.offset).toBe(1);
+    expect(secondListPage.items[0]?.entry_id).not.toBe(firstListPage.items[0]?.entry_id);
+
     const filteredQuery = await commerceQueryService.query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',

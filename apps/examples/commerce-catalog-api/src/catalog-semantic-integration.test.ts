@@ -145,7 +145,6 @@ describe('commerce catalog semantic integration', () => {
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
-      query_mode: 'semantic',
       query_pack: 'ocp.query.semantic.v1',
       query: semanticQuery,
       filters: {
@@ -164,10 +163,11 @@ describe('commerce catalog semantic integration', () => {
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
-      query_mode: 'hybrid',
       query_pack: 'ocp.query.keyword.v1',
       query: hybridQuery,
-      filters: {},
+      filters: {
+        category: 'electronics',
+      },
       limit: 5,
       explain: true,
     });

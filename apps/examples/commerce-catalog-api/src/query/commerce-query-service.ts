@@ -28,7 +28,7 @@ export class CommerceQueryService {
 
   async query(input: unknown, meta: CommerceQueryMeta = {}): Promise<CatalogQueryResult> {
     const request = catalogQueryRequestSchema.parse(input);
-    const queryMode = request.query_mode ?? inferQueryModeForRequest(this.scenario, request.query_pack, request.query, request.filters);
+    const queryMode = inferQueryModeForRequest(this.scenario, request.query_pack, request.query, request.filters);
     validateQueryCapability(this.scenario, request.query_pack, queryMode);
     if (queryMode === 'semantic' && !this.retrieval) {
       throw new AppError('validation_error', 'semantic query capability is not enabled for this Catalog yet', 400);
@@ -53,12 +53,14 @@ export class CommerceQueryService {
 
     const fullTextQuery = terms.length > 0 && queryMode !== 'semantic' ? request.query : undefined;
 
+    const pageEnd = request.offset + request.limit;
+    const candidatePageEnd = pageEnd + 1;
     const usesSemanticScore = Boolean(this.retrieval && request.query.trim() && (queryMode === 'semantic' || queryMode === 'hybrid'));
     const keywordRows = queryMode === 'semantic'
       ? []
       : await this.selectCandidateRows({
         conditions: baseConditions,
-        limit: computeCandidateLimit(request.limit, queryMode, terms.length),
+        limit: computeCandidateLimit(candidatePageEnd, queryMode, terms.length),
         fullTextQuery,
       });
 
@@ -66,8 +68,8 @@ export class CommerceQueryService {
       ? await this.retrieval!.nearestNeighbors({
         catalogId,
         query: request.query,
-        limit: computeSemanticResultLimit(request.limit, queryMode),
-        rerankLimit: computeSemanticCandidateLimit(request.limit, queryMode),
+        limit: computeSemanticResultLimit(candidatePageEnd, queryMode),
+        rerankLimit: computeSemanticCandidateLimit(candidatePageEnd, queryMode),
         oversampleFactor: computeSemanticOversampleFactor(queryMode),
       })
       : new Map<string, number>();
@@ -78,7 +80,7 @@ export class CommerceQueryService {
       })
       : [];
     const rows = mergeRows(keywordRows, semanticRows);
-    const items = rows
+    const rankedItems = rows
       .map((row): QueryResultItem | null => {
         const projection = asRecord(row.visibleAttributesPayload);
         if (!matchesFilters(projection, request.filters)) return null;
@@ -103,8 +105,9 @@ export class CommerceQueryService {
         };
       })
       .filter((item): item is QueryResultItem => item !== null)
-      .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
-      .slice(0, request.limit);
+      .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title));
+    const items = rankedItems.slice(request.offset, pageEnd);
+    const hasMore = rankedItems.length > pageEnd;
 
     const result: CatalogQueryResult = {
       ocp_version: '1.0',
@@ -114,6 +117,12 @@ export class CommerceQueryService {
       ...(request.query_pack ? { query_pack: request.query_pack } : {}),
       query: request.query,
       result_count: items.length,
+      page: {
+        limit: request.limit,
+        offset: request.offset,
+        has_more: hasMore,
+        ...(hasMore ? { next_offset: pageEnd } : {}),
+      },
       items,
       explain: request.explain
         ? [
@@ -121,7 +130,7 @@ export class CommerceQueryService {
           `Inferred query strategy: ${queryMode}.`,
           ...(usesSemanticScore ? ['Applied semantic ANN shortlist with exact cosine rerank.'] : []),
           `Applied filters: ${Object.keys(request.filters).length ? Object.keys(request.filters).join(', ') : 'none'}.`,
-          `Returned top ${items.length} result(s).`,
+          `Returned ${items.length} result(s) at offset ${request.offset}.`,
         ]
         : [],
     };

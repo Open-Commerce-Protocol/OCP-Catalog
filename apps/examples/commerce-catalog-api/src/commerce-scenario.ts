@@ -107,23 +107,50 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
   const queryPacks: CatalogManifest['query_capabilities'][number]['query_packs'] = [
     {
       pack_id: 'ocp.query.keyword.v1',
-      description: 'Keyword-driven product retrieval.',
+      description: 'Use for free-text product search over title, summary, brand, category, SKU, and selected product attributes.',
       query_modes: ['keyword', 'hybrid'],
-      metadata: {},
+      metadata: {
+        usage: 'Send query text. Optional filters can narrow results when combined with this pack.',
+        example_request: {
+          query_pack: 'ocp.query.keyword.v1',
+          query: 'wireless travel headphones',
+          filters: {},
+          limit: 10,
+          offset: 0,
+        },
+      },
     },
     {
       pack_id: 'ocp.query.filter.v1',
-      description: 'Structured filter retrieval for product catalogs.',
+      description: 'Use for structured browsing, filtered listing, and clean list requests without free-text search.',
       query_modes: ['filter', 'hybrid'],
-      metadata: {},
+      metadata: {
+        usage: 'Send filters plus limit/offset. A request with only limit and offset lists active products.',
+        example_request: {
+          query_pack: 'ocp.query.filter.v1',
+          filters: {
+            category: 'electronics',
+            in_stock_only: true,
+          },
+          limit: 20,
+          offset: 0,
+        },
+      },
     },
   ];
   if (options.semanticSearchEnabled) {
     queryPacks.push({
       pack_id: 'ocp.query.semantic.v1',
-      description: 'Semantic retrieval over embedded product representations.',
+      description: 'Use for meaning-based retrieval over embedded product representations when exact keywords are not enough.',
       query_modes: ['semantic', 'hybrid'],
       metadata: {
+        usage: 'Send natural-language query text. Results depend on asynchronous search embedding readiness.',
+        example_request: {
+          query_pack: 'ocp.query.semantic.v1',
+          query: 'lightweight audio gear for commuting',
+          limit: 10,
+          offset: 0,
+        },
         semantic_search: {
           enabled: true,
           embedding_index: 'catalog_search_embeddings',
@@ -139,19 +166,20 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       description: 'Searches commerce product entries and returns resolvable product candidates.',
       query_packs: queryPacks,
       input_fields: [
-        { name: 'query_pack', type: 'string', required: false },
-        { name: 'query_mode', type: 'string', required: false },
-        { name: 'query', type: 'string', required: false },
-        { name: 'filters.category', type: 'string', required: false },
-        { name: 'filters.brand', type: 'string', required: false },
-        { name: 'filters.currency', type: 'string', required: false },
-        { name: 'filters.availability_status', type: 'string', required: false },
-        { name: 'filters.provider_id', type: 'string', required: false },
-        { name: 'filters.sku', type: 'string', required: false },
-        { name: 'filters.min_amount', type: 'number', required: false },
-        { name: 'filters.max_amount', type: 'number', required: false },
-        { name: 'filters.in_stock_only', type: 'boolean', required: false },
-        { name: 'filters.has_image', type: 'boolean', required: false },
+        { name: 'query_pack', type: 'string', required: false, description: 'Optional pack id from query_packs. Omit when unsure.' },
+        { name: 'query', type: 'string', required: false, description: 'Free-text or semantic search phrase. Omit for clean list/filter browsing.' },
+        { name: 'limit', type: 'number', required: false, default: 20, maximum: 50, description: 'Page size.' },
+        { name: 'offset', type: 'number', required: false, default: 0, description: 'Zero-based offset for pagination.' },
+        { name: 'filters.category', type: 'string', required: false, description: 'Exact normalized category match, for example electronics.' },
+        { name: 'filters.brand', type: 'string', required: false, description: 'Exact normalized brand match.' },
+        { name: 'filters.currency', type: 'string', required: false, description: 'Currency code such as USD.' },
+        { name: 'filters.availability_status', type: 'string', required: false, description: 'Inventory status such as in_stock, low_stock, out_of_stock, preorder, or unknown.' },
+        { name: 'filters.provider_id', type: 'string', required: false, description: 'Limit results to one provider.' },
+        { name: 'filters.sku', type: 'string', required: false, description: 'Exact normalized SKU match.' },
+        { name: 'filters.min_amount', type: 'number', required: false, description: 'Minimum price amount, inclusive.' },
+        { name: 'filters.max_amount', type: 'number', required: false, description: 'Maximum price amount, inclusive.' },
+        { name: 'filters.in_stock_only', type: 'boolean', required: false, description: 'When true, return only in_stock or low_stock products.' },
+        { name: 'filters.has_image', type: 'boolean', required: false, description: 'When true, return products with a primary image.' },
       ],
       searchable_field_refs: [
         'ocp.commerce.product.core.v1#/title',
@@ -171,6 +199,73 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       supports_explain: true,
       supports_resolve: true,
       metadata: {
+        usage_guide: {
+          summary: 'Call endpoints.query.url with CatalogQueryRequest. Use query_pack only when it exactly matches one of the declared pack ids.',
+          clean_list: 'For a plain product list, omit query, query_pack, and filters; send only catalog_id, limit, and offset.',
+          keyword_search: 'For text search, use ocp.query.keyword.v1 when declared and set query to the user search phrase.',
+          filter_search: 'For category, brand, price, stock, image, provider, or SKU constraints, use filters. Query text is optional.',
+          semantic_search: 'Use ocp.query.semantic.v1 only when declared. Semantic results depend on asynchronous embedding readiness.',
+          pagination: 'Use limit and offset. Continue with page.next_offset while page.has_more is true.',
+          resolve: 'Use endpoints.resolve.url only after selecting one returned entry_id.',
+          request_field_policy: 'Do not send fields that are not listed in input_fields unless this catalog documents them elsewhere.',
+        },
+        request_examples: {
+          clean_list: {
+            catalog_id: '<catalog_id>',
+            limit: 20,
+            offset: 0,
+            explain: false,
+          },
+          keyword_search: {
+            catalog_id: '<catalog_id>',
+            query_pack: 'ocp.query.keyword.v1',
+            query: 'wireless travel headphones',
+            filters: {},
+            limit: 10,
+            offset: 0,
+            explain: true,
+          },
+          filtered_browse: {
+            catalog_id: '<catalog_id>',
+            query_pack: 'ocp.query.filter.v1',
+            filters: {
+              category: 'electronics',
+              in_stock_only: true,
+              min_amount: 50,
+              max_amount: 150,
+            },
+            limit: 10,
+            offset: 0,
+            explain: true,
+          },
+          semantic_search: options.semanticSearchEnabled
+            ? {
+                catalog_id: '<catalog_id>',
+                query_pack: 'ocp.query.semantic.v1',
+                query: 'lightweight audio gear for commuting',
+                limit: 10,
+                offset: 0,
+                explain: true,
+              }
+            : undefined,
+        },
+        response_contract: {
+          pagination: {
+            result_count: 'Number of items in the current page.',
+            page: {
+              limit: 'Requested page size.',
+              offset: 'Requested zero-based offset.',
+              has_more: 'Whether another page is available.',
+              next_offset: 'Offset to use for the next page when has_more is true.',
+            },
+          },
+          item: {
+            entry_id: 'Use this id with /ocp/resolve after selecting a result.',
+            score: 'Catalog-specific ranking score.',
+            attributes: 'Visible product attributes safe for display.',
+            explain: 'Optional ranking and filter explanation when explain is true.',
+          },
+        },
         query_hints: {
           filter_fields: ['category', 'brand', 'currency', 'availability_status', 'provider_id', 'sku', 'min_amount', 'max_amount', 'in_stock_only', 'has_image'],
           supported_query_languages: ['en'],

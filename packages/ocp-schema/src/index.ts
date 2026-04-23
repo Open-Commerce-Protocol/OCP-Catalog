@@ -259,12 +259,12 @@ export const catalogQueryRequestSchema = z.object({
   kind: z.literal('CatalogQueryRequest').optional(),
   catalog_id: z.string().min(1).optional(),
   query_pack: z.string().min(1).optional(),
-  query_mode: catalogQueryModeSchema.optional(),
   query: z.string().max(500).optional().default(''),
   filters: catalogQueryFiltersSchema.optional().default({}),
   limit: z.number().int().min(1).max(50).optional().default(20),
+  offset: z.number().int().min(0).optional().default(0),
   explain: z.boolean().optional().default(true),
-});
+}).strict();
 
 export const queryResultItemSchema = z.object({
   entry_id: z.string(),
@@ -285,6 +285,12 @@ export const catalogQueryResultSchema = z.object({
   query_pack: z.string().optional(),
   query: z.string(),
   result_count: z.number().int().min(0),
+  page: z.object({
+    limit: z.number().int().min(1),
+    offset: z.number().int().min(0),
+    has_more: z.boolean(),
+    next_offset: z.number().int().min(0).optional(),
+  }),
   items: z.array(queryResultItemSchema),
   explain: z.array(z.string()).default([]),
 });

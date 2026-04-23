@@ -188,7 +188,7 @@ curl -X POST http://localhost:4100/ocp/catalogs/search \
     "query": "commerce product",
     "filters": {
       "object_type": "product",
-      "query_mode": "keyword",
+      "query_pack": "ocp.query.keyword.v1",
       "supports_resolve": true,
       "verification_status": "not_required"
     },

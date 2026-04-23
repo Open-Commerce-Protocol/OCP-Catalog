@@ -41,18 +41,51 @@ const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../pu
 
 const app = new Elysia()
   .use(cors())
-  .onError(({ error, set }) => {
+  .derive(({ request }) => ({
+    requestStartedAt: performance.now(),
+    requestPathname: new URL(request.url).pathname,
+  }))
+  .onAfterHandle(({ request, requestStartedAt, requestPathname, set }) => {
+    logRequest({
+      request,
+      pathname: requestPathname,
+      status: statusCode(set.status),
+      durationMs: performance.now() - requestStartedAt,
+    });
+  })
+  .onError(({ error, request, requestStartedAt, requestPathname, set }) => {
     if (error instanceof AppError) {
       set.status = error.status;
+      logRequest({
+        request,
+        pathname: requestPathname,
+        status: error.status,
+        durationMs: requestStartedAt ? performance.now() - requestStartedAt : undefined,
+        error,
+      });
       return { error: { code: error.code, message: error.message, details: error.details } };
     }
 
     if (error instanceof ZodError) {
       set.status = 400;
+      logRequest({
+        request,
+        pathname: requestPathname,
+        status: 400,
+        durationMs: requestStartedAt ? performance.now() - requestStartedAt : undefined,
+        error,
+      });
       return { error: { code: 'validation_error', message: 'Invalid request body', details: error.issues } };
     }
 
     set.status = 500;
+    logRequest({
+      request,
+      pathname: requestPathname,
+      status: 500,
+      durationMs: requestStartedAt ? performance.now() - requestStartedAt : undefined,
+      error,
+    });
     return {
       error: {
         code: 'internal_error',
@@ -198,10 +231,13 @@ async function serveCatalogAdmin(pathname: string) {
 }
 
 async function getCatalogAdminOverview() {
-  const [providerStates, objects, entries, queryAudits, syncBatches] = await Promise.all([
+  const [providerStates, objects, entries, searchDocuments, searchEmbeddings, searchJobs, queryAudits, syncBatches] = await Promise.all([
     db.select().from(schema.providerContractStates),
     db.select().from(schema.commercialObjects),
     db.select().from(schema.catalogEntries),
+    db.select().from(schema.catalogSearchDocuments),
+    db.select().from(schema.catalogSearchEmbeddings),
+    db.select().from(schema.catalogSearchIndexJobs),
     db.select().from(schema.queryAuditRecords),
     db.select().from(schema.objectSyncBatches),
   ]);
@@ -209,6 +245,9 @@ async function getCatalogAdminOverview() {
   const catalogProviderStates = providerStates.filter((row) => row.catalogId === config.CATALOG_ID);
   const catalogObjects = objects.filter((row) => row.catalogId === config.CATALOG_ID);
   const catalogEntries = entries.filter((row) => row.catalogId === config.CATALOG_ID);
+  const catalogSearchDocuments = searchDocuments.filter((row) => row.catalogId === config.CATALOG_ID);
+  const catalogSearchEmbeddings = searchEmbeddings.filter((row) => row.catalogId === config.CATALOG_ID);
+  const catalogSearchJobs = searchJobs.filter((row) => row.catalogId === config.CATALOG_ID);
   const catalogQueryAudits = queryAudits.filter((row) => row.catalogId === config.CATALOG_ID);
   const latestBatch = syncBatches
     .filter((row) => row.catalogId === config.CATALOG_ID)
@@ -230,9 +269,15 @@ async function getCatalogAdminOverview() {
       provider_count: catalogProviderStates.length,
       object_count: catalogObjects.length,
       active_entry_count: catalogEntries.filter((row) => row.entryStatus === 'active').length,
+      active_search_document_count: catalogSearchDocuments.filter((row) => row.documentStatus === 'active').length,
+      ready_embedding_count: catalogSearchEmbeddings.filter((row) => row.status === 'ready').length,
+      pending_index_job_count: catalogSearchJobs.filter((row) => row.status === 'pending').length,
+      running_index_job_count: catalogSearchJobs.filter((row) => row.status === 'running').length,
+      failed_index_job_count: catalogSearchJobs.filter((row) => row.status === 'failed').length,
       query_audit_count: catalogQueryAudits.length,
       ...quality,
     },
+    search_index: summarizeSearchIndex(catalogSearchDocuments, catalogSearchEmbeddings, catalogSearchJobs),
     latest_sync_batch: latestBatch
       ? {
           provider_id: latestBatch.providerId,
@@ -243,6 +288,68 @@ async function getCatalogAdminOverview() {
           finished_at: latestBatch.finishedAt?.toISOString() ?? null,
         }
       : null,
+  };
+}
+
+function logRequest(input: {
+  request: Request;
+  pathname?: string;
+  status: number;
+  durationMs?: number;
+  error?: unknown;
+}) {
+  const level = input.status >= 500 ? 'error' : input.status >= 400 ? 'warn' : 'info';
+  const logLine = {
+    ts: new Date().toISOString(),
+    level,
+    event: 'http_request',
+    method: input.request.method,
+    path: input.pathname ?? new URL(input.request.url).pathname,
+    status: input.status,
+    duration_ms: input.durationMs !== undefined ? Number(input.durationMs.toFixed(2)) : undefined,
+    user_agent: input.request.headers.get('user-agent') ?? undefined,
+    error: input.error instanceof Error ? input.error.message : undefined,
+  };
+
+  const writer = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+  writer(JSON.stringify(logLine));
+}
+
+function statusCode(value: unknown) {
+  return typeof value === 'number' ? value : 200;
+}
+
+function summarizeSearchIndex(
+  documents: Array<typeof schema.catalogSearchDocuments.$inferSelect>,
+  embeddings: Array<typeof schema.catalogSearchEmbeddings.$inferSelect>,
+  jobs: Array<typeof schema.catalogSearchIndexJobs.$inferSelect>,
+) {
+  const activeDocumentCount = documents.filter((row) => row.documentStatus === 'active').length;
+  const readyEmbeddingDocumentIds = new Set(
+    embeddings
+      .filter((row) => row.status === 'ready')
+      .map((row) => row.catalogSearchDocumentId),
+  );
+  const activeDocumentsMissingEmbedding = documents.filter((row) => (
+    row.documentStatus === 'active' && !readyEmbeddingDocumentIds.has(row.id)
+  )).length;
+  const pendingJobs = jobs.filter((row) => row.status === 'pending');
+  const runningJobs = jobs.filter((row) => row.status === 'running');
+  const failedJobs = jobs.filter((row) => row.status === 'failed');
+  const oldestPendingJob = pendingJobs
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())[0] ?? null;
+
+  return {
+    active_document_count: activeDocumentCount,
+    ready_embedding_count: readyEmbeddingDocumentIds.size,
+    active_documents_missing_embedding_count: activeDocumentsMissingEmbedding,
+    embedding_readiness_ratio: activeDocumentCount > 0
+      ? Number(((activeDocumentCount - activeDocumentsMissingEmbedding) / activeDocumentCount).toFixed(4))
+      : 1,
+    pending_job_count: pendingJobs.length,
+    running_job_count: runningJobs.length,
+    failed_job_count: failedJobs.length,
+    oldest_pending_job_created_at: oldestPendingJob?.createdAt.toISOString() ?? null,
   };
 }
 

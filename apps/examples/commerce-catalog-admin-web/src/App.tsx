@@ -284,11 +284,22 @@ function Overview({
                 {overview.query_packs.join(', ') || 'no query packs'}
               </div>
             </div>
+            <div className={`border-l-2 pl-3 ${overview.search_index.failed_job_count > 0 ? 'border-accent-rust' : overview.search_index.pending_job_count > 0 ? 'border-accent-brass' : 'border-accent-teal'}`}>
+              <div className="text-xs font-semibold">SEARCH_INDEX</div>
+              <div className="text-sm text-operator-muted">
+                {overview.search_index.active_document_count} document(s), {overview.search_index.ready_embedding_count} embedding(s) ready.
+              </div>
+              <div className="mt-1 text-[10px] text-operator-muted operator-mono">
+                readiness {(overview.search_index.embedding_readiness_ratio * 100).toFixed(1)}% · pending {overview.search_index.pending_job_count} · running {overview.search_index.running_job_count} · failed {overview.search_index.failed_job_count}
+              </div>
+            </div>
           </div>
           <div className="mt-4 rounded-sm border border-operator-border bg-operator-bg px-3 py-3 text-xs text-operator-muted operator-mono">
             Missing image entries: {overview.metrics.missing_image_count}<br />
             Missing product URL entries: {overview.metrics.missing_product_url_count}<br />
-            Out of stock entries: {overview.metrics.out_of_stock_count}
+            Out of stock entries: {overview.metrics.out_of_stock_count}<br />
+            Active search documents: {overview.metrics.active_search_document_count}<br />
+            Pending index jobs: {overview.metrics.pending_index_job_count}
           </div>
         </div>
       </div>
@@ -539,11 +550,12 @@ function QueryLabPage({
   const [queryPack, setQueryPack] = useState('');
   const [providerId, setProviderId] = useState('');
   const [category, setCategory] = useState('');
+  const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CatalogQueryResult | null>(null);
   const [resolved, setResolved] = useState<ResolvedEntry | null>(null);
 
-  async function handleRunQuery() {
+  async function handleRunQuery(nextOffset = 0) {
     try {
       setBusy(true);
       setResolved(null);
@@ -556,7 +568,9 @@ function QueryLabPage({
           ...(providerId ? { provider_id: providerId } : {}),
           ...(category ? { category } : {}),
         },
+        offset: nextOffset,
       });
+      setOffset(nextOffset);
       setResult(next);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Query failed');
@@ -610,7 +624,7 @@ function QueryLabPage({
           <input value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-sm border border-operator-border bg-operator-bg px-3 py-2" />
         </label>
         <div className="flex items-end">
-          <button onClick={() => void handleRunQuery()} disabled={busy} className="w-full rounded-sm border border-operator-text bg-operator-text px-4 py-2 text-sm text-operator-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+          <button onClick={() => void handleRunQuery(0)} disabled={busy} className="w-full rounded-sm border border-operator-text bg-operator-text px-4 py-2 text-sm text-operator-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? 'Running...' : 'Run Query'}
           </button>
         </div>
@@ -624,7 +638,23 @@ function QueryLabPage({
           ) : (
             <div className="space-y-4">
               <div className="rounded-sm border border-operator-border bg-operator-bg p-3 text-xs text-operator-muted operator-mono">
-                results: {result.result_count} · pack: {queryPack || 'default'}
+                results: {result.result_count} · offset: {result.page.offset} · limit: {result.page.limit} · has_more: {String(result.page.has_more)} · pack: {queryPack || 'default'}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => void handleRunQuery(Math.max(offset - (result.page.limit || 12), 0))}
+                  disabled={busy || result.page.offset === 0}
+                  className="rounded-sm border border-operator-border px-3 py-1 text-xs transition-colors hover:bg-operator-surface disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous Page
+                </button>
+                <button
+                  onClick={() => void handleRunQuery(result.page.next_offset ?? result.page.offset + result.page.limit)}
+                  disabled={busy || !result.page.has_more}
+                  className="rounded-sm border border-operator-border px-3 py-1 text-xs transition-colors hover:bg-operator-surface disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next Page
+                </button>
               </div>
               {result.explain.length > 0 ? (
                 <div className="rounded-sm border border-operator-border bg-operator-bg p-3">

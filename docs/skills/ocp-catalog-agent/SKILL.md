@@ -1,135 +1,179 @@
 ---
 name: ocp-catalog-agent
-description: Use this skill when an agent needs to work with the OCP Catalog protocol: understand protocol boundaries, discover catalogs through OCP Catalog Registration node, inspect a catalog's route hint or manifest, choose a valid query strategy, and query or resolve results without inventing unsupported protocol fields.
+description: Use this skill only when an agent must call OCP Catalog protocol endpoints: discover a catalog through Registration node, inspect a route hint or manifest, build a valid CatalogQueryRequest, page through catalog results, or resolve a selected entry without inventing unsupported protocol fields.
 ---
 
-This skill teaches an agent how to interact with OCP Catalog correctly.
+This skill is for agent-side OCP Catalog protocol use.
 
-Use it when the task involves:
-- understanding what OCP Catalog Registration node, Catalog, Provider, and Agent each do
-- finding a usable catalog through Registration node
-- inspecting a catalog before querying it
-- building valid `/ocp/query` requests
-- using `/ocp/resolve` after choosing a result
-- avoiding protocol mistakes such as querying Registration node for products or inventing `query_pack` values
+Do not use it for ordinary repository maintenance, database work, UI work, provider sync implementation, or internal catalog service refactors unless the task requires constructing or validating protocol calls.
 
-## Protocol Model
+## Core Boundary
 
-Treat the system as two separate protocol layers:
+OCP has two agent-relevant protocol layers:
 
-- `ocp.catalog.center.v1`
-  Catalog -> Registration node, and Agent -> Registration node for catalog discovery
-- `ocp.catalog.handshake.v1`
-  Provider -> Catalog, and Catalog public capability declaration
+- `ocp.catalog.center.v1`: Registration node discovery and catalog routing.
+- `ocp.catalog.handshake.v1`: Catalog public discovery, manifest, query, and resolve.
 
-Important boundary:
-- Registration node indexes catalogs, not products
-- Catalog serves query and resolve over products or other commercial objects
-- Provider registration is not part of agent-side catalog querying
+Hard rules:
 
-## Agent Workflow
+- Registration node indexes catalogs, not products.
+- Catalog nodes query products or other commercial objects.
+- Provider registration and object sync are not part of end-user agent querying.
+- Request fields are catalog-specific. Send only fields declared by the selected catalog's manifest or accepted by its documented request schema.
 
-Follow this order unless the user explicitly asks for something else:
+## When Querying
 
-1. Check whether there is already a saved local catalog profile or route hint.
-2. If no suitable local catalog exists, search OCP Catalog Registration node for catalogs.
-3. Choose a catalog using Registration node metadata:
-   `verification_status`, `trust_tier`, `health_status`, `supported_query_packs`, language hints, and routeable endpoints.
-4. Read the selected catalog's `CatalogRouteHint`.
-5. If more detail is needed, follow `manifest_url` and inspect `CatalogManifest`.
-6. Build the query only from the selected catalog's declared capability surface.
-7. Call the catalog's `/ocp/query`.
-8. If the user needs a concrete action target, call the catalog's `/ocp/resolve` on a selected entry.
+Follow this order:
 
-Do not skip directly from Registration node to product results. Registration node only helps you choose the catalog.
+1. Reuse a saved local `CatalogRouteHint` when it is still suitable.
+2. If no suitable local catalog exists, search Registration node for catalogs.
+3. Choose a catalog using health, trust, verification, language hints, endpoints, and supported query packs.
+4. Inspect the selected route hint.
+5. Fetch the manifest only when the route hint is insufficient.
+6. Build the query only from declared catalog capabilities.
+7. Call the catalog `query_url`.
+8. Call `resolve_url` only after a concrete result entry is selected.
 
-## Catalog Discovery Rules
+Never skip from Registration node search to product results. Registration node only routes the agent to a catalog.
 
-When using Registration node:
+## Query Pack Rules
 
-- use `/.well-known/ocp-center` to discover Registration node endpoints
-- use `/ocp/catalogs/search` to search catalogs
-- use `/ocp/catalogs/resolve` only to resolve a catalog route hint, not a product
+`query_pack` is the request-level capability selector.
 
-Prefer catalogs that are:
+- Use only an exact pack id declared by the selected catalog.
+- Never invent ids such as `catalog`, `search`, `product`, `commerce`, or natural-language placeholders.
+- If the best pack is unclear, omit `query_pack` and let the catalog choose.
+- Do not add extra planning fields just because one example catalog supports them.
 
-- healthy
-- trusted enough for the task
-- compatible with the user request's language and query shape
-- advertising query packs that match the job
+Common canonical packs, when declared:
 
-If route hint is enough, query the catalog directly. If not, inspect `manifest_url` first.
+- Free-text search: `ocp.query.keyword.v1`
+- Constraint/list search: `ocp.query.filter.v1`
+- Semantic retrieval: `ocp.query.semantic.v1`
 
-## Catalog Understanding Rules
+If both text and filters are present, choose a declared pack that can support the intent. If uncertain, prefer the safest declared pack or omit `query_pack`.
 
-Before querying a catalog, inspect these fields:
+## Request Shapes
 
-- `query_url`
-- `resolve_url` if result resolution is needed
-- `supported_query_packs`
-- `metadata.query_hints.supported_query_modes`
-- `metadata.query_hints.supported_query_languages`
-- `metadata.query_hints.content_languages`
+Clean list query with pagination:
 
-If deeper detail is needed, inspect the catalog manifest for:
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogQueryRequest",
+  "catalog_id": "selected-catalog-id",
+  "limit": 20,
+  "offset": 0,
+  "explain": false
+}
+```
 
-- `query_capabilities`
-- `query_capabilities[*].query_packs[*].pack_id`
-- accepted input fields
-- searchable, filterable, or sortable fields
+Keyword query:
 
-## Query Construction Rules
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogQueryRequest",
+  "catalog_id": "selected-catalog-id",
+  "query_pack": "ocp.query.keyword.v1",
+  "query": "wireless headphones",
+  "filters": {},
+  "limit": 10,
+  "offset": 0,
+  "explain": true
+}
+```
 
-Never invent protocol values.
+Filter query:
 
-In particular:
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogQueryRequest",
+  "catalog_id": "selected-catalog-id",
+  "query_pack": "ocp.query.filter.v1",
+  "filters": {
+    "category": "electronics",
+    "in_stock_only": true
+  },
+  "limit": 10,
+  "offset": 0,
+  "explain": true
+}
+```
 
-- `query_pack` must exactly match one of the selected catalog's declared packs
-- never use natural-language placeholders such as `catalog`, `search`, `product`, or similar as `query_pack`
-- if the catalog does not declare a pack you want, choose a compatible declared pack or omit `query_pack`
-- use filters only when they match fields the catalog actually hints or declares
+Semantic query only when the catalog declares `ocp.query.semantic.v1`:
 
-Common query-pack mapping when a catalog declares these canonical packs:
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogQueryRequest",
+  "catalog_id": "selected-catalog-id",
+  "query_pack": "ocp.query.semantic.v1",
+  "query": "lightweight commuting audio gear",
+  "limit": 10,
+  "offset": 0,
+  "explain": true
+}
+```
 
-- keyword search: `ocp.query.keyword.v1`
-- structured filtering: `ocp.query.filter.v1`
-- semantic retrieval: `ocp.query.semantic.v1` only when the catalog declares it
+## Filter Discipline
 
-If no query text exists and the task is mostly constraints, prefer filter-oriented planning.
-If both free text and filters matter, prefer hybrid planning only when the catalog hints that hybrid is supported.
+Use filters only when the route hint or manifest declares compatible fields.
+
+Commerce catalogs commonly support:
+
+- `category`
+- `brand`
+- `currency`
+- `availability_status`
+- `provider_id`
+- `sku`
+- `min_amount`
+- `max_amount`
+- `in_stock_only`
+- `has_image`
+
+Do not invent aliases such as `price_min`, `price_max`, `merchant`, `seller`, `inStock`, or `image_required` unless the selected catalog explicitly declares them.
+
+## Pagination
+
+Use `limit` and `offset` for page navigation.
+
+- First page: `offset: 0`
+- Next page: use `page.next_offset` from `CatalogQueryResult` when present
+- Stop when `page.has_more` is false
+- A query with only `catalog_id`, `limit`, and `offset` is a valid list request
 
 ## Resolve Rules
 
-Use `/ocp/resolve` only after the user or agent has chosen a concrete entry.
+Use `/ocp/resolve` only when a specific `entry_id` has been chosen by the user or by an explicit selection step.
 
-Do not resolve arbitrarily just because an entry exists.
-Resolve is for the final object/action handoff, not for broad discovery.
+Do not resolve every query result. Resolve is for final handoff to visible attributes and action bindings.
 
-## Failure Rules
+## Failure Recovery
 
-If the catalog rejects a request:
+If the catalog rejects the query:
 
-- inspect the returned error message
-- compare the attempted `query_pack` and filters against the selected catalog declaration
-- retry with a declared pack or a simpler request
+- Remove any field not declared by the catalog.
+- Remove `query_pack` if pack compatibility is uncertain.
+- Downgrade semantic intent to keyword or filter when semantic is not declared or not ready.
+- Retry with a smaller request before reporting failure.
 
-If the catalog or Registration node is unreachable:
+If Registration node or Catalog is unreachable:
 
-- report the exact failing endpoint
-- report whether the failure happened during Registration node discovery, Registration node search, catalog query, or catalog resolve
+- Report the exact endpoint that failed.
+- Say whether failure happened during center discovery, catalog search, route resolve, catalog query, or catalog resolve.
 
 If no suitable catalog exists:
 
-- say that clearly
-- explain whether the blocker is trust, health, language, or capability mismatch
+- Say that clearly.
+- Identify whether the blocker is health, trust, verification, language, endpoint, or query capability mismatch.
 
 ## Read More
 
-Read these references when needed:
+Use these references only when deeper context is needed:
 
 - `references/agent-workflow.md`
-  Practical protocol map and step-by-step agent behavior
 - `references/registration-protocol.md`
-  Registration node protocol, registration, search, and route hint semantics
 - `references/handshake-protocol.md`
-  Catalog manifest, query capability, and handshake object boundaries
