@@ -30,7 +30,7 @@ export class CatalogClient {
   }
 
   registerProvider(registration: Record<string, unknown>) {
-    return this.post('/ocp/providers/register', registration);
+    return this.post('/ocp/providers/register', registration, { includeApiKey: false });
   }
 
   getProvider(providerId: string) {
@@ -40,22 +40,23 @@ export class CatalogClient {
   }
 
   syncObjects(request: Record<string, unknown>) {
-    return this.post('/ocp/objects/sync', request);
+    return this.post('/ocp/objects/sync', request, { includeApiKey: true });
   }
 
-  private async post(path: string, body: unknown) {
+  private async post(path: string, body: unknown, options: { includeApiKey?: boolean } = {}) {
     return this.request<Record<string, unknown>>(path, {
       method: 'POST',
       body,
+      includeApiKey: options.includeApiKey,
     });
   }
 
-  private async request<T>(path: string, options: { method: 'GET' | 'POST'; body?: unknown }) {
+  private async request<T>(path: string, options: { method: 'GET' | 'POST'; body?: unknown; includeApiKey?: boolean }) {
     const response = await fetch(`${this.catalogBaseUrl}${path}`, {
       method: options.method,
       headers: {
         ...(options.body !== undefined ? { 'content-type': 'application/json' } : {}),
-        'x-api-key': this.config.API_KEY_DEV,
+        ...(options.includeApiKey ? { 'x-api-key': this.config.API_KEY_DEV } : {}),
       },
       ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
     });

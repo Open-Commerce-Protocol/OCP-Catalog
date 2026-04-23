@@ -103,7 +103,6 @@ await fetch('https://catalog.example.com/ocp/providers/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': '<catalog-write-key>',
   },
   body: JSON.stringify({
     ocp_version: '1.0',
@@ -147,7 +146,7 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': '<catalog-write-key>',
+    'x-api-key': '<catalog-object-sync-key>',
   },
   body: JSON.stringify({
     ocp_version: '1.0',

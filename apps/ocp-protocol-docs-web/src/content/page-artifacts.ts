@@ -241,9 +241,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         title: { en: 'Register provider to catalog', zh: '向 catalog 注册 provider' },
         method: 'POST',
         path: '/ocp/providers/register',
-        headers: {
-          'x-api-key': '<catalog-write-key>',
-        },
         request: {
           kind: 'ProviderRegistration',
           catalog_id: 'commerce_catalog_local_dev',
@@ -325,7 +322,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/objects/sync',
         headers: {
-          'x-api-key': '<catalog-write-key>',
+          'x-api-key': '<catalog-object-sync-key>',
         },
         request: {
           provider_id: 'commerce_provider_local_dev',
@@ -866,9 +863,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         title: { en: 'Register minimal provider', zh: '注册最小 provider' },
         method: 'POST',
         path: '/ocp/providers/register',
-        headers: {
-          'x-api-key': '<catalog-write-key>',
-        },
         request: {
           kind: 'ProviderRegistration',
           catalog_id: 'hello_catalog',
@@ -901,7 +895,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/objects/sync',
         headers: {
-          'x-api-key': '<catalog-write-key>',
+          'x-api-key': '<catalog-object-sync-key>',
         },
         request: {
           kind: 'ObjectSyncRequest',
@@ -1194,9 +1188,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         title: { en: 'Minimal provider registration', zh: '最小 provider 注册示例' },
         method: 'POST',
         path: '/ocp/providers/register',
-        headers: {
-          'x-api-key': '<catalog-write-key>',
-        },
         request: {
           kind: 'ProviderRegistration',
           catalog_id: 'my_catalog',
@@ -1232,7 +1223,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         method: 'POST',
         path: '/ocp/objects/sync',
         headers: {
-          'x-api-key': '<catalog-write-key>',
+          'x-api-key': '<catalog-object-sync-key>',
         },
         request: {
           kind: 'ObjectSyncRequest',

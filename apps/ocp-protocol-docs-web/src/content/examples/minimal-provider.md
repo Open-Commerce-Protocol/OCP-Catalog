@@ -26,7 +26,6 @@ await fetch('https://catalog.example.com/ocp/providers/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': '<catalog-write-key>',
   },
   body: JSON.stringify({
     ocp_version: '1.0',
@@ -66,7 +65,7 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': '<catalog-write-key>',
+    'x-api-key': '<catalog-object-sync-key>',
   },
   body: JSON.stringify({
     ocp_version: '1.0',
@@ -103,14 +102,13 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
 
 ```ts
 const catalogBaseUrl = 'https://catalog.example.com';
-const writeKey = '<catalog-write-key>';
+const objectSyncKey = '<catalog-object-sync-key>';
 
 async function publishHelloProvider() {
   await fetch(`${catalogBaseUrl}/ocp/providers/register`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': writeKey,
     },
     body: JSON.stringify({
       ocp_version: '1.0',
@@ -142,7 +140,7 @@ async function publishHelloProvider() {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': writeKey,
+      'x-api-key': objectSyncKey,
     },
     body: JSON.stringify({
       ocp_version: '1.0',
@@ -191,6 +189,7 @@ provider process starts
 
 - In the current push model, the provider does not need its own public domain.
 - The provider also does not need to be always on, unless the chosen sync capability requires provider-hosted endpoints.
+- Provider registration does not require the catalog object-sync API key in this example.
 - The provider does need to manage `registration_version` deterministically.
 - Sync usually must use the currently active `registration_version`.
 

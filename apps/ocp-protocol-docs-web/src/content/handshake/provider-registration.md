@@ -2,6 +2,8 @@
 
 `ProviderRegistration` is the provider's versioned declaration of what it can supply to a catalog.
 
+Provider registration is an intake handshake. In the current example runtime it does not require the catalog object-sync API key. A catalog may still require credentials for later object sync, as declared by the selected sync capability.
+
 ## When It Is Submitted
 
 A provider submits a registration:

@@ -658,6 +658,8 @@ Provider 侧需要实现：
 请求：`ProviderRegistration`  
 返回：`RegistrationResult`
 
+Provider registration 是接入握手，不要求使用 object sync 的写入凭证。Catalog 可以为该入口设计自己的 intake、审核或限流策略，但不应把 object sync credential 当成 `ProviderRegistration` 的协议前置条件。
+
 ### 13.5 POST /ocp/objects/sync
 
 用于真实对象数据同步。

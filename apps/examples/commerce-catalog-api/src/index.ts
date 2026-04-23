@@ -78,7 +78,6 @@ const app = new Elysia()
     };
   })
   .post('/ocp/providers/register', async ({ body, headers }) => {
-    assertWriteAuth(headers);
     return services.registrations.register(body, {
       sourceIp: firstHeader(headers['x-forwarded-for']) ?? firstHeader(headers['x-real-ip']),
       userAgent: firstHeader(headers['user-agent']),

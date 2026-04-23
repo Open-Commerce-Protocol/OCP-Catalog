@@ -26,7 +26,6 @@ await fetch('https://catalog.example.com/ocp/providers/register', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': '<catalog-write-key>',
   },
   body: JSON.stringify({
     ocp_version: '1.0',
@@ -66,7 +65,7 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
   method: 'POST',
   headers: {
     'content-type': 'application/json',
-    'x-api-key': '<catalog-write-key>',
+    'x-api-key': '<catalog-object-sync-key>',
   },
   body: JSON.stringify({
     ocp_version: '1.0',
@@ -103,14 +102,13 @@ await fetch('https://catalog.example.com/ocp/objects/sync', {
 
 ```ts
 const catalogBaseUrl = 'https://catalog.example.com';
-const writeKey = '<catalog-write-key>';
+const objectSyncKey = '<catalog-object-sync-key>';
 
 async function publishHelloProvider() {
   await fetch(`${catalogBaseUrl}/ocp/providers/register`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': writeKey,
     },
     body: JSON.stringify({
       ocp_version: '1.0',
@@ -142,7 +140,7 @@ async function publishHelloProvider() {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': writeKey,
+      'x-api-key': objectSyncKey,
     },
     body: JSON.stringify({
       ocp_version: '1.0',
@@ -191,6 +189,7 @@ provider 进程启动
 
 - 在当前 push 模型下，provider 不需要自己的公网域名。
 - provider 也不需要常驻，除非所选 sync capability 需要 provider-hosted endpoint。
+- 在这个示例里，Provider registration 不需要 catalog 的 object-sync API key。
 - 但 provider 需要可确定地管理 `registration_version`。
 - sync 通常还必须和当前 active 的 `registration_version` 对齐。
 

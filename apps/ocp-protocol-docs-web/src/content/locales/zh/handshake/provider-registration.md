@@ -2,6 +2,8 @@
 
 `ProviderRegistration` 是 Provider 针对 Catalog 的版本化供给声明。
 
+Provider registration 是接入握手。在当前示例运行时里，它不需要 catalog 的 object-sync API key。Catalog 仍然可以按协商出的 sync capability 要求后续 object sync 携带凭证。
+
 ## 提交时机
 
 Provider 会在这些时机提交 registration：
