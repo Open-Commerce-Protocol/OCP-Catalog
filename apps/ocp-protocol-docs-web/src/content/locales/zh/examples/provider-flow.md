@@ -6,6 +6,8 @@
 
 ## 真实生命周期
 
+![Commerce data 从商家原始记录到 OCP CommercialObject batch、catalog indexing 和 search/resolve 的管线](/data-sync.png)
+
 ```text
 provider admin seed 或编辑商品
 -> provider 先从 catalog 当前 provider state 推导 next registration_version

@@ -10,6 +10,8 @@
 
 商家在店铺里安装一个 OCP provider app，选择目标 catalog，授权读取商品数据，然后这个 app 自动把店铺商品发布到该 catalog。
 
+![Provider app 从安装、选择 catalog、拉取 manifest、注册、首次同步到定时同步的 onboarding 流程](/Onboarding-Flow.png)
+
 ```text
 商家安装 OCP provider app
 -> app 让商家选择目标 catalog
@@ -93,6 +95,8 @@ App 会把 Shopify 店铺注册成一个 merchant provider。
 ## 商品映射
 
 Provider app 会把每个 Shopify product 或 variant 映射成 OCP `CommercialObject`。
+
+![Commerce data 从商家商品数据经过映射、CommercialObject、batch push、catalog index 到 search/resolve API 的同步管线](/data-sync.png)
 
 ```json
 {

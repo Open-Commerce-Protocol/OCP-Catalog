@@ -6,6 +6,8 @@ For a platform-plugin style onboarding scenario, see [Shopify-Style Provider](/e
 
 ## Real Lifecycle
 
+![Commerce data pipeline from raw merchant records to OCP CommercialObject batches, catalog indexing, and search/resolve](/data-sync.png)
+
 ```text
 provider admin seeds or edits products
 -> provider computes the next registration_version from current catalog state

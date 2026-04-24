@@ -2,6 +2,8 @@
 
 This site documents the protocol surface implemented in the current repository for OCP Catalog.
 
+![OCP Catalog protocol layer connecting merchant systems, provider apps, catalogs, and agent query side](/Hero.png)
+
 It focuses on two protocol layers:
 
 - `ocp.catalog.handshake.v1`

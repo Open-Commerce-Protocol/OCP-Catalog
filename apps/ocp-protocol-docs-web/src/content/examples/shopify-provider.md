@@ -10,6 +10,8 @@ A merchant owns a Shopify store and wants its products to become searchable and 
 
 The merchant installs an OCP provider app in the store, chooses a target catalog, grants product read access, and the app publishes the store's products into that catalog.
 
+![Provider app onboarding flow from install through catalog selection, manifest fetch, registration, initial sync, and scheduled sync](/Onboarding-Flow.png)
+
 ```text
 merchant installs OCP provider app
 -> app asks merchant to choose a target catalog
@@ -93,6 +95,8 @@ The app registers the Shopify store as a merchant provider.
 ## Product Mapping
 
 The provider app maps each Shopify product or variant into an OCP `CommercialObject`.
+
+![Commerce data pipeline from merchant product data through mapping, CommercialObject creation, batch push, catalog index, and search/resolve API](/data-sync.png)
 
 ```json
 {

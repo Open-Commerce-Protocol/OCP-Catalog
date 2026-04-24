@@ -2,6 +2,8 @@
 
 This repository now implements a concrete commerce product catalog that is closer to a real provider and product-search workflow than the original protocol-only MVP.
 
+![Commerce product data synchronization pipeline into OCP Catalog query and resolve surfaces](/data-sync.png)
+
 ## What The Live Example Actually Does
 
 The current example is not a generic placeholder. It is the running behavior of:

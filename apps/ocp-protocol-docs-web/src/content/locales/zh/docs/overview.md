@@ -2,6 +2,8 @@
 
 这个站点说明的是当前仓库里已经实现的 OCP Catalog 协议面。
 
+![OCP Catalog 协议层连接 merchant system、provider app、catalog 与 agent query side](/Hero.png)
+
 它主要覆盖两层协议：
 
 - `ocp.catalog.handshake.v1`

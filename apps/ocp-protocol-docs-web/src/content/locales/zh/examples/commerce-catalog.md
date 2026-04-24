@@ -2,6 +2,8 @@
 
 这个仓库现在实现的，不再只是一个协议层 MVP，而是一个更贴近真实商品目录流程的 commerce catalog。
 
+![电商商品数据同步进入 OCP Catalog query 和 resolve 能力面的管线](/data-sync.png)
+
 ## 当前真实示例到底做了什么
 
 现在这套 live example 对应的是下面这些模块的真实行为：
