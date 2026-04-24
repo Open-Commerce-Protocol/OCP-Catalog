@@ -70,6 +70,12 @@ export type QuerySession = {
   };
   queryMode?: 'keyword' | 'filter' | 'semantic' | 'hybrid';
   queryPack?: string;
+  searchSteps?: Array<{
+    purpose: string;
+    catalog_query: string;
+    query_pack?: string;
+    filters?: QuerySession['activeFilters'];
+  }>;
   sortPreference?: 'relevance' | 'price_asc';
 };
 
@@ -85,10 +91,10 @@ export type ResolvableReference = {
   visible_attributes: Record<string, unknown>;
   action_bindings: Array<{
     action_id: string;
-    action_type: 'url';
+    action_type: string;
     label: string;
-    url: string;
-    method: 'GET';
+    url?: string;
+    method?: string;
   }>;
   freshness: {
     object_updated_at: string;

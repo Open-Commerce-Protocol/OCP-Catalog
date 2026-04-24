@@ -1,4 +1,4 @@
-import { Bot, Compass, ExternalLink, MemoryStick, Route, Sparkles, Trash2, ArrowRight, LoaderCircle } from 'lucide-react';
+import { Bot, Compass, ExternalLink, MemoryStick, Route, Sparkles, Trash2, ArrowRight, LoaderCircle, Link2 } from 'lucide-react';
 import { Fragment, useEffect, useState, useRef, type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -395,7 +395,7 @@ export function App() {
                       >
                          <div className="relative h-[160px] w-full bg-fog/20 overflow-hidden">
                            <img 
-                              src={(item.attributes.image_urls as string[])?.[0] || resultImages[index % resultImages.length]}
+                              src={getPrimaryImageUrl(item.attributes) || resultImages[index % resultImages.length]}
                               alt={item.title}
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                            />
@@ -412,10 +412,9 @@ export function App() {
                            <h3 className="font-semibold leading-tight text-ink line-clamp-2">{item.title}</h3>
                            <div className="mt-3 flex items-center justify-between">
                               <span className="font-display text-2xl text-ink">
-                                 {formatMoney(
-                                   (typeof item.attributes.amount === 'number' ? item.attributes.amount : 0) as number,
-                                   (typeof item.attributes.currency === 'string' ? item.attributes.currency : 'USD') as string,
-                                 )}
+                                {typeof item.attributes.amount === 'number'
+                                  ? formatMoney(item.attributes.amount, getStringAttribute(item.attributes, 'currency') ?? 'USD')
+                                  : `${Math.round(item.score * 100)}%`}
                               </span>
                               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/5 text-ink/40 transition group-hover:bg-spruce group-hover:text-white">
                                 <ArrowRight className="h-4 w-4" />
@@ -488,57 +487,107 @@ export function App() {
          {resolvedItem && (
             <div className="mt-6 space-y-6">
               <div className="flex flex-col gap-6 md:flex-row">
-                 {((resolvedItem.visible_attributes as any).image_urls as string[])?.[0] && (
+                 {getPrimaryImageUrl(resolvedItem.visible_attributes) && (
                    <div className="relative h-64 w-full md:w-64 shrink-0 overflow-hidden rounded-2xl bg-fog/20 border border-ink/5">
                      <img 
-                       src={((resolvedItem.visible_attributes as any).image_urls as string[])[0]} 
-                       alt="" 
+                       src={getPrimaryImageUrl(resolvedItem.visible_attributes)} 
+                       alt={resolvedItem.title} 
                        className="h-full w-full object-cover" 
                      />
                    </div>
                  )}
                  
                  <div className="flex-1 space-y-4">
-                   <div className="space-y-1">
-                      <Label>Standard Pricing</Label>
-                      <div className="font-display text-5xl">
-                        {formatMoney(
-                          Number((resolvedItem.visible_attributes as any).amount ?? 0),
-                          String((resolvedItem.visible_attributes as any).currency ?? 'USD'),
-                        )}
-                      </div>
-                   </div>
+                   {typeof resolvedItem.visible_attributes.amount === 'number' ? (
+                     <div className="space-y-1">
+                        <Label>Standard Pricing</Label>
+                        <div className="font-display text-5xl">
+                          {formatMoney(
+                            resolvedItem.visible_attributes.amount,
+                            getStringAttribute(resolvedItem.visible_attributes, 'currency') ?? 'USD',
+                          )}
+                        </div>
+                     </div>
+                   ) : (
+                     <div className="space-y-1">
+                        <Label>Resolved Reference</Label>
+                        <div className="font-display text-3xl break-words">{resolvedItem.object_type}</div>
+                     </div>
+                   )}
 
-                   <p className="text-sm leading-relaxed text-ink/60">
-                     {String((resolvedItem.visible_attributes as any).summary ?? '')}
-                   </p>
+                   {getStringAttribute(resolvedItem.visible_attributes, 'summary') && (
+                     <p className="text-sm leading-relaxed text-ink/60">
+                       {getStringAttribute(resolvedItem.visible_attributes, 'summary')}
+                     </p>
+                   )}
 
                    <div className="grid grid-cols-2 gap-4 rounded-xl border border-ink/5 bg-ink/[0.02] p-4 text-sm">
-                      <div>
-                        <span className="block text-ink/40 text-xs font-semibold uppercase tracking-wider mb-1">Brand</span>
-                        <span className="font-medium text-ink">{String((resolvedItem.visible_attributes as any).brand ?? '-')}</span>
-                      </div>
-                      <div>
-                        <span className="block text-ink/40 text-xs font-semibold uppercase tracking-wider mb-1">Availability</span>
-                        <span className="font-medium text-ink">{String((resolvedItem.visible_attributes as any).availability_status ?? 'unknown').replace('_', ' ')}</span>
-                      </div>
+                      {buildPrimaryFacts(resolvedItem.visible_attributes).map((fact) => (
+                        <div key={fact.label}>
+                          <span className="block text-ink/40 text-xs font-semibold uppercase tracking-wider mb-1">{fact.label}</span>
+                          <span className="font-medium text-ink break-words">{fact.value}</span>
+                        </div>
+                      ))}
                    </div>
                  </div>
               </div>
 
-              {selectedTopAction && (
-                <div className="mt-8 border-t border-ink/5 pt-6 flex justify-end">
-                  <a
-                    href={selectedTopAction.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-ink px-8 text-sm font-semibold tracking-wide text-white transition hover:bg-black hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-ink/20"
-                  >
-                    {selectedTopAction.label}
-                    {selectedTopAction.action_id === 'buy_now' ? ' →' : <ExternalLink className="h-4 w-4" />}
-                  </a>
+              <div className="rounded-2xl border border-ink/5 bg-white p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <Label>Next actions</Label>
+                  <Badge tone="neutral">{resolvedItem.action_bindings.length} available</Badge>
                 </div>
-              )}
+                {resolvedItem.action_bindings.length > 0 ? (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {resolvedItem.action_bindings.map((action) => (
+                      action.url ? (
+                        <a
+                          key={action.action_id}
+                          href={action.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={cn(
+                            "flex min-h-12 items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-ink/20",
+                            action === selectedTopAction
+                              ? "border-ink bg-ink text-white hover:bg-black"
+                              : "border-ink/10 bg-ink/[0.02] text-ink hover:border-ink/20 hover:bg-ink/[0.04]",
+                          )}
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate">{action.label}</span>
+                            <span className={cn("mt-0.5 block text-[11px] uppercase tracking-wider", action === selectedTopAction ? "text-white/55" : "text-ink/35")}>
+                              {action.action_id} · {action.method ?? 'GET'}
+                            </span>
+                          </span>
+                          {action.action_id === 'buy_now' ? <ArrowRight className="h-4 w-4 shrink-0" /> : <ExternalLink className="h-4 w-4 shrink-0" />}
+                        </a>
+                      ) : (
+                        <div key={action.action_id} className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-sm font-semibold text-ink/60">
+                          <span>{action.label}</span>
+                          <Badge tone="neutral">{action.action_type}</Badge>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-ink/50">This reference does not expose a next action for the current caller.</p>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-ink/5 bg-ink/[0.02] p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <Label>Visible attributes</Label>
+                  <Badge tone="neutral">{Object.keys(resolvedItem.visible_attributes).length} fields</Badge>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {buildVisibleAttributeRows(resolvedItem.visible_attributes).map(([key, value]) => (
+                    <div key={key} className="rounded-xl border border-white/70 bg-white px-3 py-2 text-sm">
+                      <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink/35">{humanizeKey(key)}</span>
+                      {renderAttributeValue(value)}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
          )}
       </Modal>
@@ -661,6 +710,135 @@ function renderInlineMarkdown(text: string) {
 
     return <Fragment key={index}>{part}</Fragment>;
   });
+}
+
+function getStringAttribute(attributes: Record<string, unknown>, key: string) {
+  const value = attributes[key];
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function getPrimaryImageUrl(attributes: Record<string, unknown>) {
+  const primary = getStringAttribute(attributes, 'primary_image_url');
+  if (primary) return primary;
+
+  const imageUrls = attributes.image_urls;
+  if (Array.isArray(imageUrls)) {
+    return imageUrls.find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+  }
+
+  const imageUrl = getStringAttribute(attributes, 'image_url');
+  return imageUrl;
+}
+
+function buildPrimaryFacts(attributes: Record<string, unknown>) {
+  const preferred = [
+    ['Brand', attributes.brand],
+    ['Category', attributes.category],
+    ['SKU', attributes.sku],
+    ['Availability', attributes.availability_status],
+  ] as const;
+
+  const facts = preferred
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([label, value]) => ({
+      label,
+      value: formatCompactValue(value),
+    }));
+
+  if (facts.length > 0) return facts.slice(0, 4);
+
+  return buildVisibleAttributeRows(attributes)
+    .filter(([key]) => !['summary', 'image_urls', 'primary_image_url', 'image_url', 'product_url', 'source_url'].includes(key))
+    .slice(0, 4)
+    .map(([key, value]) => ({
+      label: humanizeKey(key),
+      value: formatCompactValue(value),
+    }));
+}
+
+function buildVisibleAttributeRows(attributes: Record<string, unknown>) {
+  const priority = [
+    'summary',
+    'brand',
+    'category',
+    'sku',
+    'availability_status',
+    'quantity',
+    'amount',
+    'currency',
+    'list_amount',
+    'price_type',
+    'product_url',
+    'source_url',
+    'primary_image_url',
+    'image_urls',
+  ];
+
+  const entries = Object.entries(attributes)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+  return entries.sort(([left], [right]) => {
+    const leftIndex = priority.indexOf(left);
+    const rightIndex = priority.indexOf(right);
+    const normalizedLeft = leftIndex === -1 ? Number.MAX_SAFE_INTEGER : leftIndex;
+    const normalizedRight = rightIndex === -1 ? Number.MAX_SAFE_INTEGER : rightIndex;
+    return normalizedLeft - normalizedRight || left.localeCompare(right);
+  });
+}
+
+function renderAttributeValue(value: unknown) {
+  if (typeof value === 'string') {
+    if (isHttpUrl(value)) {
+      return (
+        <a href={value} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 text-spruce underline decoration-spruce/30 underline-offset-2">
+          <Link2 className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{value}</span>
+        </a>
+      );
+    }
+
+    return <span className="break-words font-medium text-ink">{value}</span>;
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return <span className="font-medium text-ink">{String(value)}</span>;
+  }
+
+  if (Array.isArray(value)) {
+    const urls = value.filter((item): item is string => typeof item === 'string' && isHttpUrl(item));
+    if (urls.length > 0) {
+      return (
+        <div className="flex flex-col gap-1">
+          {urls.slice(0, 3).map((url) => (
+            <a key={url} href={url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 text-spruce underline decoration-spruce/30 underline-offset-2">
+              <Link2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{url}</span>
+            </a>
+          ))}
+          {urls.length > 3 && <span className="text-xs text-ink/40">+{urls.length - 3} more</span>}
+        </div>
+      );
+    }
+
+    return <span className="break-words font-medium text-ink">{value.map(formatCompactValue).join(', ')}</span>;
+  }
+
+  return <code className="block max-h-28 overflow-auto rounded bg-ink/5 p-2 text-xs text-ink/70">{JSON.stringify(value, null, 2)}</code>;
+}
+
+function formatCompactValue(value: unknown): string {
+  if (typeof value === 'string') return value.replaceAll('_', ' ');
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(formatCompactValue).join(', ');
+  return JSON.stringify(value);
+}
+
+function humanizeKey(key: string) {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value);
 }
 
 function formatMoney(amountInCents: number, currency: string) {

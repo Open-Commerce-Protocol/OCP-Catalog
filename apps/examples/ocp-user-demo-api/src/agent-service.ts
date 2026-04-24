@@ -75,6 +75,23 @@ const querySessionSchema = z.object({
     has_image: z.boolean().optional(),
   }),
   queryPack: z.string().optional(),
+  searchSteps: z.array(z.object({
+    purpose: z.string(),
+    catalog_query: z.string(),
+    query_pack: z.string().optional(),
+    filters: z.object({
+      category: z.string().optional(),
+      brand: z.string().optional(),
+      currency: z.string().optional(),
+      availability_status: z.string().optional(),
+      provider_id: z.string().optional(),
+      sku: z.string().optional(),
+      min_amount: z.number().optional(),
+      max_amount: z.number().optional(),
+      in_stock_only: z.boolean().optional(),
+      has_image: z.boolean().optional(),
+    }).optional(),
+  })).optional(),
   sortPreference: z.enum(['relevance', 'price_asc']).optional(),
 });
 
@@ -121,6 +138,23 @@ type CatalogQueryPlan = {
   intent_summary: string;
   catalog_query: string;
   query_pack?: string;
+  search_steps?: Array<{
+    purpose: string;
+    catalog_query: string;
+    query_pack?: string;
+    filters?: {
+      category?: string;
+      brand?: string;
+      currency?: string;
+      availability_status?: string;
+      provider_id?: string;
+      sku?: string;
+      min_amount?: number;
+      max_amount?: number;
+      in_stock_only?: boolean;
+      has_image?: boolean;
+    };
+  }>;
   sort_preference: 'relevance' | 'price_asc';
   filters: {
     category?: string;
@@ -151,6 +185,23 @@ const catalogQueryPlanSchema = z.object({
   intent_summary: z.string().min(1),
   catalog_query: z.string().min(1),
   query_pack: z.string().min(1).optional(),
+  search_steps: z.array(z.object({
+    purpose: z.string().min(1),
+    catalog_query: z.string().min(1),
+    query_pack: z.string().min(1).optional(),
+    filters: z.object({
+      category: z.string().optional(),
+      brand: z.string().optional(),
+      currency: z.string().optional(),
+      availability_status: z.string().optional(),
+      provider_id: z.string().optional(),
+      sku: z.string().optional(),
+      min_amount: z.number().optional(),
+      max_amount: z.number().optional(),
+      in_stock_only: z.boolean().optional(),
+      has_image: z.boolean().optional(),
+    }).optional(),
+  })).max(3).optional(),
   sort_preference: z.enum(['relevance', 'price_asc']),
   filters: z.object({
     category: z.string().optional(),
@@ -243,13 +294,8 @@ export class UserDemoAgentService {
       previousResults: request.previous_results,
     });
     const normalizedSession = buildNextSession(queryPlan, request.user_input, selectedProfile.route_hint.supported_query_packs);
-    const result = await this.queryCatalog(selectedProfile.route_hint, {
-      query: normalizedSession.baseIntent,
-      query_pack: normalizedSession.queryPack,
-      filters: normalizedSession.activeFilters,
-    });
-    const items = sortItems(result.items, normalizedSession.sortPreference);
-    const message = await this.summarizeCatalogResults(request.user_input, selectedProfile.catalog_name, normalizedSession, items);
+    const items = await this.executeCatalogSearchPlan(selectedProfile.route_hint, queryPlan, normalizedSession);
+    const message = await this.summarizeCatalogResults(request.user_input, selectedProfile.catalog_name, normalizedSession, items, false, queryPlan);
 
     return {
       agent_message: message,
@@ -269,18 +315,22 @@ export class UserDemoAgentService {
       sort_preference: request.session.sortPreference ?? 'relevance',
       filters: request.session.activeFilters,
     }, request.session.latestUserTurn, request.pending_catalog.route_hint.supported_query_packs);
-    const result = await this.queryCatalog(request.pending_catalog.route_hint, {
-      query: normalizedSession.baseIntent,
+    const fallbackPlan: CatalogQueryPlan = {
+      intent_summary: normalizedSession.baseIntent,
+      catalog_query: normalizedSession.baseIntent,
       query_pack: normalizedSession.queryPack,
+      search_steps: request.session.searchSteps,
+      sort_preference: normalizedSession.sortPreference ?? 'relevance',
       filters: normalizedSession.activeFilters,
-    });
-    const items = sortItems(result.items, normalizedSession.sortPreference);
+    };
+    const items = await this.executeCatalogSearchPlan(request.pending_catalog.route_hint, fallbackPlan, normalizedSession);
     const message = await this.summarizeCatalogResults(
       normalizedSession.baseIntent,
       request.pending_catalog.catalog_name,
       normalizedSession,
       items,
       true,
+      fallbackPlan,
     );
 
     return {
@@ -296,7 +346,8 @@ export class UserDemoAgentService {
   }) {
     const draft = await this.model.completeJson<CenterSelectionPlan>(
       [
-        'You are an OCP commerce shopping agent and center-selection planner.',
+        'You are an OCP user-side agent and catalog-selection planner.',
+        'OCP Catalog is not limited to shopping. It can discover commercial objects such as products, services, jobs, talent profiles, local appointments, B2B capabilities, and workflow entry points.',
         'Your job in this phase is only to decide how to search OCP Center for a suitable catalog.',
         'Do not plan query_pack, sort, or catalog filters in this phase.',
         'Do not assume a catalog before Center discovery happens.',
@@ -320,9 +371,12 @@ export class UserDemoAgentService {
   }) {
     const draft = await this.model.completeJson<CatalogQueryPlan>(
       [
-        'You are an OCP commerce shopping agent and catalog-query planner.',
+        'You are an OCP user-side agent and catalog-query planner.',
+        'The selected catalog may be a commerce, local service, job, talent, B2B, or other commercial-object catalog.',
         'A catalog has already been selected. Your job in this phase is to produce a valid query plan for that selected catalog only.',
         'Decide how to refine the user request into a catalog query plan.',
+        'You may plan up to 3 search_steps when one query is not enough. Use this for multi-round retrieval, for example broad discovery first, then focused refinements, then a fallback wording.',
+        'Each search_step is a real catalog query the agent will execute before answering the user. Keep steps distinct and useful; do not duplicate the same query.',
         'You must follow the selected catalog declaration before planning the query.',
         'Interaction rules:',
         '1. Inspect the selected catalog route_hint.supported_query_packs and metadata.query_hints before setting query_pack.',
@@ -332,11 +386,12 @@ export class UserDemoAgentService {
         '5. Do not output catalog-specific planning fields unless the selected catalog explicitly declares them as request fields.',
         '6. Prefer using the selected catalog route_hint metadata over assumptions.',
         'Return JSON only.',
-        'Supported filters: category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, has_image.',
+        'Supported filters in the current demo runtime: category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, has_image.',
         'Use canonical query_pack ids when you set query_pack.',
         'Preferred mappings: free-text search -> ocp.query.keyword.v1, filter-only listing -> ocp.query.filter.v1, semantic intent -> ocp.query.semantic.v1 when available.',
-        'Use sort_preference price_asc only when the user clearly asks for cheaper/lower price.',
+        'Use sort_preference price_asc only when the selected catalog appears price-oriented and the user clearly asks for cheaper/lower price.',
         'When the user speaks Chinese but the available catalog metadata indicates English-oriented search, you may translate the search phrase to English.',
+        'If semantic query is declared and the user gives a broad meaning-based request, prefer semantic for at least one search_step. If keyword is better for exact product names, brands, SKUs, or categories, use keyword.',
         'Always return all fields in the schema.',
         'Schema:',
         JSON.stringify(z.toJSONSchema(catalogQueryPlanSchema), null, 2),
@@ -380,7 +435,7 @@ export class UserDemoAgentService {
 
   private async summarizeCatalogChoice(userInput: string, candidate: CatalogSearchItem) {
     return await this.model.completeText(
-      'You are a Chinese shopping agent. Explain briefly why this catalog is a good candidate and ask for explicit permission to save its profile locally. Do not expose raw protocol details.',
+      'You are a Chinese OCP user-side agent. Explain briefly why this catalog is a good candidate for the user intent and ask for explicit permission to save its profile locally. Do not expose raw protocol details.',
       JSON.stringify({
         user_input: userInput,
         candidate: {
@@ -402,7 +457,7 @@ export class UserDemoAgentService {
     session: QuerySession | null,
   ) {
     return await this.model.completeText(
-      'You are a Chinese shopping agent. The user already has a pending catalog candidate, but local registration still requires explicit user consent. Explain the current state briefly and ask the user to explicitly authorize saving the catalog profile before you continue. Do not expose raw protocol details.',
+      'You are a Chinese OCP user-side agent. The user already has a pending catalog candidate, but local registration still requires explicit user consent. Explain the current state briefly and ask the user to explicitly authorize saving the catalog profile before you continue. Do not expose raw protocol details.',
       JSON.stringify({
         user_input: userInput,
         session,
@@ -438,7 +493,7 @@ export class UserDemoAgentService {
 
     return await this.model.completeText(
       [
-        'You are a Chinese shopping agent.',
+        'You are a Chinese OCP user-side agent.',
         'No immediately usable catalog candidate was found from OCP Center for the current request.',
         'Treat catalogs with verification_status "verified" or "not_required" and health_status "healthy" as usable.',
         'If fallback items exist but are blocked by trust or health status, explain clearly that catalogs may already be registered in Center, but they are not yet usable for the agent.',
@@ -464,14 +519,26 @@ export class UserDemoAgentService {
     session: QuerySession,
     items: CatalogQueryItem[],
     justRegistered = false,
+    plan?: CatalogQueryPlan,
   ) {
     return await this.model.completeText(
-      'You are a Chinese shopping agent. Summarize catalog search results naturally. If there are no items, explain that clearly and suggest how to refine the request. Do not dump raw tool output. Mention the strongest candidates and how the current refinement affected them when results exist. Keep it concise.',
+      'You are a Chinese OCP user-side agent. Summarize catalog search results naturally. If there are no items, explain that clearly and suggest how to refine the request. Do not dump raw tool output. Mention the strongest candidates and how the current refinement affected them when results exist. Keep it concise. Do not assume every result is a product; describe entries according to the available fields.',
       JSON.stringify({
         user_input: userInput,
         catalog_name: catalogName,
         just_registered: justRegistered,
         session,
+        search_steps: plan?.search_steps?.map((step) => ({
+          purpose: step.purpose,
+          catalog_query: step.catalog_query,
+          query_pack: step.query_pack,
+          filters: step.filters,
+        })) ?? [{
+          purpose: 'single query',
+          catalog_query: session.baseIntent,
+          query_pack: session.queryPack,
+          filters: session.activeFilters,
+        }],
         result_count: items.length,
         top_items: items.slice(0, 5).map((item) => ({
           title: item.title,
@@ -487,6 +554,26 @@ export class UserDemoAgentService {
         })),
       }),
     );
+  }
+
+  private async executeCatalogSearchPlan(
+    routeHint: SavedCatalogProfile['route_hint'] | CatalogSearchItem['route_hint'],
+    plan: CatalogQueryPlan,
+    session: QuerySession,
+  ) {
+    const steps = normalizeSearchSteps(plan, routeHint.supported_query_packs, session);
+    const collected: CatalogQueryItem[] = [];
+
+    for (const step of steps) {
+      const result = await this.queryCatalog(routeHint, {
+        query: step.query,
+        query_pack: step.queryPack,
+        filters: step.filters,
+      });
+      collected.push(...result.items);
+    }
+
+    return sortItems(dedupeItems(collected), session.sortPreference);
   }
 
   private async searchCenter(query: string, options: SearchCenterOptions = {}) {
@@ -551,8 +638,48 @@ function buildNextSession(plan: CatalogQueryPlan, latestUserTurn: string, suppor
       queryText: plan.catalog_query,
       filters: plan.filters,
     }),
+    searchSteps: plan.search_steps,
     sortPreference: plan.sort_preference,
   };
+}
+
+function normalizeSearchSteps(
+  plan: CatalogQueryPlan,
+  supportedQueryPacks: string[],
+  session: QuerySession,
+) {
+  const rawSteps = plan.search_steps?.length
+    ? plan.search_steps
+    : [{
+        purpose: 'primary query',
+        catalog_query: plan.catalog_query,
+        query_pack: plan.query_pack,
+        filters: plan.filters,
+      }];
+
+  const normalized = rawSteps
+    .slice(0, 3)
+    .map((step) => {
+      const filters = step.filters ?? plan.filters ?? {};
+      const query = step.catalog_query.trim() || plan.catalog_query;
+      return {
+        query,
+        queryPack: normalizeQueryPack(supportedQueryPacks, {
+          queryPack: step.query_pack ?? plan.query_pack ?? session.queryPack,
+          queryText: query,
+          filters,
+        }),
+        filters,
+      };
+    });
+
+  const seen = new Set<string>();
+  return normalized.filter((step) => {
+    const key = JSON.stringify(step);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function pickProfile(profiles: SavedCatalogProfile[], activeCatalogId?: string | null) {
@@ -584,6 +711,17 @@ function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function dedupeItems(items: CatalogQueryItem[]) {
+  const byEntry = new Map<string, CatalogQueryItem>();
+  for (const item of items) {
+    const existing = byEntry.get(item.entry_id);
+    if (!existing || item.score > existing.score) {
+      byEntry.set(item.entry_id, item);
+    }
+  }
+  return [...byEntry.values()].sort((left, right) => right.score - left.score);
+}
+
 function normalizeQueryPack(
   supportedQueryPacks: string[],
   input: QueryPackInput,
@@ -594,9 +732,11 @@ function normalizeQueryPack(
   const hasFilters = Boolean(input.filters && Object.values(input.filters).some((value) => value !== undefined && value !== null && value !== ''));
   const hasQueryText = Boolean(input.queryText?.trim());
 
+  if (hasQueryText && hasFilters && supportedQueryPacks.includes('ocp.query.keyword.v1')) return 'ocp.query.keyword.v1';
+  if (!hasQueryText && hasFilters && supportedQueryPacks.includes('ocp.query.filter.v1')) return 'ocp.query.filter.v1';
+  if (supportedQueryPacks.includes('ocp.query.semantic.v1')) return 'ocp.query.semantic.v1';
   if (hasQueryText && supportedQueryPacks.includes('ocp.query.keyword.v1')) return 'ocp.query.keyword.v1';
   if (hasFilters && supportedQueryPacks.includes('ocp.query.filter.v1')) return 'ocp.query.filter.v1';
-  if (supportedQueryPacks.includes('ocp.query.semantic.v1')) return 'ocp.query.semantic.v1';
 
   return supportedQueryPacks[0];
 }
