@@ -10,9 +10,9 @@ export function startCatalogRefreshScheduler(
   config: AppConfig,
   log: Pick<Console, 'log' | 'error'> = console,
 ): RefreshScheduler | null {
-  if (!config.CENTER_REFRESH_SCHEDULER_ENABLED) return null;
+  if (!config.REGISTRATION_REFRESH_SCHEDULER_ENABLED) return null;
 
-  const intervalMs = config.CENTER_REFRESH_INTERVAL_SECONDS * 1000;
+  const intervalMs = config.REGISTRATION_REFRESH_INTERVAL_SECONDS * 1000;
   let running = false;
 
   const run = async () => {
@@ -22,11 +22,11 @@ export function startCatalogRefreshScheduler(
       const result = await catalogs.refreshDueCatalogs();
       if (result.scanned_count > 0) {
         log.log(
-          `OCP Center refresh scanned ${result.scanned_count}, refreshed ${result.refreshed_count}, failed ${result.failed_count}`,
+          `OCP Catalog Registration refresh scanned ${result.scanned_count}, refreshed ${result.refreshed_count}, failed ${result.failed_count}`,
         );
       }
     } catch (error) {
-      log.error('OCP Center refresh scheduler failed', error);
+      log.error('OCP Catalog Registration refresh scheduler failed', error);
     } finally {
       running = false;
     }
@@ -42,3 +42,4 @@ export function startCatalogRefreshScheduler(
     stop: () => clearInterval(timer),
   };
 }
+

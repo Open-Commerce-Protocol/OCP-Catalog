@@ -631,7 +631,7 @@ async function registerCatalogInCenter() {
     ocp_version: '1.0',
     kind: 'CatalogRegistration',
     id: `catreg_${crypto.randomUUID().replaceAll('-', '')}`,
-    center_id: config.CENTER_ID,
+    center_id: config.REGISTRATION_ID,
     catalog_id: config.CATALOG_ID,
     registration_version: 1,
     updated_at: new Date().toISOString(),
@@ -644,7 +644,7 @@ async function registerCatalogInCenter() {
 }
 
 async function postCenterJson(pathname: string, body: Record<string, unknown>, catalogToken?: string | null) {
-  const response = await fetch(`${config.CENTER_PUBLIC_BASE_URL.replace(/\/$/, '')}${pathname}`, {
+  const response = await fetch(`${config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '')}${pathname}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -739,3 +739,4 @@ function summarizeEntryQuality(rows: Array<{
 
   return summary;
 }
+

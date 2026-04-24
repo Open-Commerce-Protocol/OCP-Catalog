@@ -8,11 +8,12 @@ export const envSchema = z.object({
   PROVIDER_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4200'),
   USER_DEMO_API_PORT: z.coerce.number().default(4230),
   PROTOCOL_DOCS_PORT: z.coerce.number().default(5173),
-  CENTER_API_PORT: z.coerce.number().default(4100),
-  CENTER_ADMIN_UI_PORT: z.coerce.number().default(4250),
-  CENTER_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4100'),
-  CENTER_REFRESH_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
-  CENTER_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),
+  REGISTRATION_API_PORT: z.coerce.number().default(4100),
+  REGISTRATION_ADMIN_UI_PORT: z.coerce.number().default(4250),
+  REGISTRATION_PUBLIC_BASE_URL: z.string().url().default('https://ocp.deeplumen.io'),
+  REGISTRATION_DISCOVERY_URL: z.string().url().default('https://ocp.deeplumen.io/.well-known/ocp-center'),
+  REGISTRATION_REFRESH_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
+  REGISTRATION_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),
   CATALOG_SEARCH_INDEX_WORKER_ENABLED: z.coerce.boolean().default(true),
   CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(30),
   CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
@@ -25,8 +26,8 @@ export const envSchema = z.object({
   COMMERCE_PROVIDER_NAME: z.string().default('Local Commerce Provider'),
   COMMERCE_PROVIDER_CONTACT_EMAIL: z.string().email().default('ops@example.test'),
   COMMERCE_PROVIDER_DOMAIN: z.string().default('localhost'),
-  CENTER_ID: z.string().default('center_local_dev'),
-  CENTER_NAME: z.string().default('Local OCP Center'),
+  REGISTRATION_ID: z.string().default('registration_local_dev'),
+  REGISTRATION_NAME: z.string().default('Local OCP Catalog Registration Node'),
   EMBEDDING_MODEL: z.string().default('local-hash-v1'),
   EMBEDDING_DIMENSION: z.coerce.number().int().min(1).default(64),
   USER_DEMO_AGENT_MODEL: z.string().default('qwen-plus'),
@@ -35,3 +36,4 @@ export const envSchema = z.object({
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
+

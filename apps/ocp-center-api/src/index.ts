@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
-import { buildCenterDiscovery, buildCenterManifest, createCenterServices, startCatalogRefreshScheduler } from '@ocp-catalog/center-core';
+import { buildRegistrationDiscovery, buildRegistrationManifest, createRegistrationServices, startCatalogRefreshScheduler } from '@ocp-catalog/center-core';
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb, schema } from '@ocp-catalog/db';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
@@ -10,7 +10,7 @@ import { ZodError } from 'zod';
 
 const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
-const services = createCenterServices(db, config);
+const services = createRegistrationServices(db, config);
 const refreshScheduler = startCatalogRefreshScheduler(services.catalogs, config);
 const centerAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
@@ -56,8 +56,8 @@ const app = new Elysia()
     assertAdminAuth(headers);
     return getCenterAdminSearchAudits();
   })
-  .get('/.well-known/ocp-center', () => buildCenterDiscovery(config))
-  .get('/ocp/center/manifest', () => buildCenterManifest(config))
+  .get('/.well-known/ocp-center', () => buildRegistrationDiscovery(config))
+  .get('/ocp/center/manifest', () => buildRegistrationManifest(config))
   .post('/ocp/catalogs/register', async ({ body, headers }) => services.catalogs.register(body, {
     sourceIp: firstHeader(headers['x-forwarded-for']) ?? firstHeader(headers['x-real-ip']),
     userAgent: firstHeader(headers['user-agent']),
@@ -65,12 +65,12 @@ const app = new Elysia()
   .get('/ocp/catalogs/:catalogId', async ({ params }) => services.catalogs.getCatalog(params.catalogId))
   .get('/ocp/catalogs/:catalogId/manifest-snapshot', async ({ params }) => services.catalogs.getManifestSnapshot(params.catalogId))
   .get('/ocp/catalogs/:catalogId/health', async ({ params }) => ({
-    center_id: config.CENTER_ID,
+    center_id: config.REGISTRATION_ID,
     catalog_id: params.catalogId,
     checks: await services.catalogs.getHealth(params.catalogId),
   }))
   .get('/ocp/catalogs/:catalogId/verification', async ({ params }) => ({
-    center_id: config.CENTER_ID,
+    center_id: config.REGISTRATION_ID,
     catalog_id: params.catalogId,
     records: await services.catalogs.listVerificationRecords(params.catalogId),
   }))
@@ -99,14 +99,14 @@ const app = new Elysia()
 
     return serveCenterAdmin(pathname);
   })
-  .listen(config.CENTER_API_PORT);
+  .listen(config.REGISTRATION_API_PORT);
 
-console.log(`OCP Center API listening on http://localhost:${app.server?.port}`);
+console.log(`OCP Catalog Registration API listening on http://localhost:${app.server?.port}`);
 if (refreshScheduler) {
-  console.log(`OCP Center refresh scheduler enabled every ${config.CENTER_REFRESH_INTERVAL_SECONDS}s`);
+  console.log(`OCP Catalog Registration refresh scheduler enabled every ${config.REGISTRATION_REFRESH_INTERVAL_SECONDS}s`);
 }
 if (await centerAdminSite('/')) {
-  console.log('OCP Center Admin static site mounted from apps/ocp-center-api/public/dist');
+  console.log('OCP Catalog Registration Admin static site mounted from apps/ocp-center-api/public/dist');
 }
 
 function assertAdminAuth(headers: Record<string, string | undefined>) {
@@ -135,21 +135,21 @@ async function getCenterAdminOverview() {
     db.select().from(schema.catalogSearchAuditRecords),
   ]);
 
-  const centerCatalogs = catalogs.filter((row) => row.centerId === config.CENTER_ID);
-  const centerIndexEntries = indexEntries.filter((row) => row.centerId === config.CENTER_ID && row.entryStatus === 'active');
-  const centerVerificationRecords = verificationRecords.filter((row) => row.centerId === config.CENTER_ID);
-  const centerHealthChecks = healthChecks.filter((row) => row.centerId === config.CENTER_ID);
+  const centerCatalogs = catalogs.filter((row) => row.centerId === config.REGISTRATION_ID);
+  const centerIndexEntries = indexEntries.filter((row) => row.centerId === config.REGISTRATION_ID && row.entryStatus === 'active');
+  const centerVerificationRecords = verificationRecords.filter((row) => row.centerId === config.REGISTRATION_ID);
+  const centerHealthChecks = healthChecks.filter((row) => row.centerId === config.REGISTRATION_ID);
   const centerSearchAudits = searchAudits
-    .filter((row) => row.centerId === config.CENTER_ID)
+    .filter((row) => row.centerId === config.REGISTRATION_ID)
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime());
 
   const latestSearch = centerSearchAudits[0] ?? null;
 
   return {
-    center_id: config.CENTER_ID,
-    center_name: config.CENTER_NAME,
-    refresh_scheduler_enabled: config.CENTER_REFRESH_SCHEDULER_ENABLED,
-    refresh_interval_seconds: config.CENTER_REFRESH_INTERVAL_SECONDS,
+    center_id: config.REGISTRATION_ID,
+    center_name: config.REGISTRATION_NAME,
+    refresh_scheduler_enabled: config.REGISTRATION_REFRESH_SCHEDULER_ENABLED,
+    refresh_interval_seconds: config.REGISTRATION_REFRESH_INTERVAL_SECONDS,
     metrics: {
       registered_catalog_count: centerCatalogs.length,
       indexed_catalog_count: centerIndexEntries.length,
@@ -181,27 +181,27 @@ async function getCenterAdminCatalogs() {
 
   const latestHealthByCatalog = new Map<string, typeof schema.catalogHealthChecks.$inferSelect>();
   for (const row of healthChecks
-    .filter((item) => item.centerId === config.CENTER_ID)
+    .filter((item) => item.centerId === config.REGISTRATION_ID)
     .sort((left, right) => right.checkedAt.getTime() - left.checkedAt.getTime())) {
     if (!latestHealthByCatalog.has(row.catalogId)) latestHealthByCatalog.set(row.catalogId, row);
   }
 
   const latestVerificationByCatalog = new Map<string, typeof schema.catalogVerificationRecords.$inferSelect>();
   for (const row of verificationRecords
-    .filter((item) => item.centerId === config.CENTER_ID)
+    .filter((item) => item.centerId === config.REGISTRATION_ID)
     .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())) {
     if (!latestVerificationByCatalog.has(row.catalogId)) latestVerificationByCatalog.set(row.catalogId, row);
   }
 
   const registrationCounts = new Map<string, number>();
-  for (const row of registrationRecords.filter((item) => item.centerId === config.CENTER_ID)) {
+  for (const row of registrationRecords.filter((item) => item.centerId === config.REGISTRATION_ID)) {
     registrationCounts.set(row.catalogId, (registrationCounts.get(row.catalogId) ?? 0) + 1);
   }
 
   return {
-    center_id: config.CENTER_ID,
+    center_id: config.REGISTRATION_ID,
     catalogs: catalogs
-      .filter((row) => row.centerId === config.CENTER_ID)
+      .filter((row) => row.centerId === config.REGISTRATION_ID)
       .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
       .map((row) => {
         const latestHealth = latestHealthByCatalog.get(row.catalogId);
@@ -247,10 +247,10 @@ async function getCenterAdminCatalogs() {
 async function getCenterAdminRegistrations(catalogId: string) {
   const rows = await db.select().from(schema.catalogRegistrationRecords);
   return {
-    center_id: config.CENTER_ID,
+    center_id: config.REGISTRATION_ID,
     catalog_id: catalogId,
     registrations: rows
-      .filter((row) => row.centerId === config.CENTER_ID && row.catalogId === catalogId)
+      .filter((row) => row.centerId === config.REGISTRATION_ID && row.catalogId === catalogId)
       .sort((left, right) => right.registrationVersion - left.registrationVersion || right.createdAt.getTime() - left.createdAt.getTime())
       .map((row) => ({
         id: row.id,
@@ -268,9 +268,9 @@ async function getCenterAdminRegistrations(catalogId: string) {
 async function getCenterAdminSearchAudits() {
   const rows = await db.select().from(schema.catalogSearchAuditRecords);
   return {
-    center_id: config.CENTER_ID,
+    center_id: config.REGISTRATION_ID,
     audits: rows
-      .filter((row) => row.centerId === config.CENTER_ID)
+      .filter((row) => row.centerId === config.REGISTRATION_ID)
       .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
       .slice(0, 40)
       .map((row) => ({
@@ -282,3 +282,4 @@ async function getCenterAdminSearchAudits() {
       })),
   };
 }
+

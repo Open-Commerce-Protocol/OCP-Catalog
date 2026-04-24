@@ -1,6 +1,6 @@
-const centerBaseUrl = (process.env.CENTER_PUBLIC_BASE_URL ?? 'http://localhost:4100').replace(/\/$/, '');
+const centerBaseUrl = (process.env.REGISTRATION_PUBLIC_BASE_URL ?? 'http://localhost:4100').replace(/\/$/, '');
 const catalogBaseUrl = (process.env.CATALOG_PUBLIC_BASE_URL ?? 'http://localhost:4000').replace(/\/$/, '');
-const centerId = process.env.CENTER_ID ?? 'center_local_dev';
+const centerId = process.env.REGISTRATION_ID ?? 'center_local_dev';
 const catalogId = process.env.CATALOG_ID ?? 'cat_local_dev';
 const registrationVersion = Math.floor(Date.now() / 1000);
 
@@ -149,3 +149,4 @@ async function parse(response: Response) {
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
+

@@ -1,13 +1,13 @@
 import type { AppConfig } from '@ocp-catalog/config';
 import { centerDiscoverySchema, centerManifestSchema, type CenterDiscovery, type CenterManifest } from '@ocp-catalog/center-schema';
 
-export function buildCenterDiscovery(config: AppConfig): CenterDiscovery {
-  const baseUrl = config.CENTER_PUBLIC_BASE_URL.replace(/\/$/, '');
+export function buildRegistrationDiscovery(config: AppConfig): CenterDiscovery {
+  const baseUrl = config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '');
   return centerDiscoverySchema.parse({
     ocp_version: '1.0',
     kind: 'CenterDiscovery',
-    center_id: config.CENTER_ID,
-    center_name: config.CENTER_NAME,
+    center_id: config.REGISTRATION_ID,
+    center_name: config.REGISTRATION_NAME,
     center_protocol: 'ocp.catalog.center.v1',
     center_protocol_version: '1.0.0',
     manifest_url: `${baseUrl}/ocp/center/manifest`,
@@ -16,13 +16,13 @@ export function buildCenterDiscovery(config: AppConfig): CenterDiscovery {
   });
 }
 
-export function buildCenterManifest(config: AppConfig): CenterManifest {
-  const baseUrl = config.CENTER_PUBLIC_BASE_URL.replace(/\/$/, '');
+export function buildRegistrationManifest(config: AppConfig): CenterManifest {
+  const baseUrl = config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '');
   return centerManifestSchema.parse({
     ocp_version: '1.0',
     kind: 'CenterManifest',
-    center_id: config.CENTER_ID,
-    center_name: config.CENTER_NAME,
+    center_id: config.REGISTRATION_ID,
+    center_name: config.REGISTRATION_NAME,
     supported_protocols: ['ocp.catalog.center.v1', 'ocp.catalog.handshake.v1'],
     endpoints: {
       catalog_registration: `${baseUrl}/ocp/catalogs/register`,
@@ -56,3 +56,4 @@ export function buildCenterManifest(config: AppConfig): CenterManifest {
     ],
   });
 }
+

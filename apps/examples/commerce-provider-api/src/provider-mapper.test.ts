@@ -11,11 +11,11 @@ const config: AppConfig = {
   PROVIDER_PUBLIC_BASE_URL: 'http://localhost:4200',
   USER_DEMO_API_PORT: 4230,
   PROTOCOL_DOCS_PORT: 5173,
-  CENTER_API_PORT: 4100,
-  CENTER_ADMIN_UI_PORT: 4250,
-  CENTER_PUBLIC_BASE_URL: 'http://localhost:4100',
-  CENTER_REFRESH_SCHEDULER_ENABLED: true,
-  CENTER_REFRESH_INTERVAL_SECONDS: 300,
+  REGISTRATION_API_PORT: 4100,
+  REGISTRATION_ADMIN_UI_PORT: 4250,
+  REGISTRATION_PUBLIC_BASE_URL: 'http://localhost:4100',
+  REGISTRATION_REFRESH_SCHEDULER_ENABLED: true,
+  REGISTRATION_REFRESH_INTERVAL_SECONDS: 300,
   API_KEY_DEV: 'dev-api-key',
   API_KEYS: '',
   CATALOG_ID: 'cat_local_dev',
@@ -24,8 +24,8 @@ const config: AppConfig = {
   COMMERCE_PROVIDER_NAME: 'Local Commerce Provider',
   COMMERCE_PROVIDER_CONTACT_EMAIL: 'ops@example.test',
   COMMERCE_PROVIDER_DOMAIN: 'localhost',
-  CENTER_ID: 'center_local_dev',
-  CENTER_NAME: 'Local OCP Center',
+  REGISTRATION_ID: 'center_local_dev',
+  REGISTRATION_NAME: 'Local OCP Center',
   EMBEDDING_MODEL: 'local-hash-v1',
   EMBEDDING_DIMENSION: 64,
   USER_DEMO_AGENT_MODEL: 'qwen-plus',
@@ -102,3 +102,4 @@ describe('provider-mapper', () => {
     expect(request.objects[0]?.object_id).toBe('sku-1');
   });
 });
+

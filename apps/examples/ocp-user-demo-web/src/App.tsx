@@ -187,7 +187,7 @@ export function App() {
       {
         id: crypto.randomUUID(),
         role: 'agent',
-        content: '本地 memory 已清空。我现在不记得任何 catalog profile 了。再找我查东西的话，我会重新去 OCP Center。',
+        content: '本地 memory 已清空。我现在不记得任何 catalog profile 了。再找我查东西的话，我会重新去 Registration node。',
       },
     ]);
   }

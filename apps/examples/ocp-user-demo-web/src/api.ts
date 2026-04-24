@@ -117,19 +117,26 @@ const fallbackCatalogResolveUrl = resolveOptionalApiUrl(
 );
 const userDemoApiPrefix = '/api/user-demo';
 
-const resolvedCenterBaseUrl = resolveRequiredApiUrl(
-  'VITE_CENTER_API_BASE_URL',
-  import.meta.env.VITE_CENTER_API_BASE_URL,
-  'http://localhost:4100',
+const registrationDiscoveryUrl = resolveRequiredApiUrl(
+  'VITE_REGISTRATION_DISCOVERY_URL',
+  import.meta.env.VITE_REGISTRATION_DISCOVERY_URL,
+  'https://ocp.deeplumen.io/.well-known/ocp-center',
 );
 
-export async function searchCenter(input: {
+type RegistrationDiscovery = {
+  catalog_search_url: string;
+};
+
+let registrationDiscoveryPromise: Promise<RegistrationDiscovery> | null = null;
+
+export async function searchRegistration(input: {
   query: string;
   queryPack?: string;
   verificationStatus?: string;
   supportsResolve?: boolean;
 }) {
-  const payload = await request<{ items: CatalogSearchItem[]; explain: string[] }>(`${resolvedCenterBaseUrl}/ocp/catalogs/search`, {
+  const discovery = await getRegistrationDiscovery();
+  const payload = await request<{ items: CatalogSearchItem[]; explain: string[] }>(discovery.catalog_search_url, {
     method: 'POST',
     body: {
       ocp_version: '1.0',
@@ -189,28 +196,28 @@ export async function resolveEntry(routeHint: CatalogSearchItem['route_hint'] | 
 }
 
 export async function runAgentRoute(input: {
-  centerQuery: string;
+  registrationQuery: string;
   catalogQuery: string;
   queryPack?: string;
 }) {
   const timeline: string[] = [];
 
-  timeline.push('Searching OCP Center for candidate catalogs.');
-  const center = await searchCenter({
-    query: input.centerQuery,
+  timeline.push('Searching the OCP Catalog Registration node for candidate catalogs.');
+  const registration = await searchRegistration({
+    query: input.registrationQuery,
     queryPack: input.queryPack,
     supportsResolve: true,
   });
 
-  const selectedCatalog = center.items.find((item) => (
+  const selectedCatalog = registration.items.find((item) => (
     (item.verification_status === 'verified' || item.verification_status === 'not_required') &&
     item.health_status === 'healthy'
   ));
 
   if (!selectedCatalog) {
-    throw new Error('No catalogs matched the current center search.');
+    throw new Error('No catalogs matched the current Registration node search.');
   }
-  timeline.push(`Selected catalog ${selectedCatalog.catalog_name} from center results.`);
+  timeline.push(`Selected catalog ${selectedCatalog.catalog_name} from Registration node results.`);
 
   const catalog = await queryCatalog(selectedCatalog.route_hint, {
     query: input.catalogQuery,
@@ -229,13 +236,20 @@ export async function runAgentRoute(input: {
   timeline.push('Resolved the entry into a user action binding.');
 
   return {
-    center,
+    registration,
     selectedCatalog,
     catalog,
     selectedEntry,
     resolved,
     timeline,
   };
+}
+
+async function getRegistrationDiscovery() {
+  registrationDiscoveryPromise ??= request<RegistrationDiscovery>(registrationDiscoveryUrl, {
+    method: 'GET',
+  });
+  return await registrationDiscoveryPromise;
 }
 
 export async function agentTurn(input: {
@@ -283,13 +297,13 @@ export async function confirmCatalogRegistration(input: {
   });
 }
 
-async function request<T>(url: string, options: { method: 'POST'; body: unknown }) {
+async function request<T>(url: string, options: { method: 'GET' } | { method: 'POST'; body: unknown }) {
   const response = await fetch(url, {
     method: options.method,
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify(options.body),
+    ...(options.method === 'POST' ? { body: JSON.stringify(options.body) } : {}),
   });
 
   const text = await response.text();

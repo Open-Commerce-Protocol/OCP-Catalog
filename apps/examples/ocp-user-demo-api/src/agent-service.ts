@@ -35,6 +35,10 @@ const routeHintSchema = z.object({
   snapshot_fetched_at: z.string(),
 });
 
+const registrationDiscoverySchema = z.object({
+  catalog_search_url: z.string().url(),
+}).passthrough();
+
 const catalogSearchItemSchema = z.object({
   catalog_id: z.string(),
   catalog_name: z.string(),
@@ -124,14 +128,14 @@ type SavedCatalogProfile = z.infer<typeof savedProfileSchema>;
 type QuerySession = z.infer<typeof querySessionSchema>;
 type CatalogSearchItem = z.infer<typeof catalogSearchItemSchema>;
 type CatalogQueryItem = z.infer<typeof catalogQueryItemSchema>;
-type SearchCenterOptions = {
+type SearchRegistrationOptions = {
   verificationStatus?: string;
   supportsResolve?: boolean;
 };
 
-type CenterSelectionPlan = {
+type RegistrationSelectionPlan = {
   intent_summary: string;
-  center_search_query: string;
+  registration_search_query: string;
 };
 
 type CatalogQueryPlan = {
@@ -176,9 +180,9 @@ type QueryPackInput = {
   filters?: QuerySession['activeFilters'] | CatalogQueryPlan['filters'];
 };
 
-const centerSelectionPlanSchema = z.object({
+const registrationSelectionPlanSchema = z.object({
   intent_summary: z.string().min(1),
-  center_search_query: z.string().min(1),
+  registration_search_query: z.string().min(1),
 });
 
 const catalogQueryPlanSchema = z.object({
@@ -224,6 +228,7 @@ function isUsableCenterCatalog(item: { verification_status: string; health_statu
 
 export class UserDemoAgentService {
   private readonly model: OpenAiCompatibleClient;
+  private registrationDiscoveryPromise: Promise<z.infer<typeof registrationDiscoverySchema>> | null = null;
 
   constructor(private readonly config: AppConfig) {
     this.model = new OpenAiCompatibleClient(config, config.USER_DEMO_AGENT_MODEL);
@@ -243,21 +248,39 @@ export class UserDemoAgentService {
     }
 
     if (request.saved_profiles.length === 0) {
-      const centerPlan = await this.planCenterSelection({
+      const registrationPlan = await this.planRegistrationSelection({
         userInput: request.user_input,
       });
-      const center = await this.searchCenter(centerPlan.center_search_query, {
+      const registration = await this.searchRegistration(registrationPlan.registration_search_query, {
         supportsResolve: true,
       });
-      const candidate = center.items.find((item) => isUsableCenterCatalog(item)) ?? null;
+      const candidate = registration.items.find((item) => isUsableCenterCatalog(item)) ?? null;
       if (!candidate) {
-        const fallback = await this.searchCenter('', {
+        const fallback = await this.searchRegistration('', {
           supportsResolve: true,
         });
-        const message = await this.summarizeCenterMiss(
+        const fallbackCandidate = fallback.items.find((item) => isUsableCenterCatalog(item)) ?? null;
+        if (fallbackCandidate) {
+          const queryPlan = await this.planCatalogQuery({
+            userInput: request.user_input,
+            session: request.session ?? null,
+            routeHint: fallbackCandidate.route_hint,
+            previousResults: request.previous_results,
+          });
+          const normalizedSession = buildNextSession(queryPlan, request.user_input, fallbackCandidate.route_hint.supported_query_packs);
+          const message = await this.summarizeCatalogChoice(request.user_input, fallbackCandidate);
+          return {
+            agent_message: message,
+            pending_catalog: fallbackCandidate,
+            next_session: normalizedSession,
+            result_items: [] as CatalogQueryItem[],
+            selected_catalog_id: null,
+          };
+        }
+        const message = await this.summarizeRegistrationMiss(
           request.user_input,
           null,
-          centerPlan.center_search_query,
+          registrationPlan.registration_search_query,
           fallback.items,
         );
         return {
@@ -341,29 +364,29 @@ export class UserDemoAgentService {
     };
   }
 
-  private async planCenterSelection(input: {
+  private async planRegistrationSelection(input: {
     userInput: string;
   }) {
-    const draft = await this.model.completeJson<CenterSelectionPlan>(
+    const draft = await this.model.completeJson<RegistrationSelectionPlan>(
       [
         'You are an OCP user-side agent and catalog-selection planner.',
         'OCP Catalog is not limited to shopping. It can discover commercial objects such as products, services, jobs, talent profiles, local appointments, B2B capabilities, and workflow entry points.',
-        'Your job in this phase is only to decide how to search OCP Center for a suitable catalog.',
+        'Your job in this phase is only to decide how to search the OCP Catalog Registration node for a suitable catalog.',
         'When selecting catalogs, inspect catalog profiles carefully (description, metadata.query_hints, supported_query_packs, trust/health), not just catalog_name.',
         'Some catalog names are broad and do not reveal exact inventory scope. Do not over-constrain by literal category names if profile signals a broader commerce scope.',
         'Example: if user wants to buy clothes, an e-commerce catalog profile can be a valid candidate even when catalog_name does not explicitly contain a clothing category.',
         'Do not plan query_pack, sort, or catalog filters in this phase.',
-        'Do not assume a catalog before Center discovery happens.',
+        'Do not assume a catalog before Registration node discovery and catalog search happen.',
         'Return JSON only.',
         'Schema:',
-        JSON.stringify(z.toJSONSchema(centerSelectionPlanSchema), null, 2),
+        JSON.stringify(z.toJSONSchema(registrationSelectionPlanSchema), null, 2),
       ].join('\n'),
       JSON.stringify({
         user_input: input.userInput,
       }, null, 2),
     );
 
-    return centerSelectionPlanSchema.parse(draft);
+    return registrationSelectionPlanSchema.parse(draft);
   }
 
   private async planCatalogQuery(input: {
@@ -440,7 +463,7 @@ export class UserDemoAgentService {
 
   private async summarizeCatalogChoice(userInput: string, candidate: CatalogSearchItem) {
     return await this.model.completeText(
-      'You are a Chinese OCP user-side agent. Explain briefly why this catalog is a good candidate for the user intent and ask for explicit permission to save its profile locally. Do not expose raw protocol details.',
+      'You are a Chinese OCP user-side agent. Explain briefly why this catalog is a good candidate for the user intent and ask for explicit permission to save its profile locally. If the catalog was selected from broad Registration node fallback results rather than an exact metadata match, say that you found a generally suitable healthy catalog and need user confirmation before using it. Do not expose raw protocol details.',
       JSON.stringify({
         user_input: userInput,
         candidate: {
@@ -479,10 +502,10 @@ export class UserDemoAgentService {
     );
   }
 
-  private async summarizeCenterMiss(
+  private async summarizeRegistrationMiss(
     userInput: string,
     session: QuerySession | null,
-    centerSearchQuery: string,
+    registrationSearchQuery: string,
     fallbackItems: CatalogSearchItem[],
   ) {
     const hasUsableCandidate = fallbackItems.some((item) => isUsableCenterCatalog(item));
@@ -499,18 +522,18 @@ export class UserDemoAgentService {
     return await this.model.completeText(
       [
         'You are a Chinese OCP user-side agent.',
-        'No immediately usable catalog candidate was found from OCP Center for the current request.',
+        'No immediately usable catalog candidate was found from the OCP Catalog Registration node for the current request.',
         'Treat catalogs with verification_status "verified" or "not_required" and health_status "healthy" as usable.',
-        'If fallback items exist but are blocked by trust or health status, explain clearly that catalogs may already be registered in Center, but they are not yet usable for the agent.',
-        'If there are usable fallback items, explain that Center has catalogs but the current request did not match their metadata well enough.',
-        'If there are no fallback items at all, explain that Center currently has no usable catalogs.',
+        'If fallback items exist but are blocked by trust or health status, explain clearly that catalogs may already be registered in the Registration node, but they are not yet usable for the agent.',
+        'If there are usable fallback items, explain that the Registration node has catalogs but the current request did not match their metadata well enough.',
+        'If there are no fallback items at all, explain that the Registration node currently has no usable catalogs.',
         'Keep it concise.',
         'Use Markdown bullet points when listing follow-up suggestions.',
         'Do not expose raw protocol details beyond mentioning registration status or health when necessary.',
       ].join(' '),
       JSON.stringify({
         user_input: userInput,
-        center_search_query: centerSearchQuery,
+        registration_search_query: registrationSearchQuery,
         session,
         has_usable_fallback_candidate: hasUsableCandidate,
         fallback_catalogs: blockedCandidates,
@@ -581,8 +604,9 @@ export class UserDemoAgentService {
     return sortItems(dedupeItems(collected), session.sortPreference);
   }
 
-  private async searchCenter(query: string, options: SearchCenterOptions = {}) {
-    return requestJson<{ items: CatalogSearchItem[] }>(`${this.config.CENTER_PUBLIC_BASE_URL.replace(/\/$/, '')}/ocp/catalogs/search`, {
+  private async searchRegistration(query: string, options: SearchRegistrationOptions = {}) {
+    const discovery = await this.getRegistrationDiscovery();
+    return requestJson<{ items: CatalogSearchItem[] }>(discovery.catalog_search_url, {
       ocp_version: '1.0',
       kind: 'CatalogSearchRequest',
       query,
@@ -593,6 +617,11 @@ export class UserDemoAgentService {
       limit: 10,
       explain: false,
     });
+  }
+
+  private async getRegistrationDiscovery() {
+    this.registrationDiscoveryPromise ??= fetchRegistrationDiscovery(this.config);
+    return await this.registrationDiscoveryPromise;
   }
 
   private async queryCatalog(
@@ -631,6 +660,30 @@ async function requestJson<T>(url: string, body: unknown) {
   }
 
   return payload as T;
+}
+
+async function fetchRegistrationDiscovery(config: AppConfig) {
+  const configuredDiscoveryUrl = config.REGISTRATION_DISCOVERY_URL?.trim();
+  const baseUrl = (config.REGISTRATION_PUBLIC_BASE_URL || config.REGISTRATION_PUBLIC_BASE_URL).replace(/\/$/, '');
+  const discoveryUrl = configuredDiscoveryUrl || `${baseUrl}/.well-known/ocp-center`;
+  const response = await fetch(discoveryUrl, {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+    },
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new AgentError(
+      response.status,
+      'registration_discovery_error',
+      payload?.error?.message ?? `Registration discovery failed with status ${response.status}`,
+      { discovery_url: discoveryUrl, payload },
+    );
+  }
+
+  return registrationDiscoverySchema.parse(payload);
 }
 
 function buildNextSession(plan: CatalogQueryPlan, latestUserTurn: string, supportedQueryPacks: string[]): QuerySession {
@@ -745,3 +798,4 @@ function normalizeQueryPack(
 
   return supportedQueryPacks[0];
 }
+
