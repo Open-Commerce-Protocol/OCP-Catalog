@@ -4,6 +4,7 @@ export const navigation = [
     links: [
       { title: { en: 'Overview', zh: '总览' }, href: '/overview' },
       { title: { en: 'Roles', zh: '角色' }, href: '/roles' },
+      { title: { en: 'Resolve & Actions', zh: 'Resolve 与动作' }, href: '/resolve-actions' },
       { title: { en: 'Getting Started', zh: '快速接入' }, href: '/getting-started' },
       { title: { en: 'FAQ', zh: 'FAQ' }, href: '/faq' },
     ],
@@ -36,6 +37,7 @@ export const navigation = [
     links: [
       { title: { en: 'Minimal Catalog', zh: '最小 Catalog' }, href: '/examples/minimal-catalog' },
       { title: { en: 'Minimal Provider', zh: '最小 Provider' }, href: '/examples/minimal-provider' },
+      { title: { en: 'Shopify Provider', zh: 'Shopify Provider 示例' }, href: '/examples/shopify-provider' },
       { title: { en: 'Registration Flow', zh: '注册流程' }, href: '/examples/registration-flow' },
       { title: { en: 'Commerce Catalog', zh: '电商目录示例' }, href: '/examples/commerce-catalog' },
       { title: { en: 'Provider Flow', zh: '提供方流程' }, href: '/examples/provider-flow' },

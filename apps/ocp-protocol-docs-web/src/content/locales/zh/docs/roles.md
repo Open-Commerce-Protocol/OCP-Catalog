@@ -32,6 +32,7 @@ Catalog 是真正提供查询能力的节点。
 - 接收 provider registration
 - 接收对象同步
 - 暴露 query 和 resolve 接口
+- 通过 resolve 结果暴露动作入口
 
 ## Provider
 
@@ -54,6 +55,8 @@ Agent 是使用侧。
 - 对 catalog 发 query 请求
 - 对选中的结果执行 resolve
 
+这些最终动作是开放的。一个 catalog 里可能是 `view_product` 或 `buy_now`；另一个 catalog 里可能是 `book_slot`、`apply_job`、`submit_resume`、`send_interview_invite` 或 `request_quote`。
+
 ## 角色关系
 
 ```text
@@ -70,6 +73,7 @@ Provider -> Catalog -> Registration node
 - 对象供给
 - catalog 服务
 - 网络级发现
+- 上下文化地解析成下一步动作
 
 这正是当前 demo 可以同时支持多个 provider 和多个 catalog 的原因。
 

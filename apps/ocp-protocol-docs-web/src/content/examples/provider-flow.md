@@ -2,6 +2,8 @@
 
 This example flow describes the real commerce provider implementation that ships in this repository.
 
+For a platform-plugin style onboarding scenario, see [Shopify-Style Provider](/examples/shopify-provider).
+
 ## Real Lifecycle
 
 ```text
@@ -95,3 +97,5 @@ The provider example now demonstrates a realistic split of responsibilities:
 - the provider chooses how rich its declarations and payloads are
 - the catalog decides how to rank, filter, and expose those products after sync
 - the provider admin surface closes the loop by showing whether the feed is merely accepted or actually high quality
+
+The same provider shape can be packaged as a storefront plugin or marketplace app. In that model, the merchant chooses a target catalog once, and the app handles registration, product mapping, batch sync, and later product-change syncs.

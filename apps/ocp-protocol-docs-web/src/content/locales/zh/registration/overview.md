@@ -12,9 +12,9 @@ Registration node 回答的问题是：
 
 它不回答：
 
-> 具体应该买哪个商品？
+> 具体应该选择哪个对象，以及下一步可以对它做什么？
 
-后一个问题属于 Catalog 本身。
+后一个问题属于 Catalog 本身。Catalog 可以把选中的 entry resolve 成 `ResolvableReference`，并返回 `view_product`、`book_slot`、`apply_job`、`send_interview_invite`、`request_quote` 等动作入口。
 
 ## Registration 对象
 

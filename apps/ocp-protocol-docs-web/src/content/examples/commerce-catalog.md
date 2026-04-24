@@ -164,6 +164,8 @@ seed provider demo products
 -> provider status surfaces local_quality, publish_readiness, and catalog_quality
 ```
 
+`view_product` is the action implemented by this commerce example. It should be read as one action binding, not as the limit of resolve. A richer commerce catalog could expose `add_to_cart`, `buy_now`, or `request_quote`; a non-commerce catalog could expose appointment, application, invitation, or procurement actions through the same resolve shape.
+
 Two concrete implementation details matter here:
 
 - the current provider runtime computes `next_registration_version` from the catalog's active provider state

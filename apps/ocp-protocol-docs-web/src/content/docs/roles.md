@@ -32,6 +32,7 @@ It is responsible for:
 - accepting provider registrations
 - ingesting synchronized objects
 - exposing query and resolve endpoints
+- exposing action entrances through resolve results
 
 ## Provider
 
@@ -54,6 +55,8 @@ It is responsible for:
 - issuing query requests against the selected catalog
 - resolving selected entries into final actions
 
+Those final actions are intentionally open-ended. In one catalog they may be `view_product` or `buy_now`; in another they may be `book_slot`, `apply_job`, `submit_resume`, `send_interview_invite`, or `request_quote`.
+
 ## Role Graph
 
 ```text
@@ -70,6 +73,7 @@ This split keeps three different concerns separate:
 - object supply
 - catalog serving
 - network-level discovery
+- contextual resolution into next actions
 
 That separation is what makes the current demo chain workable with more than one provider and more than one catalog.
 

@@ -29,6 +29,16 @@ The current repository example is now more concrete than a generic "search some 
 - query results now carry commerce attributes such as price, image, availability, and quality tier
 - the agent resolves a selected `entry_id`, not just an `object_id`
 
+The commerce demo resolves to `view_product` because that is the narrow action implemented in this repository. The protocol idea is broader: resolve is the boundary where a chosen entry becomes the next executable step for the caller.
+
+Other catalogs can resolve entries into actions such as:
+
+- `buy_now` for commerce
+- `book_slot` for local services
+- `apply_job` or `submit_resume` for job search
+- `send_interview_invite` for recruiting
+- `request_quote` for B2B services
+
 ## Why Registration node And Catalog Stay Separate
 
 The agent first solves:
@@ -52,4 +62,13 @@ User asks for travel headphones
 -> agent queries that catalog with price/image/availability-aware ranking
 -> agent gets back rich and basic product candidates
 -> agent resolves the chosen entry into a ResolvableReference with visible product fields and view_product action
+```
+
+The same shape can apply outside commerce:
+
+```text
+User asks for a dentist appointment next Tuesday
+-> agent searches Registration node for a local-service catalog
+-> agent queries that catalog for clinics, doctors, and available slots
+-> agent resolves one slot into a ResolvableReference with book_slot action
 ```

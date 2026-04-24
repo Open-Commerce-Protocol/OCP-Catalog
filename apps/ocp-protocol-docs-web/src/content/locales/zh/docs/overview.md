@@ -19,6 +19,15 @@
 4. 用户侧 agent 先向 Registration node 询问应该使用哪个 Catalog
 5. agent 再路由到选中的 Catalog，执行 query 和 resolve
 
+这里最重要的概念拆分是：
+
+- query 找到候选对象
+- resolve 把选中的候选对象变成下一步可执行引用
+
+这个下一步不只是一页详情页。取决于 catalog 和调用方权限，resolve 可以暴露购买商品、预约本地服务、投递职位、提交简历、发送面试邀约、请求报价，或者进入某个领域 workflow 的动作入口。
+
+所以 OCP Catalog 不只是商品目录协议。它是一个发现商业对象，并把对象解析成安全、上下文化下一步动作的协议层。
+
 ## 协议边界
 
 协议被故意拆成两层。
@@ -114,6 +123,7 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
 - 如果你想快速参与建设，先看 [快速接入](/getting-started)
 - 如果你有一些接入层面的简单问题，先看 [FAQ](/faq)
 - 如果你想先看最小可实现版本，先看 [最小 Catalog](/examples/minimal-catalog) 和 [最小 Provider](/examples/minimal-provider)
+- 如果你想理解 `resolve` 的核心概念，读 [Resolve 与动作](/resolve-actions)
 - 再看 Handshake 概览
 - 再看 注册发现概览
 - 最后看示例流程

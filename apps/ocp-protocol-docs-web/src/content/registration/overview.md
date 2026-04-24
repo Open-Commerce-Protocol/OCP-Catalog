@@ -12,9 +12,9 @@ The Registration node answers:
 
 It does not answer:
 
-> Which product should I buy?
+> Which object should I choose, and what can I do with it next?
 
-That second question belongs to the catalog itself.
+That second question belongs to the catalog itself. A catalog may answer it by resolving a selected entry into a `ResolvableReference` with actions such as `view_product`, `book_slot`, `apply_job`, `send_interview_invite`, or `request_quote`.
 
 ## Registration Objects
 

@@ -2,6 +2,8 @@
 
 这一页演示的是，在当前以 push 为主的 OCP handshake 下，怎样实现一个最小但可参与协议的 provider。
 
+如果你想看更接近真实商家平台的例子，可以在读完这一页后看 [Shopify Provider 示例](/examples/shopify-provider)。
+
 目标同样被故意收得很窄：
 
 - 选择一个目标 catalog
@@ -199,3 +201,4 @@ provider 进程启动
 - [ProviderRegistration](/handshake/provider-registration)
 - [CommercialObject](/handshake/commercial-object)
 - [提供方流程](/examples/provider-flow)
+- [Shopify Provider 示例](/examples/shopify-provider)

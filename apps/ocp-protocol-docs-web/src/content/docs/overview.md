@@ -19,6 +19,15 @@ At a high level:
 4. User-side agents ask the Registration node which catalog to use.
 5. Agents route to the selected catalog and perform query and resolve there.
 
+The important conceptual split is:
+
+- query finds candidate objects
+- resolve turns a chosen candidate into the next executable reference
+
+That next step can be more than a page view. Depending on the catalog and caller permissions, resolve may expose actions such as buying a product, booking a local service, applying to a job, submitting a resume, sending an interview invite, requesting a quote, or entering a domain workflow.
+
+OCP Catalog is therefore not only a product catalog protocol. It is a protocol layer for discovering commercial objects and resolving them into safe, contextual next steps.
+
 ## Protocol Boundaries
 
 The protocol is intentionally split.
@@ -114,6 +123,7 @@ This keeps the protocol stable while still giving agents useful planning hints.
 - If you want to build quickly, read [Getting Started](/getting-started)
 - If you have practical onboarding questions, read [FAQ](/faq)
 - If you want the smallest concrete implementation, read [Minimal Catalog](/examples/minimal-catalog) and [Minimal Provider](/examples/minimal-provider)
+- If you want the core `resolve` idea, read [Resolve & Actions](/resolve-actions)
 - Then read the Handshake overview
 - Then read the Registration node overview
 - Finally inspect the example flows

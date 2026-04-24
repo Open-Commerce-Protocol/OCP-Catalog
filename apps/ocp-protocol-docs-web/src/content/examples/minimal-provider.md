@@ -2,6 +2,8 @@
 
 This page shows the smallest provider that can still participate in the current push-based OCP handshake.
 
+If you want a more realistic merchant-platform example, read [Shopify-Style Provider](/examples/shopify-provider) after this page.
+
 The target is again intentionally narrow:
 
 - choose one target catalog
@@ -199,3 +201,4 @@ provider process starts
 - [ProviderRegistration](/handshake/provider-registration)
 - [CommercialObject](/handshake/commercial-object)
 - [Provider Flow](/examples/provider-flow)
+- [Shopify-Style Provider](/examples/shopify-provider)

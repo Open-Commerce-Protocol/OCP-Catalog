@@ -49,6 +49,14 @@ Catalog should help answer:
 
 Keeping these stages separate is one of the main reasons the current design scales beyond a single catalog.
 
+## Treat Resolve As The Next-Step Boundary
+
+Query should not be forced to carry every execution detail.
+
+Resolve is where a selected candidate becomes a contextual `ResolvableReference`: visible fields, permissions, freshness checks, and action bindings for what the caller can do next.
+
+Those action bindings can point to pages, APIs, contact channels, or workflow entries. The catalog exposes the entrance, but the authoritative service still owns the actual order, booking, application, invitation, quote, or approval state machine.
+
 ## Versioned Declarations Are Required
 
 Both provider registration and catalog registration are versioned for a reason:

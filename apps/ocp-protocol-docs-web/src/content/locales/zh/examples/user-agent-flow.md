@@ -29,6 +29,16 @@
 - query result 现在会带上价格、图片、库存、质量层级等 commerce attributes
 - agent resolve 的是选中的 `entry_id`，而不只是一个 `object_id`
 
+当前 commerce demo resolve 成 `view_product`，是因为这个仓库里实际落地的是这个较窄动作。协议概念本身更宽：resolve 是把选中 entry 变成调用方下一步可执行动作的边界。
+
+其他 catalog 可以把 entry resolve 成这些动作：
+
+- 电商里的 `buy_now`
+- 本地服务里的 `book_slot`
+- 找工作里的 `apply_job` 或 `submit_resume`
+- 人才招聘里的 `send_interview_invite`
+- B2B 服务里的 `request_quote`
+
 ## 为什么 Registration node 和 Catalog 要分开
 
 Agent 先解决的是：
@@ -52,4 +62,13 @@ Agent 先解决的是：
 -> agent 用价格、图片、库存感知的排序去查询该 catalog
 -> agent 拿到 rich 和 basic 两类商品候选
 -> agent 再把选中的 entry resolve 成带可见商品字段和 view_product action 的 ResolvableReference
+```
+
+同一条链路也可以用于非电商场景：
+
+```text
+用户说想预约下周二的牙医
+-> agent 先去 Registration node 搜索本地服务 catalog
+-> agent 查询该 catalog 里的诊所、医生和可预约时段
+-> agent 把某个时段 resolve 成带 book_slot action 的 ResolvableReference
 ```

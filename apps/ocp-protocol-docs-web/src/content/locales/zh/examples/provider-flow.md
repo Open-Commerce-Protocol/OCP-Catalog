@@ -2,6 +2,8 @@
 
 这个示例流程描述的是当前仓库里真实存在的 commerce provider 实现。
 
+如果想看平台插件式接入场景，可以看 [Shopify Provider 示例](/examples/shopify-provider)。
+
 ## 真实生命周期
 
 ```text
@@ -95,3 +97,5 @@ provider admin seed 或编辑商品
 - provider 决定自己的声明和 payload 可以有多丰富
 - catalog 决定 sync 之后如何排序、过滤和暴露这些商品
 - provider admin 界面再把结果反馈回来，告诉你这个 feed 是“只是被接收”，还是“已经达到高质量目录标准”
+
+同样的 provider 形状也可以被包装成 storefront plugin 或 marketplace app。在这种模型里，商家只需要选择一次目标 catalog，后续由 app 负责 registration、商品映射、batch sync，以及商品变化后的增量同步。

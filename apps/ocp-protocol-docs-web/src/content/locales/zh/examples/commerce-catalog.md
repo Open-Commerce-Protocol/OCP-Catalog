@@ -164,6 +164,8 @@ seed provider demo products
 -> provider status 暴露 local_quality、publish_readiness 和 catalog_quality
 ```
 
+`view_product` 是当前 commerce example 已经实现的动作。它应该被理解成一种 action binding，而不是 resolve 的能力边界。更完整的电商 catalog 可以暴露 `add_to_cart`、`buy_now` 或 `request_quote`；非电商 catalog 也可以用同样的 resolve 形状暴露预约、投递、邀约或采购动作。
+
 这里还有两个当前实现层面的细节：
 
 - provider runtime 会先根据 catalog 当前 active provider state 计算 `next_registration_version`

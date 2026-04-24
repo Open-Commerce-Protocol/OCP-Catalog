@@ -49,6 +49,14 @@ Catalog 应该帮助回答：
 
 把这两个阶段拆开，是当前设计能够超越单一 catalog 的关键原因之一。
 
+## 把 Resolve 视为下一步边界
+
+Query 不应该被迫携带所有执行细节。
+
+Resolve 是选中候选对象变成上下文化 `ResolvableReference` 的地方：当前可见字段、权限、新鲜度检查，以及调用方下一步可以做什么的 action binding。
+
+这些 action binding 可以指向页面、API、联系渠道或 workflow 入口。Catalog 暴露入口，但真正的订单、预约、投递、邀约、报价或审批状态机仍然属于权威服务。
+
 ## 版本化声明是必须的
 
 无论是 provider registration 还是 catalog registration，之所以都做成版本化结构，是因为：
