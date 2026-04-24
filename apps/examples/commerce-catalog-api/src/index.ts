@@ -144,23 +144,23 @@ const app = new Elysia()
     assertAdminAuth(headers);
     return getCatalogAdminEntries(query);
   })
-  .post('/api/catalog-admin/center/register', async ({ headers }) => {
+  .post('/api/catalog-admin/registration/register', async ({ headers }) => {
     assertAdminAuth(headers);
-    return registerCatalogInCenter();
+    return registerCatalogInRegistration();
   })
-  .post('/api/catalog-admin/center/verify', async ({ headers }) => {
+  .post('/api/catalog-admin/registration/verify', async ({ headers }) => {
     assertAdminAuth(headers);
-    return postCenterJson(`/ocp/catalogs/${config.CATALOG_ID}/verify`, {});
+    return postRegistrationJson(`/ocp/catalogs/${config.CATALOG_ID}/verify`, {});
   })
-  .post('/api/catalog-admin/center/refresh', async ({ headers, body }) => {
+  .post('/api/catalog-admin/registration/refresh', async ({ headers, body }) => {
     assertAdminAuth(headers);
     const token = getBodyString(body, 'catalog_token');
-    return postCenterJson(`/ocp/catalogs/${config.CATALOG_ID}/refresh`, {}, token);
+    return postRegistrationJson(`/ocp/catalogs/${config.CATALOG_ID}/refresh`, {}, token);
   })
-  .post('/api/catalog-admin/center/token/rotate', async ({ headers, body }) => {
+  .post('/api/catalog-admin/registration/token/rotate', async ({ headers, body }) => {
     assertAdminAuth(headers);
     const token = getBodyString(body, 'catalog_token');
-    return postCenterJson(`/ocp/catalogs/${config.CATALOG_ID}/token/rotate`, {}, token);
+    return postRegistrationJson(`/ocp/catalogs/${config.CATALOG_ID}/token/rotate`, {}, token);
   })
   .post('/api/catalog-admin/search-index/run', async ({ headers, body }) => {
     assertAdminAuth(headers);
@@ -625,13 +625,13 @@ async function getCatalogAdminEntries(query: Record<string, string | undefined>)
   };
 }
 
-async function registerCatalogInCenter() {
+async function registerCatalogInRegistration() {
   const hostname = new URL(config.CATALOG_PUBLIC_BASE_URL).hostname;
-  return postCenterJson('/ocp/catalogs/register', {
+  return postRegistrationJson('/ocp/catalogs/register', {
     ocp_version: '1.0',
     kind: 'CatalogRegistration',
     id: `catreg_${crypto.randomUUID().replaceAll('-', '')}`,
-    center_id: config.REGISTRATION_ID,
+    registration_id: config.REGISTRATION_ID,
     catalog_id: config.CATALOG_ID,
     registration_version: 1,
     updated_at: new Date().toISOString(),
@@ -643,7 +643,7 @@ async function registerCatalogInCenter() {
   });
 }
 
-async function postCenterJson(pathname: string, body: Record<string, unknown>, catalogToken?: string | null) {
+async function postRegistrationJson(pathname: string, body: Record<string, unknown>, catalogToken?: string | null) {
   const response = await fetch(`${config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '')}${pathname}`, {
     method: 'POST',
     headers: {
@@ -655,7 +655,7 @@ async function postCenterJson(pathname: string, body: Record<string, unknown>, c
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new AppError('internal_error', payload?.error?.message ?? `Center request failed with status ${response.status}`, response.status, payload);
+    throw new AppError('internal_error', payload?.error?.message ?? `Registration request failed with status ${response.status}`, response.status, payload);
   }
 
   return payload;

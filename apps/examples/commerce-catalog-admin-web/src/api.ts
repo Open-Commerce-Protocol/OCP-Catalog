@@ -153,7 +153,7 @@ export type CatalogManifest = Record<string, unknown>;
 export type CatalogWellKnown = Record<string, unknown>;
 export type CatalogContracts = Record<string, unknown>;
 
-export type CenterCatalogRecord = {
+export type RegistrationCatalogRecord = {
   catalogId: string;
   verificationStatus: string;
   trustTier: string;
@@ -166,7 +166,7 @@ export type CenterCatalogRecord = {
   claimedDomains: string[];
 };
 
-export type CenterHealthRecord = {
+export type RegistrationHealthRecord = {
   id: string;
   status: string;
   checkedUrl: string;
@@ -175,7 +175,7 @@ export type CenterHealthRecord = {
   createdAt: string;
 };
 
-export type CenterVerificationRecord = {
+export type RegistrationVerificationRecord = {
   id: string;
   challengeType: string;
   status: string;
@@ -186,7 +186,7 @@ export type CenterVerificationRecord = {
   challengePayload: Record<string, unknown>;
 };
 
-export type CenterManifestSnapshot = {
+export type RegistrationManifestSnapshot = {
   id: string;
   manifestUrl: string;
   discoveryPayload: Record<string, unknown>;
@@ -196,7 +196,7 @@ export type CenterManifestSnapshot = {
   createdAt: string;
 };
 
-export type CenterActionResult = Record<string, unknown> & {
+export type RegistrationActionResult = Record<string, unknown> & {
   catalog_access_token?: string;
 };
 
@@ -206,9 +206,9 @@ const catalogBaseUrl = resolveApiBaseUrl(
   'http://localhost:4000',
   window.location.origin,
 );
-const centerBaseUrl = resolveApiBaseUrl(
-  'VITE_CENTER_API_BASE_URL',
-  import.meta.env.VITE_CENTER_API_BASE_URL,
+const registrationBaseUrl = resolveApiBaseUrl(
+  'VITE_REGISTRATION_API_BASE_URL',
+  import.meta.env.VITE_REGISTRATION_API_BASE_URL,
   'http://localhost:4100',
 );
 const adminPrefix = '/api/catalog-admin';
@@ -312,58 +312,58 @@ export async function resolveCatalogEntry(input: {
   });
 }
 
-export async function fetchCenterCatalog(catalogId: string) {
-  const payload = await request<Record<string, unknown>>(`${centerBaseUrl}/ocp/catalogs/${catalogId}`, {
+export async function fetchRegistrationCatalog(catalogId: string) {
+  const payload = await request<Record<string, unknown>>(`${registrationBaseUrl}/ocp/catalogs/${catalogId}`, {
     method: 'GET',
   });
-  return mapCenterCatalog(payload);
+  return mapRegistrationCatalog(payload);
 }
 
-export async function fetchCenterHealth(catalogId: string) {
-  const payload = await request<{ center_id: string; catalog_id: string; checks: Record<string, unknown>[] }>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/health`, {
-    method: 'GET',
-  });
-  return {
-    ...payload,
-    checks: Array.isArray(payload.checks) ? payload.checks.map(mapCenterHealthRecord) : [],
-  };
-}
-
-export async function fetchCenterVerification(catalogId: string) {
-  const payload = await request<{ center_id: string; catalog_id: string; records: Record<string, unknown>[] }>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/verification`, {
+export async function fetchRegistrationHealth(catalogId: string) {
+  const payload = await request<{ registration_id: string; catalog_id: string; checks: Record<string, unknown>[] }>(`${registrationBaseUrl}/ocp/catalogs/${catalogId}/health`, {
     method: 'GET',
   });
   return {
     ...payload,
-    records: Array.isArray(payload.records) ? payload.records.map(mapCenterVerificationRecord) : [],
+    checks: Array.isArray(payload.checks) ? payload.checks.map(mapRegistrationHealthRecord) : [],
   };
 }
 
-export async function fetchCenterManifestSnapshot(catalogId: string) {
-  const payload = await request<Record<string, unknown>>(`${centerBaseUrl}/ocp/catalogs/${catalogId}/manifest-snapshot`, {
+export async function fetchRegistrationVerification(catalogId: string) {
+  const payload = await request<{ registration_id: string; catalog_id: string; records: Record<string, unknown>[] }>(`${registrationBaseUrl}/ocp/catalogs/${catalogId}/verification`, {
     method: 'GET',
   });
-  return mapCenterManifestSnapshot(payload);
+  return {
+    ...payload,
+    records: Array.isArray(payload.records) ? payload.records.map(mapRegistrationVerificationRecord) : [],
+  };
 }
 
-export async function registerCatalogToCenter(apiKey: string) {
-  return request<CenterActionResult>(`${adminPrefix}/center/register`, {
+export async function fetchRegistrationManifestSnapshot(catalogId: string) {
+  const payload = await request<Record<string, unknown>>(`${registrationBaseUrl}/ocp/catalogs/${catalogId}/manifest-snapshot`, {
+    method: 'GET',
+  });
+  return mapRegistrationManifestSnapshot(payload);
+}
+
+export async function registerCatalogToRegistration(apiKey: string) {
+  return request<RegistrationActionResult>(`${adminPrefix}/registration/register`, {
     method: 'POST',
     apiKey,
     body: {},
   });
 }
 
-export async function verifyCatalogInCenter(apiKey: string) {
-  return request<CenterActionResult>(`${adminPrefix}/center/verify`, {
+export async function verifyCatalogInRegistration(apiKey: string) {
+  return request<RegistrationActionResult>(`${adminPrefix}/registration/verify`, {
     method: 'POST',
     apiKey,
     body: {},
   });
 }
 
-export async function refreshCatalogInCenter(apiKey: string, catalogToken?: string) {
-  return request<CenterActionResult>(`${adminPrefix}/center/refresh`, {
+export async function refreshCatalogInRegistration(apiKey: string, catalogToken?: string) {
+  return request<RegistrationActionResult>(`${adminPrefix}/registration/refresh`, {
     method: 'POST',
     apiKey,
     body: {
@@ -372,8 +372,8 @@ export async function refreshCatalogInCenter(apiKey: string, catalogToken?: stri
   });
 }
 
-export async function rotateCatalogCenterToken(apiKey: string, catalogToken?: string) {
-  return request<CenterActionResult>(`${adminPrefix}/center/token/rotate`, {
+export async function rotateCatalogRegistrationToken(apiKey: string, catalogToken?: string) {
+  return request<RegistrationActionResult>(`${adminPrefix}/registration/token/rotate`, {
     method: 'POST',
     apiKey,
     body: {
@@ -419,7 +419,7 @@ function resolveApiBaseUrl(
   throw new Error(`${envName} must be configured for this deployment build.`);
 }
 
-function mapCenterCatalog(payload: Record<string, unknown>): CenterCatalogRecord {
+function mapRegistrationCatalog(payload: Record<string, unknown>): RegistrationCatalogRecord {
   return {
     catalogId: pickString(payload, 'catalogId', 'catalog_id'),
     verificationStatus: pickString(payload, 'verificationStatus', 'verification_status'),
@@ -434,7 +434,7 @@ function mapCenterCatalog(payload: Record<string, unknown>): CenterCatalogRecord
   };
 }
 
-function mapCenterHealthRecord(payload: Record<string, unknown>): CenterHealthRecord {
+function mapRegistrationHealthRecord(payload: Record<string, unknown>): RegistrationHealthRecord {
   return {
     id: pickString(payload, 'id'),
     status: pickString(payload, 'status'),
@@ -445,7 +445,7 @@ function mapCenterHealthRecord(payload: Record<string, unknown>): CenterHealthRe
   };
 }
 
-function mapCenterVerificationRecord(payload: Record<string, unknown>): CenterVerificationRecord {
+function mapRegistrationVerificationRecord(payload: Record<string, unknown>): RegistrationVerificationRecord {
   return {
     id: pickString(payload, 'id'),
     challengeType: pickString(payload, 'challengeType', 'challenge_type'),
@@ -458,7 +458,7 @@ function mapCenterVerificationRecord(payload: Record<string, unknown>): CenterVe
   };
 }
 
-function mapCenterManifestSnapshot(payload: Record<string, unknown>): CenterManifestSnapshot {
+function mapRegistrationManifestSnapshot(payload: Record<string, unknown>): RegistrationManifestSnapshot {
   return {
     id: pickString(payload, 'id'),
     manifestUrl: pickString(payload, 'manifestUrl', 'manifest_url'),

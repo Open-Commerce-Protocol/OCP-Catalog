@@ -2,7 +2,7 @@
 
 注册发现文档用于引导调用方访问 OCP Catalog Registration node。
 
-当前 wire schema 仍保留兼容性命名：`CenterDiscovery` kind 和 `center_*` 字段名。它们只是兼容标识，不表示 OCP 存在一个中心权威。
+当前 wire schema 使用 `RegistrationDiscovery` kind 和 `registration_*` 字段名。这个 discovery 文档是 OCP Catalog Registration node 的 baseline 入口。
 
 ## 必需字段
 
@@ -11,10 +11,10 @@
   "required": [
     "ocp_version",
     "kind",
-    "center_id",
-    "center_name",
-    "center_protocol",
-    "center_protocol_version",
+    "registration_id",
+    "registration_name",
+    "registration_protocol",
+    "registration_protocol_version",
     "manifest_url",
     "catalog_registration_url",
     "catalog_search_url"
@@ -26,10 +26,10 @@
 
 ```json
 {
-  "kind": "CenterDiscovery",
-  "center_id": "ocp_center_local_dev",
-  "center_name": "OCP Catalog Registration node Local Dev",
-  "center_protocol": "ocp.catalog.center.v1",
+  "kind": "RegistrationDiscovery",
+  "registration_id": "registration_local_dev",
+  "registration_name": "OCP Catalog Registration node Local Dev",
+  "registration_protocol": "ocp.catalog.registration.v1",
   "manifest_url": "http://localhost:4100/ocp/registration/manifest",
   "catalog_registration_url": "http://localhost:4100/ocp/catalogs/register",
   "catalog_search_url": "http://localhost:4100/ocp/catalogs/search"

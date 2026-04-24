@@ -8,16 +8,16 @@ import {
   fetchCatalogHealth,
   fetchCatalogManifest,
   fetchCatalogWellKnown,
-  fetchCenterCatalog,
-  fetchCenterHealth,
-  fetchCenterManifestSnapshot,
-  fetchCenterVerification,
-  refreshCatalogInCenter,
-  registerCatalogToCenter,
+  fetchRegistrationCatalog,
+  fetchRegistrationHealth,
+  fetchRegistrationManifestSnapshot,
+  fetchRegistrationVerification,
+  refreshCatalogInRegistration,
+  registerCatalogToRegistration,
   resolveCatalogEntry,
-  rotateCatalogCenterToken,
+  rotateCatalogRegistrationToken,
   runCatalogQuery,
-  verifyCatalogInCenter,
+  verifyCatalogInRegistration,
   type CatalogAdminEntry,
   type CatalogAdminOverview,
   type CatalogAdminProvider,
@@ -26,14 +26,14 @@ import {
   type CatalogManifest,
   type CatalogQueryResult,
   type CatalogWellKnown,
-  type CenterCatalogRecord,
-  type CenterHealthRecord,
-  type CenterManifestSnapshot,
-  type CenterVerificationRecord,
+  type RegistrationCatalogRecord,
+  type RegistrationHealthRecord,
+  type RegistrationManifestSnapshot,
+  type RegistrationVerificationRecord,
   type ResolvedEntry,
 } from './api';
 
-type WorkspaceTab = 'overview' | 'providers' | 'objects' | 'query_lab' | 'center_ops' | 'manifest';
+type WorkspaceTab = 'overview' | 'providers' | 'objects' | 'query_lab' | 'registration_ops' | 'manifest';
 type ToastState = { tone: 'success' | 'danger'; message: string } | null;
 
 type ConsoleState = {
@@ -43,10 +43,10 @@ type ConsoleState = {
   wellKnown: CatalogWellKnown | null;
   manifest: CatalogManifest | null;
   contracts: CatalogContracts | null;
-  centerCatalog: CenterCatalogRecord | null;
-  centerHealthChecks: CenterHealthRecord[];
-  centerVerificationRecords: CenterVerificationRecord[];
-  centerManifestSnapshot: CenterManifestSnapshot | null;
+  registrationCatalog: RegistrationCatalogRecord | null;
+  registrationHealthChecks: RegistrationHealthRecord[];
+  registrationVerificationRecords: RegistrationVerificationRecord[];
+  registrationManifestSnapshot: RegistrationManifestSnapshot | null;
 };
 
 const emptyState: ConsoleState = {
@@ -56,10 +56,10 @@ const emptyState: ConsoleState = {
   wellKnown: null,
   manifest: null,
   contracts: null,
-  centerCatalog: null,
-  centerHealthChecks: [],
-  centerVerificationRecords: [],
-  centerManifestSnapshot: null,
+  registrationCatalog: null,
+  registrationHealthChecks: [],
+  registrationVerificationRecords: [],
+  registrationManifestSnapshot: null,
 };
 
 function TopBand({
@@ -124,7 +124,7 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: WorkspaceTab; setActi
     { id: 'providers', label: 'Providers', icon: Users },
     { id: 'objects', label: 'Objects & Entries', icon: Database },
     { id: 'query_lab', label: 'Query Lab', icon: Search },
-    { id: 'center_ops', label: 'Center Ops', icon: Network },
+    { id: 'registration_ops', label: 'Registration Ops', icon: Network },
     { id: 'manifest', label: 'Manifest & Contracts', icon: FileJson },
   ];
 
@@ -159,11 +159,11 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: WorkspaceTab; setActi
 function Overview({
   overview,
   health,
-  centerCatalog,
+  registrationCatalog,
 }: {
   overview: CatalogAdminOverview;
   health: CatalogHealth | null;
-  centerCatalog: CenterCatalogRecord | null;
+  registrationCatalog: RegistrationCatalogRecord | null;
 }) {
   const stats = [
     { label: 'Total Providers', value: overview.metrics.provider_count, note: 'Active provider contract states' },
@@ -264,15 +264,15 @@ function Overview({
               <div className="text-sm text-operator-muted">{health?.service ?? 'Catalog API'} {health?.ok ? 'is reachable.' : 'did not respond healthy.'}</div>
               <div className="mt-1 text-[10px] text-operator-muted operator-mono">{health?.protocol ?? 'protocol unknown'}</div>
             </div>
-            <div className={`border-l-2 pl-3 ${centerCatalog ? 'border-operator-text' : 'border-accent-brass'}`}>
-              <div className="text-xs font-semibold">CENTER_INDEX</div>
+            <div className={`border-l-2 pl-3 ${registrationCatalog ? 'border-operator-text' : 'border-accent-brass'}`}>
+              <div className="text-xs font-semibold">REGISTRATION_INDEX</div>
               <div className="text-sm text-operator-muted">
-                {centerCatalog
-                  ? `${centerCatalog.verificationStatus} / ${centerCatalog.healthStatus} / ${centerCatalog.trustTier}`
-                  : 'Catalog is not indexed in Center yet.'}
+                {registrationCatalog
+                  ? `${registrationCatalog.verificationStatus} / ${registrationCatalog.healthStatus} / ${registrationCatalog.trustTier}`
+                  : 'Catalog is not indexed in Registration yet.'}
               </div>
               <div className="mt-1 text-[10px] text-operator-muted operator-mono">
-                {centerCatalog?.activeSnapshotId ?? 'no active center snapshot'}
+                {registrationCatalog?.activeSnapshotId ?? 'no active center snapshot'}
               </div>
             </div>
             <div className="border-l-2 border-operator-text pl-3">
@@ -713,9 +713,9 @@ function QueryLabPage({
   );
 }
 
-function CenterOpsPage({
+function RegistrationOpsPage({
   overview,
-  centerCatalog,
+  registrationCatalog,
   healthChecks,
   verificationRecords,
   manifestSnapshot,
@@ -725,21 +725,21 @@ function CenterOpsPage({
   onRefresh,
 }: {
   overview: CatalogAdminOverview;
-  centerCatalog: CenterCatalogRecord | null;
-  healthChecks: CenterHealthRecord[];
-  verificationRecords: CenterVerificationRecord[];
-  manifestSnapshot: CenterManifestSnapshot | null;
+  registrationCatalog: RegistrationCatalogRecord | null;
+  healthChecks: RegistrationHealthRecord[];
+  verificationRecords: RegistrationVerificationRecord[];
+  manifestSnapshot: RegistrationManifestSnapshot | null;
   apiKey: string;
   onError: (message: string) => void;
   onSuccess: (message: string) => void;
   onRefresh: () => Promise<void>;
 }) {
-  const [catalogToken, setCatalogToken] = useState(() => window.localStorage.getItem('catalog-center-token') || '');
+  const [catalogToken, setCatalogToken] = useState(() => window.localStorage.getItem('catalog-registration-token') || '');
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [lastActionResult, setLastActionResult] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
-    window.localStorage.setItem('catalog-center-token', catalogToken);
+    window.localStorage.setItem('catalog-registration-token', catalogToken);
   }, [catalogToken]);
 
   async function runAction(action: string, fn: () => Promise<Record<string, unknown>>) {
@@ -762,9 +762,9 @@ function CenterOpsPage({
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-8">
       <header>
-        <h2 className="mb-2 text-3xl operator-heading">Center Ops</h2>
+        <h2 className="mb-2 text-3xl operator-heading">Registration Ops</h2>
         <p className="max-w-2xl text-sm text-operator-muted operator-mono">
-          Current center-side registration state, health checks, verification records, and active manifest snapshot for {overview.catalog_id}.
+          Current registration-side state, health checks, verification records, and active manifest snapshot for {overview.catalog_id}.
         </p>
       </header>
 
@@ -772,7 +772,7 @@ function CenterOpsPage({
         <section className="operator-panel p-5">
           <div className="mb-4 flex items-center gap-2">
             <ShieldCheck size={16} className="text-accent-teal" />
-            <h3 className="text-lg operator-heading">Center Registration</h3>
+            <h3 className="text-lg operator-heading">Registration Intake</h3>
           </div>
           <div className="mb-4 space-y-3">
             <label className="block space-y-2 text-sm">
@@ -786,17 +786,17 @@ function CenterOpsPage({
               />
             </label>
             <div className="grid gap-2 md:grid-cols-2">
-              <button onClick={() => void runAction('center register', () => registerCatalogToCenter(apiKey))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
-                {busyAction === 'center register' ? 'Registering...' : 'Register to Center'}
+              <button onClick={() => void runAction('registration register', () => registerCatalogToRegistration(apiKey))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+                {busyAction === 'registration register' ? 'Registering...' : 'Register to Registration'}
               </button>
-              <button onClick={() => void runAction('center verify', () => verifyCatalogInCenter(apiKey))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
-                {busyAction === 'center verify' ? 'Verifying...' : 'Verify'}
+              <button onClick={() => void runAction('registration verify', () => verifyCatalogInRegistration(apiKey))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+                {busyAction === 'registration verify' ? 'Verifying...' : 'Verify'}
               </button>
-              <button onClick={() => void runAction('center refresh', () => refreshCatalogInCenter(apiKey, catalogToken))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
-                {busyAction === 'center refresh' ? 'Refreshing...' : 'Refresh'}
+              <button onClick={() => void runAction('registration refresh', () => refreshCatalogInRegistration(apiKey, catalogToken))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+                {busyAction === 'registration refresh' ? 'Refreshing...' : 'Refresh'}
               </button>
-              <button onClick={() => void runAction('center rotate token', () => rotateCatalogCenterToken(apiKey, catalogToken))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
-                {busyAction === 'center rotate token' ? 'Rotating...' : 'Rotate Token'}
+              <button onClick={() => void runAction('registration rotate token', () => rotateCatalogRegistrationToken(apiKey, catalogToken))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+                {busyAction === 'registration rotate token' ? 'Rotating...' : 'Rotate Token'}
               </button>
             </div>
           </div>
@@ -806,17 +806,17 @@ function CenterOpsPage({
               <JsonBlock value={lastActionResult} />
             </div>
           ) : null}
-          {centerCatalog ? (
+          {registrationCatalog ? (
             <dl className="grid gap-3 text-sm">
-              <InfoPair label="Verification" value={centerCatalog.verificationStatus} />
-              <InfoPair label="Health" value={centerCatalog.healthStatus} />
-              <InfoPair label="Trust tier" value={centerCatalog.trustTier} />
-              <InfoPair label="Snapshot" value={centerCatalog.activeSnapshotId ?? 'none'} />
-              <InfoPair label="Registration version" value={centerCatalog.activeRegistrationVersion?.toString() ?? 'none'} />
-              <InfoPair label="Updated" value={formatTimestamp(centerCatalog.updatedAt)} />
+              <InfoPair label="Verification" value={registrationCatalog.verificationStatus} />
+              <InfoPair label="Health" value={registrationCatalog.healthStatus} />
+              <InfoPair label="Trust tier" value={registrationCatalog.trustTier} />
+              <InfoPair label="Snapshot" value={registrationCatalog.activeSnapshotId ?? 'none'} />
+              <InfoPair label="Registration version" value={registrationCatalog.activeRegistrationVersion?.toString() ?? 'none'} />
+              <InfoPair label="Updated" value={formatTimestamp(registrationCatalog.updatedAt)} />
             </dl>
           ) : (
-            <EmptyState title="Catalog not registered in Center." body="The center lookup returned no active record for this catalog id." compact />
+            <EmptyState title="Catalog not registered in Registration." body="The registration lookup returned no active record for this catalog id." compact />
           )}
         </section>
 
@@ -854,7 +854,7 @@ function CenterOpsPage({
           </div>
           <div className="space-y-3">
             {verificationRecords.length === 0 ? (
-              <EmptyState title="No verification records." body="This demo Center does not require extra domain verification, so this timeline is usually empty." compact />
+              <EmptyState title="No verification records." body="This demo Registration node does not require extra domain verification, so this timeline is usually empty." compact />
             ) : (
               verificationRecords.slice(0, 6).map((record) => (
                 <div key={record.id} className="rounded-sm border border-operator-border bg-operator-bg p-3 text-sm">
@@ -1020,9 +1020,9 @@ export default function App() {
 
   const systemHealthy = useMemo(() => {
     const catalogHealthy = state.health?.ok === true;
-    const centerHealthy = !state.centerCatalog || state.centerCatalog.healthStatus === 'healthy';
+    const centerHealthy = !state.registrationCatalog || state.registrationCatalog.healthStatus === 'healthy';
     return catalogHealthy && centerHealthy;
-  }, [state.health, state.centerCatalog]);
+  }, [state.health, state.registrationCatalog]);
 
   async function reloadAll() {
     try {
@@ -1037,10 +1037,10 @@ export default function App() {
       ]);
 
       const centerResults = await Promise.allSettled([
-        fetchCenterCatalog(overview.catalog_id),
-        fetchCenterHealth(overview.catalog_id),
-        fetchCenterVerification(overview.catalog_id),
-        fetchCenterManifestSnapshot(overview.catalog_id),
+        fetchRegistrationCatalog(overview.catalog_id),
+        fetchRegistrationHealth(overview.catalog_id),
+        fetchRegistrationVerification(overview.catalog_id),
+        fetchRegistrationManifestSnapshot(overview.catalog_id),
       ]);
 
       setState({
@@ -1050,10 +1050,10 @@ export default function App() {
         wellKnown,
         manifest,
         contracts,
-        centerCatalog: centerResults[0].status === 'fulfilled' ? centerResults[0].value : null,
-        centerHealthChecks: centerResults[1].status === 'fulfilled' ? centerResults[1].value.checks : [],
-        centerVerificationRecords: centerResults[2].status === 'fulfilled' ? centerResults[2].value.records : [],
-        centerManifestSnapshot: centerResults[3].status === 'fulfilled' ? centerResults[3].value : null,
+        registrationCatalog: centerResults[0].status === 'fulfilled' ? centerResults[0].value : null,
+        registrationHealthChecks: centerResults[1].status === 'fulfilled' ? centerResults[1].value.checks : [],
+        registrationVerificationRecords: centerResults[2].status === 'fulfilled' ? centerResults[2].value.records : [],
+        registrationManifestSnapshot: centerResults[3].status === 'fulfilled' ? centerResults[3].value : null,
       });
     } catch (error) {
       setToast({
@@ -1085,7 +1085,7 @@ export default function App() {
               <EmptyState title="Unable to load catalog admin data." body="Check catalog API availability and the admin key, then refresh." />
             </div>
           ) : null}
-          {activeTab === 'overview' && state.overview ? <Overview overview={state.overview} health={state.health} centerCatalog={state.centerCatalog} /> : null}
+          {activeTab === 'overview' && state.overview ? <Overview overview={state.overview} health={state.health} registrationCatalog={state.registrationCatalog} /> : null}
           {activeTab === 'providers' && <ProvidersPage providers={state.providers} />}
           {activeTab === 'objects' && (
             <ObjectsEntriesPage
@@ -1102,13 +1102,13 @@ export default function App() {
               onError={(message) => setToast({ tone: 'danger', message })}
             />
           ) : null}
-          {activeTab === 'center_ops' && state.overview ? (
-            <CenterOpsPage
+          {activeTab === 'registration_ops' && state.overview ? (
+            <RegistrationOpsPage
               overview={state.overview}
-              centerCatalog={state.centerCatalog}
-              healthChecks={state.centerHealthChecks}
-              verificationRecords={state.centerVerificationRecords}
-              manifestSnapshot={state.centerManifestSnapshot}
+              registrationCatalog={state.registrationCatalog}
+              healthChecks={state.registrationHealthChecks}
+              verificationRecords={state.registrationVerificationRecords}
+              manifestSnapshot={state.registrationManifestSnapshot}
               apiKey={apiKey}
               onError={(message) => setToast({ tone: 'danger', message })}
               onSuccess={(message) => setToast({ tone: 'success', message })}

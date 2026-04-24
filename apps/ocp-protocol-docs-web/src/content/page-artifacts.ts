@@ -427,8 +427,8 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
   '/registration/discovery': {
     schemaSections: [
       {
-        title: { en: 'Registration node Discovery Schema', zh: 'CenterDiscovery schema' },
-        sourcePath: 'ocp.catalog.center.v1/center-discovery.schema.json',
+        title: { en: 'Registration node Discovery Schema', zh: 'RegistrationDiscovery schema' },
+        sourcePath: 'ocp.catalog.registration.v1/registration-discovery.schema.json',
         select: (schema) => ({
           required: schema.required,
           properties: schema.properties,
@@ -438,17 +438,17 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Registration node API discovery endpoint', zh: 'Registration node API discovery 入口' },
-        path: 'apps/ocp-center-api/src/index.ts',
+        path: 'apps/ocp-registration-api/src/index.ts',
       },
     ],
     endpointExamples: [
       {
         title: { en: 'Fetch Registration node discovery document', zh: '获取 Registration node discovery 文档' },
         method: 'GET',
-        path: '/.well-known/ocp-center',
+        path: '/.well-known/ocp-registration',
         response: {
-          kind: 'CenterDiscovery',
-          center_id: 'ocp_center_local_dev',
+          kind: 'RegistrationDiscovery',
+          registration_id: 'ocp_center_local_dev',
           manifest_url: 'http://localhost:4100/ocp/registration/manifest',
           catalog_registration_url: 'http://localhost:4100/ocp/catalogs/register',
           catalog_search_url: 'http://localhost:4100/ocp/catalogs/search',
@@ -460,7 +460,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     schemaSections: [
       {
         title: { en: 'Catalog Registration Schema', zh: 'Catalog 注册 schema' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-registration.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-registration.schema.json',
         select: (schema) => ({
           required: schema.required,
           properties: {
@@ -477,11 +477,11 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Catalog registration orchestration', zh: 'Catalog 注册编排' },
-        path: 'packages/center-core/src/catalog-registry-service.ts',
+        path: 'packages/registration-core/src/catalog-registry-service.ts',
       },
       {
         label: { en: 'Catalog registration API', zh: 'Catalog 注册 API' },
-        path: 'apps/ocp-center-api/src/index.ts',
+        path: 'apps/ocp-registration-api/src/index.ts',
       },
     ],
     endpointExamples: [
@@ -491,7 +491,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          center_id: 'ocp_center_local_dev',
+          registration_id: 'ocp_center_local_dev',
           catalog_id: 'commerce_catalog_local_dev',
           registration_version: 3,
           homepage: 'http://localhost:4000',
@@ -512,7 +512,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     schemaSections: [
       {
         title: { en: 'Catalog Search Request', zh: 'Catalog 搜索请求' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-search.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-search.schema.json',
         select: (schema) => ({
           required: schema.required,
           properties: schema.properties,
@@ -520,7 +520,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
       {
         title: { en: 'Catalog Search Result Item', zh: 'Catalog 搜索结果项' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-search-result.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-search-result.schema.json',
         select: (schema) => ({
           item: schema.properties?.items?.items,
         }),
@@ -529,7 +529,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Registration node search query service', zh: 'Registration node 搜索服务' },
-        path: 'packages/center-core/src/catalog-search-service.ts',
+        path: 'packages/registration-core/src/catalog-search-service.ts',
       },
       {
         label: { en: 'User demo agent Registration node search client', zh: '用户 demo agent 的 Registration node 搜索客户端' },
@@ -568,7 +568,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     schemaSections: [
       {
         title: { en: 'Catalog Route Hint Schema', zh: 'CatalogRouteHint schema' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-route-hint.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-route-hint.schema.json',
         select: (schema) => ({
           required: schema.required,
           properties: schema.properties,
@@ -578,7 +578,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Route hint projection', zh: 'Route hint 投影逻辑' },
-        path: 'packages/center-core/src/projection.ts',
+        path: 'packages/registration-core/src/projection.ts',
       },
       {
         label: { en: 'User demo route-hint consumption', zh: '用户 demo 对 route hint 的消费逻辑' },
@@ -613,12 +613,12 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     schemaSections: [
       {
         title: { en: 'Verification Request', zh: '验证请求' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-verification.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-verification.schema.json',
         select: (schema) => schema,
       },
       {
         title: { en: 'Refresh Result', zh: '刷新结果' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-refresh-result.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-refresh-result.schema.json',
         select: (schema) => ({
           required: schema.required,
           properties: schema.properties,
@@ -626,7 +626,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
       {
         title: { en: 'Token Rotation Result', zh: '令牌轮换结果' },
-        sourcePath: 'ocp.catalog.center.v1/catalog-token-rotation-result.schema.json',
+        sourcePath: 'ocp.catalog.registration.v1/catalog-token-rotation-result.schema.json',
         select: (schema) => ({
           required: schema.required,
           properties: schema.properties,
@@ -636,7 +636,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Registration node verification and refresh APIs', zh: 'Registration node 验证与刷新 API' },
-        path: 'apps/ocp-center-api/src/index.ts',
+        path: 'apps/ocp-registration-api/src/index.ts',
       },
     ],
     endpointExamples: [
@@ -790,7 +790,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
       },
       {
         label: { en: 'Catalog registration schema', zh: 'Catalog 注册 schema' },
-        path: 'ocp.catalog.center.v1/catalog-registration.schema.json',
+        path: 'ocp.catalog.registration.v1/catalog-registration.schema.json',
       },
     ],
     endpointExamples: [
@@ -830,7 +830,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          center_id: 'my_center',
+          registration_id: 'my_center',
           catalog_id: 'hello_catalog',
           registration_version: 1,
           homepage: 'https://catalog.example.com',
@@ -926,15 +926,15 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Registration node API', zh: 'Registration node API' },
-        path: 'apps/ocp-center-api/src/index.ts',
+        path: 'apps/ocp-registration-api/src/index.ts',
       },
       {
         label: { en: 'Catalog registry service', zh: 'Catalog 注册服务' },
-        path: 'packages/center-core/src/catalog-registry-service.ts',
+        path: 'packages/registration-core/src/catalog-registry-service.ts',
       },
       {
         label: { en: 'Registration node state persistence schema', zh: 'Registration node 状态持久化 schema' },
-        path: 'packages/db/src/schema/center.ts',
+        path: 'packages/db/src/schema/registration.ts',
       },
     ],
     endpointExamples: [
@@ -944,7 +944,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          center_id: 'ocp_center_local_dev',
+          registration_id: 'ocp_center_local_dev',
           catalog_id: 'commerce_catalog_local_dev',
           registration_version: 1,
           homepage: 'http://localhost:4000',
@@ -1151,7 +1151,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Catalog registration orchestration', zh: 'Catalog 注册编排' },
-        path: 'packages/center-core/src/catalog-registry-service.ts',
+        path: 'packages/registration-core/src/catalog-registry-service.ts',
       },
       {
         label: { en: 'Provider registration builder', zh: 'Provider 注册构造器' },
@@ -1169,7 +1169,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          center_id: 'my_center',
+          registration_id: 'my_center',
           catalog_id: 'my_catalog',
           registration_version: 1,
           homepage: 'https://catalog.example.com',
@@ -1254,7 +1254,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Registration node verification and refresh logic', zh: 'Registration node 验证与刷新逻辑' },
-        path: 'packages/center-core/src/catalog-registry-service.ts',
+        path: 'packages/registration-core/src/catalog-registry-service.ts',
       },
       {
         label: { en: 'Provider registration state handling', zh: 'Provider 注册状态处理' },
@@ -1290,7 +1290,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
     implementationRefs: [
       {
         label: { en: 'Registration node projection and route hint shape', zh: 'Registration node 投影与 route hint 结构' },
-        path: 'packages/center-core/src/projection.ts',
+        path: 'packages/registration-core/src/projection.ts',
       },
       {
         label: { en: 'User agent route selection', zh: '用户 agent 的路由选择逻辑' },
@@ -1303,7 +1303,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
 export async function loadPageArtifacts(routePath: string): Promise<LoadedPageArtifacts> {
   const normalizedRoutePath = routePath
     .replace(/^\/center\//, '/registration/')
-    .replace(/^\/examples\/center-flow$/, '/examples/registration-flow');
+    .replace(/^\/examples\/registration-flow$/, '/examples/registration-flow');
   const definition = artifactRegistry[normalizedRoutePath];
 
   if (!definition) {

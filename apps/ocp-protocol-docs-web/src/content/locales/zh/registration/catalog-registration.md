@@ -10,7 +10,7 @@
     "ocp_version",
     "kind",
     "id",
-    "center_id",
+    "registration_id",
     "catalog_id",
     "registration_version",
     "updated_at",

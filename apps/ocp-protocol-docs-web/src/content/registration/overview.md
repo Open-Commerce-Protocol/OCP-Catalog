@@ -2,7 +2,7 @@
 
 OCP Catalog Registration defines how catalogs register with a registration node and how agents discover them.
 
-The implementation still exposes the legacy schema namespace `ocp.catalog.center.v1` and legacy `Center*` object names. Those names are compatibility details; the conceptual role is registration and discovery in a decentralized protocol.
+The implementation exposes the schema namespace `ocp.catalog.registration.v1` and `Registration*` object names. The protocol role is registration and discovery in a decentralized system, not a central authority.
 
 ## Core Responsibility
 
@@ -20,8 +20,8 @@ That second question belongs to the catalog itself. A catalog may answer it by r
 
 The package includes:
 
-- `CenterDiscovery`
-- `CenterManifest`
+- `RegistrationDiscovery`
+- `RegistrationManifest`
 - `CatalogRegistration`
 - `CatalogSearchRequest`
 - `CatalogSearchResult`

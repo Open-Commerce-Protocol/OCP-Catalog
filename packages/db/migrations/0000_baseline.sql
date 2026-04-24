@@ -265,7 +265,7 @@ CREATE TABLE "provider_sync_runs" (
 --> statement-breakpoint
 CREATE TABLE "catalog_health_checks" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
+	"registration_id" text NOT NULL,
 	"catalog_id" text NOT NULL,
 	"checked_url" text NOT NULL,
 	"status" text NOT NULL,
@@ -276,7 +276,7 @@ CREATE TABLE "catalog_health_checks" (
 --> statement-breakpoint
 CREATE TABLE "catalog_index_entries" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
+	"registration_id" text NOT NULL,
 	"catalog_id" text NOT NULL,
 	"active_snapshot_id" text NOT NULL,
 	"entry_status" text DEFAULT 'active' NOT NULL,
@@ -304,9 +304,9 @@ CREATE TABLE "catalog_index_entries" (
 --> statement-breakpoint
 CREATE TABLE "catalog_manifest_snapshots" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
-	"catalog_id" text NOT NULL,
 	"registration_id" text NOT NULL,
+	"catalog_id" text NOT NULL,
+	"catalog_registration_id" text NOT NULL,
 	"manifest_url" text NOT NULL,
 	"discovery_payload" jsonb NOT NULL,
 	"manifest_payload" jsonb NOT NULL,
@@ -319,7 +319,7 @@ CREATE TABLE "catalog_manifest_snapshots" (
 --> statement-breakpoint
 CREATE TABLE "catalog_registration_records" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
+	"registration_id" text NOT NULL,
 	"catalog_id" text NOT NULL,
 	"registration_version" integer NOT NULL,
 	"status" text NOT NULL,
@@ -332,7 +332,7 @@ CREATE TABLE "catalog_registration_records" (
 --> statement-breakpoint
 CREATE TABLE "catalog_search_audit_records" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
+	"registration_id" text NOT NULL,
 	"request_payload" jsonb NOT NULL,
 	"result_count" integer DEFAULT 0 NOT NULL,
 	"requester_key_hash" text,
@@ -341,7 +341,7 @@ CREATE TABLE "catalog_search_audit_records" (
 --> statement-breakpoint
 CREATE TABLE "catalog_verification_records" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
+	"registration_id" text NOT NULL,
 	"catalog_id" text NOT NULL,
 	"challenge_type" text NOT NULL,
 	"challenge_payload" jsonb NOT NULL,
@@ -354,7 +354,7 @@ CREATE TABLE "catalog_verification_records" (
 --> statement-breakpoint
 CREATE TABLE "registered_catalogs" (
 	"id" text PRIMARY KEY NOT NULL,
-	"center_id" text NOT NULL,
+	"registration_id" text NOT NULL,
 	"catalog_id" text NOT NULL,
 	"active_registration_id" text,
 	"active_registration_version" integer,
@@ -432,13 +432,13 @@ CREATE INDEX "query_audit_records_catalog_created_idx" ON "query_audit_records" 
 CREATE UNIQUE INDEX "provider_products_provider_sku_unique" ON "provider_products" USING btree ("provider_id","sku");--> statement-breakpoint
 CREATE INDEX "provider_products_provider_status_idx" ON "provider_products" USING btree ("provider_id","status");--> statement-breakpoint
 CREATE INDEX "provider_sync_runs_provider_created_idx" ON "provider_sync_runs" USING btree ("provider_id","created_at");--> statement-breakpoint
-CREATE INDEX "catalog_health_checks_catalog_idx" ON "catalog_health_checks" USING btree ("center_id","catalog_id","checked_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "catalog_index_entries_center_catalog_unique" ON "catalog_index_entries" USING btree ("center_id","catalog_id");--> statement-breakpoint
-CREATE INDEX "catalog_index_entries_status_idx" ON "catalog_index_entries" USING btree ("center_id","entry_status","verification_status");--> statement-breakpoint
-CREATE INDEX "catalog_manifest_snapshots_catalog_idx" ON "catalog_manifest_snapshots" USING btree ("center_id","catalog_id","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "catalog_registration_records_version_unique" ON "catalog_registration_records" USING btree ("center_id","catalog_id","registration_version");--> statement-breakpoint
-CREATE INDEX "catalog_registration_records_catalog_idx" ON "catalog_registration_records" USING btree ("center_id","catalog_id");--> statement-breakpoint
-CREATE INDEX "catalog_search_audit_records_center_created_idx" ON "catalog_search_audit_records" USING btree ("center_id","created_at");--> statement-breakpoint
-CREATE INDEX "catalog_verification_records_catalog_idx" ON "catalog_verification_records" USING btree ("center_id","catalog_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "registered_catalogs_center_catalog_unique" ON "registered_catalogs" USING btree ("center_id","catalog_id");--> statement-breakpoint
-CREATE INDEX "registered_catalogs_status_idx" ON "registered_catalogs" USING btree ("center_id","status","verification_status");
+CREATE INDEX "catalog_health_checks_catalog_idx" ON "catalog_health_checks" USING btree ("registration_id","catalog_id","checked_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "catalog_index_entries_registration_catalog_unique" ON "catalog_index_entries" USING btree ("registration_id","catalog_id");--> statement-breakpoint
+CREATE INDEX "catalog_index_entries_status_idx" ON "catalog_index_entries" USING btree ("registration_id","entry_status","verification_status");--> statement-breakpoint
+CREATE INDEX "catalog_manifest_snapshots_catalog_idx" ON "catalog_manifest_snapshots" USING btree ("registration_id","catalog_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "catalog_registration_records_version_unique" ON "catalog_registration_records" USING btree ("registration_id","catalog_id","registration_version");--> statement-breakpoint
+CREATE INDEX "catalog_registration_records_catalog_idx" ON "catalog_registration_records" USING btree ("registration_id","catalog_id");--> statement-breakpoint
+CREATE INDEX "catalog_search_audit_records_registration_created_idx" ON "catalog_search_audit_records" USING btree ("registration_id","created_at");--> statement-breakpoint
+CREATE INDEX "catalog_verification_records_catalog_idx" ON "catalog_verification_records" USING btree ("registration_id","catalog_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "registered_catalogs_registration_catalog_unique" ON "registered_catalogs" USING btree ("registration_id","catalog_id");--> statement-breakpoint
+CREATE INDEX "registered_catalogs_status_idx" ON "registered_catalogs" USING btree ("registration_id","status","verification_status");

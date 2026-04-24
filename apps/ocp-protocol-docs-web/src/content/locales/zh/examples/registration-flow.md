@@ -6,7 +6,7 @@
 
 ```text
 catalog admin 提交 CatalogRegistration
--> Registration node 校验 center_id 和 registration_version
+-> Registration node 校验 registration_id 和 registration_version
 -> Registration node 拉取 /.well-known/ocp-catalog 与 catalog manifest
 -> Registration node 校验拉取到的身份信息、endpoint 与 domain 一致性
 -> Registration node 对 catalog query endpoint 做健康检查
@@ -50,7 +50,7 @@ catalog admin 提交 CatalogRegistration
 
 当前实现里还有一条明确的控制面流程：
 
-- `verify` 仍然保留为兼容性接口，但 demo Registration node 不要求额外 challenge
+- `verify` 用于确认 catalog verification 状态；demo Registration node 不要求额外 challenge
 - registration 成功时，如果还没有 token，Registration node 会下发 `catalog_access_token`
 - `refresh` 和 `token/rotate` 都要求带这个 catalog token
 - refresh scheduler 只会扫描已经 `accepted_indexed` 的 catalog

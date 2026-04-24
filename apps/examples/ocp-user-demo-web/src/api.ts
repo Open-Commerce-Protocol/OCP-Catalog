@@ -120,7 +120,7 @@ const userDemoApiPrefix = '/api/user-demo';
 const registrationDiscoveryUrl = resolveRequiredApiUrl(
   'VITE_REGISTRATION_DISCOVERY_URL',
   import.meta.env.VITE_REGISTRATION_DISCOVERY_URL,
-  'https://ocp.deeplumen.io/.well-known/ocp-center',
+  'https://ocp.deeplumen.io/.well-known/ocp-registration',
 );
 
 type RegistrationDiscovery = {

@@ -127,39 +127,6 @@
         "vite": "^8.0.9",
       },
     },
-    "apps/ocp-center-admin-web": {
-      "name": "@ocp-catalog/ocp-center-admin-web",
-      "version": "0.1.0",
-      "dependencies": {
-        "@tailwindcss/vite": "^4.2.4",
-        "lucide-react": "^0.545.0",
-        "react": "^19.1.1",
-        "react-dom": "^19.1.1",
-        "tailwindcss": "^4.2.4",
-      },
-      "devDependencies": {
-        "@types/node": "^24.12.2",
-        "@types/react": "^19.1.12",
-        "@types/react-dom": "^19.1.9",
-        "@vitejs/plugin-react": "^6.0.1",
-        "typescript": "^5.9.3",
-        "vite": "^8.0.9",
-      },
-    },
-    "apps/ocp-center-api": {
-      "name": "@ocp-catalog/ocp-center-api",
-      "version": "0.1.0",
-      "dependencies": {
-        "@elysiajs/cors": "^1.3.3",
-        "@ocp-catalog/auth-core": "workspace:*",
-        "@ocp-catalog/center-core": "workspace:*",
-        "@ocp-catalog/config": "workspace:*",
-        "@ocp-catalog/db": "workspace:*",
-        "@ocp-catalog/shared": "workspace:*",
-        "elysia": "^1.3.22",
-        "zod": "^4.1.12",
-      },
-    },
     "apps/ocp-protocol-docs-web": {
       "name": "ocp-protocol-docs-web",
       "version": "0.0.0",
@@ -193,6 +160,39 @@
         "vite": "^8.0.9",
       },
     },
+    "apps/ocp-registration-admin-web": {
+      "name": "@ocp-catalog/ocp-registration-admin-web",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tailwindcss/vite": "^4.2.4",
+        "lucide-react": "^0.545.0",
+        "react": "^19.1.1",
+        "react-dom": "^19.1.1",
+        "tailwindcss": "^4.2.4",
+      },
+      "devDependencies": {
+        "@types/node": "^24.12.2",
+        "@types/react": "^19.1.12",
+        "@types/react-dom": "^19.1.9",
+        "@vitejs/plugin-react": "^6.0.1",
+        "typescript": "^5.9.3",
+        "vite": "^8.0.9",
+      },
+    },
+    "apps/ocp-registration-api": {
+      "name": "@ocp-catalog/ocp-registration-api",
+      "version": "0.1.0",
+      "dependencies": {
+        "@elysiajs/cors": "^1.3.3",
+        "@ocp-catalog/auth-core": "workspace:*",
+        "@ocp-catalog/config": "workspace:*",
+        "@ocp-catalog/db": "workspace:*",
+        "@ocp-catalog/registration-core": "workspace:*",
+        "@ocp-catalog/shared": "workspace:*",
+        "elysia": "^1.3.22",
+        "zod": "^4.1.12",
+      },
+    },
     "packages/auth-core": {
       "name": "@ocp-catalog/auth-core",
       "version": "0.1.0",
@@ -209,25 +209,6 @@
         "@ocp-catalog/ocp-schema": "workspace:*",
         "@ocp-catalog/shared": "workspace:*",
         "drizzle-orm": "^0.44.7",
-        "zod": "^4.1.12",
-      },
-    },
-    "packages/center-core": {
-      "name": "@ocp-catalog/center-core",
-      "version": "0.1.0",
-      "dependencies": {
-        "@ocp-catalog/center-schema": "workspace:*",
-        "@ocp-catalog/config": "workspace:*",
-        "@ocp-catalog/db": "workspace:*",
-        "@ocp-catalog/ocp-schema": "workspace:*",
-        "@ocp-catalog/shared": "workspace:*",
-        "drizzle-orm": "^0.44.7",
-      },
-    },
-    "packages/center-schema": {
-      "name": "@ocp-catalog/center-schema",
-      "version": "0.1.0",
-      "dependencies": {
         "zod": "^4.1.12",
       },
     },
@@ -252,6 +233,25 @@
     },
     "packages/ocp-schema": {
       "name": "@ocp-catalog/ocp-schema",
+      "version": "0.1.0",
+      "dependencies": {
+        "zod": "^4.1.12",
+      },
+    },
+    "packages/registration-core": {
+      "name": "@ocp-catalog/registration-core",
+      "version": "0.1.0",
+      "dependencies": {
+        "@ocp-catalog/config": "workspace:*",
+        "@ocp-catalog/db": "workspace:*",
+        "@ocp-catalog/ocp-schema": "workspace:*",
+        "@ocp-catalog/registration-schema": "workspace:*",
+        "@ocp-catalog/shared": "workspace:*",
+        "drizzle-orm": "^0.44.7",
+      },
+    },
+    "packages/registration-schema": {
+      "name": "@ocp-catalog/registration-schema",
       "version": "0.1.0",
       "dependencies": {
         "zod": "^4.1.12",
@@ -415,10 +415,6 @@
 
     "@ocp-catalog/catalog-core": ["@ocp-catalog/catalog-core@workspace:packages/catalog-core"],
 
-    "@ocp-catalog/center-core": ["@ocp-catalog/center-core@workspace:packages/center-core"],
-
-    "@ocp-catalog/center-schema": ["@ocp-catalog/center-schema@workspace:packages/center-schema"],
-
     "@ocp-catalog/commerce-catalog-admin-web": ["@ocp-catalog/commerce-catalog-admin-web@workspace:apps/examples/commerce-catalog-admin-web"],
 
     "@ocp-catalog/commerce-catalog-api": ["@ocp-catalog/commerce-catalog-api@workspace:apps/examples/commerce-catalog-api"],
@@ -431,15 +427,19 @@
 
     "@ocp-catalog/db": ["@ocp-catalog/db@workspace:packages/db"],
 
-    "@ocp-catalog/ocp-center-admin-web": ["@ocp-catalog/ocp-center-admin-web@workspace:apps/ocp-center-admin-web"],
+    "@ocp-catalog/ocp-registration-admin-web": ["@ocp-catalog/ocp-registration-admin-web@workspace:apps/ocp-registration-admin-web"],
 
-    "@ocp-catalog/ocp-center-api": ["@ocp-catalog/ocp-center-api@workspace:apps/ocp-center-api"],
+    "@ocp-catalog/ocp-registration-api": ["@ocp-catalog/ocp-registration-api@workspace:apps/ocp-registration-api"],
 
     "@ocp-catalog/ocp-schema": ["@ocp-catalog/ocp-schema@workspace:packages/ocp-schema"],
 
     "@ocp-catalog/ocp-user-demo-api": ["@ocp-catalog/ocp-user-demo-api@workspace:apps/examples/ocp-user-demo-api"],
 
     "@ocp-catalog/ocp-user-demo-web": ["@ocp-catalog/ocp-user-demo-web@workspace:apps/examples/ocp-user-demo-web"],
+
+    "@ocp-catalog/registration-core": ["@ocp-catalog/registration-core@workspace:packages/registration-core"],
+
+    "@ocp-catalog/registration-schema": ["@ocp-catalog/registration-schema@workspace:packages/registration-schema"],
 
     "@ocp-catalog/shared": ["@ocp-catalog/shared@workspace:packages/shared"],
 

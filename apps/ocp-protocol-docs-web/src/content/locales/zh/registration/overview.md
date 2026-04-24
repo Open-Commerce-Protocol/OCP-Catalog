@@ -2,7 +2,7 @@
 
 OCP Catalog Registration 定义的是 Catalog 如何注册到 registration node，以及 Agent 如何发现 Catalog。
 
-当前实现仍暴露 legacy schema namespace `ocp.catalog.center.v1` 和 legacy `Center*` 对象名。它们只是兼容性命名；概念角色是去中心化协议中的注册与发现。
+当前实现暴露 schema namespace `ocp.catalog.registration.v1` 和 `Registration*` 对象名。Registration node 的概念角色是去中心化协议中的注册与发现。
 
 ## 核心职责
 
@@ -20,8 +20,8 @@ Registration node 回答的问题是：
 
 这个包包含：
 
-- `CenterDiscovery`
-- `CenterManifest`
+- `RegistrationDiscovery`
+- `RegistrationManifest`
 - `CatalogRegistration`
 - `CatalogSearchRequest`
 - `CatalogSearchResult`

@@ -488,8 +488,8 @@ export function App() {
                   <div className="font-display text-3xl leading-none">Chain checkpoint</div>
                 </div>
                 <ol className="space-y-3 text-sm leading-6 text-ink/65">
-                  <li>1. Start `center:api`, `commerce:catalog:api`, `commerce:provider:api`.</li>
-                  <li>2. Register catalog into OCP Center.</li>
+                  <li>1. Start `registration:api`, `commerce:catalog:api`, `commerce:provider:api`.</li>
+                  <li>2. Register catalog into OCP Registration.</li>
                   <li>3. Register provider from this console, then let provider push product batches into the commerce catalog.</li>
                   <li>4. Verify catalog search results from the user demo or direct OCP query.</li>
                 </ol>

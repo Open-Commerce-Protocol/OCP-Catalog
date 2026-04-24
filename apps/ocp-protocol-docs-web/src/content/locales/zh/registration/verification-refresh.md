@@ -26,7 +26,7 @@ Registration node 包里还定义了 catalog verification、refresh 和 token ro
     "ocp_version",
     "kind",
     "id",
-    "center_id",
+    "registration_id",
     "catalog_id",
     "status",
     "health_status",
@@ -47,7 +47,7 @@ Registration node 包里还定义了 catalog verification、refresh 和 token ro
     "ocp_version",
     "kind",
     "id",
-    "center_id",
+    "registration_id",
     "catalog_id",
     "catalog_access_token",
     "token_issued_at"

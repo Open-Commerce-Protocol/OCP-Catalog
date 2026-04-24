@@ -2,7 +2,7 @@
 
 Registration discovery is the well-known document that bootstraps access to an OCP Catalog Registration node.
 
-The current wire schema still uses the legacy `CenterDiscovery` kind and `center_*` field names for compatibility. Treat those names as compatibility identifiers, not as a claim that OCP has a central authority.
+The wire schema uses the `RegistrationDiscovery` kind and `registration_*` field names. This discovery document is the baseline entry point for an OCP Catalog Registration node.
 
 ## Required Fields
 
@@ -11,10 +11,10 @@ The current wire schema still uses the legacy `CenterDiscovery` kind and `center
   "required": [
     "ocp_version",
     "kind",
-    "center_id",
-    "center_name",
-    "center_protocol",
-    "center_protocol_version",
+    "registration_id",
+    "registration_name",
+    "registration_protocol",
+    "registration_protocol_version",
     "manifest_url",
     "catalog_registration_url",
     "catalog_search_url"
@@ -26,13 +26,13 @@ The current wire schema still uses the legacy `CenterDiscovery` kind and `center
 
 ```json
 {
-  "kind": "CenterDiscovery",
-  "center_id": "ocp_center_local_dev",
-  "center_name": "OCP Catalog Registration node Local Dev",
-  "center_protocol": "ocp.catalog.center.v1",
-  "manifest_url": "http://localhost:4100/manifest",
-  "catalog_registration_url": "http://localhost:4100/catalogs/register",
-  "catalog_search_url": "http://localhost:4100/catalogs/search"
+  "kind": "RegistrationDiscovery",
+  "registration_id": "registration_local_dev",
+  "registration_name": "OCP Catalog Registration node Local Dev",
+  "registration_protocol": "ocp.catalog.registration.v1",
+  "manifest_url": "http://localhost:4100/ocp/registration/manifest",
+  "catalog_registration_url": "http://localhost:4100/ocp/catalogs/register",
+  "catalog_search_url": "http://localhost:4100/ocp/catalogs/search"
 }
 ```
 

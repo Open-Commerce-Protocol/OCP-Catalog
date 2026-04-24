@@ -137,7 +137,7 @@ await fetch('https://registration.example.com/ocp/catalogs/register', {
     ocp_version: '1.0',
     kind: 'CatalogRegistration',
     id: 'catreg_hello_catalog_v1',
-    center_id: 'my_center',
+    registration_id: 'my_center',
     catalog_id: 'hello_catalog',
     registration_version: 1,
     updated_at: new Date().toISOString(),

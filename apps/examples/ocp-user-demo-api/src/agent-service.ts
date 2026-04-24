@@ -665,7 +665,7 @@ async function requestJson<T>(url: string, body: unknown) {
 async function fetchRegistrationDiscovery(config: AppConfig) {
   const configuredDiscoveryUrl = config.REGISTRATION_DISCOVERY_URL?.trim();
   const baseUrl = (config.REGISTRATION_PUBLIC_BASE_URL || config.REGISTRATION_PUBLIC_BASE_URL).replace(/\/$/, '');
-  const discoveryUrl = configuredDiscoveryUrl || `${baseUrl}/.well-known/ocp-center`;
+  const discoveryUrl = configuredDiscoveryUrl || `${baseUrl}/.well-known/ocp-registration`;
   const response = await fetch(discoveryUrl, {
     method: 'GET',
     headers: {

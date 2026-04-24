@@ -15,7 +15,7 @@ This repository follows a layered workspace layout:
 
 At runtime, the workspace currently collapses into 5 service units:
 
-1. `apps/ocp-center-api`
+1. `apps/ocp-registration-api`
 2. `apps/examples/commerce-catalog-api`
 3. `commerce-provider`
    - `apps/examples/commerce-provider-api`
@@ -59,7 +59,7 @@ Current app ownership:
   - provider source-data API and catalog sync runtime
 - `apps/examples/commerce-provider-admin-web`
   - provider management UI for the provider runtime
-- `apps/ocp-center-api`
+- `apps/ocp-registration-api`
   - catalog registry and routing Registration node
 - `apps/examples/ocp-user-demo-api`
   - user-side agent backend
@@ -72,11 +72,11 @@ Current app ownership:
 
 - `packages/ocp-schema`
   - Provider <-> Catalog protocol schemas and types
-- `packages/center-schema`
+- `packages/registration-schema`
   - Catalog <-> Registration node protocol schemas and types
 - `packages/catalog-core`
   - minimal catalog orchestration
-- `packages/center-core`
+- `packages/registration-core`
   - minimal Registration node orchestration
 - `packages/auth-core`
   - auth helpers

@@ -1,6 +1,6 @@
 # OCP Catalog Registration Protocol Reference
 
-This reference summarizes the agent-relevant parts of `ocp.catalog.center.v1`.
+This reference summarizes the agent-relevant parts of `ocp.catalog.registration.v1`.
 
 ## Purpose
 
@@ -27,8 +27,8 @@ The Registration node does not replace the catalog's own query and resolve logic
 
 The most important Registration node-side objects for an agent are:
 
-- `CenterDiscovery`
-- `CenterManifest`
+- `RegistrationDiscovery`
+- `RegistrationManifest`
 - `CatalogSearchRequest`
 - `CatalogSearchResult`
 - `CatalogSearchResultItem`
@@ -46,7 +46,7 @@ For operator or control-plane tasks, these may also matter:
 Typical Registration node endpoints are:
 
 ```text
-GET  /.well-known/ocp-center
+GET  /.well-known/ocp-registration
 GET  /ocp/registration/manifest
 POST /ocp/catalogs/search
 POST /ocp/catalogs/resolve

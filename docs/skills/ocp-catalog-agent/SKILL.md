@@ -11,7 +11,7 @@ Do not use it for ordinary repository maintenance, database work, UI work, provi
 
 OCP has two agent-relevant protocol layers:
 
-- `ocp.catalog.center.v1`: Registration node discovery and catalog routing.
+- `ocp.catalog.registration.v1`: Registration node discovery and catalog routing.
 - `ocp.catalog.handshake.v1`: Catalog public discovery, manifest, query, and resolve.
 
 Hard rules:
@@ -70,9 +70,9 @@ Recommended JSON shape:
       "health_status": "healthy",
       "trust_tier": "standard",
       "verification_status": "verified",
-      "snapshot_id": "optional-center-snapshot-id",
+      "snapshot_id": "optional-registration-snapshot-id",
       "snapshot_fetched_at": "2026-04-24T00:00:00.000Z",
-      "source_center_url": "https://ocp.center.example"
+      "source_registration_url": "https://registration.example"
     }
   ]
 }
@@ -105,9 +105,9 @@ catalogs:
     health_status: healthy
     trust_tier: standard
     verification_status: verified
-    snapshot_id: optional-center-snapshot-id
+    snapshot_id: optional-registration-snapshot-id
     snapshot_fetched_at: "2026-04-24T00:00:00.000Z"
-    source_center_url: https://ocp.center.example
+    source_registration_url: https://registration.example
 ```
 
 Local profile matching is strict:
@@ -126,15 +126,15 @@ After selecting a new catalog from a Registration node, save or update its local
 
 When local profiles are missing or unsuitable, use a Registration node.
 
-If the user provides a center `base_url`, first fetch:
+If the user provides a Registration node `base_url`, first fetch:
 
 ```text
-GET {base_url}/.well-known/ocp-center
+GET {base_url}/.well-known/ocp-registration
 ```
 
-Use that discovery document to find the center manifest and catalog search endpoints. If the user provides a full discovery URL, use it directly.
+Use that discovery document to find the Registration manifest and catalog search endpoints. If the user provides a full discovery URL, use it directly.
 
-If the user does not provide a center, use the agent's configured default Registration node. Do not guess random public centers. If no default exists, ask for a center URL.
+If the user does not provide a Registration node, use the agent's configured default Registration node. Do not guess random public Registration nodes. If no default exists, ask for a Registration node URL.
 
 Search the Registration node for catalogs matching the intent, not for products. For example:
 
@@ -268,7 +268,7 @@ If the catalog rejects the query:
 If Registration node or Catalog is unreachable:
 
 - Report the exact endpoint that failed.
-- Say whether failure happened during center discovery, catalog search, route resolve, catalog query, or catalog resolve.
+- Say whether failure happened during registration discovery, catalog search, route resolve, catalog query, or catalog resolve.
 
 If no suitable catalog exists:
 

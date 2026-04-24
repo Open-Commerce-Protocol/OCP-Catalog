@@ -8,7 +8,7 @@
 
 `ocp.catalog.handshake.v1` 只定义 **Provider 如何接入某个 Catalog Node**。它不定义 Catalog 如何注册到 OCP Catalog Registration node，也不定义 Catalog Registry / Catalog Discovery Node 的索引和搜索行为。
 
-Catalog 注册到 OCP Catalog Registration node 的协议由 `ocp.catalog.center.v1` 定义，详见 `docs/ocp_catalog_registration_protocol_v1.md`。
+Catalog 注册到 OCP Catalog Registration node 的协议由 `ocp.catalog.registration.v1` 定义，详见 `docs/ocp_catalog_registration_protocol_v1.md`。
 
 两条链路必须区分：
 
@@ -18,7 +18,7 @@ Provider -> Catalog Node
   对象：CatalogManifest、ObjectContract、ProviderRegistration、CommercialObject、RegistrationResult
 
 Catalog Node -> OCP Catalog Registration node
-  使用 ocp.catalog.center.v1
+  使用 ocp.catalog.registration.v1
   对象：CatalogRegistration、CatalogProfileSnapshot、CatalogIndexEntry、CatalogRouteHint
 ```
 

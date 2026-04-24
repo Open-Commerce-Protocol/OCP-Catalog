@@ -8,7 +8,7 @@ It provides a three-column documentation experience for:
 
 - OCP Catalog overview and roles
 - `ocp.catalog.handshake.v1`
-- `ocp.catalog.center.v1`
+- `ocp.catalog.registration.v1`
 - example flows and implementation notes
 
 ## Content model

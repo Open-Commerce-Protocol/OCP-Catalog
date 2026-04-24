@@ -70,7 +70,7 @@ Check:
 
 Do not use a merely available catalog when the domain is wrong. For example, if the user asks for Hangzhou local-life content and the local cache only has a commerce product catalog, the correct action is to search a Registration node for a local-life catalog.
 
-If no default Registration node is configured and the user did not provide one, ask for a center base URL instead of guessing.
+If no default Registration node is configured and the user did not provide one, ask for a Registration node base URL instead of guessing.
 
 ## What Registration node Is For
 

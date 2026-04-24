@@ -7,7 +7,7 @@ This site documents the protocol surface implemented in the current repository f
 It focuses on two protocol layers:
 
 - `ocp.catalog.handshake.v1`
-- `ocp.catalog.center.v1`
+- `ocp.catalog.registration.v1`
 
 ## What This Protocol Solves
 
@@ -48,7 +48,7 @@ It does **not** own Registration node registration or catalog federation.
 
 ### Registration node
 
-`ocp.catalog.center.v1` handles:
+`ocp.catalog.registration.v1` handles:
 
 - `Catalog -> Registration node`
 - Registration node discovery

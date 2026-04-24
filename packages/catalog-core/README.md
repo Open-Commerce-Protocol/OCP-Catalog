@@ -4,7 +4,7 @@ Minimal protocol runtime package for an OCP Catalog Node.
 
 This package contains protocol-facing building blocks used by runtime apps: manifest construction, provider registration rules, object sync orchestration, projection helpers, and resolve reference generation. Scenario-specific search, query packs, ranking, and index maintenance belong in the app that owns the scenario.
 
-This package is not the OCP Center / Catalog Registry implementation. It implements the `Provider -> Catalog Node` side of the protocol. The `Catalog Node -> OCP Center` handshake is documented in `docs/ocp_catalog_center_protocol_v1.md`.
+This package is not the OCP Catalog Registration / Catalog Registry implementation. It implements the `Provider -> Catalog Node` side of the protocol. The `Catalog Node -> OCP Catalog Registration` handshake is documented in `docs/ocp_catalog_registration_protocol_v1.md`.
 
 ## Status
 

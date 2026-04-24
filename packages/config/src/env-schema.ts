@@ -11,7 +11,7 @@ export const envSchema = z.object({
   REGISTRATION_API_PORT: z.coerce.number().default(4100),
   REGISTRATION_ADMIN_UI_PORT: z.coerce.number().default(4250),
   REGISTRATION_PUBLIC_BASE_URL: z.string().url().default('https://ocp.deeplumen.io'),
-  REGISTRATION_DISCOVERY_URL: z.string().url().default('https://ocp.deeplumen.io/.well-known/ocp-center'),
+  REGISTRATION_DISCOVERY_URL: z.string().url().default('https://ocp.deeplumen.io/.well-known/ocp-registration'),
   REGISTRATION_REFRESH_SCHEDULER_ENABLED: z.coerce.boolean().default(true),
   REGISTRATION_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),
   CATALOG_SEARCH_INDEX_WORKER_ENABLED: z.coerce.boolean().default(true),

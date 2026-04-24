@@ -7,7 +7,7 @@
 它主要覆盖两层协议：
 
 - `ocp.catalog.handshake.v1`
-- `ocp.catalog.center.v1`
+- `ocp.catalog.registration.v1`
 
 ## 这个协议解决什么问题
 
@@ -48,7 +48,7 @@
 
 ### 中心层
 
-`ocp.catalog.center.v1` 负责：
+`ocp.catalog.registration.v1` 负责：
 
 - `Catalog -> Registration node`
 - Registration node discovery

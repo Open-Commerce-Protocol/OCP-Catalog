@@ -6,7 +6,7 @@ This example page describes the real `Catalog -> Registration node` runtime that
 
 ```text
 catalog admin submits CatalogRegistration
--> Registration node validates center_id and registration_version
+-> Registration node validates registration_id and registration_version
 -> Registration node fetches /.well-known/ocp-catalog and the catalog manifest
 -> Registration node validates fetched identity and endpoint/domain consistency
 -> Registration node checks the catalog query endpoint for health
@@ -50,7 +50,7 @@ The demo Registration node keeps registration simple:
 
 The current implementation also has a concrete control-plane workflow:
 
-- `verify` is kept as a compatibility endpoint, but no extra challenge is required in the demo Registration node
+- `verify` confirms the catalog verification state; the demo Registration node does not require an extra challenge
 - `catalog_access_token` is issued when registration succeeds if no token exists yet
 - `refresh` and `token/rotate` require that catalog token
 - the refresh scheduler scans catalogs that are already `accepted_indexed`
