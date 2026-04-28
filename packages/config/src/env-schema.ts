@@ -33,6 +33,10 @@ export const envSchema = z.object({
   USER_DEMO_AGENT_MODEL: z.string().default('qwen-plus'),
   OPENAI_API_KEY: z.string().default(''),
   OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  OCP_MCP_DEFAULT_REGISTRATION_URL: z.string().url().default('http://localhost:4100'),
+  OCP_MCP_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10000),
+  OCP_MCP_USER_AGENT: z.string().default('ocp-mcp-server/0.1.0'),
+  OCP_MCP_API_KEY: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

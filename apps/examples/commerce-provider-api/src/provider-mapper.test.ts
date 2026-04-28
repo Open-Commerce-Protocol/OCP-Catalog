@@ -36,6 +36,10 @@ const config: AppConfig = {
   USER_DEMO_AGENT_MODEL: 'qwen-plus',
   OPENAI_API_KEY: '',
   OPENAI_BASE_URL: 'https://api.openai.com/v1',
+  OCP_MCP_DEFAULT_REGISTRATION_URL: 'http://localhost:4100',
+  OCP_MCP_REQUEST_TIMEOUT_MS: 10000,
+  OCP_MCP_USER_AGENT: 'ocp-mcp-server/test',
+  OCP_MCP_API_KEY: '',
 };
 
 const product: typeof schema.providerProducts.$inferSelect = {

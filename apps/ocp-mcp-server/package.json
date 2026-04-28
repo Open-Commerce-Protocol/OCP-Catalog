@@ -1,0 +1,21 @@
+{
+  "name": "@ocp-catalog/ocp-mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cd ../.. && bun --watch apps/ocp-mcp-server/src/index.ts",
+    "start": "cd ../.. && bun apps/ocp-mcp-server/src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@ocp-catalog/config": "workspace:*",
+    "@ocp-catalog/ocp-schema": "workspace:*",
+    "@ocp-catalog/registration-schema": "workspace:*",
+    "zod": "^4.1.12"
+  }
+}

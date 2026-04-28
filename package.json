@@ -27,8 +27,10 @@
     "user:demo": "bun run --cwd apps/examples/ocp-user-demo-web dev",
     "protocol:docs": "bun run --cwd apps/ocp-protocol-docs-web dev",
     "protocol:docs:host": "bun run --cwd apps/ocp-protocol-docs-web start",
+    "mcp:gateway": "bun run --cwd apps/ocp-mcp-server start",
     "validate:mvp": "bun scripts/validate-mvp.ts",
     "validate:registration": "bun scripts/validate-registration.ts",
+    "validate:mcp": "bun scripts/validate-mcp-gateway.ts",
     "db:generate": "bun run --cwd packages/db generate",
     "db:migrate": "bun run --cwd packages/db migrate",
     "db:studio": "bun run --cwd packages/db studio"
