@@ -30,7 +30,7 @@ export class RegistrationClient {
       },
     );
 
-    return catalogSearchResultSchema.parse(payload);
+    return catalogSearchResultSchema.parse(normalizeLegacyCatalogSearchResult(payload));
   }
 
   async resolve(baseUrl: string, catalogId: string): Promise<CatalogRouteHint> {
@@ -58,4 +58,15 @@ export class RegistrationClient {
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, '');
+}
+
+function normalizeLegacyCatalogSearchResult(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const record = payload as Record<string, unknown>;
+  if (record.registration_id || typeof record.center_id !== 'string') return payload;
+
+  return {
+    ...record,
+    registration_id: record.center_id,
+  };
 }
