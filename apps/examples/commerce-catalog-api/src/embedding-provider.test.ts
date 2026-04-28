@@ -64,6 +64,9 @@ function config(overrides: Partial<AppConfig>): AppConfig {
     OCP_MCP_REQUEST_TIMEOUT_MS: 10000,
     OCP_MCP_USER_AGENT: 'ocp-mcp-server/test',
     OCP_MCP_API_KEY: '',
+    OCP_MCP_TRANSPORT: 'stdio',
+    OCP_MCP_HTTP_PORT: 4300,
+    OCP_MCP_HTTP_PATH: '/mcp',
     ...overrides,
   };
 }

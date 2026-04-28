@@ -37,6 +37,9 @@ export const envSchema = z.object({
   OCP_MCP_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10000),
   OCP_MCP_USER_AGENT: z.string().default('ocp-mcp-server/0.1.0'),
   OCP_MCP_API_KEY: z.string().default(''),
+  OCP_MCP_TRANSPORT: z.enum(['stdio', 'http']).default('stdio'),
+  OCP_MCP_HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(4300),
+  OCP_MCP_HTTP_PATH: z.string().regex(/^\/[A-Za-z0-9._~/-]*$/).default('/mcp'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
