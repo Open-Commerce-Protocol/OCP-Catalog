@@ -58,7 +58,6 @@ module.exports = {
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
-        OCP_MCP_TRANSPORT: 'http',
         OCP_MCP_HTTP_PORT: '4300',
         OCP_MCP_HTTP_PATH: '/mcp',
       },

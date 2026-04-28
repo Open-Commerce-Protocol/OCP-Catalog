@@ -1,5 +1,4 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { errorResult } from './errors';
 import { selectTransportConfig, type McpGatewayConfig } from './config';
@@ -26,13 +25,7 @@ import { searchCatalogsTool } from './tools/search-catalogs';
 
 export async function startMcpServer(config: McpGatewayConfig) {
   const transportConfig = selectTransportConfig(config);
-  if (transportConfig.transport === 'http') {
-    startHttpMcpServer(config, transportConfig.httpPort, transportConfig.httpPath);
-    return;
-  }
-
-  const server = createMcpServer(config);
-  await server.connect(new StdioServerTransport());
+  startHttpMcpServer(config, transportConfig.httpPort, transportConfig.httpPath);
 }
 
 export function createMcpServer(config: McpGatewayConfig) {
