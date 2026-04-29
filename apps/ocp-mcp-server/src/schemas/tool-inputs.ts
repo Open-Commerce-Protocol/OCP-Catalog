@@ -4,7 +4,7 @@ export const routeHintInput = z.record(z.string(), z.unknown());
 
 export const searchCatalogsInput = {
   registration_base_url: z.string().url().optional(),
-  query: z.string().min(1).describe('Catalog search phrase or intent summary.'),
+  query: z.string().describe('Catalog search phrase or intent summary. Omit or send an empty string to list active catalogs.').optional(),
   filters: z.record(z.string(), z.unknown()).optional(),
   limit: z.number().int().min(1).max(50).optional(),
   explain: z.boolean().optional(),

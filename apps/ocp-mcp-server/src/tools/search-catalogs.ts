@@ -4,21 +4,31 @@ import type { ToolDeps } from './context';
 
 export async function searchCatalogsTool(input: SearchCatalogsInput, deps: ToolDeps) {
   const registrationBaseUrl = input.registration_base_url ?? deps.config.OCP_MCP_DEFAULT_REGISTRATION_URL;
-  const result = await deps.registrationClient.search(registrationBaseUrl, {
+  const request = {
     ocp_version: '1.0',
     kind: 'CatalogSearchRequest',
-    query: input.query,
+    query: input.query ?? '',
     filters: input.filters ?? {},
     limit: input.limit ?? 10,
     explain: input.explain ?? true,
-  });
+  } as const;
+  const result = await deps.registrationClient.search(registrationBaseUrl, request);
+  const shouldFallbackToListing = result.result_count === 0 && request.query.trim().length > 0;
+  const effectiveResult = shouldFallbackToListing
+    ? await deps.registrationClient.search(registrationBaseUrl, { ...request, query: '' })
+    : result;
 
   return {
     registration_base_url: registrationBaseUrl,
-    registration_id: result.registration_id,
-    result_count: result.result_count,
-    catalogs: result.items.map(normalizeCatalogCandidate),
-    explain: result.explain,
+    registration_id: effectiveResult.registration_id,
+    result_count: effectiveResult.result_count,
+    catalogs: effectiveResult.items.map(normalizeCatalogCandidate),
+    explain: [
+      ...result.explain,
+      ...(shouldFallbackToListing ? ['Initial keyword search returned no catalogs; retried with an empty query to list active catalogs.'] : []),
+      ...(shouldFallbackToListing ? effectiveResult.explain : []),
+    ],
+    fallback_used: shouldFallbackToListing,
   };
 }
 
