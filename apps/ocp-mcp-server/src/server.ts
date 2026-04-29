@@ -5,6 +5,12 @@ import { selectTransportConfig, type McpGatewayConfig } from './config';
 import { CatalogClient } from './ocp/catalog-client';
 import { RegistrationClient } from './ocp/registration-client';
 import {
+  describeOcpCatalog,
+  getOcpCatalogGuideMarkdown,
+  OCP_CATALOG_GUIDE_URI,
+  OCP_CATALOG_INSTRUCTIONS,
+} from './ocp/self-description';
+import {
   findAndQueryCatalogInput,
   inspectCatalogInput,
   queryCatalogInput,
@@ -32,14 +38,43 @@ export function createMcpServer(config: McpGatewayConfig) {
   const server = new McpServer({
     name: 'ocp-mcp-server',
     version: '0.1.0',
+  }, {
+    instructions: OCP_CATALOG_INSTRUCTIONS,
   });
   const deps = createToolDeps(config);
+
+  server.registerResource(
+    'ocp_catalog_guide',
+    OCP_CATALOG_GUIDE_URI,
+    {
+      title: 'OCP Catalog agent guide',
+      description: 'Self-description for the OCP Catalog MCP gateway, including protocol concepts and recommended tool workflow.',
+      mimeType: 'text/markdown',
+    },
+    (uri) => ({
+      contents: [{
+        uri: uri.href,
+        mimeType: 'text/markdown',
+        text: getOcpCatalogGuideMarkdown(),
+      }],
+    }),
+  );
+
+  server.registerTool(
+    'describe_ocp_catalog',
+    {
+      title: 'Describe OCP Catalog',
+      description: 'Explain what this MCP server does, the OCP Catalog concepts, and the recommended agent workflow. Call this first if you are unfamiliar with OCP Catalog.',
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => toolResult(async () => describeOcpCatalog()),
+  );
 
   server.registerTool(
     'search_catalogs',
     {
       title: 'Search OCP catalogs',
-      description: 'Search an OCP Registration node for catalogs matching a user intent.',
+      description: 'Discover OCP catalogs from a Registration node. Typical workflow: call this first; omit query to list active catalogs, or pass the user intent to find matching catalog domains.',
       inputSchema: searchCatalogsInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -50,7 +85,7 @@ export function createMcpServer(config: McpGatewayConfig) {
     'inspect_catalog',
     {
       title: 'Inspect an OCP catalog',
-      description: 'Fetch route hint and manifest details for a selected OCP catalog.',
+      description: 'Fetch route hint and manifest details for a selected OCP catalog. Typical workflow: use after search_catalogs and before query_catalog when you need supported query packs, filters, languages, contracts, or endpoint health.',
       inputSchema: inspectCatalogInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -61,7 +96,7 @@ export function createMcpServer(config: McpGatewayConfig) {
     'query_catalog',
     {
       title: 'Query an OCP catalog',
-      description: 'Query a selected OCP catalog using only manifest-supported capabilities.',
+      description: 'Query one selected OCP catalog using manifest-supported query packs and filters. Typical workflow: search_catalogs -> inspect_catalog when needed -> query_catalog -> resolve_catalog_entry for selected results.',
       inputSchema: queryCatalogInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -72,7 +107,7 @@ export function createMcpServer(config: McpGatewayConfig) {
     'resolve_catalog_entry',
     {
       title: 'Resolve an OCP catalog entry',
-      description: 'Resolve a selected OCP catalog entry into visible attributes and actions.',
+      description: 'Resolve a selected OCP catalog entry into visible attributes and provider-owned action bindings. Typical workflow: call after query_catalog when the user chooses an entry or asks how to act on it.',
       inputSchema: resolveCatalogEntryInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
@@ -83,7 +118,7 @@ export function createMcpServer(config: McpGatewayConfig) {
     'find_and_query_catalog',
     {
       title: 'Find and query an OCP catalog',
-      description: 'Search catalogs, choose the best candidate, and run a catalog query.',
+      description: 'One-shot helper that searches catalogs, chooses the best candidate, and runs a catalog query. Typical workflow: use when the user gives a domain intent and does not care which catalog serves it.',
       inputSchema: findAndQueryCatalogInput,
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
