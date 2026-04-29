@@ -50,7 +50,7 @@ export class CatalogClient {
       },
     );
 
-    return catalogQueryResultSchema.parse(payload);
+    return catalogQueryResultSchema.parse(normalizeCatalogQueryResult(payload, body));
   }
 
   async resolve(resolveUrl: string, body: ResolveRequest): Promise<ResolvableReference> {
@@ -70,4 +70,27 @@ export class CatalogClient {
 
     return resolvableReferenceSchema.parse(payload);
   }
+}
+
+function normalizeCatalogQueryResult(payload: unknown, request: CatalogQueryRequest) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
+  const record = payload as Record<string, unknown>;
+  if (record.page) return payload;
+
+  const limit = request.limit ?? 20;
+  const offset = request.offset ?? 0;
+  const items = Array.isArray(record.items) ? record.items : [];
+  const resultCount = typeof record.result_count === 'number' ? record.result_count : items.length;
+  const nextOffset = offset + items.length;
+  const hasMore = nextOffset < resultCount;
+
+  return {
+    ...record,
+    page: {
+      limit,
+      offset,
+      has_more: hasMore,
+      ...(hasMore ? { next_offset: nextOffset } : {}),
+    },
+  };
 }
