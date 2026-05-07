@@ -1,49 +1,51 @@
 import * as z from 'zod/v4';
 
-export const routeHintInput = z.record(z.string(), z.unknown());
+export const routeHintInput = z
+  .record(z.string(), z.unknown())
+  .describe('Route hint object returned by search_catalogs or find_and_query_catalog. Prefer passing this when available instead of only catalog_id.');
 
 export const searchCatalogsInput = {
-  registration_base_url: z.string().url().optional(),
-  query: z.string().describe('Catalog search phrase or intent summary. Omit or send an empty string to list active catalogs.').optional(),
-  filters: z.record(z.string(), z.unknown()).optional(),
-  limit: z.number().int().min(1).max(50).optional(),
-  explain: z.boolean().optional(),
+  registration_base_url: z.string().url().describe('Optional Registration node base URL. Omit to use the MCP server default registration node.').optional(),
+  query: z.string().describe('Catalog search phrase or user intent summary. Omit or send an empty string to list active catalogs.').optional(),
+  filters: z.record(z.string(), z.unknown()).describe('Registration-node catalog discovery filters only. Do not use this to filter products inside a catalog.').optional(),
+  limit: z.number().int().min(1).max(50).describe('Maximum number of catalogs to return. Omit for the server default.').optional(),
+  explain: z.boolean().describe('When true, include selection and fallback reasoning for the catalog discovery step.').optional(),
 };
 
 export const inspectCatalogInput = {
-  registration_base_url: z.string().url().optional(),
-  catalog_id: z.string().min(1).optional(),
+  registration_base_url: z.string().url().describe('Optional Registration node base URL. Omit to use the MCP server default registration node.').optional(),
+  catalog_id: z.string().min(1).describe('Catalog id returned by search_catalogs. Prefer route_hint when the previous tool returned one.').optional(),
   route_hint: routeHintInput.optional(),
 };
 
 export const queryCatalogInput = {
-  registration_base_url: z.string().url().optional(),
-  catalog_id: z.string().min(1).optional(),
+  registration_base_url: z.string().url().describe('Optional Registration node base URL. Omit to use the MCP server default registration node.').optional(),
+  catalog_id: z.string().min(1).describe('Catalog id returned by search_catalogs. Prefer route_hint when the previous tool returned one.').optional(),
   route_hint: routeHintInput.optional(),
-  query: z.string().min(1).optional(),
-  filters: z.record(z.string(), z.unknown()).optional(),
-  query_pack: z.string().min(1).optional(),
-  limit: z.number().int().min(1).max(50).optional(),
-  offset: z.number().int().min(0).optional(),
-  explain: z.boolean().optional(),
+  query: z.string().min(1).describe('Natural language or keyword query for entries inside the selected catalog, such as a product, service, supplier, opportunity, SKU, or category.').optional(),
+  filters: z.record(z.string(), z.unknown()).describe('Structured filters supported by the selected catalog only, such as category or in_stock_only when advertised. Do not invent fields. Inspect the catalog first when uncertain.').optional(),
+  query_pack: z.string().min(1).describe('Exact query pack id declared by inspect_catalog or the route hint. Omit when uncertain.').optional(),
+  limit: z.number().int().min(1).max(50).describe('Maximum number of catalog entries to return. Omit for the catalog default.').optional(),
+  offset: z.number().int().min(0).describe('Pagination offset for catalog entries. Omit for the first page.').optional(),
+  explain: z.boolean().describe('When true, include query planning, validation, and capability details.').optional(),
 };
 
 export const resolveCatalogEntryInput = {
-  registration_base_url: z.string().url().optional(),
-  catalog_id: z.string().min(1).optional(),
+  registration_base_url: z.string().url().describe('Optional Registration node base URL. Omit to use the MCP server default registration node.').optional(),
+  catalog_id: z.string().min(1).describe('Catalog id returned by search_catalogs or find_and_query_catalog. Prefer route_hint when available.').optional(),
   route_hint: routeHintInput.optional(),
-  entry_id: z.string().min(1),
+  entry_id: z.string().min(1).describe('Catalog entry id returned by query_catalog or find_and_query_catalog.query_result.entries.'),
 };
 
 export const findAndQueryCatalogInput = {
-  registration_base_url: z.string().url().optional(),
-  catalog_query: z.string().min(1).describe('Search phrase used to find a suitable catalog.'),
-  catalog_filters: z.record(z.string(), z.unknown()).optional(),
-  query: z.string().min(1).optional(),
-  filters: z.record(z.string(), z.unknown()).optional(),
-  query_pack: z.string().min(1).optional(),
-  limit: z.number().int().min(1).max(50).optional(),
-  offset: z.number().int().min(0).optional(),
+  registration_base_url: z.string().url().describe('Optional Registration node base URL. Omit to use the MCP server default registration node.').optional(),
+  catalog_query: z.string().min(1).describe('Search phrase or intent used to find a suitable catalog, such as commerce product catalog, supplier directory, service marketplace, or channel opportunities.'),
+  catalog_filters: z.record(z.string(), z.unknown()).describe('Registration-node catalog discovery filters only. Do not use this to filter products inside the selected catalog.').optional(),
+  query: z.string().min(1).describe('Natural language or keyword query to run inside the selected catalog, such as wireless headphones, CRM partner program, supplier name, SKU, or product category.').optional(),
+  filters: z.record(z.string(), z.unknown()).describe('Structured filters supported by the selected catalog only, such as category or in_stock_only when advertised. Do not invent fields. Omit when unsupported or uncertain.').optional(),
+  query_pack: z.string().min(1).describe('Exact query pack id declared by the selected catalog. Omit when uncertain.').optional(),
+  limit: z.number().int().min(1).max(50).describe('Maximum number of catalog entries to return. Omit for the catalog default.').optional(),
+  offset: z.number().int().min(0).describe('Pagination offset for catalog entries. Omit for the first page.').optional(),
 };
 
 export const searchCatalogsInputSchema = z.object(searchCatalogsInput);

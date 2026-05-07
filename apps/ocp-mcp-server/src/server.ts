@@ -5,29 +5,12 @@ import { selectTransportConfig, type McpGatewayConfig } from './config';
 import { CatalogClient } from './ocp/catalog-client';
 import { RegistrationClient } from './ocp/registration-client';
 import {
-  describeOcpCatalog,
   getOcpCatalogGuideMarkdown,
   OCP_CATALOG_GUIDE_URI,
   OCP_CATALOG_INSTRUCTIONS,
 } from './ocp/self-description';
-import {
-  findAndQueryCatalogInput,
-  inspectCatalogInput,
-  queryCatalogInput,
-  resolveCatalogEntryInput,
-  searchCatalogsInput,
-  type FindAndQueryCatalogInput,
-  type InspectCatalogInput,
-  type QueryCatalogInput,
-  type ResolveCatalogEntryInput,
-  type SearchCatalogsInput,
-} from './schemas/tool-inputs';
+import { registerOcpTools } from './tools/registry';
 import type { ToolDeps } from './tools/context';
-import { findAndQueryCatalogTool } from './tools/find-and-query-catalog';
-import { inspectCatalogTool } from './tools/inspect-catalog';
-import { queryCatalogTool } from './tools/query-catalog';
-import { resolveCatalogEntryTool } from './tools/resolve-catalog-entry';
-import { searchCatalogsTool } from './tools/search-catalogs';
 
 export async function startMcpServer(config: McpGatewayConfig) {
   const transportConfig = selectTransportConfig(config);
@@ -60,70 +43,7 @@ export function createMcpServer(config: McpGatewayConfig) {
     }),
   );
 
-  server.registerTool(
-    'describe_ocp_catalog',
-    {
-      title: 'Describe OCP Catalog',
-      description: 'Explain what this MCP server does, the OCP Catalog concepts, and the recommended agent workflow. Call this first if you are unfamiliar with OCP Catalog.',
-      annotations: { readOnlyHint: true, openWorldHint: false },
-    },
-    async () => toolResult(async () => describeOcpCatalog()),
-  );
-
-  server.registerTool(
-    'search_catalogs',
-    {
-      title: 'Search OCP catalogs',
-      description: 'Discover OCP catalogs from a Registration node. Typical workflow: call this first; omit query to list active catalogs, or pass the user intent to find matching catalog domains.',
-      inputSchema: searchCatalogsInput,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    async (args) => toolResult(() => searchCatalogsTool(args as SearchCatalogsInput, deps)),
-  );
-
-  server.registerTool(
-    'inspect_catalog',
-    {
-      title: 'Inspect an OCP catalog',
-      description: 'Fetch route hint and manifest details for a selected OCP catalog. Typical workflow: use after search_catalogs and before query_catalog when you need supported query packs, filters, languages, contracts, or endpoint health.',
-      inputSchema: inspectCatalogInput,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    async (args) => toolResult(() => inspectCatalogTool(args as InspectCatalogInput, deps)),
-  );
-
-  server.registerTool(
-    'query_catalog',
-    {
-      title: 'Query an OCP catalog',
-      description: 'Query one selected OCP catalog using manifest-supported query packs and filters. Typical workflow: search_catalogs -> inspect_catalog when needed -> query_catalog -> resolve_catalog_entry for selected results.',
-      inputSchema: queryCatalogInput,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    async (args) => toolResult(() => queryCatalogTool(args as QueryCatalogInput, deps)),
-  );
-
-  server.registerTool(
-    'resolve_catalog_entry',
-    {
-      title: 'Resolve an OCP catalog entry',
-      description: 'Resolve a selected OCP catalog entry into visible attributes and provider-owned action bindings. Typical workflow: call after query_catalog when the user chooses an entry or asks how to act on it.',
-      inputSchema: resolveCatalogEntryInput,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    async (args) => toolResult(() => resolveCatalogEntryTool(args as ResolveCatalogEntryInput, deps)),
-  );
-
-  server.registerTool(
-    'find_and_query_catalog',
-    {
-      title: 'Find and query an OCP catalog',
-      description: 'One-shot helper that searches catalogs, chooses the best candidate, and runs a catalog query. Typical workflow: use when the user gives a domain intent and does not care which catalog serves it.',
-      inputSchema: findAndQueryCatalogInput,
-      annotations: { readOnlyHint: true, openWorldHint: true },
-    },
-    async (args) => toolResult(() => findAndQueryCatalogTool(args as FindAndQueryCatalogInput, deps)),
-  );
+  registerOcpTools(server, deps, toolResult);
 
   return server;
 }

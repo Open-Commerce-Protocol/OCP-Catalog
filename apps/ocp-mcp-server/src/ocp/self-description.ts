@@ -1,12 +1,14 @@
+import { OCP_TOOL_DEFINITIONS, getOcpToolDefinition } from '../tools/definitions';
+
 export const OCP_CATALOG_GUIDE_URI = 'ocp://catalog/guide';
 
 export const OCP_CATALOG_INSTRUCTIONS = [
   'This MCP server is an OCP Catalog gateway. OCP Catalog is a protocol for discovering catalogs, querying catalog entries, and resolving selected entries into actionable references.',
-  'Use search_catalogs first to discover available OCP catalogs from a Registration node. If the user asks what services exist, call search_catalogs with no query or a broad intent.',
-  'Use inspect_catalog before querying when you need to know a catalog domain, supported query packs, supported languages, filter fields, or endpoint health.',
+  'When the user asks to search, find, list, compare, or retrieve products, catalog items, prices, stock, inventory, availability, suppliers, providers, services, opportunities, or purchasable options, prefer find_and_query_catalog unless a catalog is already selected.',
+  'Use search_catalogs for catalog/service discovery, such as what searchable domains or OCP catalogs are available. Do not use search_catalogs to search products directly.',
+  'Use inspect_catalog before querying when you need supported query packs, languages, filter fields, object contracts, endpoint health, or auth requirements.',
   'Use query_catalog to retrieve candidate entries from one selected catalog. Use only query packs and filters shown by inspect_catalog or the route hint.',
-  'Use resolve_catalog_entry after the user selects an entry or needs actionable details such as source URLs, contact links, purchase links, or provider-owned actions.',
-  'Use find_and_query_catalog when the user has a domain intent and you want the gateway to search catalogs, choose the best candidate, and query it in one step.',
+  'Use resolve_catalog_entry after the user selects an entry or needs actionable details such as source URLs, contact links, purchase links, purchase/view/contact actions, or provider-owned actions.',
 ].join('\n');
 
 export function describeOcpCatalog() {
@@ -44,6 +46,10 @@ export function describeOcpCatalog() {
     ],
     typical_workflows: [
       {
+        user_intent: 'Find wireless headphones under $100 in stock and compare prices',
+        steps: ['find_and_query_catalog with catalog_query "commerce product catalog" and query "wireless headphones"', 'only include price or inventory filters when supported by the selected catalog', 'summarize candidates with IDs so selected entries can be resolved'],
+      },
+      {
         user_intent: 'What services/catalogs are available?',
         steps: ['search_catalogs with no query', 'summarize each catalog by catalog_name, description, supported_query_packs, languages, and health_status'],
       },
@@ -56,13 +62,8 @@ export function describeOcpCatalog() {
         steps: ['resolve_catalog_entry with the selected entry_id', 'summarize visible_attributes and action_bindings'],
       },
     ],
-    tool_selection: {
-      search_catalogs: 'Discover catalogs. Empty query lists active catalogs; broad queries may fallback to listing.',
-      inspect_catalog: 'Read a catalog manifest and capability summary before choosing query packs or filters.',
-      query_catalog: 'Query one known catalog and return entries plus pagination.',
-      resolve_catalog_entry: 'Resolve one entry into provider-owned details and action bindings.',
-      find_and_query_catalog: 'Convenience tool that searches for the best catalog and queries it.',
-    },
+    tool_selection: Object.fromEntries(OCP_TOOL_DEFINITIONS.map((tool) => [tool.id, tool.selectionGuide])),
+    user_intent_map: Object.fromEntries(OCP_TOOL_DEFINITIONS.map((tool) => [tool.id, tool.userIntents])),
     response_guidance: [
       'Do not invent catalog capabilities. Use manifest and route hint data.',
       'Mention catalog health and verification when it affects trust.',
@@ -74,6 +75,7 @@ export function describeOcpCatalog() {
 
 export function getOcpCatalogGuideMarkdown() {
   const description = describeOcpCatalog();
+  const primarySearchTool = getOcpToolDefinition('find_and_query_catalog');
 
   return `# OCP Catalog MCP Gateway
 
@@ -90,11 +92,17 @@ ${description.service.purpose}
 
 ## Recommended Workflow
 
-1. Use \`search_catalogs\` to discover catalogs. Omit \`query\` to list active catalogs.
-2. Use \`inspect_catalog\` when you need capabilities, languages, filter fields, or endpoint details.
-3. Use \`query_catalog\` to retrieve entries from one selected catalog.
-4. Use \`resolve_catalog_entry\` when the user selects an entry or needs actionable details.
-5. Use \`find_and_query_catalog\` for a one-shot search-and-query flow.
+1. Use \`find_and_query_catalog\` first for natural-language retrieval intents such as products, prices, inventory, availability, suppliers, services, opportunities, or catalog data when no catalog is already selected.
+2. Use \`search_catalogs\` to discover catalogs. Omit \`query\` to list active catalogs.
+3. Use \`inspect_catalog\` when you need capabilities, languages, filter fields, or endpoint details.
+4. Use \`query_catalog\` to retrieve entries from one selected catalog.
+5. Use \`resolve_catalog_entry\` when the user selects an entry or needs actionable details.
+
+## User Intent to Tool
+
+${OCP_TOOL_DEFINITIONS.map((tool) => `- ${tool.userIntents.join('; ')} -> \`${tool.id}\``).join('\n')}
+
+Primary retrieval rule: ${primarySearchTool.selectionGuide}
 
 ## Agent Rules
 

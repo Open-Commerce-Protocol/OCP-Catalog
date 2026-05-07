@@ -10,11 +10,23 @@ Agent -> MCP client -> ocp-mcp-server -> Registration node -> selected Catalog
 
 ## Tools
 
+- `describe_ocp_catalog`
 - `search_catalogs`
 - `inspect_catalog`
 - `query_catalog`
 - `resolve_catalog_entry`
 - `find_and_query_catalog`
+
+## User intent to tool
+
+| User intent | Preferred tool |
+| --- | --- |
+| Find products, compare prices, check stock or inventory, search suppliers/providers/services/opportunities without choosing a catalog first | `find_and_query_catalog` |
+| Ask what OCP catalogs, searchable domains, services, or data sources are available | `search_catalogs` |
+| Ask which filters, query packs, languages, contracts, or endpoint health a catalog supports | `inspect_catalog` |
+| Search inside one already selected catalog | `query_catalog` |
+| Ask for final details, purchase/view/contact links, source URL, or provider-owned actions for a selected result | `resolve_catalog_entry` |
+| Ask how this MCP gateway or OCP Catalog works | `describe_ocp_catalog` |
 
 ## Run
 
