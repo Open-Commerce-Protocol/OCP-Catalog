@@ -13,6 +13,7 @@ import {
 } from './api';
 import { Badge, Button, Label, Modal } from './components';
 import { cn } from './lib/cn';
+import { useOcpUserDemoWebMcp } from './webmcp/useOcpUserDemoWebMcp';
 
 const resultImages = [
   'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80',
@@ -69,7 +70,12 @@ export function App() {
 
   const selectedTopAction = resolvedItem?.action_bindings[0] ?? null;
 
-  async function withAction(actionKey: string, fn: () => Promise<void>, onError?: (error: unknown) => void) {
+  async function withAction(
+    actionKey: string,
+    fn: () => Promise<void>,
+    onError?: (error: unknown) => void,
+    options?: { rethrow?: boolean },
+  ) {
     try {
       setBusyAction(actionKey);
       await fn();
@@ -79,6 +85,7 @@ export function App() {
         tone: 'danger',
         message: error instanceof Error ? error.message : 'Unexpected error',
       });
+      if (options?.rethrow) throw error;
     } finally {
       setBusyAction(null);
     }
@@ -94,12 +101,11 @@ export function App() {
     return `${fallback}\n\n错误信息：${message}`;
   }
 
-  async function handleUserTurn() {
-    const userText = draftMessage.trim();
+  async function submitUserIntent(message: string, options?: { rethrow?: boolean }) {
+    const userText = message.trim();
     if (!userText) return;
 
     pushMessage('user', userText);
-    setDraftMessage('');
     setResolvedItem(null);
 
     await withAction(
@@ -132,10 +138,19 @@ export function App() {
           ),
         );
       },
+      options,
     );
   }
 
-  async function handleRegisterPendingCatalog() {
+  async function handleUserTurn() {
+    const userText = draftMessage.trim();
+    if (!userText) return;
+
+    setDraftMessage('');
+    await submitUserIntent(userText);
+  }
+
+  async function handleRegisterPendingCatalog(options?: { rethrow?: boolean }) {
     if (!pendingCatalog) return;
     if (!querySession) return;
 
@@ -173,6 +188,7 @@ export function App() {
           ),
         );
       },
+      options,
     );
   }
 
@@ -191,6 +207,50 @@ export function App() {
       },
     ]);
   }
+
+  function handleSelectCatalogProfile(catalogId: string) {
+    const profile = savedProfiles.find((item) => item.catalog_id === catalogId);
+    if (!profile) throw new Error(`Catalog profile ${catalogId} is not saved locally`);
+    setActiveProfile(profile);
+  }
+
+  async function handleResolveResultEntry(entryId: string, options?: { rethrow?: boolean }) {
+    const item = catalogResults.find((result) => result.entry_id === entryId);
+    if (!item) throw new Error(`Result entry ${entryId} is not in the current result set`);
+    if (!activeProfile) throw new Error('No active catalog profile is selected');
+
+    await withAction(`resolve-${entryId}`, async () => {
+      const res = await resolveEntry(activeProfile.route_hint, item.entry_id);
+      setResolvedItem(res);
+      setResolveOpen(true);
+    }, undefined, options);
+  }
+
+  function handleOpenResolvedAction(actionId: string) {
+    if (!resolvedItem) throw new Error('No resolved item is available');
+    const action = resolvedItem.action_bindings.find((item) => item.action_id === actionId);
+    if (!action) throw new Error(`Action ${actionId} is not available on the current resolved item`);
+    if (!action.url) throw new Error(`Action ${actionId} does not expose an openable URL`);
+
+    window.open(action.url, '_blank', 'noopener,noreferrer');
+  }
+
+  useOcpUserDemoWebMcp({
+    getState: () => ({
+      savedProfiles,
+      pendingCatalog,
+      activeProfile,
+      catalogResults,
+      resolvedItem,
+      querySession,
+      busyAction,
+    }),
+    submitUserIntent: (message) => submitUserIntent(message, { rethrow: true }),
+    confirmPendingCatalog: () => handleRegisterPendingCatalog({ rethrow: true }),
+    selectCatalogProfile: handleSelectCatalogProfile,
+    resolveResultEntry: (entryId) => handleResolveResultEntry(entryId, { rethrow: true }),
+    openResolvedAction: handleOpenResolvedAction,
+  });
 
   return (
     <div className="flex h-screen w-full bg-[#f8f9fa] text-ink font-sans overflow-hidden">
@@ -386,12 +446,7 @@ export function App() {
                         transition={{ delay: index * 0.05 }}
                         key={item.entry_id}
                         className="group flex w-[260px] shrink-0 cursor-pointer flex-col overflow-hidden rounded-2xl border border-ink/5 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md hover:border-ink/15"
-                        onClick={() => void withAction(`resolve-${item.entry_id}`, async () => {
-                          if (!activeProfile) return;
-                          const res = await resolveEntry(activeProfile.route_hint, item.entry_id);
-                          setResolvedItem(res);
-                          setResolveOpen(true);
-                        })}
+                        onClick={() => void handleResolveResultEntry(item.entry_id)}
                       >
                          <div className="relative h-[160px] w-full bg-fog/20 overflow-hidden">
                            <img 

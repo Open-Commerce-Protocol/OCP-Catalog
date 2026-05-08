@@ -108,6 +108,7 @@
       "name": "@ocp-catalog/ocp-user-demo-web",
       "version": "0.1.0",
       "dependencies": {
+        "@ocp-catalog/webmcp-adapter": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.15",
         "clsx": "^2.1.1",
         "framer-motion": "^12.38.0",
@@ -270,6 +271,10 @@
     },
     "packages/shared": {
       "name": "@ocp-catalog/shared",
+      "version": "0.1.0",
+    },
+    "packages/webmcp-adapter": {
+      "name": "@ocp-catalog/webmcp-adapter",
       "version": "0.1.0",
     },
   },
@@ -459,6 +464,8 @@
     "@ocp-catalog/registration-schema": ["@ocp-catalog/registration-schema@workspace:packages/registration-schema"],
 
     "@ocp-catalog/shared": ["@ocp-catalog/shared@workspace:packages/shared"],
+
+    "@ocp-catalog/webmcp-adapter": ["@ocp-catalog/webmcp-adapter@workspace:packages/webmcp-adapter"],
 
     "@oxc-project/types": ["@oxc-project/types@0.126.0", "https://registry.npmmirror.com/@oxc-project/types/-/types-0.126.0.tgz", {}, "sha512-oGfVtjAgwQVVpfBrbtk4e1XDyWHRFta6BS3GWVzrF8xYBT2VGQAk39yJS/wFSMrZqoiCU4oghT3Ch0HaHGIHcQ=="],
 
