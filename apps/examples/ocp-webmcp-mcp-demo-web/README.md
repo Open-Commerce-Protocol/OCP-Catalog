@@ -45,6 +45,8 @@ For manual testing, install the Chrome extension `WebMCP - Model Context Tool In
 - `ocp.mall.set_data_source`
 - `ocp.mall.open_product_page`
 
+For automated testing, Puppeteer can drive a Chrome Beta 149+ build. Point Puppeteer at Chrome Beta with `channel: "chrome-beta"` or an explicit `executablePath`, launch it with the WebMCP experiment flags enabled, then open this demo page and run the WebMCP interaction from the automation script.
+
 ## OCP Tool Flow
 
 OCP Catalog has two distinct layers:

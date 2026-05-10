@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { findLatestCatalogSummary, summarizeCatalogResponse, type CatalogSearchSummary, type ProductCard } from './catalog-results';
-import { agentPromptExample, chromeSetupSteps } from './help-content';
+import { agentPromptExample, chromeSetupSteps, puppeteerSetupSteps } from './help-content';
 import { listCatalogProducts, searchCatalogOptions, type CatalogOption } from './ocp-http';
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
 import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, OpenProductInput, ProductSearchInput } from './webmcp/tools';
@@ -290,13 +290,19 @@ export function App() {
 
             <div className="help-grid">
               <article>
-                <h3>Chrome 需要先启用</h3>
+                <h3>方式一：Chrome 手动体验</h3>
                 <ol>
                   {chromeSetupSteps.map((step) => (
                     <li key={step}>{step}</li>
                   ))}
                 </ol>
                 <p>{webMcp.available ? '当前浏览器已经可以让 agent 使用这个页面。' : '当前浏览器还没有检测到 WebMCP，请检查上面的设置。'}</p>
+                <h3>方式二：Puppeteer 自动化</h3>
+                <ol>
+                  {puppeteerSetupSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ol>
               </article>
 
               <article>

@@ -1,10 +1,12 @@
 import { expect, test } from 'bun:test';
-import { agentPromptExample, chromeSetupSteps, protocolSteps, shortcutTool } from './help-content';
+import { agentPromptExample, chromeSetupSteps, protocolSteps, puppeteerSetupSteps, shortcutTool } from './help-content';
 
 test('help content explains Chrome WebMCP flags and agent prompt', () => {
   expect(chromeSetupSteps.join(' ')).toContain('chrome://flags');
   expect(chromeSetupSteps.join(' ')).toContain('WebMCP');
   expect(chromeSetupSteps.join(' ')).toContain('WebMCP - Model Context Tool Inspector');
+  expect(puppeteerSetupSteps.join(' ')).toContain('Puppeteer');
+  expect(puppeteerSetupSteps.join(' ')).toContain('Chrome Beta 149+');
   expect(agentPromptExample).toContain('搜索对应商品');
   expect(agentPromptExample).toContain('打开刚才搜索结果中的对应商品页面');
 });

@@ -9,6 +9,14 @@ export const chromeSetupSteps = [
   '打开扩展侧边栏，确认当前页面显示可用工具后即可体验。',
 ];
 
+export const puppeteerSetupSteps = [
+  '安装或使用 Chrome Beta 149+。',
+  '用 Puppeteer 指向 Chrome Beta，例如使用 channel: "chrome-beta" 或指定 executablePath。',
+  '启动浏览器时启用 WebMCP 相关实验特性。',
+  '让 Puppeteer 打开这个商城页面，再由自动化脚本驱动 WebMCP 操作。',
+  '这种方式适合自动化验证，不需要手动打开扩展侧边栏。',
+];
+
 export const protocolSteps = [
   {
     label: '先找目录',
