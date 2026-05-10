@@ -1,7 +1,5 @@
 # WooCommerce OCP Integration Design
 
-> 本文档是 WooCommerce 接入 OCP Catalog / agentic commerce 的设计说明，不表示当前仓库已经内置 WooCommerce 插件。
-
 ## 1. 背景与目标
 
 WooCommerce 商家已经在自己的 WordPress / WooCommerce 后台维护商品、变体、价格、库存、配送、优惠、支付方式和订单。OCP 集成的目标不是替代 WooCommerce，而是让这些商家能力可以被 OCP Catalog 和可信 agentic commerce 系统发现、理解、搜索和安全地进入下单流程。

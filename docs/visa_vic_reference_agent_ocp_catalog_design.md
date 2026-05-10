@@ -1,7 +1,5 @@
 # Visa VIC Reference Agent + OCP Catalog Design
 
-> 本文档描述一个 reference agent 如何结合 Visa Intelligent Commerce 与 OCP Catalog 完成可信 agentic checkout。它是架构设计说明，不表示当前仓库已经实现 Visa 集成。
-
 ## 1. 背景与目标
 
 Visa Intelligent Commerce（VIC）的核心定位是为 agentic commerce 提供支付信任能力：为 agent 提供 agent-specific payment token，并确保 agent 的购买行为、支付凭证请求和授权结果符合用户已认证的指令。Visa 还提供 Remote Model Context Protocol（MCP）Server，用作应用与 VIC APIs、Visa Token Service（VTS）和 Visa Developer Platform（VDP）服务之间的桥接层。
