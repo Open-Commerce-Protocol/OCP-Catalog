@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { findLatestCatalogSummary, summarizeCatalogCall } from './catalog-results';
+import { findLatestCatalogSummary, summarizeCatalogCall, summarizeCatalogResponse } from './catalog-results';
 import type { DemoCallRecord } from './webmcp/tools';
 
 test('summarizes find_and_query_catalog results into product cards', () => {
@@ -87,6 +87,25 @@ test('ignores malformed entries without throwing', () => {
 
   expect(summary.products).toEqual([]);
   expect(summary.title).toBe('没有找到商品');
+});
+
+test('summarizes direct catalog HTTP list response items', () => {
+  const summary = summarizeCatalogResponse({
+    catalog_id: 'cat_local_dev',
+    items: [{
+      entry_id: 'entry-1',
+      title: 'HTTP Listed Product',
+      attributes: {
+        amount: 9,
+        currency: 'USD',
+        primary_image_url: 'https://example.com/item.jpg',
+      },
+    }],
+  }, 'Commerce Product Search Catalog');
+
+  expect(summary.catalogName).toBe('Commerce Product Search Catalog');
+  expect(summary.products[0]?.title).toBe('HTTP Listed Product');
+  expect(summary.products[0]?.price).toBe('$9.00');
 });
 
 function createRecord(result: unknown, toolName = 'ocp.mcp.find_and_query_catalog'): DemoCallRecord {

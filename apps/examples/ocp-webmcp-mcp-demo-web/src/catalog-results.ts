@@ -1,4 +1,5 @@
 import type { DemoCallRecord } from './webmcp/tools';
+import type { CatalogQueryResponse } from './ocp-http';
 
 export type ProductCard = {
   id: string;
@@ -27,6 +28,16 @@ export function findLatestCatalogSummary(history: readonly DemoCallRecord[]) {
   return null;
 }
 
+export function summarizeCatalogResponse(response: CatalogQueryResponse, catalogName?: string): CatalogSearchSummary {
+  const products = getEntryArray(response.items ?? response.entries).map(toProductCard);
+  return {
+    title: products.length > 0 ? `${products.length} 件商品` : '没有找到商品',
+    catalogName,
+    catalogId: response.catalog_id,
+    products,
+  };
+}
+
 export function summarizeCatalogCall(record: DemoCallRecord): CatalogSearchSummary {
   if (record.error) {
     return { title: record.toolName, products: [], error: record.error };
@@ -42,7 +53,7 @@ export function summarizeCatalogCall(record: DemoCallRecord): CatalogSearchSumma
   const selectedCatalog = isRecord(content?.selected_catalog) ? content.selected_catalog : undefined;
   const directCatalog = isRecord(content?.catalog) ? content.catalog : undefined;
   const queryResult = isRecord(content?.query_result) ? content.query_result : undefined;
-  const entries = queryResult ? getEntryArray(queryResult.entries) : getEntryArray(content?.entries);
+  const entries = queryResult ? getEntryArray(queryResult.entries ?? queryResult.items) : getEntryArray(content?.entries ?? content?.items);
   const products = entries.map(toProductCard);
 
   return {

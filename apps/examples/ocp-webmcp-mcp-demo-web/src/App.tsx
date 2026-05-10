@@ -1,22 +1,26 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { findLatestCatalogSummary } from './catalog-results';
-import { agentPromptExample, chromeSetupSteps, protocolSteps, shortcutTool } from './help-content';
+import { findLatestCatalogSummary, summarizeCatalogResponse, type CatalogSearchSummary } from './catalog-results';
+import { agentPromptExample, chromeSetupSteps } from './help-content';
 import { createOcpMcpHttpClient } from './mcp/client';
+import { listCatalogProducts, searchCatalogOptions, type CatalogOption } from './ocp-http';
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
 import type { DemoCallRecord, OcpMcpDemoContext } from './webmcp/tools';
 
 const endpoint = import.meta.env.VITE_OCP_MCP_PROXY_PATH || '/api/ocp-mcp';
 const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io';
-const quickSearches = ['shoes', 'lipstick', 'chocolate', 'beef sauce', 'gift'];
 
 export function App() {
   const [history, setHistory] = useState<DemoCallRecord[]>([]);
   const [mcpTools, setMcpTools] = useState<Array<{ name: string; description?: string; inputSchema?: unknown }>>([]);
-  const [metadataError, setMetadataError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('shoes');
-  const [manualBusy, setManualBusy] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [registrationBaseUrl, setRegistrationBaseUrl] = useState(defaultRegistrationBaseUrl);
+  const [catalogs, setCatalogs] = useState<CatalogOption[]>([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState('');
+  const [productSummary, setProductSummary] = useState<CatalogSearchSummary | null>(null);
+  const [loadingCatalogs, setLoadingCatalogs] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [showTechnical, setShowTechnical] = useState(false);
   const client = useMemo(() => createOcpMcpHttpClient({ endpoint }), []);
 
   useEffect(() => {
@@ -24,14 +28,11 @@ export function App() {
 
     async function loadMetadata() {
       try {
-        setMetadataError(null);
         await client.initialize();
         const tools = await client.listTools();
         if (!cancelled) setMcpTools(tools);
-      } catch (error) {
-        if (!cancelled) {
-          setMetadataError(error instanceof Error ? error.message : 'Failed to load MCP tool metadata');
-        }
+      } catch {
+        if (!cancelled) setMcpTools([]);
       }
     }
 
@@ -40,6 +41,10 @@ export function App() {
       cancelled = true;
     };
   }, [client]);
+
+  useEffect(() => {
+    void refreshCatalogs();
+  }, []);
 
   const context = useMemo<OcpMcpDemoContext>(() => ({
     getState: () => ({
@@ -58,42 +63,59 @@ export function App() {
   }), [client, history]);
 
   const webMcp = useOcpMcpDemoWebMcp(context, mcpTools);
-  const latest = history[0] ?? null;
-  const summary = findLatestCatalogSummary(history);
+  const latestWebMcpSummary = findLatestCatalogSummary(history);
+  const summary = latestWebMcpSummary ?? productSummary;
   const products = summary?.products ?? [];
+  const selectedCatalog = catalogs.find((catalog) => catalog.catalogId === selectedCatalogId) ?? catalogs[0];
 
-  async function runSearch(query = searchQuery) {
-    const normalizedQuery = query.trim() || 'shoes';
-    const input = {
-      registration_base_url: defaultRegistrationBaseUrl,
-      catalog_query: 'commerce product catalog',
-      query: normalizedQuery,
-      limit: 12,
-    };
-
-    setSearchQuery(normalizedQuery);
-    setManualBusy(true);
+  async function refreshCatalogs() {
+    setLoadingCatalogs(true);
+    setPageError(null);
     try {
-      const result = await client.callTool('find_and_query_catalog', input);
-      context.recordCall({
-        toolName: 'ocp.mcp.find_and_query_catalog',
-        input,
-        result,
-      });
+      const nextCatalogs = await searchCatalogOptions(registrationBaseUrl);
+      setCatalogs(nextCatalogs);
+      const firstCatalog = nextCatalogs[0];
+      setSelectedCatalogId((current) => nextCatalogs.some((catalog) => catalog.catalogId === current) ? current : firstCatalog?.catalogId ?? '');
+      if (firstCatalog) {
+        await loadProducts(firstCatalog, searchQuery);
+      } else {
+        setProductSummary(null);
+        setPageError('这个注册中心没有返回可查询的 Commerce Catalog。');
+      }
     } catch (error) {
-      context.recordCall({
-        toolName: 'ocp.mcp.find_and_query_catalog',
-        input,
-        error: error instanceof Error ? error.message : '查询失败',
-      });
+      setProductSummary(null);
+      setPageError(error instanceof Error ? error.message : '注册中心连接失败');
     } finally {
-      setManualBusy(false);
+      setLoadingCatalogs(false);
+    }
+  }
+
+  async function loadProducts(catalog = selectedCatalog, query = searchQuery) {
+    if (!catalog) {
+      setPageError('请先选择一个 Catalog。');
+      return;
+    }
+
+    setLoadingProducts(true);
+    setPageError(null);
+    try {
+      const response = await listCatalogProducts(catalog, {
+        query,
+        limit: 24,
+        offset: 0,
+      });
+      setProductSummary(summarizeCatalogResponse(response, catalog.catalogName));
+    } catch (error) {
+      setProductSummary(null);
+      setPageError(error instanceof Error ? error.message : 'Catalog 查询失败');
+    } finally {
+      setLoadingProducts(false);
     }
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void runSearch();
+    void loadProducts(selectedCatalog, searchQuery);
   }
 
   return (
@@ -105,154 +127,95 @@ export function App() {
         </a>
 
         <form className="search-bar" onSubmit={submitSearch}>
-          <label className="search-type" htmlFor="mall-search">Catalog 商品</label>
+          <label className="search-type" htmlFor="mall-search">宝贝</label>
           <input
             id="mall-search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="试试 shoes、lipstick、chocolate"
+            placeholder="搜索商品；留空则列出 Product Commerce Catalog"
           />
-          <button type="submit" disabled={manualBusy || mcpTools.length === 0}>
-            {manualBusy ? '搜索中' : '搜索'}
+          <button type="submit" disabled={loadingProducts || loadingCatalogs || !selectedCatalog}>
+            {loadingProducts ? '搜索中' : '搜索'}
           </button>
         </form>
 
-        <button className="help-button" onClick={() => setHelpOpen(true)}>
-          使用说明
-        </button>
+        <div className="header-actions">
+          <details className="source-menu">
+            <summary>数据源</summary>
+            <div className="source-popover">
+              <label>
+                注册中心
+                <input value={registrationBaseUrl} onChange={(event) => setRegistrationBaseUrl(event.target.value)} />
+              </label>
+              <button type="button" onClick={() => void refreshCatalogs()} disabled={loadingCatalogs}>
+                {loadingCatalogs ? '加载中' : '刷新 Catalog'}
+              </button>
+              <label>
+                Catalog
+                <select
+                  value={selectedCatalog?.catalogId ?? ''}
+                  onChange={(event) => setSelectedCatalogId(event.target.value)}
+                >
+                  {catalogs.map((catalog) => (
+                    <option key={catalog.catalogId} value={catalog.catalogId}>
+                      {catalog.catalogName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedCatalog ? (
+                <p>
+                  当前通过 <code>{selectedCatalog.queryUrl}</code> 查询；
+                  搜索词为空时发送 clean list：<code>{'{ catalog_id, limit, offset }'}</code>。
+                </p>
+              ) : null}
+            </div>
+          </details>
+
+          <button className="help-button" onClick={() => setHelpOpen(true)}>
+            使用说明
+          </button>
+        </div>
       </header>
 
-      <section className="mall-hero">
-        <div>
-          <p className="eyebrow">Chrome WebMCP + OCP MCP Gateway</p>
-          <h1>让 AI 像逛商城一样搜索 Catalog</h1>
-          <p>
-            这个 demo 不新增业务后端：前端页面连接既有 OCP MCP gateway，WebMCP 工具调用也会回到同一套商品橱窗里展示。
-          </p>
-        </div>
-        <div className="hero-metrics" aria-label="连接状态">
-          <StatusPill label="WebMCP" value={webMcp.available ? '已开启' : '未检测到'} tone={webMcp.available ? 'ok' : 'warn'} />
-          <StatusPill label="MCP 工具" value={metadataError ? '连接失败' : `${mcpTools.length} 个`} tone={metadataError ? 'warn' : mcpTools.length ? 'ok' : 'muted'} />
-          <StatusPill label="Registration" value="ocp.deeplumen.io" tone="plain" />
-        </div>
-      </section>
+      {pageError ? <p className="banner-error">{pageError}</p> : null}
 
-      <section className="quick-lane" aria-label="快捷搜索">
-        <span>热门搜索</span>
-        {quickSearches.map((query) => (
-          <button key={query} onClick={() => void runSearch(query)} disabled={manualBusy}>
-            {query}
-          </button>
-        ))}
-      </section>
-
-      {metadataError ? <p className="banner-error">{metadataError}</p> : null}
-
-      <section className="commerce-layout">
-        <aside className="agent-panel" aria-label="AI 调用轨迹">
-          <div className="panel-heading">
-            <p className="eyebrow">AI Agent</p>
-            <h2>调用轨迹</h2>
+      <section className="shelf" aria-label="商品结果">
+        {loadingProducts || loadingCatalogs ? (
+          <div className="empty-shelf">
+            <strong>正在上架商品</strong>
+            <p>正在从注册中心选择 Catalog，并调用 Catalog 的 HTTP query/list 接口。</p>
           </div>
-          <ol className="agent-steps">
-            {protocolSteps.map((step, index) => (
-              <li key={step.tool} className={index === 0 || latest ? 'active' : undefined}>
-                <span>{index + 1}</span>
-                <div>
-                  <strong>{step.label}</strong>
-                  <code>{step.tool.replace('ocp.mcp.', '')}</code>
+        ) : products.length > 0 ? (
+          <div className="product-grid">
+            {products.map((product) => (
+              <article className="product-card" key={product.id}>
+                <div className="product-media">
+                  {product.imageUrl ? <img src={product.imageUrl} alt={product.title} /> : <span>OCP</span>}
                 </div>
-              </li>
-            ))}
-          </ol>
-
-          <div className="latest-call">
-            <strong>最近一次调用</strong>
-            {latest ? (
-              <>
-                <p>{friendlyToolName(latest.toolName)}</p>
-                <small>{new Date(latest.createdAt).toLocaleTimeString()}</small>
-              </>
-            ) : (
-              <p>搜索后会显示 AI 或页面调用过的工具。</p>
-            )}
-          </div>
-        </aside>
-
-        <section className="shelf" aria-label="商品结果">
-          <div className="shelf-head">
-            <div>
-              <p className="eyebrow">商品橱窗</p>
-              <h2>{summary?.error ? '搜索遇到问题' : summary?.title ?? '等 AI 上架第一批商品'}</h2>
-              <p>{summary?.catalogName ? `来自 ${summary.catalogName}` : 'Registration 先找目录，Catalog 再返回商品。'}</p>
-            </div>
-            <button className="secondary-button" onClick={() => setShowTechnical((value) => !value)}>
-              {showTechnical ? '隐藏技术记录' : '查看技术记录'}
-            </button>
-          </div>
-
-          {summary?.error ? <p className="banner-error">{summary.error}</p> : null}
-
-          {products.length > 0 ? (
-            <div className="product-grid">
-              {products.map((product, index) => (
-                <article className="product-card" key={product.id}>
-                  <div className="product-media">
-                    {product.imageUrl ? <img src={product.imageUrl} alt={product.title} /> : <span>{index + 1}</span>}
-                    {index < 3 ? <b>AI 推荐</b> : null}
+                <div className="product-info">
+                  <h2>{product.title}</h2>
+                  <p>{product.subtitle ?? product.brand ?? summary?.catalogName ?? 'Catalog item'}</p>
+                  <div className="product-meta">
+                    <strong>{product.price ?? '价格待确认'}</strong>
+                    <span>{product.availability ?? '库存待确认'}</span>
                   </div>
-                  <div className="product-info">
-                    <h3>{product.title}</h3>
-                    <p>{product.subtitle ?? product.brand ?? 'OCP Catalog item'}</p>
-                    <div className="product-meta">
-                      <strong>{product.price ?? '价格待确认'}</strong>
-                      <span>{product.availability ?? '库存待确认'}</span>
-                    </div>
-                    {product.productUrl ? (
-                      <a href={product.productUrl} target="_blank" rel="noreferrer">
-                        打开商品
-                      </a>
-                    ) : (
-                      <span className="disabled-link">等待 resolve</span>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-shelf">
-              <strong>还没有商品</strong>
-              <p>点“搜索”或让 Chrome 里的 agent 调用 WebMCP 工具，商品会自动摆到这里。</p>
-            </div>
-          )}
-        </section>
-      </section>
-
-      <section className="tool-dock">
-        <article>
-          <p className="eyebrow">本页注册给 AI 的工具</p>
-          <div className="tool-cloud">
-            {webMcp.tools.map((tool) => (
-              <span key={tool}>{friendlyToolName(tool)}</span>
+                  {product.productUrl ? (
+                    <a href={product.productUrl} target="_blank" rel="noreferrer">
+                      查看商品
+                    </a>
+                  ) : null}
+                </div>
+              </article>
             ))}
           </div>
-        </article>
-        <article>
-          <p className="eyebrow">快捷组合工具</p>
-          <h2>{shortcutTool.tool}</h2>
-          <p>{shortcutTool.purpose}</p>
-        </article>
-      </section>
-
-      {showTechnical ? (
-        <section className="technical-panel">
-          <div className="panel-heading">
-            <p className="eyebrow">Debug</p>
-            <h2>MCP 原始记录</h2>
+        ) : (
+          <div className="empty-shelf">
+            <strong>还没有商品</strong>
+            <p>点击搜索，或在数据源里选择注册中心和 Catalog。</p>
           </div>
-          {latest ? <pre>{JSON.stringify(latest, null, 2)}</pre> : <p>还没有调用记录。</p>}
-        </section>
-      ) : null}
+        )}
+      </section>
 
       {helpOpen ? (
         <div className="modal-backdrop" role="presentation" onClick={() => setHelpOpen(false)}>
@@ -265,7 +228,7 @@ export function App() {
           >
             <div className="modal-title">
               <div>
-                <p className="eyebrow">使用说明</p>
+                <p className="eyebrow">WebMCP 使用说明</p>
                 <h2 id="help-title">如何让 agent 使用这个商城</h2>
               </div>
               <button className="close-action" onClick={() => setHelpOpen(false)} aria-label="关闭使用说明">
@@ -281,6 +244,7 @@ export function App() {
                     <li key={step}>{step}</li>
                   ))}
                 </ol>
+                <p>当前 WebMCP：{webMcp.available ? '已检测到' : '未检测到'}；已注册工具 {webMcp.tools.length} 个。</p>
               </article>
 
               <article>
@@ -293,27 +257,4 @@ export function App() {
       ) : null}
     </main>
   );
-}
-
-function StatusPill({ label, value, tone }: { label: string; value: string; tone: 'ok' | 'warn' | 'muted' | 'plain' }) {
-  return (
-    <div className={`status-pill ${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-function friendlyToolName(toolName: string) {
-  const labels: Record<string, string> = {
-    'ocp.mcp.get_page_state': '页面状态',
-    'ocp.mcp.describe_ocp_catalog': '说明 OCP',
-    'ocp.mcp.search_catalogs': '找目录',
-    'ocp.mcp.inspect_catalog': '看能力',
-    'ocp.mcp.query_catalog': '查商品',
-    'ocp.mcp.resolve_catalog_entry': '看详情',
-    'ocp.mcp.find_and_query_catalog': '自动找货',
-  };
-
-  return labels[toolName] ?? toolName;
 }

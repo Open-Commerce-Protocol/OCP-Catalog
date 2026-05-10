@@ -1,6 +1,16 @@
 # OCP WebMCP MCP Demo
 
-This demo exposes the OCP MCP gateway tools to Chrome WebMCP and renders returned catalog entries as a shopping mall. It does not add a new business backend. The frontend talks to an existing OCP MCP gateway through `/api/ocp-mcp` in local development.
+This demo renders OCP Commerce product catalog entries as a shopping mall and exposes the OCP MCP gateway tools to Chrome WebMCP. It does not add a new business backend.
+
+The page actively discovers catalogs from a Registration node and calls the selected Catalog HTTP query endpoint directly:
+
+- Registration discovery/search defaults to `https://ocp.deeplumen.io`.
+- Current public Commerce catalog: `cat_local_dev`.
+- Current query endpoint: `https://ocp.catalog.pageflux.net/ocp/query`.
+- Clean list request: `{ "catalog_id": "cat_local_dev", "limit": 24, "offset": 0 }`.
+- Keyword search request adds `query_pack: "ocp.query.keyword.v1"` and `query`.
+
+WebMCP remains available for agents through the existing OCP MCP gateway. In local development, `/api/ocp-mcp` proxies to that gateway only for MCP tool registration and WebMCP tool calls.
 
 ## Local Run
 
