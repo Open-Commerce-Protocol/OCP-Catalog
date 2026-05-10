@@ -1,44 +1,32 @@
 import { createWebMcpRuntime } from '@ocp-catalog/webmcp-adapter';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { OcpMcpToolMetadata } from '../mcp/client';
-import { createOcpMcpDemoWebMcpTools, toWebMcpToolName, type OcpMcpDemoContext } from './tools';
+import { createOcpMcpDemoWebMcpTools, type OcpMcpDemoContext } from './tools';
 
-export function useOcpMcpDemoWebMcp(
-  context: OcpMcpDemoContext,
-  mcpTools: readonly OcpMcpToolMetadata[],
-) {
+export function useOcpMcpDemoWebMcp(context: OcpMcpDemoContext) {
   const [available, setAvailable] = useState(false);
+  const tools = useMemo(() => createOcpMcpDemoWebMcpTools(context), []);
   const contextRef = useRef(context);
   contextRef.current = context;
 
   useEffect(() => {
-    if (!shouldRegisterOcpMcpDemoTools(mcpTools)) {
-      return;
-    }
-
     const runtime = createWebMcpRuntime();
     setAvailable(runtime.isAvailable);
     const registration = runtime.registerTools(createOcpMcpDemoWebMcpTools({
       getState: () => contextRef.current.getState(),
-      callMcpTool: (name, args) => contextRef.current.callMcpTool(name, args),
+      listProducts: (input) => contextRef.current.listProducts(input),
+      searchProducts: (input) => contextRef.current.searchProducts(input),
+      setDataSource: (input) => contextRef.current.setDataSource(input),
       recordCall: (record) => contextRef.current.recordCall(record),
-    }, mcpTools));
+    }));
 
     return () => {
       registration.unregister();
       runtime.cleanup();
     };
-  }, [mcpTools]);
+  }, []);
 
   return useMemo(() => ({
     available,
-    tools: [
-      'ocp.mcp.get_page_state',
-      ...mcpTools.map((tool) => toWebMcpToolName(tool.name)),
-    ],
-  }), [available, mcpTools]);
-}
-
-export function shouldRegisterOcpMcpDemoTools(mcpTools: readonly OcpMcpToolMetadata[]) {
-  return mcpTools.length > 0;
+    tools: tools.map((tool) => tool.name),
+  }), [available, tools]);
 }

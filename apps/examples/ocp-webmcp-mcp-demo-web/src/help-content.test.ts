@@ -4,8 +4,9 @@ import { agentPromptExample, chromeSetupSteps, protocolSteps, shortcutTool } fro
 test('help content explains Chrome WebMCP flags and agent prompt', () => {
   expect(chromeSetupSteps.join(' ')).toContain('chrome://flags');
   expect(chromeSetupSteps.join(' ')).toContain('WebMCP');
-  expect(agentPromptExample).toContain('ocp.mcp.find_and_query_catalog');
-  expect(agentPromptExample).toContain('registration_base_url');
+  expect(chromeSetupSteps.join(' ')).toContain('WebMCP - Model Context Tool Inspector');
+  expect(agentPromptExample).toContain('ocp.mall.search_products');
+  expect(agentPromptExample).toContain('ocp.mall.list_products');
   expect(agentPromptExample).toContain('https://ocp.deeplumen.io');
 });
 
@@ -20,5 +21,5 @@ test('help content separates registration discovery from catalog retrieval', () 
   expect(protocolSteps[2].purpose).toContain('Catalog');
   expect(shortcutTool.tool).toBe('ocp.mcp.find_and_query_catalog');
   expect(shortcutTool.purpose).toContain('快捷组合工具');
-  expect(agentPromptExample).toContain('分步流程');
+  expect(agentPromptExample).toContain('页面工具');
 });

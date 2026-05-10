@@ -1,9 +1,20 @@
 import { expect, test } from 'bun:test';
-import { shouldRegisterOcpMcpDemoTools } from './useOcpMcpDemoWebMcp';
+import { createOcpMcpDemoWebMcpTools } from './tools';
 
-test('waits for MCP tool metadata before registering WebMCP tools', () => {
-  expect(shouldRegisterOcpMcpDemoTools([])).toBe(false);
-  expect(shouldRegisterOcpMcpDemoTools([
-    { name: 'describe_ocp_catalog', description: 'Describe OCP' },
-  ])).toBe(true);
+test('page WebMCP tools are available without MCP gateway tools/list metadata', () => {
+  const tools = createOcpMcpDemoWebMcpTools({
+    getState: () => ({
+      webMcpAvailable: true,
+      registrationBaseUrl: 'https://ocp.deeplumen.io',
+      productCount: 0,
+      history: [],
+    }),
+    listProducts: async () => ({ products: [] }),
+    searchProducts: async () => ({ products: [] }),
+    setDataSource: async () => ({ ok: true }),
+    recordCall: () => {},
+  });
+
+  expect(tools).toHaveLength(4);
+  expect(tools.map((tool) => tool.name)).toContain('ocp.mall.search_products');
 });

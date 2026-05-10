@@ -1,17 +1,14 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { findLatestCatalogSummary, summarizeCatalogResponse, type CatalogSearchSummary } from './catalog-results';
 import { agentPromptExample, chromeSetupSteps } from './help-content';
-import { createOcpMcpHttpClient } from './mcp/client';
 import { listCatalogProducts, searchCatalogOptions, type CatalogOption } from './ocp-http';
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
-import type { DemoCallRecord, OcpMcpDemoContext } from './webmcp/tools';
+import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, ProductSearchInput } from './webmcp/tools';
 
-const endpoint = import.meta.env.VITE_OCP_MCP_PROXY_PATH || '/api/ocp-mcp';
 const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io';
 
 export function App() {
   const [history, setHistory] = useState<DemoCallRecord[]>([]);
-  const [mcpTools, setMcpTools] = useState<Array<{ name: string; description?: string; inputSchema?: unknown }>>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [registrationBaseUrl, setRegistrationBaseUrl] = useState(defaultRegistrationBaseUrl);
   const [catalogs, setCatalogs] = useState<CatalogOption[]>([]);
@@ -21,26 +18,10 @@ export function App() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
-  const client = useMemo(() => createOcpMcpHttpClient({ endpoint }), []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadMetadata() {
-      try {
-        await client.initialize();
-        const tools = await client.listTools();
-        if (!cancelled) setMcpTools(tools);
-      } catch {
-        if (!cancelled) setMcpTools([]);
-      }
-    }
-
-    void loadMetadata();
-    return () => {
-      cancelled = true;
-    };
-  }, [client]);
+  const latestWebMcpSummary = findLatestCatalogSummary(history);
+  const summary = latestWebMcpSummary ?? productSummary;
+  const products = summary?.products ?? [];
+  const selectedCatalog = catalogs.find((catalog) => catalog.catalogId === selectedCatalogId) ?? catalogs[0];
 
   useEffect(() => {
     void refreshCatalogs();
@@ -49,10 +30,15 @@ export function App() {
   const context = useMemo<OcpMcpDemoContext>(() => ({
     getState: () => ({
       webMcpAvailable: Boolean((navigator as Navigator & { modelContext?: unknown }).modelContext),
-      mcpEndpoint: client.endpoint,
+      registrationBaseUrl,
+      selectedCatalogId: selectedCatalog?.catalogId,
+      selectedCatalogName: selectedCatalog?.catalogName,
+      productCount: products.length,
       history,
     }),
-    callMcpTool: (name, args) => client.callTool(name, args),
+    listProducts: (input) => runPageListProducts(input),
+    searchProducts: (input) => runPageSearchProducts(input),
+    setDataSource: (input) => runPageSetDataSource(input),
     recordCall: (record) => {
       setHistory((current) => [{
         id: crypto.randomUUID(),
@@ -60,13 +46,9 @@ export function App() {
         ...record,
       }, ...current].slice(0, 20));
     },
-  }), [client, history]);
+  }), [history, products.length, registrationBaseUrl, selectedCatalog]);
 
-  const webMcp = useOcpMcpDemoWebMcp(context, mcpTools);
-  const latestWebMcpSummary = findLatestCatalogSummary(history);
-  const summary = latestWebMcpSummary ?? productSummary;
-  const products = summary?.products ?? [];
-  const selectedCatalog = catalogs.find((catalog) => catalog.catalogId === selectedCatalogId) ?? catalogs[0];
+  const webMcp = useOcpMcpDemoWebMcp(context);
 
   async function refreshCatalogs() {
     setLoadingCatalogs(true);
@@ -111,6 +93,55 @@ export function App() {
     } finally {
       setLoadingProducts(false);
     }
+  }
+
+  async function runPageListProducts(input: ProductSearchInput) {
+    const catalog = selectedCatalog;
+    if (!catalog) throw new Error('No selected Catalog');
+    const response = await listCatalogProducts(catalog, {
+      limit: normalizeLimit(input.limit),
+      offset: normalizeOffset(input.offset),
+    });
+    const nextSummary = summarizeCatalogResponse(response, catalog.catalogName);
+    setSearchQuery('');
+    setProductSummary(nextSummary);
+    return nextSummary;
+  }
+
+  async function runPageSearchProducts(input: ProductSearchInput) {
+    const catalog = selectedCatalog;
+    if (!catalog) throw new Error('No selected Catalog');
+    const query = typeof input.query === 'string' ? input.query : '';
+    const response = await listCatalogProducts(catalog, {
+      query,
+      limit: normalizeLimit(input.limit),
+      offset: normalizeOffset(input.offset),
+    });
+    const nextSummary = summarizeCatalogResponse(response, catalog.catalogName);
+    setSearchQuery(query);
+    setProductSummary(nextSummary);
+    return nextSummary;
+  }
+
+  async function runPageSetDataSource(input: DataSourceInput) {
+    const nextRegistrationBaseUrl = typeof input.registration_base_url === 'string' && input.registration_base_url.trim()
+      ? input.registration_base_url.trim()
+      : registrationBaseUrl;
+    const nextCatalogs = await searchCatalogOptions(nextRegistrationBaseUrl);
+    const requestedCatalogId = typeof input.catalog_id === 'string' ? input.catalog_id : undefined;
+    const nextCatalog = nextCatalogs.find((catalog) => catalog.catalogId === requestedCatalogId) ?? nextCatalogs[0];
+    setRegistrationBaseUrl(nextRegistrationBaseUrl);
+    setCatalogs(nextCatalogs);
+    setSelectedCatalogId(nextCatalog?.catalogId ?? '');
+    if (!nextCatalog) throw new Error('Registration node returned no selectable Catalog');
+    const response = await listCatalogProducts(nextCatalog, { limit: 24, offset: 0 });
+    const nextSummary = summarizeCatalogResponse(response, nextCatalog.catalogName);
+    setProductSummary(nextSummary);
+    return {
+      registrationBaseUrl: nextRegistrationBaseUrl,
+      selectedCatalog: nextCatalog,
+      productCount: nextSummary.products.length,
+    };
   }
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
@@ -244,12 +275,14 @@ export function App() {
                     <li key={step}>{step}</li>
                   ))}
                 </ol>
-                <p>当前 WebMCP：{webMcp.available ? '已检测到' : '未检测到'}；已注册工具 {webMcp.tools.length} 个。</p>
+                <p>当前 WebMCP：{webMcp.available ? '已检测到' : '未检测到'}；页面已注册工具 {webMcp.tools.length} 个。</p>
+                <p>这些是页面工具，不需要启动 `apps/ocp-mcp-server`。MCP gateway 只在你想测试服务端 MCP 时才需要。</p>
               </article>
 
               <article>
                 <h3>可以这样告诉 agent</h3>
                 <pre>{agentPromptExample}</pre>
+                <p>Tool Inspector 里应该能看到 `ocp.mall.list_products`、`ocp.mall.search_products`、`ocp.mall.set_data_source` 和 `ocp.mall.get_page_state`。</p>
               </article>
             </div>
           </section>
@@ -257,4 +290,12 @@ export function App() {
       ) : null}
     </main>
   );
+}
+
+function normalizeLimit(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.min(Math.max(Math.trunc(value), 1), 50) : 24;
+}
+
+function normalizeOffset(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? Math.max(Math.trunc(value), 0) : 0;
 }

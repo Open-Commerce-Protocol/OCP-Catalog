@@ -1,10 +1,12 @@
 export const chromeSetupSteps = [
   'Use Google Chrome 148 or newer.',
   'Open chrome://flags and search WebMCP.',
-  'Enable WebMCP support in DevTools.',
   'Enable WebMCP for testing.',
+  'Enable WebMCP support in DevTools if your Chrome build shows that flag.',
   'Restart Chrome after changing the flags.',
+  'Install the Chrome extension: WebMCP - Model Context Tool Inspector.',
   'Open this demo page in that Chrome window.',
+  'Open the extension side panel and check that this page registers ocp.mall tools.',
 ];
 
 export const protocolSteps = [
@@ -35,17 +37,18 @@ export const shortcutTool = {
   purpose: '快捷组合工具：适合“不指定 Catalog，直接找商品/价格/库存”的普通问题。它会先找目录，再选一个 Catalog 查询，但不替代 inspect 和 resolve。',
 };
 
-export const agentPromptExample = `请使用当前页面暴露的 WebMCP 工具，并按 OCP Catalog 的分步流程执行：
-1. 调用 ocp.mcp.search_catalogs，在 https://ocp.deeplumen.io 这个 Registration 节点查找合适的 commerce product catalog。
-2. 对选中的 catalog 调用 ocp.mcp.inspect_catalog，确认它支持哪些 query_pack 和过滤字段。
-3. 调用 ocp.mcp.query_catalog，在该 catalog 中查询 shoes，limit 设为 5。
-4. 如果我选中了某个结果，再调用 ocp.mcp.resolve_catalog_entry 获取详情和链接。
-
-如果只是快速演示，也可以使用快捷组合工具 ocp.mcp.find_and_query_catalog：
+export const agentPromptExample = `请使用当前页面暴露的 WebMCP 页面工具，不要自己抓 DOM。
+如果我要浏览商品，调用 ocp.mall.list_products：
 {
-  "registration_base_url": "https://ocp.deeplumen.io",
-  "catalog_query": "commerce product catalog",
-  "query": "shoes",
-  "limit": 5
+  "limit": 12,
+  "offset": 0
 }
-请把目录选择过程、商品名称、价格、库存状态和商品链接总结给我。`;
+
+如果我要搜索商品，调用 ocp.mall.search_products：
+{
+  "query": "shoes",
+  "limit": 12
+}
+
+如果我要换注册中心或 Catalog，调用 ocp.mall.set_data_source。
+页面默认注册中心是 https://ocp.deeplumen.io，默认会发现 Commerce Product Search Catalog。`;

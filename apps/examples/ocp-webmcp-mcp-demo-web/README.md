@@ -10,7 +10,7 @@ The page actively discovers catalogs from a Registration node and calls the sele
 - Clean list request: `{ "catalog_id": "cat_local_dev", "limit": 24, "offset": 0 }`.
 - Keyword search request adds `query_pack: "ocp.query.keyword.v1"` and `query`.
 
-WebMCP remains available for agents through the existing OCP MCP gateway. In local development, `/api/ocp-mcp` proxies to that gateway only for MCP tool registration and WebMCP tool calls.
+WebMCP is page-native here. The page registers browser tools such as `ocp.mall.search_products` through `navigator.modelContext`; it does not need `apps/ocp-mcp-server` to expose those tools. Start the MCP gateway only when you explicitly want to test the separate server-side MCP service.
 
 ## Local Run
 
@@ -32,10 +32,17 @@ The Vite dev server proxies `/api/ocp-mcp` to `http://localhost:4300/mcp`. To po
 
 Use Chrome 148 or newer, open `chrome://flags`, search for `WebMCP`, then enable:
 
-- `WebMCP support in DevTools`
 - `WebMCP for testing`
+- `WebMCP support in DevTools` if your Chrome build shows that flag
 
 Restart Chrome after changing the flags.
+
+For manual testing, install the Chrome extension `WebMCP - Model Context Tool Inspector`. Open this page, open the extension side panel, and verify that it lists:
+
+- `ocp.mall.get_page_state`
+- `ocp.mall.list_products`
+- `ocp.mall.search_products`
+- `ocp.mall.set_data_source`
 
 ## OCP Tool Flow
 
