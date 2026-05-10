@@ -63,7 +63,7 @@ export function App() {
         await loadProducts(firstCatalog, searchQuery);
       } else {
         setProductSummary(null);
-        setPageError('这个注册中心没有返回可查询的 Commerce Catalog。');
+        setPageError('这个注册中心没有返回可用的商品目录。');
       }
     } catch (error) {
       setProductSummary(null);
@@ -75,7 +75,7 @@ export function App() {
 
   async function loadProducts(catalog = selectedCatalog, query = searchQuery) {
     if (!catalog) {
-      setPageError('请先选择一个 Catalog。');
+      setPageError('请先选择一个商品目录。');
       return;
     }
 
@@ -90,7 +90,7 @@ export function App() {
       setProductSummary(summarizeCatalogResponse(response, catalog.catalogName));
     } catch (error) {
       setProductSummary(null);
-      setPageError(error instanceof Error ? error.message : 'Catalog 查询失败');
+      setPageError(error instanceof Error ? error.message : '商品加载失败');
     } finally {
       setLoadingProducts(false);
     }
@@ -185,7 +185,7 @@ export function App() {
             id="mall-search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="搜索商品；留空则列出 Product Commerce Catalog"
+            placeholder="搜索商品；留空则浏览全部商品"
           />
           <button type="submit" disabled={loadingProducts || loadingCatalogs || !selectedCatalog}>
             {loadingProducts ? '搜索中' : '搜索'}
@@ -204,7 +204,7 @@ export function App() {
                 {loadingCatalogs ? '加载中' : '刷新 Catalog'}
               </button>
               <label>
-                Catalog
+                商品目录
                 <select
                   value={selectedCatalog?.catalogId ?? ''}
                   onChange={(event) => setSelectedCatalogId(event.target.value)}
@@ -218,8 +218,7 @@ export function App() {
               </label>
               {selectedCatalog ? (
                 <p>
-                  当前通过 <code>{selectedCatalog.queryUrl}</code> 查询；
-                  搜索词为空时发送 clean list：<code>{'{ catalog_id, limit, offset }'}</code>。
+                  当前使用 <strong>{selectedCatalog.catalogName}</strong>。切换后再次搜索即可查看对应商品。
                 </p>
               ) : null}
             </div>
@@ -237,7 +236,7 @@ export function App() {
         {loadingProducts || loadingCatalogs ? (
           <div className="empty-shelf">
             <strong>正在上架商品</strong>
-            <p>正在从注册中心选择 Catalog，并调用 Catalog 的 HTTP query/list 接口。</p>
+            <p>正在连接商品目录并加载商品。</p>
           </div>
         ) : products.length > 0 ? (
           <div className="product-grid">
@@ -297,14 +296,13 @@ export function App() {
                     <li key={step}>{step}</li>
                   ))}
                 </ol>
-                <p>当前 WebMCP：{webMcp.available ? '已检测到' : '未检测到'}；页面已注册工具 {webMcp.tools.length} 个。</p>
-                <p>这些是页面工具，不需要启动 `apps/ocp-mcp-server`。MCP gateway 只在你想测试服务端 MCP 时才需要。</p>
+                <p>{webMcp.available ? '当前浏览器已经可以让 agent 使用这个页面。' : '当前浏览器还没有检测到 WebMCP，请检查上面的设置。'}</p>
               </article>
 
               <article>
                 <h3>可以这样告诉 agent</h3>
                 <pre>{agentPromptExample}</pre>
-                <p>Tool Inspector 里应该能看到 `ocp.mall.list_products`、`ocp.mall.search_products`、`ocp.mall.open_product_page`、`ocp.mall.set_data_source` 和 `ocp.mall.get_page_state`。</p>
+                <p>扩展侧边栏显示当前页面可用后，就可以让 agent 搜索、浏览并打开商品。</p>
               </article>
             </div>
           </section>
