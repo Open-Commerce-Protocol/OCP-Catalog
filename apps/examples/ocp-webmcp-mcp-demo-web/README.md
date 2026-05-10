@@ -1,6 +1,6 @@
 # OCP WebMCP MCP Demo
 
-This demo exposes the OCP MCP gateway tools to Chrome WebMCP and shows the returned catalog data on the page.
+This demo exposes the OCP MCP gateway tools to Chrome WebMCP and renders returned catalog entries as a shopping mall. It does not add a new business backend. The frontend talks to an existing OCP MCP gateway through `/api/ocp-mcp` in local development.
 
 ## Local Run
 
@@ -16,7 +16,7 @@ Then start this demo:
 bun run --cwd apps/examples/ocp-webmcp-mcp-demo-web dev
 ```
 
-The Vite dev server proxies `/api/ocp-mcp` to `http://localhost:4300/mcp`.
+The Vite dev server proxies `/api/ocp-mcp` to `http://localhost:4300/mcp`. To point at another gateway, set `VITE_OCP_MCP_GATEWAY_URL`.
 
 ## Chrome Setup
 
