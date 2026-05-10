@@ -1,10 +1,10 @@
 module.exports = {
   apps: [
     {
-      name: 'ocp-center-api',
+      name: 'ocp-registration-api',
       cwd: '.',
       script: 'bun',
-      args: 'run center:api',
+      args: 'run registration:api',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
@@ -48,6 +48,18 @@ module.exports = {
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
+      },
+    },
+    {
+      name: 'ocp-webmcp-mcp-demo-web',
+      cwd: '.',
+      script: 'bun',
+      args: 'run --cwd apps/examples/ocp-webmcp-mcp-demo-web start',
+      interpreter: 'none',
+      env: {
+        NODE_ENV: 'production',
+        WEBMCP_MCP_DEMO_UI_PORT: '4250',
+        WEBMCP_MCP_DEMO_BASE_PATH: '/webmcp/',
       },
     },
     {

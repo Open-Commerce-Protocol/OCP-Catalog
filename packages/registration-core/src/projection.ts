@@ -15,10 +15,9 @@ export function supportedQueryModes(manifest: QueryCapabilitySource) {
 }
 
 export function supportedQueryPacks(manifest: QueryCapabilitySource) {
-  return unique(manifest.query_capabilities.flatMap((capability) => [
-    stringValue(capability.capability_id),
-    ...queryPackDescriptors(capability).map((descriptor) => descriptor.pack_id),
-  ].filter((value): value is string => Boolean(value))));
+  return unique(manifest.query_capabilities.flatMap((capability) => (
+    queryPackDescriptors(capability).map((descriptor) => descriptor.pack_id)
+  )));
 }
 
 export function supportedQueryLanguages(manifest: QueryCapabilitySource) {

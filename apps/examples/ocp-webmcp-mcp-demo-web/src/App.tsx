@@ -6,10 +6,12 @@ import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
 import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, OpenProductInput, ProductSearchInput } from './webmcp/tools';
 
 const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io';
+const defaultSearchPack = 'ocp.query.keyword.v1';
 
 export function App() {
   const [history, setHistory] = useState<DemoCallRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchQueryPack, setSearchQueryPack] = useState(defaultSearchPack);
   const [registrationBaseUrl, setRegistrationBaseUrl] = useState(defaultRegistrationBaseUrl);
   const [catalogs, setCatalogs] = useState<CatalogOption[]>([]);
   const [selectedCatalogId, setSelectedCatalogId] = useState('');
@@ -22,6 +24,7 @@ export function App() {
   const summary = latestWebMcpSummary ?? productSummary;
   const products = summary?.products ?? [];
   const selectedCatalog = catalogs.find((catalog) => catalog.catalogId === selectedCatalogId) ?? catalogs[0];
+  const selectedQueryPack = resolveQueryPackForCatalog(selectedCatalog, searchQueryPack);
 
   useEffect(() => {
     void refreshCatalogs();
@@ -60,7 +63,7 @@ export function App() {
       const firstCatalog = nextCatalogs[0];
       setSelectedCatalogId((current) => nextCatalogs.some((catalog) => catalog.catalogId === current) ? current : firstCatalog?.catalogId ?? '');
       if (firstCatalog) {
-        await loadProducts(firstCatalog, searchQuery);
+        await loadProducts(firstCatalog, searchQuery, resolveQueryPackForCatalog(firstCatalog, searchQueryPack));
       } else {
         setProductSummary(null);
         setPageError('这个注册中心没有返回可用的商品目录。');
@@ -73,7 +76,7 @@ export function App() {
     }
   }
 
-  async function loadProducts(catalog = selectedCatalog, query = searchQuery) {
+  async function loadProducts(catalog = selectedCatalog, query = searchQuery, queryPack = selectedQueryPack) {
     if (!catalog) {
       setPageError('请先选择一个商品目录。');
       return;
@@ -84,6 +87,7 @@ export function App() {
     try {
       const response = await listCatalogProducts(catalog, {
         query,
+        queryPack: query?.trim() ? queryPack : undefined,
         limit: 24,
         offset: 0,
       });
@@ -100,6 +104,9 @@ export function App() {
     const catalog = selectedCatalog;
     if (!catalog) throw new Error('No selected Catalog');
     const response = await listCatalogProducts(catalog, {
+      queryPack: normalizeQueryPack(input.query_pack),
+      searchMode: normalizeSearchMode(input.search_mode),
+      filters: normalizeFilters(input.filters),
       limit: normalizeLimit(input.limit),
       offset: normalizeOffset(input.offset),
     });
@@ -113,13 +120,20 @@ export function App() {
     const catalog = selectedCatalog;
     if (!catalog) throw new Error('No selected Catalog');
     const query = typeof input.query === 'string' ? input.query : '';
+    const queryPack = normalizeQueryPack(input.query_pack);
+    const searchMode = normalizeSearchMode(input.search_mode);
     const response = await listCatalogProducts(catalog, {
       query,
+      queryPack,
+      searchMode,
+      filters: normalizeFilters(input.filters),
       limit: normalizeLimit(input.limit),
       offset: normalizeOffset(input.offset),
     });
     const nextSummary = summarizeCatalogResponse(response, catalog.catalogName);
     setSearchQuery(query);
+    if (queryPack) setSearchQueryPack(queryPack);
+    else if (searchMode) setSearchQueryPack(packForSearchMode(searchMode));
     setProductSummary(nextSummary);
     return nextSummary;
   }
@@ -168,7 +182,7 @@ export function App() {
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    void loadProducts(selectedCatalog, searchQuery);
+    void loadProducts(selectedCatalog, searchQuery, selectedQueryPack);
   }
 
   return (
@@ -180,7 +194,20 @@ export function App() {
         </a>
 
         <form className="search-bar" onSubmit={submitSearch}>
-          <label className="search-type" htmlFor="mall-search">宝贝</label>
+          <label className="search-type" htmlFor="mall-search-pack">模式</label>
+          <select
+            id="mall-search-pack"
+            value={selectedQueryPack}
+            onChange={(event) => setSearchQueryPack(event.target.value)}
+            disabled={!selectedCatalog}
+            aria-label="搜索模式"
+          >
+            {(selectedCatalog?.supportedQueryPacks.length ? selectedCatalog.supportedQueryPacks : [defaultSearchPack]).map((queryPack) => (
+              <option key={queryPack} value={queryPack}>
+                {labelQueryPack(queryPack)}
+              </option>
+            ))}
+          </select>
           <input
             id="mall-search"
             value={searchQuery}
@@ -218,7 +245,8 @@ export function App() {
               </label>
               {selectedCatalog ? (
                 <p>
-                  当前使用 <strong>{selectedCatalog.catalogName}</strong>。切换后再次搜索即可查看对应商品。
+                  当前使用 <strong>{selectedCatalog.catalogName}</strong>。
+                  支持 {selectedCatalog.supportedQueryPacks.map(labelQueryPack).join('、')}。
                 </p>
               ) : null}
             </div>
@@ -324,6 +352,39 @@ function normalizeLimit(value: unknown) {
 
 function normalizeOffset(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(Math.trunc(value), 0) : 0;
+}
+
+function normalizeQueryPack(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeSearchMode(value: unknown) {
+  if (value === 'keyword' || value === 'filter' || value === 'semantic') return value;
+  return undefined;
+}
+
+function normalizeFilters(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+
+function packForSearchMode(mode: 'keyword' | 'filter' | 'semantic') {
+  if (mode === 'semantic') return 'ocp.query.semantic.v1';
+  if (mode === 'filter') return 'ocp.query.filter.v1';
+  return defaultSearchPack;
+}
+
+function labelQueryPack(queryPack: string) {
+  if (queryPack === 'ocp.query.semantic.v1') return 'Semantic';
+  if (queryPack === 'ocp.query.filter.v1') return 'Filter';
+  if (queryPack === 'ocp.query.keyword.v1') return 'Keyword';
+  return queryPack;
+}
+
+function resolveQueryPackForCatalog(catalog: CatalogOption | undefined, preferredQueryPack: string) {
+  if (catalog?.supportedQueryPacks.includes(preferredQueryPack)) return preferredQueryPack;
+  if (catalog?.supportedQueryPacks.includes(defaultSearchPack)) return defaultSearchPack;
+  return catalog?.supportedQueryPacks[0] ?? defaultSearchPack;
 }
 
 function findProduct(products: readonly ProductCard[], input: OpenProductInput) {

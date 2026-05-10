@@ -192,10 +192,7 @@ function validateQueryCapability(
 ) {
   const capabilities = scenario.queryCapabilities();
   const supportedModes = new Set(capabilities.flatMap((capability) => queryModesFromCapability(capability)));
-  const supportedPacks = new Set(capabilities.flatMap((capability) => [
-    stringValue(capability.capability_id),
-    ...queryPackIdsFromCapability(capability),
-  ].filter((value): value is string => Boolean(value))));
+  const supportedPacks = new Set(capabilities.flatMap((capability) => queryPackIdsFromCapability(capability)));
 
   if (!supportedModes.has(requestedMode)) {
     throw new AppError('validation_error', `Unsupported query strategy: ${requestedMode}`, 400, {

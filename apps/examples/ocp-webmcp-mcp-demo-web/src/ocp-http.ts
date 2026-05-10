@@ -23,6 +23,17 @@ export type CatalogQueryResponse = {
   };
 };
 
+export type CatalogSearchMode = 'keyword' | 'filter' | 'semantic';
+
+export type CatalogProductQueryInput = {
+  query?: string;
+  queryPack?: string;
+  searchMode?: CatalogSearchMode;
+  filters?: Record<string, unknown>;
+  limit: number;
+  offset?: number;
+};
+
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export async function discoverRegistration(baseUrl: string, fetchImpl: FetchLike = fetch) {
@@ -51,18 +62,18 @@ export async function searchCatalogOptions(baseUrl: string, fetchImpl: FetchLike
   return (payload.items ?? []).map(toCatalogOption).filter((item): item is CatalogOption => Boolean(item));
 }
 
-export async function listCatalogProducts(catalog: CatalogOption, input: {
-  query?: string;
-  limit: number;
-  offset?: number;
-}, fetchImpl: FetchLike = fetch): Promise<CatalogQueryResponse> {
+export async function listCatalogProducts(catalog: CatalogOption, input: CatalogProductQueryInput, fetchImpl: FetchLike = fetch): Promise<CatalogQueryResponse> {
   const query = input.query?.trim();
+  const filters = cleanFilters(input.filters);
+  const queryPack = pickQueryPack(catalog, input);
   const response = await fetchImpl(catalog.queryUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       catalog_id: catalog.catalogId,
-      ...(query ? { query_pack: pickKeywordPack(catalog), query } : {}),
+      ...(queryPack ? { query_pack: queryPack } : {}),
+      ...(query ? { query } : {}),
+      ...(Object.keys(filters).length ? { filters } : {}),
       limit: input.limit,
       offset: input.offset ?? 0,
     }),
@@ -92,10 +103,45 @@ function toCatalogOption(value: unknown): CatalogOption | null {
   };
 }
 
-function pickKeywordPack(catalog: CatalogOption) {
-  return catalog.supportedQueryPacks.includes('ocp.query.keyword.v1')
-    ? 'ocp.query.keyword.v1'
-    : catalog.supportedQueryPacks[0];
+function pickQueryPack(catalog: CatalogOption, input: CatalogProductQueryInput) {
+  const requestedPack = normalizeQueryPack(input.queryPack);
+  if (requestedPack) return ensureSupportedQueryPack(catalog, requestedPack);
+
+  const requestedMode = input.searchMode;
+  if (requestedMode) return ensureSupportedQueryPack(catalog, packForSearchMode(requestedMode));
+
+  const hasQuery = Boolean(input.query?.trim());
+  const hasFilters = Boolean(input.filters && Object.values(input.filters).some((value) => value !== undefined && value !== null && value !== ''));
+  if (!hasQuery && !hasFilters) return undefined;
+
+  if (hasQuery && catalog.supportedQueryPacks.includes('ocp.query.keyword.v1')) return 'ocp.query.keyword.v1';
+  if (hasFilters && catalog.supportedQueryPacks.includes('ocp.query.filter.v1')) return 'ocp.query.filter.v1';
+  return catalog.supportedQueryPacks[0];
+}
+
+function packForSearchMode(mode: CatalogSearchMode) {
+  if (mode === 'semantic') return 'ocp.query.semantic.v1';
+  if (mode === 'filter') return 'ocp.query.filter.v1';
+  return 'ocp.query.keyword.v1';
+}
+
+function ensureSupportedQueryPack(catalog: CatalogOption, queryPack: string) {
+  if (!catalog.supportedQueryPacks.includes(queryPack)) {
+    throw new Error(`Catalog ${catalog.catalogName} does not support query_pack ${queryPack}`);
+  }
+  return queryPack;
+}
+
+function normalizeQueryPack(value: string | undefined) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function cleanFilters(filters: Record<string, unknown> | undefined) {
+  const cleaned: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(filters ?? {})) {
+    if (value !== undefined && value !== null && value !== '') cleaned[key] = value;
+  }
+  return cleaned;
 }
 
 function trimTrailingSlash(value: string) {

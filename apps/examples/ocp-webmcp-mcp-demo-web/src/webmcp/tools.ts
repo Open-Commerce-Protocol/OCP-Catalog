@@ -20,6 +20,9 @@ export type OcpMcpDemoState = {
 
 export type ProductSearchInput = {
   query?: string;
+  query_pack?: string;
+  search_mode?: 'keyword' | 'filter' | 'semantic';
+  filters?: Record<string, unknown>;
   limit?: number;
   offset?: number;
 };
@@ -70,6 +73,20 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
         type: 'object',
         properties: {
           query: { type: 'string', description: 'Product search phrase such as shoes, jacket, lipstick, or chocolate.' },
+          query_pack: {
+            type: 'string',
+            enum: ['ocp.query.keyword.v1', 'ocp.query.filter.v1', 'ocp.query.semantic.v1'],
+            description: 'Exact OCP query pack to use when the selected Catalog supports it.',
+          },
+          search_mode: {
+            type: 'string',
+            enum: ['keyword', 'filter', 'semantic'],
+            description: 'Search mode shortcut. keyword uses text search, filter uses structured filters, semantic uses meaning-based retrieval.',
+          },
+          filters: {
+            type: 'object',
+            description: 'Structured Catalog filters for filter or hybrid searches, such as category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, or has_image.',
+          },
           limit: { type: 'number', description: 'Maximum number of products to return. Defaults to 24.' },
           offset: { type: 'number', description: 'Zero-based pagination offset. Defaults to 0.' },
         },

@@ -26,7 +26,7 @@ Then start this demo:
 bun run --cwd apps/examples/ocp-webmcp-mcp-demo-web dev
 ```
 
-The Vite dev server proxies `/api/ocp-mcp` to `http://localhost:4300/mcp`. To point at another gateway, set `VITE_OCP_MCP_GATEWAY_URL`.
+The demo is a frontend-only WebMCP surface. It does not require a backend route for WebMCP; agents interact with the page through the WebMCP tools registered by the browser runtime.
 
 ## Chrome Setup
 

@@ -11,6 +11,16 @@ test('registers page-native WebMCP tools without MCP server metadata', () => {
     'ocp.mall.open_product_page',
   ]);
   expect(tools.find((tool) => tool.name === 'ocp.mall.search_products')?.description).toContain('Search products');
+  expect(tools.find((tool) => tool.name === 'ocp.mall.search_products')?.inputSchema).toMatchObject({
+    properties: {
+      query_pack: {
+        enum: ['ocp.query.keyword.v1', 'ocp.query.filter.v1', 'ocp.query.semantic.v1'],
+      },
+      search_mode: {
+        enum: ['keyword', 'filter', 'semantic'],
+      },
+    },
+  });
   expect(tools.find((tool) => tool.name === 'ocp.mall.open_product_page')?.description).toContain('Open the detail page');
 });
 
@@ -30,13 +40,28 @@ test('forwards WebMCP product search to page logic and records the result', asyn
   const tool = tools.find((candidate) => candidate.name === 'ocp.mall.search_products');
   if (!tool) throw new Error('missing search_products tool');
 
-  const result = await tool.handler({ query: 'shoes', limit: 5 });
+  const result = await tool.handler({
+    query: 'shoes',
+    query_pack: 'ocp.query.semantic.v1',
+    filters: { in_stock_only: true },
+    limit: 5,
+  });
 
   expect(result).toEqual({ products: [{ title: 'Demo Shoes' }] });
-  expect(calls).toEqual([{ query: 'shoes', limit: 5 }]);
+  expect(calls).toEqual([{
+    query: 'shoes',
+    query_pack: 'ocp.query.semantic.v1',
+    filters: { in_stock_only: true },
+    limit: 5,
+  }]);
   expect(records).toEqual([{
     toolName: 'ocp.mall.search_products',
-    input: { query: 'shoes', limit: 5 },
+    input: {
+      query: 'shoes',
+      query_pack: 'ocp.query.semantic.v1',
+      filters: { in_stock_only: true },
+      limit: 5,
+    },
     result: { products: [{ title: 'Demo Shoes' }] },
   }]);
 });
