@@ -15,16 +15,16 @@ test('creates no-op runtime when host is absent', () => {
   runtime.cleanup();
 });
 
-test('registers and unregisters host tools', () => {
+test('registers Chrome WebMCP object tools and unregisters by returned registration', () => {
   const unregistered: string[] = [];
-  const registered: string[] = [];
+  const registered: Array<Record<string, unknown>> = [];
   const runtime = createWebMcpRuntime({
     host: {
-      registerTool(name: unknown) {
-        registered.push(String(name));
+      registerTool(tool: unknown) {
+        registered.push(tool as Record<string, unknown>);
         return {
           unregister() {
-            unregistered.push(String(name));
+            unregistered.push(String((tool as { name: string }).name));
           },
         };
       },
@@ -37,10 +37,70 @@ test('registers and unregisters host tools', () => {
     { name: 'ocp.second', description: 'Second', handler: () => null },
   ]);
 
-  expect(registered).toEqual(['ocp.first', 'ocp.second']);
+  expect(registered).toEqual([
+    {
+      name: 'ocp.first',
+      description: 'First',
+      inputSchema: undefined,
+      execute: registered[0]?.execute,
+    },
+    {
+      name: 'ocp.second',
+      description: 'Second',
+      inputSchema: undefined,
+      execute: registered[1]?.execute,
+    },
+  ]);
+  expect(typeof registered[0]?.execute).toBe('function');
   registration.unregister();
   registration.unregister();
   expect(unregistered).toEqual(['ocp.second', 'ocp.first']);
+});
+
+test('falls back to host unregisterTool when registerTool returns no registration', () => {
+  const unregistered: string[] = [];
+  const runtime = createWebMcpRuntime({
+    host: {
+      registerTool() {
+        return undefined;
+      },
+      unregisterTool(name: unknown) {
+        unregistered.push(String(name));
+      },
+    },
+  });
+
+  const registration = runtime.registerTool({
+    name: 'ocp.chrome',
+    description: 'Chrome style registration',
+    handler: () => null,
+  });
+
+  registration.unregister();
+
+  expect(unregistered).toEqual(['ocp.chrome']);
+});
+
+test('treats Chrome duplicate tool registration as already registered', () => {
+  const runtime = createWebMcpRuntime({
+    host: {
+      registerTool() {
+        throw new DOMException(
+          "Failed to execute 'registerTool' on 'ModelContext': Duplicate tool name",
+          'InvalidStateError',
+        );
+      },
+    },
+  });
+
+  const registration = runtime.registerTool({
+    name: 'ocp.duplicate',
+    description: 'Duplicate registration',
+    handler: () => null,
+  });
+
+  registration.unregister();
+  runtime.cleanup();
 });
 
 test('cleanup unregisters active registrations once', () => {

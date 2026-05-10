@@ -25,6 +25,7 @@
     "commerce:provider:admin": "bun run --cwd apps/examples/commerce-provider-admin-web dev",
     "user:demo:api": "bun run --cwd apps/examples/ocp-user-demo-api start",
     "user:demo": "bun run --cwd apps/examples/ocp-user-demo-web dev",
+    "webmcp:demo": "bun run --cwd apps/examples/ocp-webmcp-mcp-demo-web dev",
     "protocol:docs": "bun run --cwd apps/ocp-protocol-docs-web dev",
     "protocol:docs:host": "bun run --cwd apps/ocp-protocol-docs-web start",
     "mcp:gateway": "bun run --cwd apps/ocp-mcp-server start",

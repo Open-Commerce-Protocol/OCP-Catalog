@@ -22,6 +22,7 @@ export type WebMcpRuntime = {
 
 export type WebMcpHost = {
   registerTool?: unknown;
+  unregisterTool?: unknown;
 };
 
 export type WebMcpRuntimeOptions = {

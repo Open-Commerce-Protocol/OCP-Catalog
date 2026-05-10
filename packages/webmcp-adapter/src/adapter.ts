@@ -7,10 +7,12 @@ type HostRegistration =
   | { unregister?: () => void; remove?: () => void; dispose?: () => void };
 
 type RegisterToolFunction = (...args: unknown[]) => HostRegistration;
+type UnregisterToolFunction = (name: string) => void;
 
 export function createWebMcpRuntime(options: WebMcpRuntimeOptions = {}): WebMcpRuntime {
   const host = options.host === undefined ? getDefaultHost() : options.host;
   const registerTool = isRegisterToolHost(host) ? host.registerTool.bind(host) : null;
+  const unregisterTool = isUnregisterToolHost(host) ? host.unregisterTool.bind(host) : null;
   const registrations = new Set<WebMcpToolRegistration>();
 
   const runtime: WebMcpRuntime = {
@@ -24,7 +26,7 @@ export function createWebMcpRuntime(options: WebMcpRuntimeOptions = {}): WebMcpR
         unregister() {
           if (!active) return;
           active = false;
-          unregisterHostTool(hostRegistration);
+          unregisterHostTool(hostRegistration, unregisterTool, tool.name);
           registrations.delete(registration);
         },
       };
@@ -70,31 +72,62 @@ function isRegisterToolHost(host: WebMcpHost | null | undefined): host is { regi
   return typeof host?.registerTool === 'function';
 }
 
+function isUnregisterToolHost(host: WebMcpHost | null | undefined): host is { unregisterTool: UnregisterToolFunction } {
+  return typeof host?.unregisterTool === 'function';
+}
+
 function registerHostTool<TInput, TResult>(
   registerTool: RegisterToolFunction,
   tool: WebMcpTool<TInput, TResult>,
 ): HostRegistration {
-  return registerTool(
-    tool.name,
-    {
+  try {
+    return registerTool({
+      name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,
-    },
-    tool.handler,
-  );
+      execute: tool.handler,
+    });
+  } catch (error) {
+    if (isDuplicateToolRegistrationError(error)) return noopHostRegistration;
+    throw error;
+  }
 }
 
-function unregisterHostTool(registration: HostRegistration) {
+function unregisterHostTool(
+  registration: HostRegistration,
+  unregisterTool: UnregisterToolFunction | null,
+  toolName: string,
+) {
   if (typeof registration === 'function') {
     registration();
     return;
   }
 
-  registration?.unregister?.();
-  registration?.remove?.();
-  registration?.dispose?.();
+  if (registration?.unregister) {
+    registration.unregister();
+    return;
+  }
+  if (registration?.remove) {
+    registration.remove();
+    return;
+  }
+  if (registration?.dispose) {
+    registration.dispose();
+    return;
+  }
+
+  unregisterTool?.(toolName);
 }
 
 const noopRegistration: WebMcpToolRegistration = {
   unregister() {},
 };
+
+const noopHostRegistration = {
+  unregister() {},
+};
+
+function isDuplicateToolRegistrationError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return error.name === 'InvalidStateError' && error.message.includes('Duplicate tool name');
+}

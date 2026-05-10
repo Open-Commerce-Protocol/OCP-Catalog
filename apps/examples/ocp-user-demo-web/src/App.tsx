@@ -13,7 +13,6 @@ import {
 } from './api';
 import { Badge, Button, Label, Modal } from './components';
 import { cn } from './lib/cn';
-import { useOcpUserDemoWebMcp } from './webmcp/useOcpUserDemoWebMcp';
 
 const resultImages = [
   'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1200&q=80',
@@ -234,23 +233,6 @@ export function App() {
 
     window.open(action.url, '_blank', 'noopener,noreferrer');
   }
-
-  useOcpUserDemoWebMcp({
-    getState: () => ({
-      savedProfiles,
-      pendingCatalog,
-      activeProfile,
-      catalogResults,
-      resolvedItem,
-      querySession,
-      busyAction,
-    }),
-    submitUserIntent: (message) => submitUserIntent(message, { rethrow: true }),
-    confirmPendingCatalog: () => handleRegisterPendingCatalog({ rethrow: true }),
-    selectCatalogProfile: handleSelectCatalogProfile,
-    resolveResultEntry: (entryId) => handleResolveResultEntry(entryId, { rethrow: true }),
-    openResolvedAction: handleOpenResolvedAction,
-  });
 
   return (
     <div className="flex h-screen w-full bg-[#f8f9fa] text-ink font-sans overflow-hidden">
