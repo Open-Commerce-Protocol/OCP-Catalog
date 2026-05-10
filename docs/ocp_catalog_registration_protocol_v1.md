@@ -416,7 +416,7 @@ POST /ocp/catalogs/search
   "kind": "CatalogSearchRequest",
   "query": "commerce catalog for travel headphones",
   "filters": {
-    "query_pack": "ocp.commerce.product.search.v1",
+    "query_pack": "ocp.query.keyword.v1",
     "supports_resolve": true,
     "verification_status": "verified"
   },

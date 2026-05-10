@@ -76,8 +76,12 @@
       "capability_id": "ocp.commerce.product.search.v1",
       "query_packs": [
         {
-          "pack_id": "ocp.commerce.product.search.v1",
-          "query_modes": ["keyword", "filter", "semantic", "hybrid"]
+          "pack_id": "ocp.query.keyword.v1",
+          "query_modes": ["keyword", "hybrid"]
+        },
+        {
+          "pack_id": "ocp.query.filter.v1",
+          "query_modes": ["filter", "hybrid"]
         }
       ]
     }

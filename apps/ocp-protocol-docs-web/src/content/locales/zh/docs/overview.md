@@ -94,7 +94,7 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
 {
   "query_packs": [
     {
-      "pack_id": "ocp.commerce.product.search.v1",
+      "pack_id": "ocp.query.keyword.v1",
       "query_modes": ["keyword", "hybrid"],
       "metadata": {
         "query_hints": {

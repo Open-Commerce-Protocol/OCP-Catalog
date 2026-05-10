@@ -210,6 +210,7 @@ const registrationBaseUrl = resolveApiBaseUrl(
   'VITE_REGISTRATION_API_BASE_URL',
   import.meta.env.VITE_REGISTRATION_API_BASE_URL,
   'http://localhost:4100',
+  window.location.origin,
 );
 const adminPrefix = '/api/catalog-admin';
 

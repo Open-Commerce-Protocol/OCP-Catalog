@@ -94,7 +94,7 @@ Example:
 {
   "query_packs": [
     {
-      "pack_id": "ocp.commerce.product.search.v1",
+      "pack_id": "ocp.query.keyword.v1",
       "query_modes": ["keyword", "hybrid"],
       "metadata": {
         "query_hints": {

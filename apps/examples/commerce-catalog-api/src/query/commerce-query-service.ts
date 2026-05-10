@@ -9,7 +9,7 @@ import {
   type QueryResultItem,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
-import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import type { SearchRetrievalService } from '../search/retrieval/search-retrieval-service';
 import { inferCommerceQueryMode } from './query-mode';
@@ -50,17 +50,23 @@ export class CommerceQueryService {
     if (request.filters.currency) baseConditions.push(eq(schema.catalogSearchDocuments.currency, request.filters.currency));
     if (request.filters.availability_status) baseConditions.push(eq(schema.catalogSearchDocuments.availabilityStatus, request.filters.availability_status));
     if (request.filters.sku) baseConditions.push(eq(schema.catalogSearchDocuments.normalizedSku, normalize(request.filters.sku)));
+    if (request.filters.has_image !== undefined) baseConditions.push(eq(schema.catalogSearchDocuments.hasImage, request.filters.has_image));
+    if (request.filters.in_stock_only) baseConditions.push(inArray(schema.catalogSearchDocuments.availabilityStatus, ['in_stock', 'low_stock']));
+    if (request.filters.min_amount !== undefined) baseConditions.push(gte(schema.catalogSearchDocuments.amount, request.filters.min_amount));
+    if (request.filters.max_amount !== undefined) baseConditions.push(lte(schema.catalogSearchDocuments.amount, request.filters.max_amount));
 
     const fullTextQuery = terms.length > 0 && queryMode !== 'semantic' ? request.query : undefined;
 
     const pageEnd = request.offset + request.limit;
     const candidatePageEnd = pageEnd + 1;
     const usesSemanticScore = Boolean(this.retrieval && request.query.trim() && (queryMode === 'semantic' || queryMode === 'hybrid'));
+    const usesDatabasePagination = queryMode === 'filter' && terms.length === 0 && !usesSemanticScore;
     const keywordRows = queryMode === 'semantic'
       ? []
       : await this.selectCandidateRows({
         conditions: baseConditions,
-        limit: computeCandidateLimit(candidatePageEnd, queryMode, terms.length),
+        limit: usesDatabasePagination ? request.limit + 1 : computeCandidateLimit(candidatePageEnd, queryMode, terms.length),
+        offset: usesDatabasePagination ? request.offset : 0,
         fullTextQuery,
       });
 
@@ -106,8 +112,12 @@ export class CommerceQueryService {
       })
       .filter((item): item is QueryResultItem => item !== null)
       .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title));
-    const items = rankedItems.slice(request.offset, pageEnd);
-    const hasMore = rankedItems.length > pageEnd;
+    const items = usesDatabasePagination
+      ? rankedItems.slice(0, request.limit)
+      : rankedItems.slice(request.offset, pageEnd);
+    const hasMore = usesDatabasePagination
+      ? rankedItems.length > request.limit
+      : rankedItems.length > pageEnd;
 
     const result: CatalogQueryResult = {
       ocp_version: '1.0',
@@ -151,6 +161,7 @@ export class CommerceQueryService {
   private async selectCandidateRows(input: {
     conditions: SQL<unknown>[];
     limit: number;
+    offset?: number;
     fullTextQuery?: string;
   }) {
     const conditions = [...input.conditions];
@@ -181,6 +192,7 @@ export class CommerceQueryService {
       .from(schema.catalogSearchDocuments)
       .where(and(...conditions))
       .orderBy(...orderBy)
+      .offset(input.offset ?? 0)
       .limit(input.limit);
   }
 }

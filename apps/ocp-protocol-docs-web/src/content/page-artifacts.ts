@@ -115,7 +115,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         response: {
           kind: 'CatalogManifest',
           catalog_id: 'commerce_catalog_local_dev',
-          catalog_name: 'Commerce Catalog Local Dev',
+          catalog_name: 'Commerce Product Search Catalog',
         },
       },
     ],
@@ -544,7 +544,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         request: {
           query: 'travel headphones under 150 with image',
           filters: {
-            query_pack: 'ocp.commerce.product.search.v1',
+            query_pack: 'ocp.query.keyword.v1',
           },
           limit: 5,
           explain: true,
@@ -554,7 +554,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           items: [
             {
               catalog_id: 'commerce_catalog_local_dev',
-              catalog_name: 'Commerce Catalog Local Dev',
+              catalog_name: 'Commerce Product Search Catalog',
               route_hint: {
                 query_url: 'http://localhost:4000/ocp/query',
               },
@@ -596,7 +596,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
             manifest_url: 'http://localhost:4000/ocp/manifest',
             query_url: 'http://localhost:4000/ocp/query',
             resolve_url: 'http://localhost:4000/ocp/resolve',
-            supported_query_packs: ['ocp.commerce.product.search.v1'],
+            supported_query_packs: ['ocp.query.keyword.v1', 'ocp.query.filter.v1', 'ocp.query.semantic.v1'],
             metadata: {
               query_hints: {
                 supported_query_modes: ['keyword', 'filter', 'semantic', 'hybrid'],
@@ -702,7 +702,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         request: {
           kind: 'CatalogQueryRequest',
           query: 'travel headphones',
-          query_pack: 'ocp.commerce.product.search.v1',
+          query_pack: 'ocp.query.keyword.v1',
           filters: {
             category: 'electronics',
             in_stock_only: true,
@@ -1000,7 +1000,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           items: [
             {
               catalog_id: 'commerce_catalog_local_dev',
-              catalog_name: 'Commerce Catalog Local Dev',
+              catalog_name: 'Commerce Product Search Catalog',
               verification_status: 'not_required',
               trust_tier: 'declared',
               health_status: 'healthy',

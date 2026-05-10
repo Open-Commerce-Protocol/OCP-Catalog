@@ -21,7 +21,7 @@ export const envSchema = z.object({
   API_KEY_DEV: z.string().default('dev-api-key'),
   API_KEYS: z.string().default(''),
   CATALOG_ID: z.string().default('cat_local_dev'),
-  CATALOG_NAME: z.string().default('Local OCP Catalog'),
+  CATALOG_NAME: z.string().default('Commerce Product Search Catalog'),
   COMMERCE_PROVIDER_ID: z.string().default('commerce_provider_local_dev'),
   COMMERCE_PROVIDER_NAME: z.string().default('Local Commerce Provider'),
   COMMERCE_PROVIDER_CONTACT_EMAIL: z.string().email().default('ops@example.test'),
@@ -42,4 +42,3 @@ export const envSchema = z.object({
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
-

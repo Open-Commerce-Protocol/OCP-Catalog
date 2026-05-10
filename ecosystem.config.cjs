@@ -14,7 +14,7 @@ module.exports = {
       name: 'commerce-catalog-api',
       cwd: '.',
       script: 'bun',
-      args: 'run commerce:catalog:api',
+      args: 'apps/examples/commerce-catalog-api/dist/index.js',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',

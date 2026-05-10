@@ -9,6 +9,7 @@ import {
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb, schema } from '@ocp-catalog/db';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
+import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { createCommerceCatalogScenario } from './commerce-scenario';
@@ -384,32 +385,31 @@ async function reconcileSearchIndexQueue() {
 }
 
 async function getCatalogAdminOverview() {
-  const [providerStates, objects, entries, searchDocuments, searchEmbeddings, searchJobs, queryAudits, syncBatches] = await Promise.all([
-    db.select().from(schema.providerContractStates),
-    db.select().from(schema.commercialObjects),
-    db.select().from(schema.catalogEntries),
-    db.select().from(schema.catalogSearchDocuments),
-    db.select().from(schema.catalogSearchEmbeddings),
-    db.select().from(schema.catalogSearchIndexJobs),
-    db.select().from(schema.queryAuditRecords),
-    db.select().from(schema.objectSyncBatches),
+  const [
+    providerCount,
+    objectCount,
+    entryMetrics,
+    searchDocumentMetrics,
+    embeddingMetrics,
+    activeDocumentsMissingEmbeddingCount,
+    searchJobMetrics,
+    queryAuditCount,
+    latestBatch,
+  ] = await Promise.all([
+    countRows(schema.providerContractStates, eq(schema.providerContractStates.catalogId, config.CATALOG_ID)),
+    countRows(schema.commercialObjects, eq(schema.commercialObjects.catalogId, config.CATALOG_ID)),
+    getEntryMetrics(),
+    getSearchDocumentMetrics(),
+    getEmbeddingMetrics(),
+    getActiveDocumentsMissingEmbeddingCount(),
+    getSearchJobMetrics(),
+    countRows(schema.queryAuditRecords, eq(schema.queryAuditRecords.catalogId, config.CATALOG_ID)),
+    getLatestSyncBatch(),
   ]);
 
-  const catalogProviderStates = providerStates.filter((row) => row.catalogId === config.CATALOG_ID);
-  const catalogObjects = objects.filter((row) => row.catalogId === config.CATALOG_ID);
-  const catalogEntries = entries.filter((row) => row.catalogId === config.CATALOG_ID);
-  const catalogSearchDocuments = searchDocuments.filter((row) => row.catalogId === config.CATALOG_ID);
-  const catalogSearchEmbeddings = searchEmbeddings.filter((row) => row.catalogId === config.CATALOG_ID);
-  const catalogSearchJobs = searchJobs.filter((row) => row.catalogId === config.CATALOG_ID);
-  const catalogQueryAudits = queryAudits.filter((row) => row.catalogId === config.CATALOG_ID);
-  const latestBatch = syncBatches
-    .filter((row) => row.catalogId === config.CATALOG_ID)
-    .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null;
-
-  const quality = summarizeEntryQuality(catalogEntries.map((row) => ({
-    entryStatus: row.entryStatus,
-    projection: row.searchProjection,
-  })));
+  const embeddingReadinessRatio = searchDocumentMetrics.activeDocumentCount > 0
+    ? Number(((searchDocumentMetrics.activeDocumentCount - activeDocumentsMissingEmbeddingCount) / searchDocumentMetrics.activeDocumentCount).toFixed(4))
+    : 1;
 
   return {
     catalog_id: config.CATALOG_ID,
@@ -419,19 +419,35 @@ async function getCatalogAdminOverview() {
       capability.query_packs.map((pack) => pack.pack_id)
     )),
     metrics: {
-      provider_count: catalogProviderStates.length,
-      object_count: catalogObjects.length,
-      active_entry_count: catalogEntries.filter((row) => row.entryStatus === 'active').length,
-      active_search_document_count: catalogSearchDocuments.filter((row) => row.documentStatus === 'active').length,
-      ready_embedding_count: catalogSearchEmbeddings.filter((row) => row.status === 'ready').length,
-      failed_embedding_count: catalogSearchEmbeddings.filter((row) => row.status === 'failed').length,
-      pending_index_job_count: catalogSearchJobs.filter((row) => row.status === 'pending').length,
-      running_index_job_count: catalogSearchJobs.filter((row) => row.status === 'running').length,
-      failed_index_job_count: catalogSearchJobs.filter((row) => row.status === 'failed').length,
-      query_audit_count: catalogQueryAudits.length,
-      ...quality,
+      provider_count: providerCount,
+      object_count: objectCount,
+      active_entry_count: entryMetrics.activeEntryCount,
+      active_search_document_count: searchDocumentMetrics.activeDocumentCount,
+      ready_embedding_count: embeddingMetrics.readyEmbeddingCount,
+      failed_embedding_count: embeddingMetrics.failedEmbeddingCount,
+      pending_index_job_count: searchJobMetrics.pendingJobCount,
+      running_index_job_count: searchJobMetrics.runningJobCount,
+      failed_index_job_count: searchJobMetrics.failedJobCount,
+      query_audit_count: queryAuditCount,
+      rich_entry_count: entryMetrics.richEntryCount,
+      standard_entry_count: entryMetrics.standardEntryCount,
+      basic_entry_count: entryMetrics.basicEntryCount,
+      missing_image_count: entryMetrics.missingImageCount,
+      missing_product_url_count: entryMetrics.missingProductUrlCount,
+      out_of_stock_count: entryMetrics.outOfStockCount,
     },
-    search_index: summarizeSearchIndex(catalogSearchDocuments, catalogSearchEmbeddings, catalogSearchJobs),
+    search_index: {
+      active_document_count: searchDocumentMetrics.activeDocumentCount,
+      ready_embedding_count: embeddingMetrics.readyEmbeddingCount,
+      failed_embedding_count: embeddingMetrics.failedEmbeddingCount,
+      latest_failed_embedding_error: embeddingMetrics.latestFailedEmbeddingError,
+      active_documents_missing_embedding_count: activeDocumentsMissingEmbeddingCount,
+      embedding_readiness_ratio: embeddingReadinessRatio,
+      pending_job_count: searchJobMetrics.pendingJobCount,
+      running_job_count: searchJobMetrics.runningJobCount,
+      failed_job_count: searchJobMetrics.failedJobCount,
+      oldest_pending_job_created_at: searchJobMetrics.oldestPendingJobCreatedAt?.toISOString() ?? null,
+    },
     latest_sync_batch: latestBatch
       ? {
           provider_id: latestBatch.providerId,
@@ -443,6 +459,132 @@ async function getCatalogAdminOverview() {
         }
       : null,
   };
+}
+
+async function countRows<T extends Parameters<typeof db.select>[0]>(
+  table: Parameters<ReturnType<typeof db.select>['from']>[0],
+  where: ReturnType<typeof eq>,
+) {
+  const [row] = await db.select({ value: count() }).from(table).where(where);
+  return row?.value ?? 0;
+}
+
+async function getEntryMetrics() {
+  const [row] = await db
+    .select({
+      activeEntryCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active')::int`,
+      richEntryCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active' and ${schema.catalogEntries.searchProjection}->>'quality_tier' = 'rich')::int`,
+      standardEntryCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active' and ${schema.catalogEntries.searchProjection}->>'quality_tier' = 'standard')::int`,
+      basicEntryCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active' and coalesce(${schema.catalogEntries.searchProjection}->>'quality_tier', 'basic') not in ('rich', 'standard'))::int`,
+      missingImageCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active' and coalesce((${schema.catalogEntries.searchProjection}->>'has_image')::boolean, false) is not true)::int`,
+      missingProductUrlCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active' and coalesce((${schema.catalogEntries.searchProjection}->>'has_product_url')::boolean, false) is not true)::int`,
+      outOfStockCount: sql<number>`count(*) filter (where ${schema.catalogEntries.entryStatus} = 'active' and ${schema.catalogEntries.searchProjection}->>'availability_status' = 'out_of_stock')::int`,
+    })
+    .from(schema.catalogEntries)
+    .where(eq(schema.catalogEntries.catalogId, config.CATALOG_ID));
+
+  return {
+    activeEntryCount: row?.activeEntryCount ?? 0,
+    richEntryCount: row?.richEntryCount ?? 0,
+    standardEntryCount: row?.standardEntryCount ?? 0,
+    basicEntryCount: row?.basicEntryCount ?? 0,
+    missingImageCount: row?.missingImageCount ?? 0,
+    missingProductUrlCount: row?.missingProductUrlCount ?? 0,
+    outOfStockCount: row?.outOfStockCount ?? 0,
+  };
+}
+
+async function getSearchDocumentMetrics() {
+  const [row] = await db
+    .select({
+      activeDocumentCount: sql<number>`count(*) filter (where ${schema.catalogSearchDocuments.documentStatus} = 'active')::int`,
+    })
+    .from(schema.catalogSearchDocuments)
+    .where(eq(schema.catalogSearchDocuments.catalogId, config.CATALOG_ID));
+
+  return {
+    activeDocumentCount: row?.activeDocumentCount ?? 0,
+  };
+}
+
+async function getEmbeddingMetrics() {
+  const [metrics] = await db
+    .select({
+      readyEmbeddingCount: sql<number>`count(*) filter (where ${schema.catalogSearchEmbeddings.status} = 'ready')::int`,
+      failedEmbeddingCount: sql<number>`count(*) filter (where ${schema.catalogSearchEmbeddings.status} = 'failed')::int`,
+    })
+    .from(schema.catalogSearchEmbeddings)
+    .where(eq(schema.catalogSearchEmbeddings.catalogId, config.CATALOG_ID));
+  const [latestFailed] = await db
+    .select({ error: schema.catalogSearchEmbeddings.error })
+    .from(schema.catalogSearchEmbeddings)
+    .where(and(eq(schema.catalogSearchEmbeddings.catalogId, config.CATALOG_ID), eq(schema.catalogSearchEmbeddings.status, 'failed')))
+    .orderBy(desc(schema.catalogSearchEmbeddings.updatedAt))
+    .limit(1);
+
+  return {
+    readyEmbeddingCount: metrics?.readyEmbeddingCount ?? 0,
+    failedEmbeddingCount: metrics?.failedEmbeddingCount ?? 0,
+    latestFailedEmbeddingError: latestFailed?.error ?? null,
+  };
+}
+
+async function getActiveDocumentsMissingEmbeddingCount() {
+  const [row] = await db
+    .select({
+      value: sql<number>`count(*)::int`,
+    })
+    .from(schema.catalogSearchDocuments)
+    .leftJoin(
+      schema.catalogSearchEmbeddings,
+      and(
+        eq(schema.catalogSearchEmbeddings.catalogSearchDocumentId, schema.catalogSearchDocuments.id),
+        eq(schema.catalogSearchEmbeddings.status, 'ready'),
+      ),
+    )
+    .where(and(
+      eq(schema.catalogSearchDocuments.catalogId, config.CATALOG_ID),
+      eq(schema.catalogSearchDocuments.documentStatus, 'active'),
+      isNotNull(schema.catalogSearchDocuments.id),
+      sql`${schema.catalogSearchEmbeddings.id} is null`,
+    ));
+
+  return row?.value ?? 0;
+}
+
+async function getSearchJobMetrics() {
+  const [metrics] = await db
+    .select({
+      pendingJobCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'pending')::int`,
+      runningJobCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'running')::int`,
+      failedJobCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'failed')::int`,
+    })
+    .from(schema.catalogSearchIndexJobs)
+    .where(eq(schema.catalogSearchIndexJobs.catalogId, config.CATALOG_ID));
+  const [oldestPending] = await db
+    .select({ createdAt: schema.catalogSearchIndexJobs.createdAt })
+    .from(schema.catalogSearchIndexJobs)
+    .where(and(eq(schema.catalogSearchIndexJobs.catalogId, config.CATALOG_ID), eq(schema.catalogSearchIndexJobs.status, 'pending')))
+    .orderBy(schema.catalogSearchIndexJobs.createdAt)
+    .limit(1);
+
+  return {
+    pendingJobCount: metrics?.pendingJobCount ?? 0,
+    runningJobCount: metrics?.runningJobCount ?? 0,
+    failedJobCount: metrics?.failedJobCount ?? 0,
+    oldestPendingJobCreatedAt: oldestPending?.createdAt ?? null,
+  };
+}
+
+async function getLatestSyncBatch() {
+  const [row] = await db
+    .select()
+    .from(schema.objectSyncBatches)
+    .where(eq(schema.objectSyncBatches.catalogId, config.CATALOG_ID))
+    .orderBy(desc(schema.objectSyncBatches.createdAt))
+    .limit(1);
+
+  return row ?? null;
 }
 
 function logRequest(input: {
@@ -627,13 +769,14 @@ async function getCatalogAdminEntries(query: Record<string, string | undefined>)
 
 async function registerCatalogInRegistration() {
   const hostname = new URL(config.CATALOG_PUBLIC_BASE_URL).hostname;
+  const registrationVersion = await nextCatalogRegistrationVersion();
   return postRegistrationJson('/ocp/catalogs/register', {
     ocp_version: '1.0',
     kind: 'CatalogRegistration',
     id: `catreg_${crypto.randomUUID().replaceAll('-', '')}`,
     registration_id: config.REGISTRATION_ID,
     catalog_id: config.CATALOG_ID,
-    registration_version: 1,
+    registration_version: registrationVersion,
     updated_at: new Date().toISOString(),
     homepage: config.CATALOG_PUBLIC_BASE_URL,
     well_known_url: `${config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '')}/.well-known/ocp-catalog`,
@@ -641,6 +784,15 @@ async function registerCatalogInRegistration() {
     intended_visibility: 'public',
     tags: ['commerce', 'demo'],
   });
+}
+
+async function nextCatalogRegistrationVersion() {
+  const response = await fetch(`${config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '')}/ocp/catalogs/${config.CATALOG_ID}`);
+  if (!response.ok) return 1;
+
+  const payload = await response.json().catch(() => ({}));
+  const activeVersion = numberPayload(payload, 'activeRegistrationVersion') ?? numberPayload(payload, 'active_registration_version');
+  return activeVersion !== undefined ? activeVersion + 1 : 1;
 }
 
 async function postRegistrationJson(pathname: string, body: Record<string, unknown>, catalogToken?: string | null) {
@@ -665,6 +817,12 @@ function getBodyString(body: unknown, key: string) {
   if (!body || typeof body !== 'object') return undefined;
   const value = (body as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function numberPayload(payload: unknown, key: string) {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function stringPayload(payload: Record<string, unknown>, key: string) {
@@ -739,4 +897,3 @@ function summarizeEntryQuality(rows: Array<{
 
   return summary;
 }
-
