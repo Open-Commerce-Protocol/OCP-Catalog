@@ -29,11 +29,18 @@ export type DataSourceInput = {
   catalog_id?: string;
 };
 
+export type OpenProductInput = {
+  product_id?: string;
+  product_url?: string;
+  title?: string;
+};
+
 export type OcpMcpDemoContext = {
   getState: () => OcpMcpDemoState;
   listProducts: (input: ProductSearchInput) => Promise<unknown>;
   searchProducts: (input: ProductSearchInput) => Promise<unknown>;
   setDataSource: (input: DataSourceInput) => Promise<unknown>;
+  openProductPage: (input: OpenProductInput) => Promise<unknown>;
   recordCall: (record: Omit<DemoCallRecord, 'id' | 'createdAt'>) => void;
 };
 
@@ -81,6 +88,19 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
         },
       },
       handler: async (input) => runPageTool(context, 'ocp.mall.set_data_source', parseToolInput(input), context.setDataSource),
+    },
+    {
+      name: 'ocp.mall.open_product_page',
+      description: 'Open the detail page for a product currently shown in the OCP Catalog Mall. Prefer product_id returned by list/search results; product_url or exact title can also be used.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          product_id: { type: 'string', description: 'Product id returned by ocp.mall.list_products or ocp.mall.search_products.' },
+          product_url: { type: 'string', description: 'Direct product URL returned by the product result.' },
+          title: { type: 'string', description: 'Exact product title when product_id is not available.' },
+        },
+      },
+      handler: async (input) => runPageTool(context, 'ocp.mall.open_product_page', parseToolInput(input), context.openProductPage),
     },
   ];
 }

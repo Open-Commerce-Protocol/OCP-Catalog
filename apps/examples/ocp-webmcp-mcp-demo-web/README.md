@@ -43,6 +43,7 @@ For manual testing, install the Chrome extension `WebMCP - Model Context Tool In
 - `ocp.mall.list_products`
 - `ocp.mall.search_products`
 - `ocp.mall.set_data_source`
+- `ocp.mall.open_product_page`
 
 ## OCP Tool Flow
 

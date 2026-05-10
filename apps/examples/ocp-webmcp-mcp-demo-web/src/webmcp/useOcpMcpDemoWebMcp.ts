@@ -16,6 +16,7 @@ export function useOcpMcpDemoWebMcp(context: OcpMcpDemoContext) {
       listProducts: (input) => contextRef.current.listProducts(input),
       searchProducts: (input) => contextRef.current.searchProducts(input),
       setDataSource: (input) => contextRef.current.setDataSource(input),
+      openProductPage: (input) => contextRef.current.openProductPage(input),
       recordCall: (record) => contextRef.current.recordCall(record),
     }));
 

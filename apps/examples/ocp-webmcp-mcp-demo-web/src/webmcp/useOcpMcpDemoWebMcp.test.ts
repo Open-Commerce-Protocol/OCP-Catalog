@@ -12,9 +12,11 @@ test('page WebMCP tools are available without MCP gateway tools/list metadata', 
     listProducts: async () => ({ products: [] }),
     searchProducts: async () => ({ products: [] }),
     setDataSource: async () => ({ ok: true }),
+    openProductPage: async () => ({ opened: true }),
     recordCall: () => {},
   });
 
-  expect(tools).toHaveLength(4);
+  expect(tools).toHaveLength(5);
   expect(tools.map((tool) => tool.name)).toContain('ocp.mall.search_products');
+  expect(tools.map((tool) => tool.name)).toContain('ocp.mall.open_product_page');
 });

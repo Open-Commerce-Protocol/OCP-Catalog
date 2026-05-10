@@ -8,8 +8,10 @@ test('registers page-native WebMCP tools without MCP server metadata', () => {
     'ocp.mall.list_products',
     'ocp.mall.search_products',
     'ocp.mall.set_data_source',
+    'ocp.mall.open_product_page',
   ]);
   expect(tools.find((tool) => tool.name === 'ocp.mall.search_products')?.description).toContain('Search products');
+  expect(tools.find((tool) => tool.name === 'ocp.mall.open_product_page')?.description).toContain('Open the detail page');
 });
 
 test('forwards WebMCP product search to page logic and records the result', async () => {
@@ -62,6 +64,33 @@ test('page state summary exposes selected data source and call history', async (
   expect(state.history).toHaveLength(1);
 });
 
+test('forwards WebMCP product page open requests to page logic and records the result', async () => {
+  const calls: unknown[] = [];
+  const records: Array<{ toolName: string; input: unknown; result?: unknown; error?: string }> = [];
+  const tools = createOcpMcpDemoWebMcpTools(createContext({
+    openProductPage: async (input) => {
+      calls.push(input);
+      return { opened: true, productUrl: 'https://example.test/products/shoe-1' };
+    },
+    recordCall: (record) => {
+      records.push(record);
+    },
+  }));
+
+  const tool = tools.find((candidate) => candidate.name === 'ocp.mall.open_product_page');
+  if (!tool) throw new Error('missing open_product_page tool');
+
+  const result = await tool.handler({ product_id: 'shoe-1' });
+
+  expect(result).toEqual({ opened: true, productUrl: 'https://example.test/products/shoe-1' });
+  expect(calls).toEqual([{ product_id: 'shoe-1' }]);
+  expect(records).toEqual([{
+    toolName: 'ocp.mall.open_product_page',
+    input: { product_id: 'shoe-1' },
+    result: { opened: true, productUrl: 'https://example.test/products/shoe-1' },
+  }]);
+});
+
 function createContext(overrides: Partial<OcpMcpDemoContext> = {}): OcpMcpDemoContext {
   return {
     getState: () => ({
@@ -75,6 +104,7 @@ function createContext(overrides: Partial<OcpMcpDemoContext> = {}): OcpMcpDemoCo
     listProducts: async () => ({ products: [] }),
     searchProducts: async () => ({ products: [] }),
     setDataSource: async () => ({ ok: true }),
+    openProductPage: async () => ({ opened: true }),
     recordCall: () => {},
     ...overrides,
   };

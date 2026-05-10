@@ -7,6 +7,7 @@ test('help content explains Chrome WebMCP flags and agent prompt', () => {
   expect(chromeSetupSteps.join(' ')).toContain('WebMCP - Model Context Tool Inspector');
   expect(agentPromptExample).toContain('ocp.mall.search_products');
   expect(agentPromptExample).toContain('ocp.mall.list_products');
+  expect(agentPromptExample).toContain('ocp.mall.open_product_page');
   expect(agentPromptExample).toContain('https://ocp.deeplumen.io');
 });
 

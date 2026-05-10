@@ -1,9 +1,9 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { findLatestCatalogSummary, summarizeCatalogResponse, type CatalogSearchSummary } from './catalog-results';
+import { findLatestCatalogSummary, summarizeCatalogResponse, type CatalogSearchSummary, type ProductCard } from './catalog-results';
 import { agentPromptExample, chromeSetupSteps } from './help-content';
 import { listCatalogProducts, searchCatalogOptions, type CatalogOption } from './ocp-http';
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
-import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, ProductSearchInput } from './webmcp/tools';
+import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, OpenProductInput, ProductSearchInput } from './webmcp/tools';
 
 const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io';
 
@@ -39,6 +39,7 @@ export function App() {
     listProducts: (input) => runPageListProducts(input),
     searchProducts: (input) => runPageSearchProducts(input),
     setDataSource: (input) => runPageSetDataSource(input),
+    openProductPage: (input) => runPageOpenProductPage(input),
     recordCall: (record) => {
       setHistory((current) => [{
         id: crypto.randomUUID(),
@@ -46,7 +47,7 @@ export function App() {
         ...record,
       }, ...current].slice(0, 20));
     },
-  }), [history, products.length, registrationBaseUrl, selectedCatalog]);
+  }), [history, products, registrationBaseUrl, selectedCatalog]);
 
   const webMcp = useOcpMcpDemoWebMcp(context);
 
@@ -141,6 +142,27 @@ export function App() {
       registrationBaseUrl: nextRegistrationBaseUrl,
       selectedCatalog: nextCatalog,
       productCount: nextSummary.products.length,
+    };
+  }
+
+  async function runPageOpenProductPage(input: OpenProductInput) {
+    const product = findProduct(products, input);
+    const productUrl = product?.productUrl ?? normalizeString(input.product_url);
+    if (!productUrl) {
+      throw new Error('No matching product page was found. Run list/search first, then pass product_id, product_url, or exact title.');
+    }
+
+    const openedWindow = window.open(productUrl, '_blank', 'noopener,noreferrer');
+    if (openedWindow) openedWindow.opener = null;
+
+    return {
+      opened: Boolean(openedWindow),
+      productId: product?.id ?? normalizeString(input.product_id),
+      title: product?.title ?? normalizeString(input.title),
+      productUrl,
+      message: openedWindow
+        ? 'Product page opened in a new tab.'
+        : 'The browser may have blocked the new tab. Use productUrl to open it manually.',
     };
   }
 
@@ -282,7 +304,7 @@ export function App() {
               <article>
                 <h3>可以这样告诉 agent</h3>
                 <pre>{agentPromptExample}</pre>
-                <p>Tool Inspector 里应该能看到 `ocp.mall.list_products`、`ocp.mall.search_products`、`ocp.mall.set_data_source` 和 `ocp.mall.get_page_state`。</p>
+                <p>Tool Inspector 里应该能看到 `ocp.mall.list_products`、`ocp.mall.search_products`、`ocp.mall.open_product_page`、`ocp.mall.set_data_source` 和 `ocp.mall.get_page_state`。</p>
               </article>
             </div>
           </section>
@@ -298,4 +320,27 @@ function normalizeLimit(value: unknown) {
 
 function normalizeOffset(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? Math.max(Math.trunc(value), 0) : 0;
+}
+
+function findProduct(products: readonly ProductCard[], input: OpenProductInput) {
+  const productId = normalizeString(input.product_id);
+  if (productId) {
+    const product = products.find((candidate) => candidate.id === productId);
+    if (product) return product;
+  }
+
+  const productUrl = normalizeString(input.product_url);
+  if (productUrl) {
+    const product = products.find((candidate) => candidate.productUrl === productUrl);
+    if (product) return product;
+  }
+
+  const title = normalizeString(input.title)?.toLocaleLowerCase();
+  if (!title) return undefined;
+  return products.find((candidate) => candidate.title.toLocaleLowerCase() === title)
+    ?? products.find((candidate) => candidate.title.toLocaleLowerCase().includes(title));
+}
+
+function normalizeString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
