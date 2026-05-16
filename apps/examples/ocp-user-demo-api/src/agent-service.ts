@@ -1,7 +1,7 @@
 import type { AppConfig } from '@ocp-catalog/config';
 import { z } from 'zod';
 import { AgentError } from './errors';
-import { OpenAiCompatibleClient } from './openai-compatible-client';
+import { createAgentModelClient } from './openai-compatible-client';
 
 const routeHintSchema = z.object({
   catalog_id: z.string(),
@@ -92,6 +92,7 @@ const catalogQueryItemSchema = z.object({
 
 const agentTurnRequestSchema = z.object({
   user_input: z.string().min(1),
+  model_id: z.string().optional(),
   saved_profiles: z.array(savedProfileSchema).default([]),
   active_catalog_id: z.string().nullable().optional(),
   pending_catalog: catalogSearchItemSchema.nullable().optional(),
@@ -100,6 +101,7 @@ const agentTurnRequestSchema = z.object({
 });
 
 const confirmRegistrationRequestSchema = z.object({
+  model_id: z.string().optional(),
   pending_catalog: catalogSearchItemSchema,
   session: querySessionSchema,
 });
@@ -176,16 +178,13 @@ function isUsableCenterCatalog(item: { verification_status: string; health_statu
 }
 
 export class UserDemoAgentService {
-  private readonly model: OpenAiCompatibleClient;
-
-  constructor(private readonly config: AppConfig) {
-    this.model = new OpenAiCompatibleClient(config, config.USER_DEMO_AGENT_MODEL);
-  }
+  constructor(private readonly config: AppConfig) {}
 
   async turn(input: unknown) {
     const request = agentTurnRequestSchema.parse(input);
+    const model = createAgentModelClient(this.config, request.model_id);
     if (request.pending_catalog) {
-      const message = await this.summarizePendingCatalog(request.user_input, request.pending_catalog, request.session ?? null);
+      const message = await this.summarizePendingCatalog(model, request.user_input, request.pending_catalog, request.session ?? null);
       return {
         agent_message: message,
         pending_catalog: request.pending_catalog,
@@ -197,6 +196,7 @@ export class UserDemoAgentService {
 
     if (request.saved_profiles.length === 0) {
       const centerPlan = await this.planCenterSelection({
+        model,
         userInput: request.user_input,
       });
       const center = await this.searchCenter(centerPlan.center_search_query, {
@@ -208,6 +208,7 @@ export class UserDemoAgentService {
           supportsResolve: true,
         });
         const message = await this.summarizeCenterMiss(
+          model,
           request.user_input,
           null,
           centerPlan.center_search_query,
@@ -223,13 +224,14 @@ export class UserDemoAgentService {
       }
 
       const queryPlan = await this.planCatalogQuery({
+        model,
         userInput: request.user_input,
         session: request.session ?? null,
         routeHint: candidate.route_hint,
         previousResults: request.previous_results,
       });
       const normalizedSession = buildNextSession(queryPlan, request.user_input, candidate.route_hint.supported_query_packs);
-      const message = await this.summarizeCatalogChoice(request.user_input, candidate);
+      const message = await this.summarizeCatalogChoice(model, request.user_input, candidate);
       return {
         agent_message: message,
         pending_catalog: candidate,
@@ -241,6 +243,7 @@ export class UserDemoAgentService {
 
     const selectedProfile = pickProfile(request.saved_profiles, request.active_catalog_id);
     const queryPlan = await this.planCatalogQuery({
+      model,
       userInput: request.user_input,
       session: request.session ?? null,
       routeHint: selectedProfile.route_hint,
@@ -253,7 +256,7 @@ export class UserDemoAgentService {
       filters: normalizedSession.activeFilters,
     });
     const items = sortItems(result.items, normalizedSession.sortPreference);
-    const message = await this.summarizeCatalogResults(request.user_input, selectedProfile.catalog_name, normalizedSession, items);
+    const message = await this.summarizeCatalogResults(model, request.user_input, selectedProfile.catalog_name, normalizedSession, items);
 
     return {
       agent_message: message,
@@ -266,6 +269,7 @@ export class UserDemoAgentService {
 
   async confirmRegistration(input: unknown) {
     const request = confirmRegistrationRequestSchema.parse(input);
+    const model = createAgentModelClient(this.config, request.model_id);
     const normalizedSession = buildNextSession({
       intent_summary: request.session.baseIntent,
       catalog_query: request.session.baseIntent,
@@ -281,6 +285,7 @@ export class UserDemoAgentService {
     });
     const items = sortItems(result.items, normalizedSession.sortPreference);
     const message = await this.summarizeCatalogResults(
+      model,
       normalizedSession.baseIntent,
       request.pending_catalog.catalog_name,
       normalizedSession,
@@ -297,9 +302,10 @@ export class UserDemoAgentService {
   }
 
   private async planCenterSelection(input: {
+    model: ReturnType<typeof createAgentModelClient>;
     userInput: string;
   }) {
-    const draft = await this.model.completeJson<CenterSelectionPlan>(
+    const draft = await input.model.completeJson<CenterSelectionPlan>(
       [
         'You are an OCP commerce shopping agent and center-selection planner.',
         'Your job in this phase is only to decide how to search OCP Center for a suitable catalog.',
@@ -318,12 +324,13 @@ export class UserDemoAgentService {
   }
 
   private async planCatalogQuery(input: {
+    model: ReturnType<typeof createAgentModelClient>;
     userInput: string;
     session: QuerySession | null;
     routeHint: SavedCatalogProfile['route_hint'] | CatalogSearchItem['route_hint'];
     previousResults: CatalogQueryItem[];
   }) {
-    const draft = await this.model.completeJson<CatalogQueryPlan>(
+    const draft = await input.model.completeJson<CatalogQueryPlan>(
       [
         'You are an OCP commerce shopping agent and catalog-query planner.',
         'A catalog has already been selected. Your job in this phase is to produce a valid query plan for that selected catalog only.',
@@ -384,8 +391,12 @@ export class UserDemoAgentService {
     return catalogQueryPlanSchema.parse(draft);
   }
 
-  private async summarizeCatalogChoice(userInput: string, candidate: CatalogSearchItem) {
-    return await this.model.completeText(
+  private async summarizeCatalogChoice(
+    model: ReturnType<typeof createAgentModelClient>,
+    userInput: string,
+    candidate: CatalogSearchItem,
+  ) {
+    return await model.completeText(
       'You are a Chinese shopping agent. Explain briefly why this catalog is a good candidate and ask for explicit permission to save its profile locally. Do not expose raw protocol details.',
       JSON.stringify({
         user_input: userInput,
@@ -403,11 +414,12 @@ export class UserDemoAgentService {
   }
 
   private async summarizePendingCatalog(
+    model: ReturnType<typeof createAgentModelClient>,
     userInput: string,
     candidate: CatalogSearchItem,
     session: QuerySession | null,
   ) {
-    return await this.model.completeText(
+    return await model.completeText(
       'You are a Chinese shopping agent. The user already has a pending catalog candidate, but local registration still requires explicit user consent. Explain the current state briefly and ask the user to explicitly authorize saving the catalog profile before you continue. Do not expose raw protocol details.',
       JSON.stringify({
         user_input: userInput,
@@ -426,6 +438,7 @@ export class UserDemoAgentService {
   }
 
   private async summarizeCenterMiss(
+    model: ReturnType<typeof createAgentModelClient>,
     userInput: string,
     session: QuerySession | null,
     centerSearchQuery: string,
@@ -442,7 +455,7 @@ export class UserDemoAgentService {
         health_status: item.health_status,
       }));
 
-    return await this.model.completeText(
+    return await model.completeText(
       [
         'You are a Chinese shopping agent.',
         'No immediately usable catalog candidate was found from OCP Center for the current request.',
@@ -465,13 +478,14 @@ export class UserDemoAgentService {
   }
 
   private async summarizeCatalogResults(
+    model: ReturnType<typeof createAgentModelClient>,
     userInput: string,
     catalogName: string,
     session: QuerySession,
     items: CatalogQueryItem[],
     justRegistered = false,
   ) {
-    return await this.model.completeText(
+    return await model.completeText(
       'You are a Chinese shopping agent. Summarize catalog search results naturally. If there are no items, explain that clearly and suggest how to refine the request. Do not dump raw tool output. Mention the strongest candidates and how the current refinement affected them when results exist. Keep it concise.',
       JSON.stringify({
         user_input: userInput,

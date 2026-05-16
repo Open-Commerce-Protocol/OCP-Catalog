@@ -4,14 +4,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   agentTurn,
   confirmCatalogRegistration,
+  listAgentModels,
   resolveEntry,
+  type AgentModelOption,
   type CatalogQueryItem,
   type CatalogSearchItem,
   type QuerySession,
   type ResolvableReference,
   type SavedCatalogProfile,
 } from './api';
-import { Badge, Button, Label, Modal } from './components';
+import { Badge, Button, Label, Modal, Select } from './components';
 import { cn } from './lib/cn';
 
 const resultImages = [
@@ -23,6 +25,7 @@ const resultImages = [
 ];
 
 const localProfilesStorageKey = 'ocp-user-demo.catalog-profiles.v2';
+const agentModelStorageKey = 'ocp-user-demo.agent-model.v1';
 
 type ToastState = { tone: 'success' | 'danger'; message: string } | null;
 
@@ -47,6 +50,8 @@ export function App() {
     },
   ]);
   const [querySession, setQuerySession] = useState<QuerySession | null>(null);
+  const [agentModels, setAgentModels] = useState<AgentModelOption[]>([]);
+  const [selectedModelId, setSelectedModelId] = useState<string>(() => readSelectedModelId());
   const [toast, setToast] = useState<ToastState>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [resolveOpen, setResolveOpen] = useState(false);
@@ -58,6 +63,10 @@ export function App() {
   }, [savedProfiles]);
 
   useEffect(() => {
+    writeSelectedModelId(selectedModelId);
+  }, [selectedModelId]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), 3000);
     return () => window.clearTimeout(timer);
@@ -67,7 +76,36 @@ export function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [agentMessages]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await listAgentModels();
+        setAgentModels(response.models);
+
+        const selectedEnabled = response.models.some((model) => model.id === selectedModelId && model.enabled);
+        if (selectedEnabled) return;
+
+        const defaultEnabled = response.models.find((model) => model.id === response.default_model && model.enabled);
+        if (defaultEnabled) {
+          setSelectedModelId(defaultEnabled.id);
+          return;
+        }
+
+        const firstEnabled = response.models.find((model) => model.enabled);
+        if (firstEnabled) {
+          setSelectedModelId(firstEnabled.id);
+        }
+      } catch (error) {
+        setToast({
+          tone: 'danger',
+          message: error instanceof Error ? error.message : 'Failed to load agent models',
+        });
+      }
+    })();
+  }, []);
+
   const selectedTopAction = resolvedItem?.action_bindings[0] ?? null;
+  const selectedModel = agentModels.find((model) => model.id === selectedModelId) ?? null;
 
   async function withAction(actionKey: string, fn: () => Promise<void>, onError?: (error: unknown) => void) {
     try {
@@ -107,6 +145,7 @@ export function App() {
       async () => {
         const response = await agentTurn({
           userInput: userText,
+          modelId: selectedModelId,
           savedProfiles,
           activeCatalogId: activeProfile?.catalog_id ?? null,
           pendingCatalog,
@@ -157,6 +196,7 @@ export function App() {
       'direct-query',
       async () => {
         const response = await confirmCatalogRegistration({
+          modelId: selectedModelId,
           pendingCatalog,
           session: querySession,
         });
@@ -288,6 +328,39 @@ export function App() {
                 </div>
               </motion.div>
             )}
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="mt-8 border-t border-ink/5 pt-6"
+            >
+              <Label className="mb-4 flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5" />
+                Agent Model
+              </Label>
+              <div className="space-y-3 rounded-xl border border-ink/5 bg-white p-4">
+                <Select
+                  value={selectedModelId}
+                  onChange={(event) => setSelectedModelId(event.target.value)}
+                  disabled={Boolean(busyAction) || agentModels.length === 0}
+                >
+                  {agentModels.map((model) => (
+                    <option key={model.id} value={model.id} disabled={!model.enabled}>
+                      {model.label}{model.enabled ? '' : ' (unavailable)'}
+                    </option>
+                  ))}
+                </Select>
+                <div className="flex items-center justify-between text-[11px] font-mono text-ink/50">
+                  <span>Provider</span>
+                  <span className="text-ink/80">{selectedModel?.provider ?? '-'}</span>
+                </div>
+                {selectedModel?.reason && !selectedModel.enabled ? (
+                  <div className="rounded-lg border border-ember/15 bg-ember/5 px-3 py-2 text-xs text-ember">
+                    {selectedModel.reason}
+                  </div>
+                ) : null}
+              </div>
+            </motion.div>
           </div>
         </div>
       </motion.aside>
@@ -395,7 +468,7 @@ export function App() {
                       >
                          <div className="relative h-[160px] w-full bg-fog/20 overflow-hidden">
                            <img 
-                              src={(item.attributes.image_urls as string[])?.[0] || resultImages[index % resultImages.length]}
+                              src={getCatalogItemImageUrl(item) || resultImages[index % resultImages.length]}
                               alt={item.title}
                               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                            />
@@ -488,10 +561,10 @@ export function App() {
          {resolvedItem && (
             <div className="mt-6 space-y-6">
               <div className="flex flex-col gap-6 md:flex-row">
-                 {((resolvedItem.visible_attributes as any).image_urls as string[])?.[0] && (
+                 {getResolvedImageUrl(resolvedItem) && (
                    <div className="relative h-64 w-full md:w-64 shrink-0 overflow-hidden rounded-2xl bg-fog/20 border border-ink/5">
                      <img 
-                       src={((resolvedItem.visible_attributes as any).image_urls as string[])[0]} 
+                       src={getResolvedImageUrl(resolvedItem)!} 
                        alt="" 
                        className="h-full w-full object-cover" 
                      />
@@ -574,6 +647,51 @@ function readSavedProfiles(): SavedCatalogProfile[] {
 
 function writeSavedProfiles(profiles: SavedCatalogProfile[]) {
   window.localStorage.setItem(localProfilesStorageKey, JSON.stringify(profiles));
+}
+
+function readSelectedModelId() {
+  try {
+    return window.localStorage.getItem(agentModelStorageKey) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeSelectedModelId(modelId: string) {
+  try {
+    window.localStorage.setItem(agentModelStorageKey, modelId);
+  } catch {
+    // noop
+  }
+}
+
+function getCatalogItemImageUrl(item: CatalogQueryItem) {
+  const primary = typeof item.attributes.primary_image_url === 'string'
+    ? item.attributes.primary_image_url
+    : '';
+  if (primary) return primary;
+
+  const gallery = item.attributes.image_urls;
+  if (Array.isArray(gallery)) {
+    const first = gallery.find((value): value is string => typeof value === 'string' && value.length > 0);
+    if (first) return first;
+  }
+
+  return '';
+}
+
+function getResolvedImageUrl(item: ResolvableReference) {
+  const visible = item.visible_attributes as Record<string, unknown>;
+  const primary = typeof visible.primary_image_url === 'string' ? visible.primary_image_url : '';
+  if (primary) return primary;
+
+  const gallery = visible.image_urls;
+  if (Array.isArray(gallery)) {
+    const first = gallery.find((value): value is string => typeof value === 'string' && value.length > 0);
+    if (first) return first;
+  }
+
+  return '';
 }
 
 function renderAgentMarkdown(content: string) {

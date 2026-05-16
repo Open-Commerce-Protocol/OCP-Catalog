@@ -1,0 +1,84 @@
+{
+  "tbk_order_get_response": {
+    "total_count": 4,
+    "results": {
+      "n_tbk_order": [
+        {
+          "trade_id": "9001234567890001",
+          "trade_parent_id": "9001234567890001",
+          "item_id": 700123456001,
+          "item_title": "Tmall 真无线蓝牙耳机 主动降噪 入耳式 长续航",
+          "tb_paid_time": "2026-05-14 11:23:45",
+          "tk_paid_time": "2026-05-14 11:23:46",
+          "tk_earning_time": "2026-05-15 08:15:00",
+          "alipay_total_price": "199.00",
+          "total_commission_fee": "30.85",
+          "pub_share_pre_fee": "27.77",
+          "pub_share_fee": "27.77",
+          "tk_status": 13,
+          "adzone_id": 999999001,
+          "site_id": 88888001,
+          "click_time": "2026-05-14 11:20:00",
+          "item_num": 1,
+          "seller_nick": "测试天猫旗舰店",
+          "terminal_type": 2
+        },
+        {
+          "trade_id": "9001234567890002",
+          "trade_parent_id": "9001234567890002",
+          "item_id": 600234567002,
+          "item_title": "Taobao 大容量充电宝 20000mAh 快充移动电源",
+          "tb_paid_time": "2026-05-15 09:42:11",
+          "tk_paid_time": "2026-05-15 09:42:12",
+          "alipay_total_price": "59.00",
+          "total_commission_fee": "4.72",
+          "pub_share_pre_fee": "4.25",
+          "tk_status": 12,
+          "adzone_id": 999999001,
+          "site_id": 88888001,
+          "click_time": "2026-05-15 09:38:30",
+          "item_num": 1,
+          "seller_nick": "小米数码专营店",
+          "terminal_type": 2
+        },
+        {
+          "trade_id": "9001234567890003",
+          "trade_parent_id": "9001234567890003",
+          "item_id": 700567890005,
+          "item_title": "Tmall 电竞游戏鼠标 16000DPI RGB 有线",
+          "tb_paid_time": "2026-05-13 19:55:00",
+          "tk_paid_time": "2026-05-13 19:55:01",
+          "alipay_total_price": "249.00",
+          "total_commission_fee": "62.25",
+          "pub_share_pre_fee": "56.03",
+          "tk_status": 14,
+          "adzone_id": 999999001,
+          "site_id": 88888001,
+          "click_time": "2026-05-13 19:50:00",
+          "item_num": 1,
+          "seller_nick": "Razer 雷蛇官方旗舰店",
+          "terminal_type": 1
+        },
+        {
+          "trade_id": "9001234567890004",
+          "trade_parent_id": "9001234567890004",
+          "item_id": 600678901006,
+          "item_title": "Taobao USB-C 数据线 PD 快充 1.5 米",
+          "tb_paid_time": "2026-05-14 22:15:20",
+          "tk_paid_time": "2026-05-14 22:15:21",
+          "alipay_total_price": "25.80",
+          "total_commission_fee": "1.29",
+          "pub_share_pre_fee": "1.16",
+          "tk_status": 15,
+          "adzone_id": 999999001,
+          "site_id": 88888001,
+          "click_time": "2026-05-14 22:10:00",
+          "item_num": 2,
+          "seller_nick": "数码配件批发",
+          "terminal_type": 2
+        }
+      ]
+    },
+    "request_id": "mock_req_id_xyz"
+  }
+}

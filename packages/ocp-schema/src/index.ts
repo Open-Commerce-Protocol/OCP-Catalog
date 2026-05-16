@@ -293,6 +293,18 @@ export const resolveRequestSchema = z.object({
   kind: z.literal('ResolveRequest').optional(),
   catalog_id: z.string().min(1).optional(),
   entry_id: z.string().min(1),
+  /**
+   * Optional Agent identity for per-agent attribution / dynamic action binding.
+   * Backward-compatible: existing clients can omit this entirely.
+   */
+  agent: z
+    .object({
+      agent_id: z.string().min(1),
+      intent: z
+        .enum(['shopping_browse', 'shopping_compare', 'shopping_purchase'])
+        .optional(),
+    })
+    .optional(),
 });
 
 export const actionBindingSchema = z.object({

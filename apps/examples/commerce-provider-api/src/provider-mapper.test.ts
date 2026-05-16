@@ -30,8 +30,12 @@ const config: AppConfig = {
   EMBEDDING_MODEL: 'local-hash-v1',
   EMBEDDING_DIMENSION: 64,
   USER_DEMO_AGENT_MODEL: 'qwen-plus',
+  OPENAI_MODEL_NAME: 'gpt-4o-mini',
   OPENAI_API_KEY: '',
   OPENAI_BASE_URL: 'https://api.openai.com/v1',
+  QWEN_MODEL_NAME: 'qwen3.6-plus',
+  QWEN_API_KEY: '',
+  QWEN_BASE_URL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
 };
 
 const product: typeof schema.providerProducts.$inferSelect = {

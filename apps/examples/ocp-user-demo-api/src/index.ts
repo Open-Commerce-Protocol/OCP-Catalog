@@ -6,6 +6,7 @@ import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { ZodError } from 'zod';
 import { UserDemoAgentService } from './agent-service';
 import { AgentError } from './errors';
+import { buildAgentModelOptions, resolveDefaultAgentModelId } from './openai-compatible-client';
 
 const config = loadConfig();
 const agent = new UserDemoAgentService(config);
@@ -36,7 +37,11 @@ const app = new Elysia()
   .get('/health', () => ({
     ok: true,
     service: 'ocp-user-demo-api',
-    model: config.USER_DEMO_AGENT_MODEL,
+    model: resolveDefaultAgentModelId(config),
+  }))
+  .get('/api/user-demo/agent/models', () => ({
+    models: buildAgentModelOptions(config),
+    default_model: resolveDefaultAgentModelId(config),
   }))
   .post('/api/user-demo/agent/turn', async ({ body }) => agent.turn(body))
   .post('/api/user-demo/agent/confirm-registration', async ({ body }) => agent.confirmRegistration(body))

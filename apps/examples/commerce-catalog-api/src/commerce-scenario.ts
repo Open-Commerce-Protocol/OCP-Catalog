@@ -13,6 +13,7 @@ import {
   readDescriptorField,
   stringField,
   type CatalogScenarioModule,
+  type ResolveContext,
   type SearchProjection,
 } from '@ocp-catalog/catalog-core';
 import type { z } from 'zod';
@@ -211,6 +212,14 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
   const quantity = numberField(readDescriptorField(object, 'ocp.commerce.inventory.v1#/quantity'));
   const sku = stringField(readDescriptorField(object, 'ocp.commerce.product.core.v1#/sku'));
   const productUrl = stringField(readDescriptorField(object, 'ocp.commerce.product.core.v1#/product_url'));
+  // 透传 product.core.v1.attributes(原始 free-form 字段),供 buildResolveActions 等下游读取。
+  // 典型用途:Provider 注入 requires_affiliate_resolution + provider_resolve_hook_url
+  // 让 catalog 在 resolve 时回调 Provider 拿动态 ActionBinding。
+  const rawAttributes = readDescriptorField(object, 'ocp.commerce.product.core.v1#/attributes');
+  const attributesField =
+    rawAttributes && typeof rawAttributes === 'object' && !Array.isArray(rawAttributes)
+      ? (rawAttributes as Record<string, unknown>)
+      : undefined;
   const imageUrls = readDescriptorField(object, 'ocp.commerce.product.core.v1#/image_urls');
   const primaryImageUrl = Array.isArray(imageUrls) ? stringField(imageUrls[0]) : undefined;
   const hasImage = Boolean(primaryImageUrl);
@@ -258,6 +267,7 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
     ...(object.source_url ? { source_url: object.source_url } : {}),
     provider_id: object.provider_id,
     object_id: object.object_id,
+    ...(attributesField ? { attributes: attributesField } : {}),
     text,
   };
 }
@@ -281,24 +291,88 @@ function buildEmbeddingText(_object: CommercialObject, projection: SearchProject
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n');
 }
 
-function buildResolveActions(projection: Record<string, unknown>): ActionBinding[] {
+// 单次回调 Provider 的超时,2s 内不返就降级到静态 view_product
+const PROVIDER_HOOK_TIMEOUT_MS = 2000;
+
+/**
+ * Generate ActionBindings for a resolved entry.
+ *
+ * Two sources:
+ *   1. Static `view_product` synthesized from projection.product_url / source_url
+ *      (always present if the entry has a URL).
+ *   2. Dynamic bindings from a Provider-side resolve hook, requested when the
+ *      entry's `attributes.requires_affiliate_resolution` flag is true.
+ *      The Provider's hook URL is read from `attributes.provider_resolve_hook_url`.
+ *
+ * Provider failures (timeout, non-2xx, malformed response) are swallowed:
+ *   resolution must keep working even if the Provider is down.
+ */
+async function buildResolveActions(
+  projection: Record<string, unknown>,
+  ctx: ResolveContext,
+): Promise<ActionBinding[]> {
+  const actions: ActionBinding[] = [];
+
+  // ---- (1) Static view_product fallback ----
   const url = typeof projection.product_url === 'string'
     ? projection.product_url
     : typeof projection.source_url === 'string'
       ? projection.source_url
       : null;
-
-  if (!url) return [];
-
-  return [
-    {
+  if (url) {
+    actions.push({
       action_id: 'view_product',
       action_type: 'url',
       label: 'View product',
       url,
       method: 'GET',
-    },
-  ];
+    });
+  }
+
+  // ---- (2) Dynamic Provider resolve_hook callback ----
+  const attrs = (projection.attributes && typeof projection.attributes === 'object'
+    ? (projection.attributes as Record<string, unknown>)
+    : {});
+
+  const requires = attrs.requires_affiliate_resolution === true;
+  const hookUrl = typeof attrs.provider_resolve_hook_url === 'string'
+    ? attrs.provider_resolve_hook_url
+    : null;
+
+  if (requires && hookUrl) {
+    try {
+      const res = await ctx.fetch(hookUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          entry_id: ctx.entryId,
+          object_id: projection.sku ?? projection.object_id,
+          agent_id: ctx.request.agent?.agent_id,
+        }),
+        signal: AbortSignal.timeout(PROVIDER_HOOK_TIMEOUT_MS),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { action_bindings?: unknown };
+        if (Array.isArray(data.action_bindings)) {
+          for (const b of data.action_bindings) {
+            // Trust Provider's binding shape; downstream zod will reject if malformed.
+            actions.push(b as ActionBinding);
+          }
+        }
+      } else {
+        console.warn(
+          `[commerce-scenario] resolve_hook returned ${res.status} for entry=${ctx.entryId}`,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        `[commerce-scenario] resolve_hook failed for entry=${ctx.entryId}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+
+  return actions;
 }
 
 function deriveQualityTier(input: {

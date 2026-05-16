@@ -97,6 +97,15 @@ export type ResolvableReference = {
   expires_at: string;
 };
 
+export type AgentModelOption = {
+  id: string;
+  label: string;
+  provider: 'openai' | 'qwen';
+  model_name: string;
+  enabled: boolean;
+  reason?: string;
+};
+
 const fallbackCatalogQueryUrl = resolveOptionalApiUrl(
   import.meta.env.VITE_DEFAULT_CATALOG_QUERY_URL,
   'http://localhost:4000/ocp/query',
@@ -230,6 +239,7 @@ export async function runAgentRoute(input: {
 
 export async function agentTurn(input: {
   userInput: string;
+  modelId?: string | null;
   savedProfiles: SavedCatalogProfile[];
   activeCatalogId?: string | null;
   pendingCatalog?: CatalogSearchItem | null;
@@ -246,6 +256,7 @@ export async function agentTurn(input: {
     method: 'POST',
     body: {
       user_input: input.userInput,
+      model_id: input.modelId ?? null,
       saved_profiles: input.savedProfiles,
       active_catalog_id: input.activeCatalogId ?? null,
       pending_catalog: input.pendingCatalog ?? null,
@@ -256,6 +267,7 @@ export async function agentTurn(input: {
 }
 
 export async function confirmCatalogRegistration(input: {
+  modelId?: string | null;
   pendingCatalog: CatalogSearchItem;
   session: QuerySession;
 }) {
@@ -267,19 +279,29 @@ export async function confirmCatalogRegistration(input: {
   }>(`${userDemoApiPrefix}/agent/confirm-registration`, {
     method: 'POST',
     body: {
+      model_id: input.modelId ?? null,
       pending_catalog: input.pendingCatalog,
       session: input.session,
     },
   });
 }
 
-async function request<T>(url: string, options: { method: 'POST'; body: unknown }) {
+export async function listAgentModels() {
+  return request<{
+    models: AgentModelOption[];
+    default_model: string;
+  }>(`${userDemoApiPrefix}/agent/models`, {
+    method: 'GET',
+  });
+}
+
+async function request<T>(url: string, options: { method: 'GET' } | { method: 'POST'; body: unknown }) {
   const response = await fetch(url, {
     method: options.method,
     headers: {
       'content-type': 'application/json',
     },
-    body: JSON.stringify(options.body),
+    ...(options.method === 'POST' ? { body: JSON.stringify(options.body) } : {}),
   });
 
   const text = await response.text();

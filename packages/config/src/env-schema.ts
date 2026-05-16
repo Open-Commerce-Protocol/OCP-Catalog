@@ -26,9 +26,13 @@ export const envSchema = z.object({
   EMBEDDING_PROVIDER: z.enum(['disabled', 'local', 'openai']).default('disabled'),
   EMBEDDING_MODEL: z.string().default('local-hash-v1'),
   EMBEDDING_DIMENSION: z.coerce.number().int().min(1).default(64),
-  USER_DEMO_AGENT_MODEL: z.string().default('qwen-plus'),
+  USER_DEMO_AGENT_MODEL: z.string().default('qwen-default'),
+  OPENAI_MODEL_NAME: z.string().default('gpt-4o-mini'),
   OPENAI_API_KEY: z.string().default(''),
   OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
+  QWEN_MODEL_NAME: z.string().default('qwen3.6-plus'),
+  QWEN_API_KEY: z.string().default(''),
+  QWEN_BASE_URL: z.string().url().default('https://dashscope.aliyuncs.com/compatible-mode/v1'),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

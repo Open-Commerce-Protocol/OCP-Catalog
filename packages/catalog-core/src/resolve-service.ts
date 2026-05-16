@@ -3,6 +3,7 @@ import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import {
   resolveRequestSchema,
+  type ActionBinding,
   type ResolvableReference,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId, nowIso } from '@ocp-catalog/shared';
@@ -62,6 +63,20 @@ export class ResolveService {
     const projection = asProjection(row.projection);
     const resolvedAt = nowIso();
     const expiresAt = new Date(Date.now() + REFERENCE_TTL_MS).toISOString();
+
+    // Scenarios may return ActionBinding[] synchronously OR via Promise
+    // (e.g. when calling out to a Provider's resolve_hook).
+    let actionBindings: ActionBinding[] = [];
+    if (this.scenario.buildResolveActions) {
+      actionBindings = await Promise.resolve(
+        this.scenario.buildResolveActions(projection, {
+          entryId: row.entryId,
+          request,
+          fetch: globalThis.fetch,
+        }),
+      );
+    }
+
     const reference: ResolvableReference = {
       ocp_version: '1.0',
       kind: 'ResolvableReference',
@@ -75,7 +90,7 @@ export class ResolveService {
       ...(providerState ? { registration_version: providerState.activeRegistrationVersion } : {}),
       title: row.title,
       visible_attributes: visibleAttributes(projection),
-      action_bindings: this.scenario.buildResolveActions?.(projection) ?? [],
+      action_bindings: actionBindings,
       freshness: {
         object_updated_at: row.objectUpdatedAt.toISOString(),
         resolved_at: resolvedAt,

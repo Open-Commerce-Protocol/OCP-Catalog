@@ -3,6 +3,7 @@ import type {
   CatalogManifest,
   CommercialObject,
   ObjectContract,
+  ResolveRequest,
 } from '@ocp-catalog/ocp-schema';
 
 export type DescriptorValidationResult =
@@ -16,6 +17,20 @@ export type SearchProjection = Record<string, unknown> & {
   text?: string;
 };
 
+/**
+ * Context passed to `buildResolveActions`, enabling scenarios to:
+ *   - know which entry is being resolved (entryId)
+ *   - read the original resolve request (e.g. request.agent.agent_id)
+ *   - perform async I/O (e.g. callback to a Provider) via injected fetch
+ *
+ * Injecting `fetch` keeps the scenario module testable (mock fetch in tests).
+ */
+export interface ResolveContext {
+  entryId: string;
+  request: ResolveRequest;
+  fetch: typeof globalThis.fetch;
+}
+
 export type CatalogScenarioModule = {
   description?: string;
   registryVisibility?: CatalogManifest['registry_visibility'];
@@ -27,7 +42,21 @@ export type CatalogScenarioModule = {
   buildSearchProjection(object: CommercialObject): SearchProjection;
   buildExplainProjection?(object: CommercialObject, projection: SearchProjection): Record<string, unknown>;
   buildEmbeddingText?(object: CommercialObject, projection: SearchProjection): string | null | undefined;
-  buildResolveActions?(projection: Record<string, unknown>): ActionBinding[];
+  /**
+   * Build action_bindings for the resolved object.
+   *
+   * Return type is `ActionBinding[] | Promise<ActionBinding[]>`:
+   *   - sync return preserves backward compatibility with old scenarios
+   *   - async return allows scenarios to call out to Providers / external services
+   *
+   * The `ctx` parameter was added in 2026-05. Old scenarios that ignored it
+   * remain source-compatible because extra positional parameters in TS function
+   * types are accepted silently.
+   */
+  buildResolveActions?(
+    projection: Record<string, unknown>,
+    ctx: ResolveContext,
+  ): ActionBinding[] | Promise<ActionBinding[]>;
 };
 
 export function defaultProviderFieldRules(): CatalogManifest['provider_contract']['field_rules'] {
