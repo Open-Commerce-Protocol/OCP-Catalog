@@ -102,7 +102,7 @@ Everything else should be treated as implementation detail.
 
 ## Registration Model
 
-Provider registration is not object sync. Registration only declares provider identity, supported object types, provided descriptor packs, guaranteed field refs, and delivery mode.
+Provider registration is not object sync. Registration only declares provider identity, supported object types, provided descriptor packs, guaranteed field refs, and sync capabilities.
 
 The service activates a registration only when:
 
@@ -110,7 +110,7 @@ The service activates a registration only when:
 - `registration_version` is newer than the active version.
 - At least one declaration matches a supported object contract.
 - Required packs and required field refs are covered.
-- Delivery mode is allowed by the matched contract.
+- At least one declared sync capability is allowed by the matched contract.
 
 Stale versions are recorded but do not replace the active contract state.
 

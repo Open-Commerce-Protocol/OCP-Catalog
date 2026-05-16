@@ -8,7 +8,7 @@
 2. Catalog 如何声明对象契约
 3. Provider 如何提交版本化注册声明并协商 sync capability
 
-它不负责冻结完整的 sync/query/resolve payload，也不负责 Center 注册、联邦路由或交易流程。
+它不负责冻结完整的 sync/query/resolve payload，也不负责 Registration node 注册、联邦路由或交易流程。
 
 ## Scope
 
@@ -270,7 +270,7 @@ well-known 至少应指向：
 - query
 - resolve
 
-## Relationship To Center
+## Relationship To Registration
 
 这个包只处理：
 
@@ -278,12 +278,12 @@ well-known 至少应指向：
 Provider -> Catalog Node
 ```
 
-Catalog 注册到 Center 使用的是：
+Catalog 注册到 Registration node 使用的是：
 
-- `ocp.catalog.center.v1`
+- `ocp.catalog.registration.v1`
 
 详见：
 
-- [../ocp.catalog.center.v1/README.md](../ocp.catalog.center.v1/README.md)
+- [../ocp.catalog.registration.v1/README.md](../ocp.catalog.registration.v1/README.md)
 - [../docs/ocp_catalog_handshake_protocol_v1.md](../docs/ocp_catalog_handshake_protocol_v1.md)
 

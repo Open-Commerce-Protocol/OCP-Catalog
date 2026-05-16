@@ -6,7 +6,6 @@ const modules = import.meta.glob('./**/*.md', {
 const sectionAliases: Record<string, string> = {
   docs: 'docs',
   handshake: 'handshake',
-  center: 'registration',
   registration: 'registration',
   example: 'examples',
   examples: 'examples',

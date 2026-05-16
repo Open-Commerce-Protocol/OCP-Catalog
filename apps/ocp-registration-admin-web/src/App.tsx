@@ -177,25 +177,25 @@ export default function App() {
   const trustOptions = ['all', ...unique(safeCatalogs.map((catalog) => catalog.trust_tier))];
 
   return (
-    <div className="min-h-screen center-grid">
+    <div className="min-h-screen registration-grid">
       <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col gap-6 px-4 py-4 sm:px-6 lg:px-8">
-        <header className="center-panel overflow-hidden rounded-3xl">
+        <header className="registration-panel overflow-hidden rounded-3xl">
           <div className="grid gap-6 px-6 py-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
             <div className="space-y-5">
-              <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.24em] text-[var(--color-center-muted)] center-mono">
-                <span className="rounded-full border border-[var(--color-center-border)] px-3 py-1 text-[var(--color-center-cyan)]">Registration node</span>
+              <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.24em] text-[var(--color-registration-muted)] registration-mono">
+                <span className="rounded-full border border-[var(--color-registration-border)] px-3 py-1 text-[var(--color-registration-cyan)]">Registration node</span>
                 <span>{overview?.registration_id ?? 'loading-registration-id'}</span>
               </div>
               <div className="max-w-[11ch] text-5xl font-semibold leading-[0.88] tracking-[-0.04em] sm:text-6xl">
                 OCP Registration Control Room
               </div>
-              <p className="max-w-2xl text-sm leading-6 text-[var(--color-center-muted)]">
+              <p className="max-w-2xl text-sm leading-6 text-[var(--color-registration-muted)]">
                 Observe registration intake, verification pressure, health activity, and registration-side search traffic from one operator surface.
               </p>
             </div>
-            <div className="grid gap-4 rounded-3xl border border-[var(--color-center-border)] bg-black/16 p-5">
+            <div className="grid gap-4 rounded-3xl border border-[var(--color-registration-border)] bg-black/16 p-5">
               <label className="space-y-2">
-                <span className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-center-muted)] center-mono">
+                <span className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[var(--color-registration-muted)] registration-mono">
                   <KeyRound size={14} />
                   Admin key
                 </span>
@@ -203,7 +203,7 @@ export default function App() {
                   type="password"
                   value={apiKey}
                   onChange={(event) => setApiKey(event.target.value)}
-                  className="w-full rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-surface)] px-4 py-3 text-sm outline-none"
+                  className="w-full rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] px-4 py-3 text-sm outline-none"
                   placeholder="dev-api-key"
                 />
               </label>
@@ -214,7 +214,7 @@ export default function App() {
               <button
                 onClick={() => void reloadAll()}
                 disabled={loading}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-panel)] px-4 py-3 text-sm font-medium transition hover:border-[var(--color-center-cyan)]/40 hover:text-[var(--color-center-cyan)] disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-panel)] px-4 py-3 text-sm font-medium transition hover:border-[var(--color-registration-cyan)]/40 hover:text-[var(--color-registration-cyan)] disabled:opacity-60"
               >
                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                 {loading ? 'Refreshing state' : 'Refresh registration state'}
@@ -231,17 +231,17 @@ export default function App() {
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-          <div className="center-panel rounded-3xl p-5">
+          <div className="registration-panel rounded-3xl p-5">
             <div className="mb-4 flex items-center justify-between gap-4">
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-center-muted)] center-mono">Catalog registry</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-registration-muted)] registration-mono">Catalog registry</div>
                 <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">Live catalog roster</h2>
               </div>
               <input
                 value={filter}
                 onChange={(event) => setFilter(event.target.value)}
                 placeholder="Filter by id, domain, status"
-                className="w-full max-w-[260px] rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-surface)] px-4 py-2.5 text-sm outline-none"
+                className="w-full max-w-[260px] rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] px-4 py-2.5 text-sm outline-none"
               />
             </div>
             <div className="mb-4 grid gap-3 md:grid-cols-3">
@@ -255,16 +255,16 @@ export default function App() {
                 <button
                   key={catalog.catalog_id}
                   onClick={() => setSelectedCatalogId(catalog.catalog_id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${selectedCatalogId === catalog.catalog_id ? 'border-[var(--color-center-cyan)] bg-[rgba(118,228,213,0.08)]' : 'border-[var(--color-center-border)] bg-[var(--color-center-surface)] hover:border-[var(--color-center-cyan)]/40'}`}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${selectedCatalogId === catalog.catalog_id ? 'border-[var(--color-registration-cyan)] bg-[rgba(118,228,213,0.08)]' : 'border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] hover:border-[var(--color-registration-cyan)]/40'}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="font-semibold">{catalog.catalog_id}</div>
-                      <div className="mt-1 break-all text-xs text-[var(--color-center-muted)] center-mono">{catalog.homepage}</div>
+                      <div className="mt-1 break-all text-xs text-[var(--color-registration-muted)] registration-mono">{catalog.homepage}</div>
                     </div>
                     <StatusPill tone={toneForStatus(catalog.verification_status)} label={catalog.verification_status} />
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-center-muted)] center-mono">
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-registration-muted)] registration-mono">
                     <span>health: {catalog.health_status}</span>
                     <span>trust: {catalog.trust_tier}</span>
                     <span>version: {catalog.active_registration_version ?? 'none'}</span>
@@ -274,19 +274,19 @@ export default function App() {
               ))}
 
               {filteredCatalogs.length === 0 ? (
-                <EmptyBlock title="No matching catalogs" body="Adjust the filter or refresh the center roster." />
+                <EmptyBlock title="No matching catalogs" body="Adjust the filter or refresh the registration roster." />
               ) : null}
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="center-panel rounded-3xl p-5">
+            <div className="registration-panel rounded-3xl p-5">
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-center-muted)] center-mono">Selected catalog</div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-registration-muted)] registration-mono">Selected catalog</div>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.03em]">{selectedCatalogId ?? 'No catalog selected'}</h2>
                 </div>
-                {detailLoading ? <div className="text-xs text-[var(--color-center-muted)] center-mono">Loading detail...</div> : null}
+                {detailLoading ? <div className="text-xs text-[var(--color-registration-muted)] registration-mono">Loading detail...</div> : null}
               </div>
 
               {detail.catalog ? (
@@ -294,12 +294,12 @@ export default function App() {
                   <div className="space-y-4">
                     <DetailPanel title="Actions">
                       <label className="block space-y-2">
-                        <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-center-muted)] center-mono">Catalog token</span>
+                        <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-registration-muted)] registration-mono">Catalog token</span>
                         <input
                           type="password"
                           value={catalogToken}
                           onChange={(event) => setCatalogToken(event.target.value)}
-                          className="w-full rounded-2xl border border-[var(--color-center-border)] bg-black/12 px-4 py-3 text-sm outline-none"
+                          className="w-full rounded-2xl border border-[var(--color-registration-border)] bg-black/12 px-4 py-3 text-sm outline-none"
                           placeholder="Required for refresh and rotate"
                         />
                       </label>
@@ -373,9 +373,9 @@ export default function App() {
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-              <div className="center-panel rounded-3xl p-5">
+              <div className="registration-panel rounded-3xl p-5">
                 <div className="mb-4 flex items-center gap-3">
-                  <FileClock size={16} className="text-[var(--color-center-cyan)]" />
+                  <FileClock size={16} className="text-[var(--color-registration-cyan)]" />
                   <h3 className="text-lg font-semibold">Active snapshot</h3>
                 </div>
                 {detail.manifestSnapshot ? (
@@ -389,23 +389,23 @@ export default function App() {
                     }}
                   />
                 ) : (
-                  <EmptyBlock title="No active snapshot" body="This catalog has not produced an active manifest snapshot in the center yet." />
+                  <EmptyBlock title="No active snapshot" body="This catalog has not produced an active manifest snapshot in the registration node yet." />
                 )}
               </div>
 
-              <div className="center-panel rounded-3xl p-5">
+              <div className="registration-panel rounded-3xl p-5">
                 <div className="mb-4 flex items-center gap-3">
-                  <Clock3 size={16} className="text-[var(--color-center-amber)]" />
+                  <Clock3 size={16} className="text-[var(--color-registration-amber)]" />
                   <h3 className="text-lg font-semibold">Recent search audits</h3>
                 </div>
                 <div className="space-y-3">
                   {audits.slice(0, 8).map((audit) => (
-                    <div key={audit.id} className="rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-surface)] p-3">
+                    <div key={audit.id} className="rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] p-3">
                       <div className="flex items-center justify-between gap-3 text-sm">
                         <span className="font-medium">{stringValue(audit.request_payload.query) || '(empty query)'}</span>
-                        <span className="text-[var(--color-center-muted)] center-mono">{audit.result_count} result(s)</span>
+                        <span className="text-[var(--color-registration-muted)] registration-mono">{audit.result_count} result(s)</span>
                       </div>
-                      <div className="mt-2 text-xs text-[var(--color-center-muted)] center-mono">{formatTimestamp(audit.created_at)}</div>
+                      <div className="mt-2 text-xs text-[var(--color-registration-muted)] registration-mono">{formatTimestamp(audit.created_at)}</div>
                     </div>
                   ))}
                   {audits.length === 0 ? <EmptyInline label="No search audits yet" /> : null}
@@ -417,7 +417,7 @@ export default function App() {
       </div>
 
       {toast ? (
-        <div className={`fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-full border px-5 py-3 text-sm font-medium shadow-2xl ${toast.tone === 'danger' ? 'border-[var(--color-center-rose)]/35 bg-[var(--color-center-rose)] text-black' : 'border-[var(--color-center-cyan)]/35 bg-[var(--color-center-cyan)] text-black'}`}>
+        <div className={`fixed left-1/2 top-6 z-50 -translate-x-1/2 rounded-full border px-5 py-3 text-sm font-medium shadow-2xl ${toast.tone === 'danger' ? 'border-[var(--color-registration-rose)]/35 bg-[var(--color-registration-rose)] text-black' : 'border-[var(--color-registration-cyan)]/35 bg-[var(--color-registration-cyan)] text-black'}`}>
           {toast.message}
         </div>
       ) : null}
@@ -437,21 +437,21 @@ function MetricCard({
   tone: 'cyan' | 'amber' | 'rose' | 'lime';
 }) {
   const color = tone === 'cyan'
-    ? 'var(--color-center-cyan)'
+    ? 'var(--color-registration-cyan)'
     : tone === 'amber'
-      ? 'var(--color-center-amber)'
+      ? 'var(--color-registration-amber)'
       : tone === 'lime'
-        ? 'var(--color-center-lime)'
-        : 'var(--color-center-rose)';
+        ? 'var(--color-registration-lime)'
+        : 'var(--color-registration-rose)';
 
   return (
-    <div className="center-panel rounded-3xl p-5">
+    <div className="registration-panel rounded-3xl p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-center-muted)] center-mono">{label}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--color-registration-muted)] registration-mono">{label}</div>
           <div className="mt-3 text-4xl font-semibold tracking-[-0.04em]">{value}</div>
         </div>
-        <div className="rounded-2xl border border-[var(--color-center-border)] p-3" style={{ color }}>
+        <div className="rounded-2xl border border-[var(--color-registration-border)] p-3" style={{ color }}>
           <Icon size={18} />
         </div>
       </div>
@@ -460,12 +460,12 @@ function MetricCard({
 }
 
 function SignalCard({ label, value, note, tone }: { label: string; value: string; note: string; tone: 'cyan' | 'amber' }) {
-  const color = tone === 'cyan' ? 'text-[var(--color-center-cyan)]' : 'text-[var(--color-center-amber)]';
+  const color = tone === 'cyan' ? 'text-[var(--color-registration-cyan)]' : 'text-[var(--color-registration-amber)]';
   return (
-    <div className="rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-surface)] p-4">
-      <div className="text-xs uppercase tracking-[0.16em] text-[var(--color-center-muted)] center-mono">{label}</div>
+    <div className="rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] p-4">
+      <div className="text-xs uppercase tracking-[0.16em] text-[var(--color-registration-muted)] registration-mono">{label}</div>
       <div className={`mt-2 text-2xl font-semibold ${color}`}>{value}</div>
-      <div className="mt-1 text-xs text-[var(--color-center-muted)] center-mono">{note}</div>
+      <div className="mt-1 text-xs text-[var(--color-registration-muted)] registration-mono">{note}</div>
     </div>
   );
 }
@@ -483,11 +483,11 @@ function FilterSelect({
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-center-muted)] center-mono">{label}</span>
+      <span className="text-xs uppercase tracking-[0.14em] text-[var(--color-registration-muted)] registration-mono">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-surface)] px-4 py-2.5 text-sm outline-none"
+        className="w-full rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] px-4 py-2.5 text-sm outline-none"
       >
         {options.map((option) => (
           <option key={option} value={option}>{option}</option>
@@ -502,7 +502,7 @@ function ActionButton({ label, busy, onClick }: { label: string; busy: boolean; 
     <button
       onClick={onClick}
       disabled={busy}
-      className="rounded-2xl border border-[var(--color-center-border)] bg-black/12 px-4 py-3 text-sm font-medium transition hover:border-[var(--color-center-cyan)]/40 hover:text-[var(--color-center-cyan)] disabled:opacity-60"
+      className="rounded-2xl border border-[var(--color-registration-border)] bg-black/12 px-4 py-3 text-sm font-medium transition hover:border-[var(--color-registration-cyan)]/40 hover:text-[var(--color-registration-cyan)] disabled:opacity-60"
     >
       {busy ? `${label}...` : label}
     </button>
@@ -511,8 +511,8 @@ function ActionButton({ label, busy, onClick }: { label: string; busy: boolean; 
 
 function DetailPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-[var(--color-center-border)] bg-[var(--color-center-surface)] p-4">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-center-muted)] center-mono">{title}</h3>
+    <section className="rounded-2xl border border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] p-4">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-registration-muted)] registration-mono">{title}</h3>
       <div className="space-y-3">{children}</div>
     </section>
   );
@@ -521,22 +521,22 @@ function DetailPanel({ title, children }: { title: string; children: React.React
 function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-center-muted)]">{label}</div>
-      <div className={`mt-1 break-all text-sm ${mono ? 'center-mono' : ''}`}>{value || '-'}</div>
+      <div className="text-xs uppercase tracking-[0.14em] text-[var(--color-registration-muted)]">{label}</div>
+      <div className={`mt-1 break-all text-sm ${mono ? 'registration-mono' : ''}`}>{value || '-'}</div>
     </div>
   );
 }
 
 function EventRow({ icon: Icon, title, subtitle, meta }: { icon: typeof Activity; title: string; subtitle: string; meta: string }) {
   return (
-    <div className="flex gap-3 rounded-2xl border border-[var(--color-center-border)] bg-black/10 p-3">
-      <div className="mt-0.5 rounded-xl border border-[var(--color-center-border)] p-2 text-[var(--color-center-cyan)]">
+    <div className="flex gap-3 rounded-2xl border border-[var(--color-registration-border)] bg-black/10 p-3">
+      <div className="mt-0.5 rounded-xl border border-[var(--color-registration-border)] p-2 text-[var(--color-registration-cyan)]">
         <Icon size={14} />
       </div>
       <div className="min-w-0">
         <div className="font-medium">{title}</div>
-        <div className="mt-1 break-all text-xs text-[var(--color-center-muted)]">{subtitle}</div>
-        <div className="mt-1 text-xs text-[var(--color-center-muted)] center-mono">{meta}</div>
+        <div className="mt-1 break-all text-xs text-[var(--color-registration-muted)]">{subtitle}</div>
+        <div className="mt-1 text-xs text-[var(--color-registration-muted)] registration-mono">{meta}</div>
       </div>
     </div>
   );
@@ -544,29 +544,29 @@ function EventRow({ icon: Icon, title, subtitle, meta }: { icon: typeof Activity
 
 function StatusPill({ tone, label }: { tone: 'good' | 'warn' | 'bad'; label: string }) {
   const className = tone === 'good'
-    ? 'border-[var(--color-center-lime)]/30 bg-[var(--color-center-lime)]/10 text-[var(--color-center-lime)]'
+    ? 'border-[var(--color-registration-lime)]/30 bg-[var(--color-registration-lime)]/10 text-[var(--color-registration-lime)]'
     : tone === 'warn'
-      ? 'border-[var(--color-center-amber)]/30 bg-[var(--color-center-amber)]/10 text-[var(--color-center-amber)]'
-      : 'border-[var(--color-center-rose)]/30 bg-[var(--color-center-rose)]/10 text-[var(--color-center-rose)]';
-  return <span className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] center-mono ${className}`}>{label}</span>;
+      ? 'border-[var(--color-registration-amber)]/30 bg-[var(--color-registration-amber)]/10 text-[var(--color-registration-amber)]'
+      : 'border-[var(--color-registration-rose)]/30 bg-[var(--color-registration-rose)]/10 text-[var(--color-registration-rose)]';
+  return <span className={`rounded-full border px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] registration-mono ${className}`}>{label}</span>;
 }
 
 function EmptyBlock({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--color-center-border)] bg-[var(--color-center-surface)] p-6 text-center">
+    <div className="rounded-2xl border border-dashed border-[var(--color-registration-border)] bg-[var(--color-registration-surface)] p-6 text-center">
       <div className="font-medium">{title}</div>
-      <div className="mt-2 text-sm text-[var(--color-center-muted)]">{body}</div>
+      <div className="mt-2 text-sm text-[var(--color-registration-muted)]">{body}</div>
     </div>
   );
 }
 
 function EmptyInline({ label }: { label: string }) {
-  return <div className="rounded-2xl border border-dashed border-[var(--color-center-border)] p-4 text-sm text-[var(--color-center-muted)]">{label}</div>;
+  return <div className="rounded-2xl border border-dashed border-[var(--color-registration-border)] p-4 text-sm text-[var(--color-registration-muted)]">{label}</div>;
 }
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-[420px] overflow-auto rounded-2xl border border-[var(--color-center-border)] bg-black/18 p-4 text-xs leading-6 text-[var(--color-center-text)] center-mono">
+    <pre className="max-h-[420px] overflow-auto rounded-2xl border border-[var(--color-registration-border)] bg-black/18 p-4 text-xs leading-6 text-[var(--color-registration-text)] registration-mono">
       {JSON.stringify(value, null, 2)}
     </pre>
   );

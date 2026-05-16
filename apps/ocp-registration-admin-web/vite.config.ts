@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '../../', '');
-  const centerApiBaseUrl = env.VITE_REGISTRATION_API_BASE_URL || 'http://localhost:4100';
+  const registrationApiBaseUrl = env.VITE_REGISTRATION_API_BASE_URL || 'http://localhost:4100';
   const registrationAdminPort = Number(env.REGISTRATION_ADMIN_UI_PORT || 4250);
 
   return {
@@ -20,19 +20,19 @@ export default defineConfig(({ mode }) => {
       port: registrationAdminPort,
       proxy: {
         '/api/registration-admin': {
-          target: centerApiBaseUrl,
+          target: registrationApiBaseUrl,
           changeOrigin: true,
         },
         '/ocp': {
-          target: centerApiBaseUrl,
+          target: registrationApiBaseUrl,
           changeOrigin: true,
         },
         '/.well-known': {
-          target: centerApiBaseUrl,
+          target: registrationApiBaseUrl,
           changeOrigin: true,
         },
         '/health': {
-          target: centerApiBaseUrl,
+          target: registrationApiBaseUrl,
           changeOrigin: true,
         },
       },

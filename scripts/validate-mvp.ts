@@ -159,15 +159,21 @@ function register(version: number) {
           'ocp.commerce.price.v1',
           'ocp.commerce.inventory.v1',
         ],
-        guaranteed_fields: ['ocp.commerce.product.core.v1#/title'],
+        guaranteed_fields: [
+          'ocp.commerce.product.core.v1#/title',
+          'ocp.commerce.price.v1#/currency',
+          'ocp.commerce.price.v1#/amount',
+        ],
         optional_fields: [
           'ocp.commerce.product.core.v1#/category',
           'ocp.commerce.product.core.v1#/product_url',
-          'ocp.commerce.price.v1#/currency',
-          'ocp.commerce.price.v1#/amount',
           'ocp.commerce.inventory.v1#/availability_status',
         ],
-        delivery: { mode: 'push_api' },
+        sync: {
+          preferred_capabilities: ['ocp.push.batch'],
+          avoid_capabilities_unless_necessary: [],
+          provider_endpoints: {},
+        },
       },
     ],
   });

@@ -448,7 +448,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/.well-known/ocp-registration',
         response: {
           kind: 'RegistrationDiscovery',
-          registration_id: 'ocp_center_local_dev',
+          registration_id: 'ocp_registration_local_dev',
           manifest_url: 'http://localhost:4100/ocp/registration/manifest',
           catalog_registration_url: 'http://localhost:4100/ocp/catalogs/register',
           catalog_search_url: 'http://localhost:4100/ocp/catalogs/search',
@@ -491,7 +491,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          registration_id: 'ocp_center_local_dev',
+          registration_id: 'ocp_registration_local_dev',
           catalog_id: 'commerce_catalog_local_dev',
           registration_version: 3,
           homepage: 'http://localhost:4000',
@@ -830,7 +830,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          registration_id: 'my_center',
+          registration_id: 'my_registration',
           catalog_id: 'hello_catalog',
           registration_version: 1,
           homepage: 'https://catalog.example.com',
@@ -944,7 +944,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          registration_id: 'ocp_center_local_dev',
+          registration_id: 'ocp_registration_local_dev',
           catalog_id: 'commerce_catalog_local_dev',
           registration_version: 1,
           homepage: 'http://localhost:4000',
@@ -1169,7 +1169,7 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         path: '/ocp/catalogs/register',
         request: {
           kind: 'CatalogRegistration',
-          registration_id: 'my_center',
+          registration_id: 'my_registration',
           catalog_id: 'my_catalog',
           registration_version: 1,
           homepage: 'https://catalog.example.com',
@@ -1302,7 +1302,6 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
 
 export async function loadPageArtifacts(routePath: string): Promise<LoadedPageArtifacts> {
   const normalizedRoutePath = routePath
-    .replace(/^\/center\//, '/registration/')
     .replace(/^\/examples\/registration-flow$/, '/examples/registration-flow');
   const definition = artifactRegistry[normalizedRoutePath];
 

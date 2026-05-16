@@ -6,10 +6,11 @@ import { createDb } from '@ocp-catalog/db';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 import { CommerceQueryService } from './query/commerce-query-service';
 import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
+import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
 const baseConfig = loadConfig();
 const db = createDb(baseConfig.DATABASE_URL);
-const sql = postgres(baseConfig.DATABASE_URL, { max: 1 });
+const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
 const services = createCatalogServices(db, baseConfig, scenario);
 const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
@@ -17,14 +18,19 @@ const commerceQueryService = new CommerceQueryService(db, baseConfig, scenario);
 
 const providerId = `itest_provider_${Date.now()}`;
 const queryText = `travel headphones ${providerId}`;
+let integrationDatabaseReady = false;
 
 describe('commerce catalog integration', () => {
   beforeAll(async () => {
+    await assertIntegrationDatabaseReady(sql, baseConfig.DATABASE_URL);
+    integrationDatabaseReady = true;
     await cleanupProviderData(providerId, queryText);
   });
 
   afterAll(async () => {
-    await cleanupProviderData(providerId, queryText);
+    if (integrationDatabaseReady) {
+      await cleanupProviderData(providerId, queryText);
+    }
     await sql.end();
   });
 
