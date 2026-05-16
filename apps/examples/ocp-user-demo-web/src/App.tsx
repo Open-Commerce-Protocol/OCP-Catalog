@@ -229,9 +229,9 @@ export function App() {
     if (!resolvedItem) throw new Error('No resolved item is available');
     const action = resolvedItem.action_bindings.find((item) => item.action_id === actionId);
     if (!action) throw new Error(`Action ${actionId} is not available on the current resolved item`);
-    if (!action.url) throw new Error(`Action ${actionId} does not expose an openable URL`);
+    if (!action.entrypoint.url) throw new Error(`Action ${actionId} does not expose an openable URL`);
 
-    window.open(action.url, '_blank', 'noopener,noreferrer');
+    window.open(action.entrypoint.url, '_blank', 'noopener,noreferrer');
   }
 
   return (
@@ -577,10 +577,10 @@ export function App() {
                 {resolvedItem.action_bindings.length > 0 ? (
                   <div className="grid gap-2 sm:grid-cols-2">
                     {resolvedItem.action_bindings.map((action) => (
-                      action.url ? (
+                      action.entrypoint.url ? (
                         <a
                           key={action.action_id}
-                          href={action.url}
+                          href={action.entrypoint.url}
                           target="_blank"
                           rel="noreferrer"
                           className={cn(
@@ -593,7 +593,7 @@ export function App() {
                           <span className="min-w-0">
                             <span className="block truncate">{action.label}</span>
                             <span className={cn("mt-0.5 block text-[11px] uppercase tracking-wider", action === selectedTopAction ? "text-white/55" : "text-ink/35")}>
-                              {action.action_id} · {action.method ?? 'GET'}
+                              {action.action_id} · {action.entrypoint.method ?? 'GET'}
                             </span>
                           </span>
                           {action.action_id === 'buy_now' ? <ArrowRight className="h-4 w-4 shrink-0" /> : <ExternalLink className="h-4 w-4 shrink-0" />}

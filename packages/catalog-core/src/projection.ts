@@ -1,7 +1,7 @@
 import { isRecord } from './field-ref';
 
 export function visibleAttributes(projection: Record<string, unknown>) {
-  const hidden = new Set(['text']);
+  const hidden = new Set(['text', 'product_url', 'source_url']);
   return Object.fromEntries(Object.entries(projection).filter(([key]) => !hidden.has(key)));
 }
 

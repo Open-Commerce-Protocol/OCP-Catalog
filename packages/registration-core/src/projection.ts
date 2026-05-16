@@ -32,6 +32,38 @@ export function supportsResolve(manifest: QueryCapabilitySource) {
   return manifest.query_capabilities.some((capability) => capability.supports_resolve === true);
 }
 
+export function federationSummary(manifest: CatalogManifest) {
+  const federation = manifest.federation;
+  if (!federation) return undefined;
+
+  return {
+    mode: federation.mode,
+    node_role: federation.node_role,
+    remote_query_supported: federation.remote_query.supported,
+    remote_resolve_supported: federation.remote_resolve.supported,
+    summary_cache_supported: federation.summary_cache.supported,
+    mutation_log_supported: federation.mutation_log.supported,
+  };
+}
+
+export function trustProfile(
+  manifest: CatalogManifest,
+  verificationStatus: string,
+  trustTier: string,
+) {
+  const trustStrategy = manifest.federation?.trust_strategy;
+  if (!trustStrategy) return undefined;
+
+  return {
+    verification_status: verificationStatus,
+    trust_tier: trustTier,
+    domain_verified: trustStrategy.domain_verified || verificationStatus === 'verified',
+    manifest_signed: trustStrategy.manifest_signed,
+    ...(trustStrategy.signature_algorithms[0] ? { signature_alg: trustStrategy.signature_algorithms[0] } : {}),
+    downgrade_invalidates_cache: trustStrategy.downgrade_invalidates_cache,
+  };
+}
+
 export function buildCatalogSearchProjection(
   registration: CatalogRegistration,
   manifest: CatalogManifest,
@@ -45,6 +77,8 @@ export function buildCatalogSearchProjection(
   const queryLanguages = supportedQueryLanguages(manifest);
   const contentLangs = contentLanguages(manifest);
   const contracts = objectContractSummaries(manifest);
+  const federation = federationSummary(manifest);
+  const trust = trustProfile(manifest, verificationStatus, trustTier);
   const text = [
     manifest.catalog_name,
     manifest.description,
@@ -82,6 +116,8 @@ export function buildCatalogSearchProjection(
     health_status: healthStatus,
     query_url: manifest.endpoints.query.url,
     resolve_url: manifest.endpoints.resolve?.url,
+    ...(federation ? { federation } : {}),
+    ...(trust ? { trust_profile: trust } : {}),
     text,
   };
 }

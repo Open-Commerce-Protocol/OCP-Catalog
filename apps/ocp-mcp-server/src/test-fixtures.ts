@@ -166,13 +166,35 @@ export const resolvedReference: ResolvableReference = {
   visible_attributes: {
     category: 'electronics',
   },
+  access: {
+    visibility: 'public',
+    permission_state: 'granted',
+    redacted_fields: ['product_url', 'source_url', 'text'],
+    policy_notes: [],
+  },
+  live_checks: [
+    {
+      check_id: 'availability',
+      status: 'passed',
+      checked_at: '2026-04-28T00:00:00.000Z',
+      summary: 'in_stock',
+      details: {
+        availability_status: 'in_stock',
+      },
+    },
+  ],
   action_bindings: [
     {
       action_id: 'view_product',
       action_type: 'url',
       label: 'View product',
-      url: 'https://example.test/product',
-      method: 'GET',
+      description: 'Open product page',
+      entrypoint: {
+        url: 'https://example.test/product',
+        method: 'GET',
+      },
+      auth_requirements: {},
+      requires_user_confirmation: false,
     },
   ],
   freshness: {

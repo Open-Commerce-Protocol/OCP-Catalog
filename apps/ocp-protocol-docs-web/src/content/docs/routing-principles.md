@@ -14,7 +14,15 @@ That is why route hint focuses on:
 - supported object types
 - supported query packs
 - trust and health state
+- declared federation summary
+- trust profile projection
 - cacheability
+
+For remote-first federation, the route hint may expose a compact `federation`
+summary and `trust_profile`. These fields describe whether the source catalog
+declares profile-only exchange, summary exchange, mutation logs, or remote
+routing support. They are routing metadata, not permission for Registration node
+to execute object query or resolve on behalf of the agent.
 
 ## Manifest Remains The Detailed Capability Document
 
@@ -33,6 +41,23 @@ The intended order is:
 5. resolve a result
 
 That ordering is important because it stops Registration node from turning into a product search engine.
+
+## Remote-First Federation Is Contract Exchange
+
+Registration node federation is remote-first and declarative in P5.
+
+Registration nodes and catalogs exchange:
+
+- profile snapshots
+- object contract summaries
+- catalog entry summaries
+- mutation metadata
+- trust and verification metadata
+
+Registration node does not proxy object `query` or `resolve` traffic. After route
+selection, agents call the selected Catalog directly. A future federation router
+would be a separate runtime capability, not an implied behavior of route hint or
+manifest federation metadata.
 
 ## Trust And Health Matter At Routing Time
 

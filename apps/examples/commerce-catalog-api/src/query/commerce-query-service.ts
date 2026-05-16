@@ -12,7 +12,7 @@ import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import type { SearchRetrievalService } from '../search/retrieval/search-retrieval-service';
-import { inferCommerceQueryMode } from './query-mode';
+import { planCommerceQuery } from './commerce-query-planner';
 
 export type CommerceQueryMeta = {
   requesterKey?: string | null;
@@ -28,11 +28,9 @@ export class CommerceQueryService {
 
   async query(input: unknown, meta: CommerceQueryMeta = {}): Promise<CatalogQueryResult> {
     const request = catalogQueryRequestSchema.parse(input);
-    const queryMode = inferQueryModeForRequest(this.scenario, request.query_pack, request.query, request.filters);
-    validateQueryCapability(this.scenario, request.query_pack, queryMode);
-    if (queryMode === 'semantic' && !this.retrieval) {
-      throw new AppError('validation_error', 'semantic query capability is not enabled for this Catalog yet', 400);
-    }
+    const queryPlan = planCommerceQuery(this.scenario, request, { retrievalAvailable: Boolean(this.retrieval) });
+    const queryMode = queryPlan.queryMode;
+    const explainEnabled = request.explain && queryPlan.supportsExplain;
 
     const catalogId = request.catalog_id ?? this.config.CATALOG_ID;
     if (catalogId !== this.config.CATALOG_ID) {
@@ -107,7 +105,7 @@ export class CommerceQueryService {
           ...(row.summary || stringValue(projection.summary) ? { summary: row.summary ?? stringValue(projection.summary) } : {}),
           score,
           attributes: projection,
-          explain: request.explain ? buildItemExplain(projection, request.filters, terms, keywordScore, semanticScore, queryMode) : [],
+          explain: explainEnabled ? buildItemExplain(projection, request.filters, terms, keywordScore, semanticScore, queryMode) : [],
         };
       })
       .filter((item): item is QueryResultItem => item !== null)
@@ -119,12 +117,14 @@ export class CommerceQueryService {
       ? rankedItems.length > request.limit
       : rankedItems.length > pageEnd;
 
+    const auditId = newId('qaudit');
     const result: CatalogQueryResult = {
       ocp_version: '1.0',
       kind: 'CatalogQueryResult',
       id: newId('qres'),
       catalog_id: catalogId,
-      ...(request.query_pack ? { query_pack: request.query_pack } : {}),
+      query_pack: queryPlan.selectedQueryPack,
+      query_mode: queryMode,
       query: request.query,
       result_count: items.length,
       page: {
@@ -134,7 +134,9 @@ export class CommerceQueryService {
         ...(hasMore ? { next_offset: pageEnd } : {}),
       },
       items,
-      explain: request.explain
+      policy_summary: queryPlan.policySummary,
+      audit_id: auditId,
+      explain: explainEnabled
         ? [
           `Scanned ${rows.length} candidate catalog entries after indexed filtering.`,
           `Inferred query strategy: ${queryMode}.`,
@@ -147,7 +149,7 @@ export class CommerceQueryService {
     };
 
     await this.db.insert(schema.queryAuditRecords).values({
-      id: newId('qaudit'),
+      id: auditId,
       catalogId,
       queryKind: 'catalog_query',
       requestPayload: request as unknown as Record<string, unknown>,
@@ -195,46 +197,6 @@ export class CommerceQueryService {
       .offset(input.offset ?? 0)
       .limit(input.limit);
   }
-}
-
-function validateQueryCapability(
-  scenario: CatalogScenarioModule,
-  requestedPack: string | undefined,
-  requestedMode: 'keyword' | 'filter' | 'semantic' | 'hybrid',
-) {
-  const capabilities = scenario.queryCapabilities();
-  const supportedModes = new Set(capabilities.flatMap((capability) => queryModesFromCapability(capability)));
-  const supportedPacks = new Set(capabilities.flatMap((capability) => queryPackIdsFromCapability(capability)));
-
-  if (!supportedModes.has(requestedMode)) {
-    throw new AppError('validation_error', `Unsupported query strategy: ${requestedMode}`, 400, {
-      supported_query_modes: [...supportedModes],
-    });
-  }
-
-  if (requestedPack && !supportedPacks.has(requestedPack)) {
-    throw new AppError('validation_error', `Unsupported query_pack: ${requestedPack}`, 400, {
-      supported_query_packs: [...supportedPacks],
-    });
-  }
-}
-
-function inferQueryModeForRequest(
-  scenario: CatalogScenarioModule,
-  requestedPack: string | undefined,
-  query: string,
-  filters: CatalogQueryRequest['filters'],
-) {
-  if (!requestedPack) return inferCommerceQueryMode(query, filters);
-
-  const packModes = queryModesForPack(scenario, requestedPack);
-  if (packModes.includes('semantic')) return 'semantic' as const;
-  if (packModes.includes('hybrid') && query.trim() && Object.values(filters).some(Boolean)) return 'hybrid' as const;
-  if (packModes.includes('filter') && !query.trim()) return 'filter' as const;
-  if (packModes.includes('keyword')) return 'keyword' as const;
-  if (packModes.includes('hybrid')) return 'hybrid' as const;
-  if (packModes.includes('filter')) return 'filter' as const;
-  return inferCommerceQueryMode(query, filters);
 }
 
 function tokenize(query: string) {
@@ -318,51 +280,8 @@ function stringValue(value: unknown) {
   return typeof value === 'string' ? value : undefined;
 }
 
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-}
-
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function queryModesFromCapability(capability: Record<string, unknown>) {
-  return queryPackDescriptors(capability).flatMap((descriptor) => descriptor.query_modes);
-}
-
-function queryPackIdsFromCapability(capability: Record<string, unknown>) {
-  return queryPackDescriptors(capability).map((descriptor) => descriptor.pack_id);
-}
-
-function queryModesForPack(scenario: CatalogScenarioModule, requestedPack: string) {
-  return scenario
-    .queryCapabilities()
-    .flatMap((capability) => queryPackDescriptors(capability))
-    .filter((descriptor) => descriptor.pack_id === requestedPack)
-    .flatMap((descriptor) => descriptor.query_modes);
-}
-
-function queryPackDescriptors(capability: Record<string, unknown>) {
-  const queryPacks = capability.query_packs;
-  if (!Array.isArray(queryPacks)) return [];
-
-  return queryPacks
-    .map((queryPack) => {
-      if (typeof queryPack === 'string') {
-        return { pack_id: queryPack, query_modes: [] as string[] };
-      }
-
-      if (typeof queryPack !== 'object' || queryPack === null) return null;
-      const record = queryPack as Record<string, unknown>;
-      const packId = stringValue(record.pack_id);
-      if (!packId) return null;
-
-      return {
-        pack_id: packId,
-        query_modes: stringArray(record.query_modes),
-      };
-    })
-    .filter((queryPack): queryPack is { pack_id: string; query_modes: string[] } => Boolean(queryPack));
 }
 
 function normalize(value: unknown) {

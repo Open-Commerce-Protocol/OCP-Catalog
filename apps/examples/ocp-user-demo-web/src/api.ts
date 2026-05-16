@@ -93,8 +93,10 @@ export type ResolvableReference = {
     action_id: string;
     action_type: string;
     label: string;
-    url?: string;
-    method?: string;
+    entrypoint: {
+      url: string;
+      method?: string;
+    };
   }>;
   freshness: {
     object_updated_at: string;

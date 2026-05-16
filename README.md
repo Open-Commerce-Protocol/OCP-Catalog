@@ -87,8 +87,9 @@ packages/
 - manifest snapshot 持久化
 - catalog health / verification / refresh
 - catalog search
-- route hint 返回
+- route hint 返回，包含 manifest federation 摘要与 trust profile 投影
 - Registration node 侧索引字段抽取
+- Remote-first federation 当前只落地声明式契约投影：Registration node 交换 profile、contract、summary、mutation 和 trust metadata，不代理 Catalog 的 object query / resolve
 
 ### 2. Commerce Catalog
 

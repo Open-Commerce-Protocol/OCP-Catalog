@@ -8,7 +8,7 @@ import {
 import { AppError, newId, nowIso } from '@ocp-catalog/shared';
 import { and, eq } from 'drizzle-orm';
 import { asProjection, visibleAttributes } from './projection';
-import type { CatalogScenarioModule } from './scenario';
+import type { CatalogScenarioModule, ResolveContext } from './scenario';
 
 const REFERENCE_TTL_MS = 15 * 60 * 1000;
 
@@ -62,6 +62,19 @@ export class ResolveService {
     const projection = asProjection(row.projection);
     const resolvedAt = nowIso();
     const expiresAt = new Date(Date.now() + REFERENCE_TTL_MS).toISOString();
+    const resolveContext: ResolveContext = {
+      request,
+      projection,
+      catalog_id: row.catalogId,
+      entry_id: row.entryId,
+      commercial_object_id: row.commercialObjectId,
+      object_id: row.objectId,
+      object_type: row.objectType,
+      provider_id: row.providerId,
+      title: row.title,
+      resolved_at: resolvedAt,
+      expires_at: expiresAt,
+    };
     const reference: ResolvableReference = {
       ocp_version: '1.0',
       kind: 'ResolvableReference',
@@ -75,7 +88,14 @@ export class ResolveService {
       ...(providerState ? { registration_version: providerState.activeRegistrationVersion } : {}),
       title: row.title,
       visible_attributes: visibleAttributes(projection),
-      action_bindings: this.scenario.buildResolveActions?.(projection) ?? [],
+      access: this.scenario.buildResolveAccess?.(resolveContext) ?? {
+        visibility: 'public',
+        permission_state: 'granted',
+        redacted_fields: [],
+        policy_notes: [],
+      },
+      live_checks: request.live_check ? this.scenario.buildResolveLiveChecks?.(resolveContext) ?? [] : [],
+      action_bindings: this.scenario.buildResolveActions?.(resolveContext) ?? [],
       freshness: {
         object_updated_at: row.objectUpdatedAt.toISOString(),
         resolved_at: resolvedAt,
