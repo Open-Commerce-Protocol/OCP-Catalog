@@ -43,6 +43,9 @@
       "type": "object",
       "required": ["query", "resolve", "provider_registration", "contracts", "object_sync"],
       "properties": {
+        "health": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
         "query": {
           "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
         },

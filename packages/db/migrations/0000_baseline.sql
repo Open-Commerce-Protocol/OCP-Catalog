@@ -268,9 +268,11 @@ CREATE TABLE "catalog_health_checks" (
 	"registration_id" text NOT NULL,
 	"catalog_id" text NOT NULL,
 	"checked_url" text NOT NULL,
+	"check_type" text DEFAULT 'query_probe' NOT NULL,
 	"status" text NOT NULL,
 	"latency_ms" integer,
 	"error" text,
+	"response_payload" jsonb,
 	"checked_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -362,6 +364,9 @@ CREATE TABLE "registered_catalogs" (
 	"status" text DEFAULT 'pending_verification' NOT NULL,
 	"verification_status" text DEFAULT 'challenge_required' NOT NULL,
 	"health_status" text DEFAULT 'unknown' NOT NULL,
+	"health_failure_count" integer DEFAULT 0 NOT NULL,
+	"last_healthy_at" timestamp with time zone,
+	"last_unhealthy_at" timestamp with time zone,
 	"trust_tier" text DEFAULT 'unverified' NOT NULL,
 	"catalog_access_token_hash" text,
 	"token_issued_at" timestamp with time zone,

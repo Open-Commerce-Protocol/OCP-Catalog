@@ -15,6 +15,7 @@
 这个包当前冻结的对象包括：
 
 - `CatalogManifest`
+- `CatalogHealth`
 - `ObjectContract`
 - `ProviderRegistration`
 - `CommercialObject`
@@ -31,6 +32,7 @@ ocp.catalog.handshake.v1/
 ├── package.json
 ├── common.schema.json
 ├── catalog-manifest.schema.json
+├── catalog-health.schema.json
 ├── object-contract.schema.json
 ├── provider-registration.schema.json
 ├── commercial-object.schema.json

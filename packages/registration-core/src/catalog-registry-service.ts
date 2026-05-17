@@ -1,7 +1,7 @@
 import type { AppConfig } from '@ocp-catalog/config';
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
-import { catalogManifestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
+import { catalogHealthResponseSchema, catalogManifestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
 import {
   catalogRegistrationSchema,
   catalogResolveRequestSchema,
@@ -82,8 +82,10 @@ export class CatalogRegistryService {
     const manifestUrl = discovery.manifest_url;
     const verificationStatus = 'not_required';
     const trustTier = 'declared';
-    const health = await this.checkHealth(registration.catalog_id, manifest.endpoints.query.url);
-    const indexed = health.status === 'healthy';
+    const health = await this.checkHealth(registration.catalog_id, manifest);
+    const healthState = this.nextHealthState(active, health.status);
+    const entryStatus = this.indexEntryStatus(health.status, healthState.healthFailureCount);
+    const indexed = isCatalogIndexVisible(entryStatus);
     const status = 'accepted_indexed';
     const issuedToken = issueCatalogToken();
     const issuedAt = issuedToken ? new Date() : null;
@@ -104,9 +106,7 @@ export class CatalogRegistryService {
       verification_challenges: [],
       ...(issuedToken ? { catalog_access_token: issuedToken } : {}),
       ...(issuedAt ? { token_issued_at: issuedAt.toISOString() } : {}),
-      message: indexed
-        ? 'Catalog registration accepted, indexed, and catalog-specific token issued.'
-        : 'Catalog registration accepted and token issued, but the current query endpoint health check is unhealthy.',
+      message: registrationResultMessage(indexed, health.status),
     };
 
     const registrationRecord = await this.recordRegistration(registration, result, meta);
@@ -139,6 +139,9 @@ export class CatalogRegistryService {
         status,
         verificationStatus,
         healthStatus: health.status,
+        healthFailureCount: healthState.healthFailureCount,
+        lastHealthyAt: healthState.lastHealthyAt,
+        lastUnhealthyAt: healthState.lastUnhealthyAt,
         trustTier,
         catalogAccessTokenHash: issuedToken ? hashCatalogToken(issuedToken) : null,
         tokenIssuedAt: issuedAt,
@@ -156,6 +159,9 @@ export class CatalogRegistryService {
           status,
           verificationStatus,
           healthStatus: health.status,
+          healthFailureCount: healthState.healthFailureCount,
+          lastHealthyAt: healthState.lastHealthyAt,
+          lastUnhealthyAt: healthState.lastUnhealthyAt,
           trustTier,
           catalogAccessTokenHash: issuedToken ? hashCatalogToken(issuedToken) : active?.catalogAccessTokenHash ?? null,
           tokenIssuedAt: issuedAt ?? active?.tokenIssuedAt ?? null,
@@ -167,7 +173,7 @@ export class CatalogRegistryService {
         },
       });
 
-    await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, verificationStatus, trustTier, health.status);
+    await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, verificationStatus, trustTier, health.status, healthState.healthFailureCount);
 
     return result;
   }
@@ -192,7 +198,7 @@ export class CatalogRegistryService {
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
-    await this.indexActiveSnapshot(catalogId, 'not_required', 'declared');
+    const entryStatus = await this.indexActiveSnapshot(catalogId, 'not_required', 'declared');
 
     return {
       ocp_version: '1.0',
@@ -201,7 +207,7 @@ export class CatalogRegistryService {
       registration_id: this.config.REGISTRATION_ID,
       catalog_id: catalogId,
       verification_status: 'not_required',
-      indexed: Boolean(catalog.activeSnapshotId),
+      indexed: Boolean(catalog.activeSnapshotId) && isCatalogIndexVisible(entryStatus),
       verified_domains: [],
       failed_challenges: [],
       ...(token ? { catalog_access_token: token } : {}),
@@ -391,7 +397,8 @@ export class CatalogRegistryService {
     const registration = await this.activeRegistrationPayload(catalogId);
     const { discovery, manifest } = await fetchCatalogProfile(catalog.wellKnownUrl);
     const warnings = validateFetchedCatalog(registration, discovery, manifest);
-    const health = await this.checkHealth(catalogId, manifest.endpoints.query.url);
+    const health = await this.checkHealth(catalogId, manifest);
+    const healthState = this.nextHealthState(catalog, health.status);
     const manifestUrl = discovery.manifest_url;
     const snapshotId = newId('catsnap');
 
@@ -414,6 +421,9 @@ export class CatalogRegistryService {
       .set({
         activeSnapshotId: snapshotId,
         healthStatus: health.status,
+        healthFailureCount: healthState.healthFailureCount,
+        lastHealthyAt: healthState.lastHealthyAt,
+        lastUnhealthyAt: healthState.lastUnhealthyAt,
         updatedAt: new Date(),
       })
       .where(and(
@@ -421,9 +431,10 @@ export class CatalogRegistryService {
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
-    const indexed = catalog.status === 'accepted_indexed';
+    const entryStatus = this.indexEntryStatus(health.status, healthState.healthFailureCount);
+    const indexed = catalog.status === 'accepted_indexed' && isCatalogIndexVisible(entryStatus);
     const projection = buildCatalogSearchProjection(registration, manifest, catalog.verificationStatus, catalog.trustTier, health.status);
-    await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, catalog.verificationStatus, catalog.trustTier, health.status);
+    await this.upsertIndexEntry(registration, manifest, snapshotId, manifestUrl, projection, catalog.verificationStatus, catalog.trustTier, health.status, healthState.healthFailureCount);
 
     return {
       ocp_version: '1.0',
@@ -434,6 +445,7 @@ export class CatalogRegistryService {
       status: 'refreshed',
       snapshot_id: snapshotId,
       health_status: health.status,
+      health_failure_count: healthState.healthFailureCount,
       indexed,
       warnings,
       refreshed_at: nowIso(),
@@ -478,9 +490,24 @@ export class CatalogRegistryService {
     const manifest = catalogManifestSchema.parse(snapshot.manifestPayload);
     const discovery = asRecord(snapshot.discoveryPayload);
     const manifestUrl = stringValue(discovery.manifest_url) ?? snapshot.manifestUrl;
-    const health = await this.checkHealth(catalogId, manifest.endpoints.query.url);
+    const health = await this.checkHealth(catalogId, manifest);
+    const healthState = this.nextHealthState(catalog, health.status);
+    await this.db
+      .update(schema.registeredCatalogs)
+      .set({
+        healthStatus: health.status,
+        healthFailureCount: healthState.healthFailureCount,
+        lastHealthyAt: healthState.lastHealthyAt,
+        lastUnhealthyAt: healthState.lastUnhealthyAt,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.catalogId, catalogId),
+      ));
     const projection = buildCatalogSearchProjection(registration, manifest, verificationStatus, trustTier, health.status);
-    await this.upsertIndexEntry(registration, manifest, catalog.activeSnapshotId, manifestUrl, projection, verificationStatus, trustTier, health.status);
+    await this.upsertIndexEntry(registration, manifest, catalog.activeSnapshotId, manifestUrl, projection, verificationStatus, trustTier, health.status, healthState.healthFailureCount);
+    return this.indexEntryStatus(health.status, healthState.healthFailureCount);
   }
 
   private async findRegisteredCatalog(catalogId: string) {
@@ -526,13 +553,72 @@ export class CatalogRegistryService {
     return record;
   }
 
-  private async checkHealth(catalogId: string, queryUrl: string) {
+  private async checkHealth(catalogId: string, manifest: CatalogManifest) {
+    const healthEndpoint = manifest.endpoints.health;
+    if (healthEndpoint?.url) {
+      return this.checkCatalogHealthEndpoint(catalogId, healthEndpoint.url);
+    }
+
+    return this.checkCatalogQueryProbe(catalogId, manifest.endpoints.query.url);
+  }
+
+  private async checkCatalogHealthEndpoint(catalogId: string, healthUrl: string) {
+    const started = Date.now();
+    try {
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(this.config.REGISTRATION_HEALTH_CHECK_TIMEOUT_MS),
+      });
+      const latencyMs = Date.now() - started;
+      const payload = await response.json().catch(() => null);
+      const parsed = catalogHealthResponseSchema.safeParse(payload);
+      const status = response.ok
+        && parsed.success
+        && parsed.data.catalog_id === catalogId
+        && parsed.data.status === 'healthy'
+        && parsed.data.ready
+        ? 'healthy'
+        : 'unhealthy';
+      const error = response.ok
+        ? healthPayloadError(catalogId, parsed)
+        : `${response.status} ${response.statusText}`;
+      await this.db.insert(schema.catalogHealthChecks).values({
+        id: newId('cathealth'),
+        registrationId: this.config.REGISTRATION_ID,
+        catalogId,
+        checkedUrl: healthUrl,
+        checkType: 'health_endpoint',
+        status,
+        latencyMs,
+        error,
+        responsePayload: isRecord(payload) ? payload : null,
+      });
+      return { status: status as 'healthy' | 'unhealthy', latencyMs };
+    } catch (error) {
+      const latencyMs = Date.now() - started;
+      await this.db.insert(schema.catalogHealthChecks).values({
+        id: newId('cathealth'),
+        registrationId: this.config.REGISTRATION_ID,
+        catalogId,
+        checkedUrl: healthUrl,
+        checkType: 'health_endpoint',
+        status: 'unhealthy',
+        latencyMs,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return { status: 'unhealthy' as const, latencyMs };
+    }
+  }
+
+  private async checkCatalogQueryProbe(catalogId: string, queryUrl: string) {
     const started = Date.now();
     try {
       const response = await fetch(queryUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ query: '', limit: 1, explain: false }),
+        signal: AbortSignal.timeout(this.config.REGISTRATION_HEALTH_CHECK_TIMEOUT_MS),
       });
       const latencyMs = Date.now() - started;
       const status = response.ok ? 'healthy' : 'unhealthy';
@@ -541,6 +627,7 @@ export class CatalogRegistryService {
         registrationId: this.config.REGISTRATION_ID,
         catalogId,
         checkedUrl: queryUrl,
+        checkType: 'query_probe',
         status,
         latencyMs,
         error: response.ok ? null : `${response.status} ${response.statusText}`,
@@ -552,12 +639,28 @@ export class CatalogRegistryService {
         registrationId: this.config.REGISTRATION_ID,
         catalogId,
         checkedUrl: queryUrl,
+        checkType: 'query_probe',
         status: 'unhealthy',
         latencyMs: Date.now() - started,
         error: error instanceof Error ? error.message : String(error),
       });
       return { status: 'unhealthy' as const, latencyMs: Date.now() - started };
     }
+  }
+
+  private nextHealthState(
+    catalog: Awaited<ReturnType<CatalogRegistryService['findRegisteredCatalog']>> | null,
+    healthStatus: 'healthy' | 'unhealthy',
+  ) {
+    return nextCatalogHealthState(catalog, healthStatus);
+  }
+
+  private indexEntryStatus(healthStatus: string, healthFailureCount: number) {
+    return catalogIndexEntryStatus(
+      healthStatus,
+      healthFailureCount,
+      this.config.REGISTRATION_HEALTH_FAILURE_STALE_THRESHOLD,
+    );
   }
 
   private async upsertIndexEntry(
@@ -569,7 +672,9 @@ export class CatalogRegistryService {
     verificationStatus: string,
     trustTier: string,
     healthStatus: string,
+    healthFailureCount = 0,
   ) {
+    const entryStatus = this.indexEntryStatus(healthStatus, healthFailureCount);
     await this.db
       .insert(schema.catalogIndexEntries)
       .values({
@@ -577,7 +682,7 @@ export class CatalogRegistryService {
         registrationId: this.config.REGISTRATION_ID,
         catalogId: registration.catalog_id,
         activeSnapshotId: snapshotId,
-        entryStatus: 'active',
+        entryStatus,
         catalogName: manifest.catalog_name,
         description: manifest.description ?? null,
         homepage: registration.homepage,
@@ -604,7 +709,7 @@ export class CatalogRegistryService {
         target: [schema.catalogIndexEntries.registrationId, schema.catalogIndexEntries.catalogId],
         set: {
           activeSnapshotId: snapshotId,
-          entryStatus: 'active',
+          entryStatus,
           catalogName: manifest.catalog_name,
           description: manifest.description ?? null,
           homepage: registration.homepage,
@@ -634,6 +739,7 @@ export class CatalogRegistryService {
   private routeHintFromIndexRow(row: typeof schema.catalogIndexEntries.$inferSelect): CatalogRouteHint {
     const projection = asRecord(row.searchProjection);
     const resolveUrl = stringValue(projection.resolve_url);
+    const healthUrl = stringValue(projection.health_url);
     const federation = asRecord(projection.federation);
     const trustProfile = asRecord(projection.trust_profile);
     return {
@@ -642,6 +748,7 @@ export class CatalogRegistryService {
       ...(row.description ? { description: row.description } : {}),
       manifest_url: row.manifestUrl,
       query_url: stringValue(projection.query_url) ?? row.manifestUrl.replace(/\/ocp\/manifest$/, '/ocp/query'),
+      ...(healthUrl ? { health_url: healthUrl } : {}),
       ...(resolveUrl ? { resolve_url: resolveUrl } : {}),
       supported_query_packs: row.supportedQueryPacks,
       auth_requirements: { query: 'none', resolve: 'none' },
@@ -708,6 +815,56 @@ function explainCatalog(
   if (row.verificationStatus === 'verified') explain.push('Catalog domain is verified.');
   if (row.healthStatus === 'healthy') explain.push('Catalog query endpoint is healthy.');
   return explain.length ? explain : ['Matched active catalog index entry.'];
+}
+
+function healthPayloadError(catalogId: string, parsed: ReturnType<typeof catalogHealthResponseSchema.safeParse>) {
+  if (!parsed.success) return 'Health endpoint response does not match CatalogHealth contract';
+  if (parsed.data.catalog_id !== catalogId) return `Health endpoint catalog_id ${parsed.data.catalog_id} does not match ${catalogId}`;
+  if (parsed.data.status !== 'healthy') return `Health endpoint status is ${parsed.data.status}`;
+  if (!parsed.data.ready) return 'Health endpoint is not ready';
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+export type CatalogHealthStateInput = {
+  healthFailureCount?: number | null;
+  lastHealthyAt?: Date | null;
+  lastUnhealthyAt?: Date | null;
+} | null;
+
+export function nextCatalogHealthState(
+  catalog: CatalogHealthStateInput,
+  healthStatus: 'healthy' | 'unhealthy',
+  checkedAt = new Date(),
+) {
+  return {
+    healthFailureCount: healthStatus === 'healthy' ? 0 : (catalog?.healthFailureCount ?? 0) + 1,
+    lastHealthyAt: healthStatus === 'healthy' ? checkedAt : catalog?.lastHealthyAt ?? null,
+    lastUnhealthyAt: healthStatus === 'unhealthy' ? checkedAt : catalog?.lastUnhealthyAt ?? null,
+  };
+}
+
+export function catalogIndexEntryStatus(
+  healthStatus: string,
+  healthFailureCount: number,
+  staleThreshold: number,
+) {
+  return healthStatus === 'unhealthy' && healthFailureCount >= staleThreshold ? 'stale' : 'active';
+}
+
+export function isCatalogIndexVisible(entryStatus: string) {
+  return entryStatus === 'active';
+}
+
+function registrationResultMessage(indexed: boolean, healthStatus: 'healthy' | 'unhealthy') {
+  if (healthStatus === 'healthy') return 'Catalog registration accepted, indexed, and catalog-specific token issued.';
+  if (indexed) {
+    return 'Catalog registration accepted and indexed during the health grace window, but the current health check is unhealthy.';
+  }
+  return 'Catalog registration accepted and token issued, but the Catalog is hidden from search after repeated health check failures.';
 }
 
 function hashJson(value: unknown) {

@@ -14,6 +14,27 @@ export const endpointSchema = z.object({
   method: z.enum(['GET', 'POST', 'PUT']),
 });
 
+export const catalogHealthStatusSchema = z.enum(['healthy', 'degraded', 'unhealthy']);
+
+export const catalogHealthDependencySchema = z.object({
+  name: z.string().min(1),
+  status: catalogHealthStatusSchema,
+  latency_ms: z.number().nonnegative().optional(),
+  message: z.string().optional(),
+}).strict();
+
+export const catalogHealthResponseSchema = z.object({
+  ocp_version: ocpVersionSchema,
+  kind: z.literal('CatalogHealth'),
+  catalog_id: z.string().min(1),
+  status: catalogHealthStatusSchema,
+  ready: z.boolean(),
+  checked_at: z.string().datetime(),
+  manifest_version: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).default({}),
+  dependencies: z.array(catalogHealthDependencySchema).default([]),
+}).strict();
+
 export const catalogQueryModeSchema = z.enum(['keyword', 'filter', 'semantic', 'hybrid']);
 export const trustTierSchema = z.enum(['unknown', 'unverified', 'verified', 'trusted']);
 export const syncCapabilityDirectionSchema = z.enum([
@@ -248,6 +269,7 @@ export const catalogManifestSchema = z.object({
   description: z.string().optional(),
   registry_visibility: z.enum(['public', 'partner', 'private']).default('public'),
   endpoints: z.object({
+    health: endpointSchema.optional(),
     query: endpointSchema,
     resolve: endpointSchema,
     provider_registration: endpointSchema,
@@ -522,6 +544,8 @@ export const inventoryPackSchema = z.object({
 }).strict();
 
 export type CatalogManifest = z.infer<typeof catalogManifestSchema>;
+export type CatalogHealthResponse = z.infer<typeof catalogHealthResponseSchema>;
+export type CatalogHealthStatus = z.infer<typeof catalogHealthStatusSchema>;
 export type FederationProfile = z.infer<typeof federationProfileSchema>;
 export type ObjectContract = z.infer<typeof objectContractSchema>;
 export type SyncCapability = z.infer<typeof syncCapabilitySchema>;

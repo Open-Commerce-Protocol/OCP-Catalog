@@ -24,6 +24,7 @@ describe('registration projection', () => {
     expect(projection).toMatchObject({
       catalog_name: 'Commerce Catalog',
       query_url: 'https://catalog.example.com/ocp/query',
+      health_url: 'https://catalog.example.com/ocp/health',
       resolve_url: 'https://catalog.example.com/ocp/resolve',
       supported_query_packs: ['ocp.query.keyword.v1'],
       supports_resolve: true,
@@ -130,6 +131,7 @@ const baseManifest: CatalogManifest = {
   description: 'Demo catalog',
   registry_visibility: 'public',
   endpoints: {
+    health: { url: 'https://catalog.example.com/ocp/health', method: 'GET' },
     query: { url: 'https://catalog.example.com/ocp/query', method: 'POST' },
     resolve: { url: 'https://catalog.example.com/ocp/resolve', method: 'POST' },
     provider_registration: { url: 'https://catalog.example.com/ocp/providers/register', method: 'POST' },

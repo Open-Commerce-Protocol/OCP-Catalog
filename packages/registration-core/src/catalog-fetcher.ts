@@ -7,6 +7,7 @@ export type CatalogDiscovery = {
   catalog_id: string;
   catalog_name: string;
   manifest_url: string;
+  health_url?: string;
   query_url?: string;
   resolve_url?: string;
   contracts_url?: string;
@@ -66,15 +67,17 @@ export function validateFetchedCatalog(
   }
 
   if (!manifest.endpoints.query?.url) warnings.push('Manifest does not declare a query endpoint.');
+  if (!manifest.endpoints.health?.url) warnings.push('Manifest does not declare a dedicated health endpoint; query probe fallback will be used.');
   if (manifest.query_capabilities.length === 0) warnings.push('Manifest does not declare query capabilities.');
 
   const endpointUrls = [
     manifest.endpoints.query?.url,
+    manifest.endpoints.health?.url,
     manifest.endpoints.resolve?.url,
     manifest.endpoints.contracts?.url,
     manifest.endpoints.provider_registration?.url,
     manifest.endpoints.object_sync?.url,
-  ].filter(Boolean);
+  ].filter((value): value is string => Boolean(value));
 
   for (const endpointUrl of endpointUrls) {
     const hostname = new URL(endpointUrl).hostname;

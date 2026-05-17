@@ -27,9 +27,9 @@ Current Phase 1 registration capabilities:
 - Catalog refresh with `x-catalog-token`.
 - Catalog token rotation with `x-catalog-token`.
 - Scheduled refresh of indexed catalogs.
-- Catalog search over indexed Catalog metadata.
+- Catalog search over indexed Catalog metadata, excluding stale Catalogs after repeated failed health checks.
 - Catalog route hint resolve by `catalog_id`.
-- Health checks against the Catalog query endpoint.
+- Health checks against the Catalog health endpoint, with query probe fallback for older manifests.
 - Search audit records.
 
 ## Role Boundary
@@ -87,6 +87,8 @@ REGISTRATION_ID=registration_local_dev
 REGISTRATION_NAME=Local OCP Catalog Registration
 REGISTRATION_REFRESH_SCHEDULER_ENABLED=true
 REGISTRATION_REFRESH_INTERVAL_SECONDS=300
+REGISTRATION_HEALTH_CHECK_TIMEOUT_MS=5000
+REGISTRATION_HEALTH_FAILURE_STALE_THRESHOLD=3
 ```
 
 The refresh scheduler scans indexed Catalogs and refreshes their discovery, manifest, health status, snapshot, and index entry.
@@ -166,9 +168,17 @@ Refresh re-fetches:
 
 - `/.well-known/ocp-catalog`
 - `/ocp/manifest`
-- query endpoint health
+- `/ocp/health` when declared by the manifest
+- query endpoint probe as a fallback for older manifests
 
-Then it writes a new manifest snapshot and updates the index entry.
+Then it writes a new manifest snapshot and updates the index entry. After
+`REGISTRATION_HEALTH_FAILURE_STALE_THRESHOLD` consecutive failed checks, the
+Catalog index entry is marked stale and no longer appears in default search
+results until a later healthy refresh restores it.
+
+Only `status: "healthy"` with `ready: true` is treated as a successful health
+check. `degraded` is accepted as a CatalogHealth diagnostic value, but it is
+counted as an unhealthy check for registration search visibility.
 
 ## Rotate Token
 

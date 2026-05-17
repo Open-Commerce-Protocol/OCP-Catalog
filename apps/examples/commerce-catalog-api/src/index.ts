@@ -9,7 +9,7 @@ import {
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb, schema } from '@ocp-catalog/db';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
-import { and, count, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { createCommerceCatalogScenario } from './commerce-scenario';
@@ -109,6 +109,7 @@ const app = new Elysia()
     service: 'commerce-catalog-api',
     protocol: 'ocp.catalog.handshake.v1',
   }))
+  .get('/ocp/health', async () => getCatalogHealth())
   .get('/.well-known/ocp-catalog', () => buildWellKnownDiscovery(config))
   .get('/ocp/manifest', () => buildCatalogManifest(config, commerceCatalogScenario))
   .get('/ocp/contracts', () => {
@@ -461,9 +462,64 @@ async function getCatalogAdminOverview() {
   };
 }
 
+async function getCatalogHealth() {
+  const checkedAt = new Date().toISOString();
+  try {
+    const [providerCount, activeEntryCount] = await Promise.all([
+      countRows(schema.providerContractStates, eq(schema.providerContractStates.catalogId, config.CATALOG_ID)),
+      countRows(schema.catalogEntries, and(
+        eq(schema.catalogEntries.catalogId, config.CATALOG_ID),
+        eq(schema.catalogEntries.entryStatus, 'active'),
+      )),
+    ]);
+
+    return {
+      ocp_version: '1.0',
+      kind: 'CatalogHealth',
+      catalog_id: config.CATALOG_ID,
+      status: 'healthy',
+      ready: true,
+      checked_at: checkedAt,
+      manifest_version: `manifest_${config.CATALOG_ID}`,
+      details: {
+        catalog_name: config.CATALOG_NAME,
+        provider_count: providerCount,
+        active_entry_count: activeEntryCount,
+        semantic_search_enabled: true,
+      },
+      dependencies: [
+        {
+          name: 'postgres',
+          status: 'healthy',
+        },
+      ],
+    };
+  } catch (error) {
+    return {
+      ocp_version: '1.0',
+      kind: 'CatalogHealth',
+      catalog_id: config.CATALOG_ID,
+      status: 'unhealthy',
+      ready: false,
+      checked_at: checkedAt,
+      manifest_version: `manifest_${config.CATALOG_ID}`,
+      details: {
+        catalog_name: config.CATALOG_NAME,
+      },
+      dependencies: [
+        {
+          name: 'postgres',
+          status: 'unhealthy',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      ],
+    };
+  }
+}
+
 async function countRows<T extends Parameters<typeof db.select>[0]>(
   table: Parameters<ReturnType<typeof db.select>['from']>[0],
-  where: ReturnType<typeof eq>,
+  where: SQL | undefined,
 ) {
   const [row] = await db.select({ value: count() }).from(table).where(where);
   return row?.value ?? 0;

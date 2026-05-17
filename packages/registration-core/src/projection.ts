@@ -115,6 +115,7 @@ export function buildCatalogSearchProjection(
     trust_tier: trustTier,
     health_status: healthStatus,
     query_url: manifest.endpoints.query.url,
+    health_url: manifest.endpoints.health?.url,
     resolve_url: manifest.endpoints.resolve?.url,
     ...(federation ? { federation } : {}),
     ...(trust ? { trust_profile: trust } : {}),

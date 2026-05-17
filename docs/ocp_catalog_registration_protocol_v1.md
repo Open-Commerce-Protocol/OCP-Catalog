@@ -157,6 +157,33 @@ POST /ocp/catalogs/resolve
 - `/ocp/catalogs/register` 用于 Catalog 注册或更新注册声明。
 - `/ocp/catalogs/:catalogId/refresh` 用于触发 registration node 重新拉取 discovery / manifest / health。
 - `/ocp/catalogs/:catalogId/verify` 用于执行 Catalog 身份验证。
+
+Catalog manifest 应优先声明 `endpoints.health`。Registration node 在注册和 refresh 时优先调用该端点；如果旧 manifest 未声明 health endpoint，registration node 可以降级为 query probe。
+
+标准 Catalog health response:
+
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogHealth",
+  "catalog_id": "cat_local_dev",
+  "status": "healthy",
+  "ready": true,
+  "checked_at": "2026-05-17T00:00:00.000Z",
+  "manifest_version": "manifest_cat_local_dev",
+  "details": {},
+  "dependencies": [
+    {
+      "name": "postgres",
+      "status": "healthy"
+    }
+  ]
+}
+```
+
+当 health 连续失败达到 registration node 配置的阈值后，Catalog 可被标记为 stale，并从默认搜索结果中移除，直到后续健康检查恢复。
+
+Registration node 只把 `status: "healthy"` 且 `ready: true` 视为可用健康检查。`degraded` 是 Catalog 对外暴露的诊断状态，但在 registration 搜索可见性里按失败健康检查处理，避免把部分依赖不可用的 Catalog 路由给用户请求。
 - `/ocp/catalogs/:catalogId/token/rotate` 用于轮换 catalog-specific token。
 - `/ocp/catalogs/search` 用于搜索 Catalog metadata。
 - `/ocp/catalogs/resolve` 用于把搜索结果解析成可保存的 `CatalogRouteHint`，不是解析商业对象。

@@ -213,6 +213,9 @@ async function getRegistrationAdminCatalogs() {
           claimed_domains: row.claimedDomains,
           verification_status: row.verificationStatus,
           health_status: row.healthStatus,
+          health_failure_count: row.healthFailureCount,
+          last_healthy_at: row.lastHealthyAt?.toISOString() ?? null,
+          last_unhealthy_at: row.lastUnhealthyAt?.toISOString() ?? null,
           trust_tier: row.trustTier,
           status: row.status,
           active_registration_version: row.activeRegistrationVersion,
@@ -224,10 +227,12 @@ async function getRegistrationAdminCatalogs() {
           latest_health_check: latestHealth
             ? {
                 status: latestHealth.status,
+                check_type: latestHealth.checkType,
                 checked_at: latestHealth.checkedAt.toISOString(),
                 checked_url: latestHealth.checkedUrl,
                 latency_ms: latestHealth.latencyMs,
                 error: latestHealth.error,
+                response_payload: latestHealth.responsePayload,
               }
             : null,
           latest_verification: latestVerification

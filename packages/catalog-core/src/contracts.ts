@@ -17,6 +17,7 @@ export function buildWellKnownDiscovery(config: AppConfig) {
     contracts_url: `${baseUrl}/ocp/contracts`,
     provider_registration_url: `${baseUrl}/ocp/providers/register`,
     object_sync_url: `${baseUrl}/ocp/objects/sync`,
+    health_url: `${baseUrl}/ocp/health`,
     query_url: `${baseUrl}/ocp/query`,
     resolve_url: `${baseUrl}/ocp/resolve`,
   };
@@ -34,6 +35,7 @@ export function buildCatalogManifest(config: AppConfig, scenario: CatalogScenari
     description: scenario.description ?? 'Protocol-first OCP Catalog node.',
     registry_visibility: scenario.registryVisibility ?? 'public',
     endpoints: {
+      health: { url: `${baseUrl}/ocp/health`, method: 'GET' },
       query: { url: `${baseUrl}/ocp/query`, method: 'POST' },
       resolve: { url: `${baseUrl}/ocp/resolve`, method: 'POST' },
       provider_registration: { url: `${baseUrl}/ocp/providers/register`, method: 'POST' },
