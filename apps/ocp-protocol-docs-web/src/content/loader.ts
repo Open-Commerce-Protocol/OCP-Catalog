@@ -13,6 +13,10 @@ const sectionAliases: Record<string, string> = {
   pages: 'pages',
 };
 
+function stripFrontmatter(markdown: string): string {
+  return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
+}
+
 function normalizePath(path: string): string {
   const trimmed = path.replace(/^\/+|\/+$/g, '');
 
@@ -45,7 +49,7 @@ export async function loadPageContent(path: string, locale: 'en' | 'zh' = 'en'):
   for (const candidate of candidates) {
     if (modules[candidate]) {
       const loader = modules[candidate] as () => Promise<string>;
-      return await loader();
+      return stripFrontmatter(await loader());
     }
   }
 
