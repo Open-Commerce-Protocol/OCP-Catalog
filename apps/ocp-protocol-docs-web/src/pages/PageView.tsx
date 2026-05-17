@@ -13,6 +13,14 @@ type LayoutContext = {
   setHeadings: (headings: TocHeading[]) => void;
 };
 
+type MarkdownAstNode = {
+  position?: {
+    start?: {
+      line?: number;
+    };
+  };
+};
+
 function slugify(value: string): string {
   const normalized = value
     .toLowerCase()
@@ -34,13 +42,9 @@ function normalizeHeadingText(value: string): string {
     .trim();
 }
 
-function getHeadingId(text: string, counts: Map<string, number>): string {
-  const normalizedText = normalizeHeadingText(text);
-  const baseId = slugify(normalizedText);
-  const seen = counts.get(baseId) ?? 0;
-  counts.set(baseId, seen + 1);
-
-  return seen === 0 ? baseId : `${baseId}-${seen + 1}`;
+function createHeadingId(text: string, line?: number): string {
+  const baseId = slugify(normalizeHeadingText(text));
+  return line ? `${baseId}-${line}` : baseId;
 }
 
 function extractTextFromNode(node: ReactNode): string {
@@ -64,21 +68,78 @@ function extractTextFromNode(node: ReactNode): string {
 }
 
 function extractHeadings(markdown: string): TocHeading[] {
-  const counts = new Map<string, number>();
-
   return markdown
     .split('\n')
-    .map((line) => line.match(/^(#{1,3})\s+(.+)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => {
+    .flatMap((line, index) => {
+      const match = line.match(/^(#{1,3})\s+(.+)$/);
+
+      if (!match) {
+        return [];
+      }
+
       const level = match[1].length;
       const text = normalizeHeadingText(match[2]);
 
-      return {
-        id: getHeadingId(text, counts),
+      return [{
+        id: createHeadingId(text, index + 1),
         level,
         text,
-      };
+      }];
+    });
+}
+
+function splitTableRow(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const cells = splitTableRow(line);
+  return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function parsePipeTable(value: string): string[][] | null {
+  const lines = value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 3 || !lines.every((line) => line.startsWith('|') && line.endsWith('|'))) {
+    return null;
+  }
+
+  if (!isTableSeparator(lines[1])) {
+    return null;
+  }
+
+  const rows = lines.filter((_, index) => index !== 1).map(splitTableRow);
+  const columnCount = rows[0]?.length ?? 0;
+
+  if (columnCount < 2 || rows.some((row) => row.length !== columnCount)) {
+    return null;
+  }
+
+  return rows;
+}
+
+function renderTableCellContent(value: string): ReactNode {
+  return value
+    .split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
+    .filter(Boolean)
+    .map((part, index) => {
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={index}>{part.slice(1, -1)}</code>;
+      }
+
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={index}>{part.slice(2, -2)}</strong>;
+      }
+
+      return part;
     });
 }
 
@@ -86,16 +147,46 @@ function createHeadingComponents(
   navigate: ReturnType<typeof useNavigate>,
   localizePath: (path: string) => string,
 ): Components {
-  const counts = new Map<string, number>();
-
-  function nextId(children: ReactNode) {
-    return getHeadingId(extractTextFromNode(children), counts);
+  function nextId(children: ReactNode, node?: MarkdownAstNode) {
+    return createHeadingId(extractTextFromNode(children), node?.position?.start?.line);
   }
 
   return {
-    h1: ({ children }) => <h1 id={nextId(children)} className="scroll-mt-24">{children}</h1>,
-    h2: ({ children }) => <h2 id={nextId(children)} className="scroll-mt-24">{children}</h2>,
-    h3: ({ children }) => <h3 id={nextId(children)} className="scroll-mt-24">{children}</h3>,
+    h1: ({ children, node }) => <h1 id={nextId(children, node)} className="scroll-mt-24">{children}</h1>,
+    h2: ({ children, node }) => <h2 id={nextId(children, node)} className="scroll-mt-24">{children}</h2>,
+    h3: ({ children, node }) => <h3 id={nextId(children, node)} className="scroll-mt-24">{children}</h3>,
+    p: ({ children }) => {
+      const tableRows = parsePipeTable(extractTextFromNode(children));
+
+      if (!tableRows) {
+        return <p>{children}</p>;
+      }
+
+      const [headers, ...bodyRows] = tableRows;
+
+      return (
+        <div className="docs-table-shell not-prose">
+          <table className="docs-table">
+            <thead>
+              <tr>
+                {headers.map((header, index) => (
+                  <th key={index}>{renderTableCellContent(header)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, rowIndex) => (
+                <tr key={rowIndex}>
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex}>{renderTableCellContent(cell)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    },
     a: ({ href, children }) => {
       if (!href) {
         return <span>{children}</span>;
@@ -164,10 +255,7 @@ export function PageView({ section, slug }: { section?: string; slug?: string })
     endpointExamples: [],
   });
   const headings = useMemo(() => extractHeadings(content), [content]);
-  const markdownComponents = useMemo(
-    () => createHeadingComponents(navigate, localizePath),
-    [content, localizePath, navigate],
-  );
+  const markdownComponents = createHeadingComponents(navigate, localizePath);
 
   const resolvedSection = params.section ?? section ?? 'docs';
   const pageSlug = params.slug ?? slug ?? 'overview';

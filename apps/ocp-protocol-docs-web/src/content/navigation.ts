@@ -52,4 +52,18 @@ export const navigation = [
       { title: { en: 'Routing Principles', zh: '路由原则' }, href: '/routing-principles' },
     ],
   },
+  {
+    title: { en: 'OCP Knowledge Base', zh: 'OCP 中文知识库' },
+    links: [
+      { title: { en: 'Overview', zh: '总览' }, href: '/knowledge/overview' },
+      { title: { en: 'What Is OCP', zh: 'OCP 是什么' }, href: '/knowledge/what-is-ocp' },
+      { title: { en: 'What Is Catalog', zh: 'Catalog 是什么' }, href: '/knowledge/what-is-catalog' },
+      { title: { en: 'Roles', zh: '角色模型' }, href: '/knowledge/roles' },
+      { title: { en: 'Search / Resolve / Action', zh: 'Search / Resolve / Action 三步法' }, href: '/knowledge/search-resolve-action' },
+      { title: { en: 'Catalog Architecture', zh: 'Catalog 架构' }, href: '/knowledge/catalog-architecture' },
+      { title: { en: 'WooCommerce Overview', zh: 'WooCommerce 集成概览' }, href: '/knowledge/woocommerce-overview' },
+      { title: { en: 'WebMCP Demo', zh: 'WebMCP Demo' }, href: '/knowledge/webmcp-demo' },
+      { title: { en: 'Visa VIC Reference Agent', zh: 'Visa VIC 参考 Agent' }, href: '/knowledge/visa-vic-reference-agent' },
+    ],
+  },
 ];
