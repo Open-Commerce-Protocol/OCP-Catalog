@@ -1,0 +1,21 @@
+{
+  "tbk_privilege_get_response": {
+    "result": {
+      "data": {
+        "coupon_click_url": "https://s.click.taobao.com/mock_coupon_xyz123",
+        "item_url": "https://s.click.taobao.com/mock_item_xyz123",
+        "coupon_info": "满 99 元减 10 元",
+        "coupon_start_time": "2026-05-01",
+        "coupon_end_time": "2026-12-31",
+        "max_commission_rate": "1550",
+        "category_id": 50012870,
+        "mm_coupon_click_url": "https://s.click.taobao.com/mock_mm_coupon_xyz123",
+        "mm_coupon_info": "天猫专属券 满 199 减 30",
+        "mm_coupon_start_time": "2026-05-01",
+        "mm_coupon_end_time": "2026-12-31",
+        "mm_coupon_remain_count": 4500,
+        "mm_coupon_total_count": 5000
+      }
+    }
+  }
+}
