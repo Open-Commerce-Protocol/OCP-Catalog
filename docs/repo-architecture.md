@@ -95,7 +95,7 @@ Current app ownership:
   - catalog node persistence
 - `provider.ts`
   - provider-owned source data and sync history
-- `center.ts`
+- `registration.ts`
   - registration registry persistence
 
 This split is organizational only. The migration history has now been squashed into a fresh baseline under `packages/db/migrations/`.

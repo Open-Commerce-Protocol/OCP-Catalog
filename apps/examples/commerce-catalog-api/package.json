@@ -9,7 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test --pass-with-no-tests"
+    "test": "bun test --pass-with-no-tests --path-ignore-patterns='**/*-integration.test.ts'",
+    "test:integration": "bun test --timeout=10000 src/*-integration.test.ts"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.3.3",

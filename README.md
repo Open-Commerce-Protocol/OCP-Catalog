@@ -29,7 +29,7 @@ User / Agent -> Registration node -> Catalog
 从运行和部署角度看，这个 monorepo 当前可以收敛成 5 个核心服务：
 
 ```text
-1. ocp-center-api
+1. ocp-registration-api
    Catalog Registration / Discovery Node
 
 2. commerce-catalog-api
@@ -56,7 +56,7 @@ User / Agent -> Registration node -> Catalog
 
 ```text
 apps/
-  ocp-center-api/              OCP Catalog Registration node / Catalog Registry
+  ocp-registration-api/        OCP Catalog Registration node / Catalog Registry
   ocp-protocol-docs-web/       协议文档站
   examples/
     commerce-catalog-api/        第一个 Catalog 实现，场景为 commerce product catalog
@@ -68,9 +68,9 @@ apps/
 
 packages/
   ocp-schema/                  Provider <-> Catalog 协议 schema
-  center-schema/               Catalog <-> Registration node 协议 schema
+  registration-schema/         Catalog <-> Registration node 协议 schema
   catalog-core/                Catalog 最小编排内核
-  center-core/                 Registration node 最小编排内核
+  registration-core/           Registration node 最小编排内核
   auth-core/                   auth helpers
   config/                      配置加载
   db/                          Drizzle schema 和 migrations
@@ -87,8 +87,9 @@ packages/
 - manifest snapshot 持久化
 - catalog health / verification / refresh
 - catalog search
-- route hint 返回
+- route hint 返回，包含 manifest federation 摘要与 trust profile 投影
 - Registration node 侧索引字段抽取
+- Remote-first federation 当前只落地声明式契约投影：Registration node 交换 profile、contract、summary、mutation 和 trust metadata，不代理 Catalog 的 object query / resolve
 
 ### 2. Commerce Catalog
 
@@ -267,12 +268,23 @@ bun install
 bun run db:migrate
 ```
 
+### 重建本地数据库
+
+当前本地开发默认不保留已有 DB 数据。如果 schema 或 baseline migration 发生变化，直接重建本地数据库：
+
+```bash
+docker compose up -d postgres
+bun run db:reset
+```
+
+该命令会清空 `DATABASE_URL` 指向数据库内的 `public` 和 `drizzle` schema，然后重新执行当前 baseline migrations。它默认只允许 `localhost`、`127.0.0.1` 或 `::1` 数据库；一次性 disposable 环境可显式设置 `DB_RESET_ALLOW_NON_LOCAL=1`。
+
 配置参考 [.env.example](./.env.example)。
 
 ### 启动完整本地链路
 
 ```bash
-bun run center:api
+bun run registration:api
 bun run commerce:catalog:api
 bun run commerce:provider:api
 bun run user:demo:api
@@ -312,7 +324,7 @@ bun run protocol:docs
 ### 2. 只启动 Catalog + Registration node
 
 ```bash
-bun run center:api
+bun run registration:api
 bun run commerce:catalog:api
 ```
 
@@ -340,11 +352,18 @@ bun run user:demo
 
 ```bash
 bun run validate:mvp
-bun run validate:center
+bun run validate:registration
+bun run test:integration
 ```
 
 `validate:mvp` 覆盖 Provider -> Catalog 主链路。  
-`validate:center` 覆盖 Catalog -> Registration node 主链路。
+`validate:registration` 覆盖 Catalog -> Registration node 主链路。
+`test:integration` 运行需要本地 Postgres 的 Catalog 集成测试；默认 `bun run test` 只覆盖无外部服务依赖的测试。
+
+### Breaking changes in this branch
+
+- Registration search results must return `registration_id`; legacy `center_id` responses are rejected by the MCP registration client.
+- `/center/*` protocol docs routes are no longer aliased to `/registration/*`.
 
 ## 常用命令
 

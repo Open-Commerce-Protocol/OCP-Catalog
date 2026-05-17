@@ -3,6 +3,8 @@ import type {
   CatalogManifest,
   CommercialObject,
   ObjectContract,
+  ResolveRequest,
+  ResolvableReference,
 } from '@ocp-catalog/ocp-schema';
 
 export type DescriptorValidationResult =
@@ -16,6 +18,20 @@ export type SearchProjection = Record<string, unknown> & {
   text?: string;
 };
 
+export type ResolveContext = {
+  request: ResolveRequest;
+  projection: Record<string, unknown>;
+  catalog_id: string;
+  entry_id: string;
+  commercial_object_id: string;
+  object_id: string;
+  object_type: string;
+  provider_id: string;
+  title: string;
+  resolved_at: string;
+  expires_at: string;
+};
+
 export type CatalogScenarioModule = {
   description?: string;
   registryVisibility?: CatalogManifest['registry_visibility'];
@@ -27,7 +43,9 @@ export type CatalogScenarioModule = {
   buildSearchProjection(object: CommercialObject): SearchProjection;
   buildExplainProjection?(object: CommercialObject, projection: SearchProjection): Record<string, unknown>;
   buildEmbeddingText?(object: CommercialObject, projection: SearchProjection): string | null | undefined;
-  buildResolveActions?(projection: Record<string, unknown>): ActionBinding[];
+  buildResolveActions?(context: ResolveContext): ActionBinding[];
+  buildResolveAccess?(context: ResolveContext): ResolvableReference['access'];
+  buildResolveLiveChecks?(context: ResolveContext): ResolvableReference['live_checks'];
 };
 
 export function defaultProviderFieldRules(): CatalogManifest['provider_contract']['field_rules'] {

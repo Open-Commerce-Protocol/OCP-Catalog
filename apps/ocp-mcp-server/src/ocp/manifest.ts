@@ -19,12 +19,9 @@ export async function loadCatalogManifest(args: {
 }
 
 export function summarizeManifest(manifest: CatalogManifest) {
-  const supportedQueryPacks = manifest.query_capabilities.flatMap((capability) => (
-    capability.query_packs.map((pack) => pack.pack_id)
-  ));
-  const supportedQueryModes = manifest.query_capabilities.flatMap((capability) => (
-    capability.query_packs.flatMap((pack) => pack.query_modes)
-  ));
+  const queryPacks = manifestQueryPackDescriptors(manifest);
+  const supportedQueryPacks = queryPacks.map((pack) => pack.pack_id);
+  const supportedQueryModes = queryPacks.flatMap((pack) => pack.query_modes);
   const supportedFilterFields = manifest.query_capabilities.flatMap((capability) => (
     capability.input_fields
       .map((field) => typeof field.name === 'string' ? field.name : null)
@@ -41,8 +38,20 @@ export function summarizeManifest(manifest: CatalogManifest) {
     supported_filter_fields: unique(supportedFilterFields),
     supported_query_languages: unique(queryHints.flatMap((hint) => stringArray(hint.supported_query_languages))),
     content_languages: unique(queryHints.flatMap((hint) => stringArray(hint.content_languages))),
+    supports_explain: manifest.query_capabilities.some((capability) => capability.supports_explain),
     supports_resolve: manifest.query_capabilities.some((capability) => capability.supports_resolve),
   };
+}
+
+export function manifestQueryPackDescriptors(manifest: CatalogManifest) {
+  return manifest.query_capabilities.flatMap((capability) => (
+    capability.query_packs.map((pack) => ({
+      capability_id: capability.capability_id,
+      pack_id: pack.pack_id,
+      query_modes: pack.query_modes,
+      supports_explain: capability.supports_explain,
+    }))
+  ));
 }
 
 export function assertSupportedQueryPack(manifest: CatalogManifest, queryPack?: string) {

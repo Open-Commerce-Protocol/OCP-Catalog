@@ -35,6 +35,33 @@
     },
     "verification_status": { "type": "string" },
     "trust_tier": { "type": "string" },
+    "trust_profile": {
+      "type": "object",
+      "required": ["verification_status", "trust_tier"],
+      "properties": {
+        "verification_status": { "type": "string" },
+        "trust_tier": { "type": "string" },
+        "domain_verified": { "type": "boolean", "default": false },
+        "manifest_signed": { "type": "boolean", "default": false },
+        "signature_alg": { "type": "string" },
+        "manifest_hash": { "type": "string" },
+        "issuer": { "type": "string" },
+        "downgrade_invalidates_cache": { "type": "boolean", "default": true }
+      },
+      "additionalProperties": false
+    },
+    "federation": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "default": "disabled" },
+        "node_role": { "type": "string" },
+        "remote_query_supported": { "type": "boolean", "default": false },
+        "remote_resolve_supported": { "type": "boolean", "default": false },
+        "summary_cache_supported": { "type": "boolean", "default": false },
+        "mutation_log_supported": { "type": "boolean", "default": false }
+      },
+      "additionalProperties": false
+    },
     "health_status": { "type": "string" },
     "cache_ttl_seconds": {
       "type": "integer",

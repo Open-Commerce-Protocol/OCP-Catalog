@@ -9,23 +9,29 @@ import { CommerceQueryService } from './query/commerce-query-service';
 import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 import { SearchEmbeddingService, type EmbeddingProvider, type EmbeddingResult } from './search/indexing/search-embedding-service';
 import { SearchRetrievalService } from './search/retrieval/search-retrieval-service';
+import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
 const baseConfig = loadConfig();
 const db = createDb(baseConfig.DATABASE_URL);
-const sql = postgres(baseConfig.DATABASE_URL, { max: 1 });
+const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: true });
 
 const providerId = `itest_semantic_provider_${Date.now()}`;
 const semanticQuery = `wireless aluminum travel audio ${providerId}`;
 const hybridQuery = `travel headphones ${providerId}`;
+let integrationDatabaseReady = false;
 
 describe('commerce catalog semantic integration', () => {
   beforeAll(async () => {
+    await assertIntegrationDatabaseReady(sql, baseConfig.DATABASE_URL);
+    integrationDatabaseReady = true;
     await cleanupProviderData(providerId, [semanticQuery, hybridQuery]);
   });
 
   afterAll(async () => {
-    await cleanupProviderData(providerId, [semanticQuery, hybridQuery]);
+    if (integrationDatabaseReady) {
+      await cleanupProviderData(providerId, [semanticQuery, hybridQuery]);
+    }
     await sql.end();
   });
 

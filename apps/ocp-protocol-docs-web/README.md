@@ -17,7 +17,7 @@ Markdown content lives under [`src/content`](./src/content):
 
 - `docs/` for top-level protocol pages
 - `handshake/` for handshake-specific pages
-- `center/` for center-specific pages
+- `registration/` for Registration node-specific pages
 - `examples/` for scenario walkthroughs
 - `pages/` for extra standalone sections
 
@@ -46,6 +46,6 @@ bun run dev
 
 ## Next likely work
 
-- add the missing handshake, center, and example markdown pages
+- add the missing handshake, registration, and example markdown pages
 - wire schema snippets and example payload blocks into content
 - add a richer search index when the content set grows

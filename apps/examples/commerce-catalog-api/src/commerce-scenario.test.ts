@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { visibleAttributes } from '@ocp-catalog/catalog-core';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 
 const richProduct = {
@@ -148,5 +149,45 @@ describe('commerce-scenario', () => {
       query_pack: 'ocp.query.keyword.v1',
       offset: 0,
     });
+  });
+
+  test('builds resolve actions and live checks from resolve context without leaking private fields', () => {
+    const scenario = createCommerceCatalogScenario();
+    const projection = scenario.buildSearchProjection(richProduct);
+    const context = {
+      request: {
+        entry_id: 'entry_1',
+        purpose: 'view' as const,
+        live_check: true,
+        requested_fields: [],
+      },
+      projection,
+      catalog_id: 'cat_1',
+      entry_id: 'entry_1',
+      commercial_object_id: 'commercial_1',
+      object_id: 'sku-1',
+      object_type: 'product',
+      provider_id: 'provider-1',
+      title: 'Travel Headphones',
+      resolved_at: '2026-04-28T00:00:00.000Z',
+      expires_at: '2026-04-28T00:15:00.000Z',
+    };
+
+    expect(visibleAttributes(projection)).not.toHaveProperty('product_url');
+    expect(visibleAttributes(projection)).not.toHaveProperty('source_url');
+    expect(visibleAttributes(projection)).not.toHaveProperty('text');
+    expect(scenario.buildResolveActions?.(context)[0]).toMatchObject({
+      action_id: 'view_product',
+      entrypoint: {
+        url: 'https://provider.example/products/sku-1',
+        method: 'GET',
+      },
+    });
+    expect(scenario.buildResolveLiveChecks?.(context)[0]).toMatchObject({
+      check_id: 'availability',
+      status: 'passed',
+      summary: 'in_stock',
+    });
+    expect(scenario.buildResolveAccess?.(context)?.redacted_fields).toEqual(['product_url', 'source_url', 'text']);
   });
 });

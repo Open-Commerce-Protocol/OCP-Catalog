@@ -6,10 +6,11 @@ import { createDb } from '@ocp-catalog/db';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 import { CommerceQueryService } from './query/commerce-query-service';
 import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
+import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
 const baseConfig = loadConfig();
 const db = createDb(baseConfig.DATABASE_URL);
-const sql = postgres(baseConfig.DATABASE_URL, { max: 1 });
+const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
 const services = createCatalogServices(db, baseConfig, scenario);
 const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
@@ -17,14 +18,19 @@ const commerceQueryService = new CommerceQueryService(db, baseConfig, scenario);
 
 const providerId = `itest_provider_${Date.now()}`;
 const queryText = `travel headphones ${providerId}`;
+let integrationDatabaseReady = false;
 
 describe('commerce catalog integration', () => {
   beforeAll(async () => {
+    await assertIntegrationDatabaseReady(sql, baseConfig.DATABASE_URL);
+    integrationDatabaseReady = true;
     await cleanupProviderData(providerId, queryText);
   });
 
   afterAll(async () => {
-    await cleanupProviderData(providerId, queryText);
+    if (integrationDatabaseReady) {
+      await cleanupProviderData(providerId, queryText);
+    }
     await sql.end();
   });
 
@@ -164,13 +170,38 @@ describe('commerce catalog integration', () => {
       kind: 'ResolveRequest',
       catalog_id: baseConfig.CATALOG_ID,
       entry_id: filteredQuery.items[0]!.entry_id,
+      purpose: 'view',
+      live_check: true,
+      requested_fields: ['availability_status'],
     });
 
     expect(resolved.visible_attributes.primary_image_url).toBe(`https://provider.example/images/${providerId}-rich.jpg`);
     expect(resolved.visible_attributes.list_amount).toBe(159.99);
     expect(resolved.visible_attributes.discount_present).toBe(true);
     expect(resolved.visible_attributes.quality_tier).toBe('rich');
-    expect(resolved.action_bindings[0]?.url).toBe(`https://provider.example/products/${providerId}/rich`);
+    expect(resolved.visible_attributes.product_url).toBeUndefined();
+    expect(resolved.visible_attributes.source_url).toBeUndefined();
+    expect(resolved.visible_attributes.text).toBeUndefined();
+    expect(resolved.access).toMatchObject({
+      visibility: 'public',
+      permission_state: 'granted',
+      redacted_fields: ['product_url', 'source_url', 'text'],
+    });
+    expect(resolved.live_checks[0]).toMatchObject({
+      check_id: 'availability',
+      status: 'passed',
+      summary: 'in_stock',
+      details: {
+        availability_status: 'in_stock',
+        quantity: 6,
+      },
+    });
+    expect(resolved.action_bindings[0]?.entrypoint).toEqual({
+      url: `https://provider.example/products/${providerId}/rich`,
+      method: 'GET',
+    });
+    expect(resolved.action_bindings[0]).not.toHaveProperty('url');
+    expect(resolved.action_bindings[0]).not.toHaveProperty('method');
   });
 });
 

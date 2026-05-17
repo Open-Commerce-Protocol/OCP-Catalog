@@ -35,6 +35,9 @@ export const resolveCatalogEntryInput = {
   catalog_id: z.string().min(1).describe('Catalog id returned by search_catalogs or find_and_query_catalog. Prefer route_hint when available.').optional(),
   route_hint: routeHintInput.optional(),
   entry_id: z.string().min(1).describe('Catalog entry id returned by query_catalog or find_and_query_catalog.query_result.entries.'),
+  purpose: z.enum(['view', 'checkout', 'contact', 'workflow']).describe('Why the entry is being resolved. Defaults to view.').optional(),
+  live_check: z.boolean().describe('When true, ask the catalog to include live checks such as current availability. Defaults to true.').optional(),
+  requested_fields: z.array(z.string().min(1)).describe('Optional resolved fields the caller wants when supported by the catalog. Omit unless the catalog documents field names.').optional(),
 };
 
 export const findAndQueryCatalogInput = {

@@ -2,7 +2,6 @@ import {
   inventoryPackSchema,
   pricePackSchema,
   productCorePackSchema,
-  type ActionBinding,
   type CatalogManifest,
   type CommercialObject,
   type ObjectContract,
@@ -35,6 +34,8 @@ export function createCommerceCatalogScenario(options: { semanticSearchEnabled?:
     buildExplainProjection,
     buildEmbeddingText,
     buildResolveActions,
+    buildResolveAccess,
+    buildResolveLiveChecks,
   };
 }
 
@@ -382,11 +383,11 @@ function buildEmbeddingText(_object: CommercialObject, projection: SearchProject
   ].filter((value): value is string => typeof value === 'string' && value.length > 0).join('\n');
 }
 
-function buildResolveActions(projection: Record<string, unknown>): ActionBinding[] {
-  const url = typeof projection.product_url === 'string'
-    ? projection.product_url
-    : typeof projection.source_url === 'string'
-      ? projection.source_url
+const buildResolveActions: NonNullable<CatalogScenarioModule['buildResolveActions']> = (context) => {
+  const url = typeof context.projection.product_url === 'string'
+    ? context.projection.product_url
+    : typeof context.projection.source_url === 'string'
+      ? context.projection.source_url
       : null;
 
   if (!url) return [];
@@ -396,11 +397,50 @@ function buildResolveActions(projection: Record<string, unknown>): ActionBinding
       action_id: 'view_product',
       action_type: 'url',
       label: 'View product',
-      url,
-      method: 'GET',
+      description: 'Open the provider-owned product detail page for the resolved catalog entry.',
+      entrypoint: {
+        url,
+        method: 'GET',
+      },
+      auth_requirements: {},
+      requires_user_confirmation: false,
+      expires_at: context.expires_at,
     },
   ];
-}
+};
+
+const buildResolveAccess: NonNullable<CatalogScenarioModule['buildResolveAccess']> = () => ({
+  visibility: 'public',
+  permission_state: 'granted',
+  redacted_fields: ['product_url', 'source_url', 'text'],
+  policy_notes: ['Provider-owned action URLs are exposed through action_bindings, not visible_attributes.'],
+});
+
+const buildResolveLiveChecks: NonNullable<CatalogScenarioModule['buildResolveLiveChecks']> = (context) => {
+  const availabilityStatus = stringField(context.projection.availability_status);
+  const checkedAt = context.resolved_at;
+
+  if (!availabilityStatus) {
+    return [{
+      check_id: 'availability',
+      status: 'unknown',
+      checked_at: checkedAt,
+      summary: 'Availability status is not present in the catalog projection.',
+      details: {},
+    }];
+  }
+
+  return [{
+    check_id: 'availability',
+    status: availabilityStatus === 'out_of_stock' ? 'failed' : 'passed',
+    checked_at: checkedAt,
+    summary: availabilityStatus,
+    details: {
+      availability_status: availabilityStatus,
+      ...(typeof context.projection.quantity === 'number' ? { quantity: context.projection.quantity } : {}),
+    },
+  }];
+};
 
 function deriveQualityTier(input: {
   summary?: string;

@@ -48,9 +48,9 @@ Provider -> Catalog 仍由：
 
 负责。
 
-## Center Role
+## Registration Node Role
 
-Center 回答的问题是：
+Registration node 回答的问题是：
 
 > 应该去问哪个 Catalog
 
@@ -58,7 +58,7 @@ Center 回答的问题是：
 
 > 这个 Catalog 里有哪些对象
 
-所以 Center 的核心输出是：
+所以 Registration node 的核心输出是：
 
 - Catalog metadata
 - manifest snapshot
@@ -67,7 +67,7 @@ Center 回答的问题是：
 
 ## CatalogRegistration
 
-`CatalogRegistration` 是 Catalog 向 Center 提交的版本化注册声明。
+`CatalogRegistration` 是 Catalog 向 Registration node 提交的版本化注册声明。
 
 它包含：
 
@@ -91,7 +91,7 @@ Center 回答的问题是：
 
 ## CatalogRouteHint
 
-`CatalogRouteHint` 是 Center 返回给使用方的最小路由摘要。
+`CatalogRouteHint` 是 Registration node 返回给使用方的最小路由摘要。
 
 它的核心字段是：
 
@@ -138,7 +138,7 @@ Center 回答的问题是：
 
 设计意图是：
 
-1. Center 先帮 agent 选 Catalog
+1. Registration node 先帮 agent 选 Catalog
 2. agent 再根据 `route_hint` 去真正的 Catalog
 3. 如果需要完整能力协商，再读取 `manifest_url`
 
@@ -149,13 +149,13 @@ Center 回答的问题是：
 
 ## Verification / Refresh / Token
 
-Center 侧还定义了 Catalog 运维相关控制面对象：
+Registration node 侧还定义了 Catalog 运维相关控制面对象：
 
 - verification challenge / result
 - refresh result
 - token rotation result
 
-这些对象让 Center 可以：
+这些对象让 Registration node 可以：
 
 - 验证 Catalog 控制权
 - 刷新 manifest snapshot
@@ -185,7 +185,7 @@ ocp.catalog.registration.v1
 
 这意味着：
 
-- Center 不试图镜像 Catalog 的全部查询语义
+- Registration node 不试图镜像 Catalog 的全部查询语义
 - agent 若要拿完整搜索能力，应回到 `manifest_url`
 
 ## Related Docs

@@ -177,7 +177,7 @@ function Overview({
       <header className="mb-8">
         <h2 className="text-3xl operator-heading mb-2">Platform Overview</h2>
         <p className="text-operator-muted operator-mono text-sm max-w-2xl">
-          Observe provider intake, object projection, query behavior, and center readiness from one operator surface.
+          Observe provider intake, object projection, query behavior, and Registration node readiness from one operator surface.
         </p>
       </header>
 
@@ -272,7 +272,7 @@ function Overview({
                   : 'Catalog is not indexed in Registration yet.'}
               </div>
               <div className="mt-1 text-[10px] text-operator-muted operator-mono">
-                {registrationCatalog?.activeSnapshotId ?? 'no active center snapshot'}
+                {registrationCatalog?.activeSnapshotId ?? 'no active registration snapshot'}
               </div>
             </div>
             <div className="border-l-2 border-operator-text pl-3">
@@ -827,7 +827,7 @@ function RegistrationOpsPage({
           </div>
           <div className="space-y-3">
             {healthChecks.length === 0 ? (
-              <EmptyState title="No center health checks found." body="Health checks will appear once the center has fetched and evaluated this catalog." compact />
+              <EmptyState title="No Registration node health checks found." body="Health checks will appear once the Registration node has fetched and evaluated this catalog." compact />
             ) : (
               healthChecks.slice(0, 6).map((check) => (
                 <div key={check.id} className="rounded-sm border border-operator-border bg-operator-bg p-3 text-sm">
@@ -889,7 +889,7 @@ function RegistrationOpsPage({
               query_capabilities: manifestSnapshot.queryCapabilities,
             }} />
           ) : (
-            <EmptyState title="No center snapshot available." body="The center has not stored an active manifest snapshot for this catalog yet." compact />
+            <EmptyState title="No Registration node snapshot available." body="The Registration node has not stored an active manifest snapshot for this catalog yet." compact />
           )}
         </section>
       </div>
@@ -1020,8 +1020,8 @@ export default function App() {
 
   const systemHealthy = useMemo(() => {
     const catalogHealthy = state.health?.ok === true;
-    const centerHealthy = !state.registrationCatalog || state.registrationCatalog.healthStatus === 'healthy';
-    return catalogHealthy && centerHealthy;
+    const registrationHealthy = !state.registrationCatalog || state.registrationCatalog.healthStatus === 'healthy';
+    return catalogHealthy && registrationHealthy;
   }, [state.health, state.registrationCatalog]);
 
   async function reloadAll() {
@@ -1036,7 +1036,7 @@ export default function App() {
         fetchCatalogContracts(),
       ]);
 
-      const centerResults = await Promise.allSettled([
+      const registrationResults = await Promise.allSettled([
         fetchRegistrationCatalog(overview.catalog_id),
         fetchRegistrationHealth(overview.catalog_id),
         fetchRegistrationVerification(overview.catalog_id),
@@ -1050,10 +1050,10 @@ export default function App() {
         wellKnown,
         manifest,
         contracts,
-        registrationCatalog: centerResults[0].status === 'fulfilled' ? centerResults[0].value : null,
-        registrationHealthChecks: centerResults[1].status === 'fulfilled' ? centerResults[1].value.checks : [],
-        registrationVerificationRecords: centerResults[2].status === 'fulfilled' ? centerResults[2].value.records : [],
-        registrationManifestSnapshot: centerResults[3].status === 'fulfilled' ? centerResults[3].value : null,
+        registrationCatalog: registrationResults[0].status === 'fulfilled' ? registrationResults[0].value : null,
+        registrationHealthChecks: registrationResults[1].status === 'fulfilled' ? registrationResults[1].value.checks : [],
+        registrationVerificationRecords: registrationResults[2].status === 'fulfilled' ? registrationResults[2].value.records : [],
+        registrationManifestSnapshot: registrationResults[3].status === 'fulfilled' ? registrationResults[3].value : null,
       });
     } catch (error) {
       setToast({

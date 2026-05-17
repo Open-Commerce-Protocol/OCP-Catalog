@@ -156,7 +156,7 @@ export function App() {
               Stock desk for live catalog supply.
             </div>
             <p className="max-w-[58ch] text-sm leading-6 text-ink/62">
-              Manage provider inventory, publish registration handshakes, push synchronized products into the catalog, and keep the supply line ready for center discovery.
+              Manage provider inventory, publish registration handshakes, push synchronized products into the catalog, and keep the supply line ready for Registration node discovery.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

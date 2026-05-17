@@ -14,6 +14,8 @@
     "test": "bun test --pass-with-no-tests",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
+    "reset": "bun scripts/reset.ts && drizzle-kit migrate",
+    "recreate": "bun run reset",
     "studio": "drizzle-kit studio"
   },
   "dependencies": {

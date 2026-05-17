@@ -177,6 +177,145 @@
       "items": {
         "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/object-contract.schema.json"
       }
+    },
+    "federation": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["disabled", "profile_only", "summary_exchange", "remote_routing"],
+          "default": "disabled"
+        },
+        "node_role": {
+          "type": "string",
+          "enum": ["source_catalog", "registration_node", "federation_peer"],
+          "default": "source_catalog"
+        },
+        "peer_policy": {
+          "type": "object",
+          "properties": {
+            "accepts_peers": { "type": "boolean", "default": false },
+            "requires_verification": { "type": "boolean", "default": true },
+            "allowed_peer_ids": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            }
+          },
+          "additionalProperties": false
+        },
+        "supported_protocols": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "remote_query": {
+          "type": "object",
+          "properties": {
+            "supported": { "type": "boolean", "default": false },
+            "routing_modes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["route_hint", "summary_cache", "live_forward"]
+              },
+              "default": []
+            },
+            "accepted_query_packs": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "max_fanout": { "type": "integer", "minimum": 1 },
+            "timeout_ms": { "type": "integer", "minimum": 1 },
+            "requires_trust_tier": {
+              "type": "string",
+              "enum": ["unknown", "unverified", "verified", "trusted"],
+              "default": "verified"
+            },
+            "returns_authoritative_results": { "type": "boolean", "default": false }
+          },
+          "additionalProperties": false
+        },
+        "remote_resolve": {
+          "type": "object",
+          "properties": {
+            "supported": { "type": "boolean", "default": false },
+            "allowed_reference_types": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["commercial_object"]
+            },
+            "requires_live_check": { "type": "boolean", "default": true },
+            "cache_policy": {
+              "type": "string",
+              "enum": ["no_cache", "short_ttl", "source_ttl"],
+              "default": "source_ttl"
+            },
+            "auth_context_required": { "type": "boolean", "default": true },
+            "requires_trust_tier": {
+              "type": "string",
+              "enum": ["unknown", "unverified", "verified", "trusted"],
+              "default": "verified"
+            }
+          },
+          "additionalProperties": false
+        },
+        "summary_cache": {
+          "type": "object",
+          "properties": {
+            "supported": { "type": "boolean", "default": false },
+            "summary_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["profile", "contract", "availability", "catalog_entry"]
+              },
+              "default": []
+            },
+            "ttl_seconds": { "type": "integer", "minimum": 1 },
+            "includes_object_payloads": { "type": "boolean", "default": false }
+          },
+          "additionalProperties": false
+        },
+        "mutation_log": {
+          "type": "object",
+          "properties": {
+            "supported": { "type": "boolean", "default": false },
+            "event_types": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["snapshot_created", "entry_upserted", "entry_deleted", "trust_changed"]
+              },
+              "default": []
+            },
+            "cursor_required": { "type": "boolean", "default": true },
+            "includes_tombstones": { "type": "boolean", "default": true }
+          },
+          "additionalProperties": false
+        },
+        "trust_strategy": {
+          "type": "object",
+          "properties": {
+            "trust_tier": {
+              "type": "string",
+              "enum": ["unknown", "unverified", "verified", "trusted"],
+              "default": "unknown"
+            },
+            "domain_verified": { "type": "boolean", "default": false },
+            "manifest_signed": { "type": "boolean", "default": false },
+            "signature_algorithms": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": []
+            },
+            "downgrade_invalidates_cache": { "type": "boolean", "default": true }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

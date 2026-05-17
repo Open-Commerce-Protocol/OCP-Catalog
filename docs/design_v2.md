@@ -999,6 +999,19 @@ Explain 不是可选装饰，而是 Agent 可用性的核心部分。
 - POST /api/v1/federation/query
 - POST /api/v1/federation/resolve
 
+P5 remote-first federation 只实现声明式契约投影，不实现运行时 federation router。
+Registration node 可以索引和交换：
+- profile snapshot
+- object contract summary
+- catalog entry summary
+- mutation metadata
+- trust / verification metadata
+
+Registration node 不代理 Catalog object query / resolve。用户侧 agent 或上游系统完成
+route selection 后，应直接调用被选中的 Catalog query / resolve endpoint。`manifest.federation`
+和 `CatalogRouteHint.federation` 只表达能力声明与路由决策摘要，不表示当前 Registration node
+会执行远端 fanout、live forward 或跨 Catalog resolve。
+
 ---
 20. 治理、安全与可观测性
 20.1 治理

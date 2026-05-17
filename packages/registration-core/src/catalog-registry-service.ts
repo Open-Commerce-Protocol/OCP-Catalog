@@ -632,13 +632,16 @@ export class CatalogRegistryService {
   }
 
   private routeHintFromIndexRow(row: typeof schema.catalogIndexEntries.$inferSelect): CatalogRouteHint {
-    const resolveUrl = stringValue(asRecord(row.searchProjection).resolve_url);
+    const projection = asRecord(row.searchProjection);
+    const resolveUrl = stringValue(projection.resolve_url);
+    const federation = asRecord(projection.federation);
+    const trustProfile = asRecord(projection.trust_profile);
     return {
       catalog_id: row.catalogId,
       catalog_name: row.catalogName,
       ...(row.description ? { description: row.description } : {}),
       manifest_url: row.manifestUrl,
-      query_url: stringValue(asRecord(row.searchProjection).query_url) ?? row.manifestUrl.replace(/\/ocp\/manifest$/, '/ocp/query'),
+      query_url: stringValue(projection.query_url) ?? row.manifestUrl.replace(/\/ocp\/manifest$/, '/ocp/query'),
       ...(resolveUrl ? { resolve_url: resolveUrl } : {}),
       supported_query_packs: row.supportedQueryPacks,
       auth_requirements: { query: 'none', resolve: 'none' },
@@ -651,6 +654,8 @@ export class CatalogRegistryService {
       },
       verification_status: row.verificationStatus,
       trust_tier: row.trustTier,
+      ...(Object.keys(trustProfile).length > 0 ? { trust_profile: trustProfile as CatalogRouteHint['trust_profile'] } : {}),
+      ...(Object.keys(federation).length > 0 ? { federation: federation as CatalogRouteHint['federation'] } : {}),
       health_status: row.healthStatus,
       cache_ttl_seconds: 86400,
       snapshot_id: row.activeSnapshotId,

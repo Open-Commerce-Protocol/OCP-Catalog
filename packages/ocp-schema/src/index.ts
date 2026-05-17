@@ -15,6 +15,7 @@ export const endpointSchema = z.object({
 });
 
 export const catalogQueryModeSchema = z.enum(['keyword', 'filter', 'semantic', 'hybrid']);
+export const trustTierSchema = z.enum(['unknown', 'unverified', 'verified', 'trusted']);
 export const syncCapabilityDirectionSchema = z.enum([
   'provider_to_catalog',
   'catalog_pull_provider',
@@ -117,6 +118,127 @@ export const catalogQueryCapabilitySchema = z.object({
   metadata: queryCapabilityMetadataSchema,
 });
 
+export const federationProfileSchema = z.object({
+  mode: z.enum(['disabled', 'profile_only', 'summary_exchange', 'remote_routing']).default('disabled'),
+  node_role: z.enum(['source_catalog', 'registration_node', 'federation_peer']).default('source_catalog'),
+  peer_policy: z.object({
+    accepts_peers: z.boolean().default(false),
+    requires_verification: z.boolean().default(true),
+    allowed_peer_ids: z.array(z.string().min(1)).default([]),
+  }).default({
+    accepts_peers: false,
+    requires_verification: true,
+    allowed_peer_ids: [],
+  }),
+  supported_protocols: z.array(z.string().min(1)).default([]),
+  remote_query: z.object({
+    supported: z.boolean().default(false),
+    routing_modes: z.array(z.enum(['route_hint', 'summary_cache', 'live_forward'])).default([]),
+    accepted_query_packs: z.array(z.string().min(1)).default([]),
+    max_fanout: z.number().int().min(1).optional(),
+    timeout_ms: z.number().int().min(1).optional(),
+    requires_trust_tier: trustTierSchema.default('verified'),
+    returns_authoritative_results: z.boolean().default(false),
+  }).default({
+    supported: false,
+    routing_modes: [],
+    accepted_query_packs: [],
+    requires_trust_tier: 'verified',
+    returns_authoritative_results: false,
+  }),
+  remote_resolve: z.object({
+    supported: z.boolean().default(false),
+    allowed_reference_types: z.array(z.string().min(1)).default(['commercial_object']),
+    requires_live_check: z.boolean().default(true),
+    cache_policy: z.enum(['no_cache', 'short_ttl', 'source_ttl']).default('source_ttl'),
+    auth_context_required: z.boolean().default(true),
+    requires_trust_tier: trustTierSchema.default('verified'),
+  }).default({
+    supported: false,
+    allowed_reference_types: ['commercial_object'],
+    requires_live_check: true,
+    cache_policy: 'source_ttl',
+    auth_context_required: true,
+    requires_trust_tier: 'verified',
+  }),
+  summary_cache: z.object({
+    supported: z.boolean().default(false),
+    summary_types: z.array(z.enum(['profile', 'contract', 'availability', 'catalog_entry'])).default([]),
+    ttl_seconds: z.number().int().min(1).optional(),
+    includes_object_payloads: z.boolean().default(false),
+  }).default({
+    supported: false,
+    summary_types: [],
+    includes_object_payloads: false,
+  }),
+  mutation_log: z.object({
+    supported: z.boolean().default(false),
+    event_types: z.array(z.enum(['snapshot_created', 'entry_upserted', 'entry_deleted', 'trust_changed'])).default([]),
+    cursor_required: z.boolean().default(true),
+    includes_tombstones: z.boolean().default(true),
+  }).default({
+    supported: false,
+    event_types: [],
+    cursor_required: true,
+    includes_tombstones: true,
+  }),
+  trust_strategy: z.object({
+    trust_tier: trustTierSchema.default('unknown'),
+    domain_verified: z.boolean().default(false),
+    manifest_signed: z.boolean().default(false),
+    signature_algorithms: z.array(z.string().min(1)).default([]),
+    downgrade_invalidates_cache: z.boolean().default(true),
+  }).default({
+    trust_tier: 'unknown',
+    domain_verified: false,
+    manifest_signed: false,
+    signature_algorithms: [],
+    downgrade_invalidates_cache: true,
+  }),
+}).default({
+  mode: 'disabled',
+  node_role: 'source_catalog',
+  peer_policy: {
+    accepts_peers: false,
+    requires_verification: true,
+    allowed_peer_ids: [],
+  },
+  supported_protocols: [],
+  remote_query: {
+    supported: false,
+    routing_modes: [],
+    accepted_query_packs: [],
+    requires_trust_tier: 'verified',
+    returns_authoritative_results: false,
+  },
+  remote_resolve: {
+    supported: false,
+    allowed_reference_types: ['commercial_object'],
+    requires_live_check: true,
+    cache_policy: 'source_ttl',
+    auth_context_required: true,
+    requires_trust_tier: 'verified',
+  },
+  summary_cache: {
+    supported: false,
+    summary_types: [],
+    includes_object_payloads: false,
+  },
+  mutation_log: {
+    supported: false,
+    event_types: [],
+    cursor_required: true,
+    includes_tombstones: true,
+  },
+  trust_strategy: {
+    trust_tier: 'unknown',
+    domain_verified: false,
+    manifest_signed: false,
+    signature_algorithms: [],
+    downgrade_invalidates_cache: true,
+  },
+});
+
 export const catalogManifestSchema = z.object({
   ocp_version: ocpVersionSchema,
   kind: z.literal('CatalogManifest'),
@@ -138,6 +260,7 @@ export const catalogManifestSchema = z.object({
     sync_capabilities: z.array(syncCapabilitySchema).default([]),
   }),
   object_contracts: z.array(objectContractSchema),
+  federation: federationProfileSchema.optional(),
 });
 
 export const providerRegistrationSchema = z.object({
@@ -277,12 +400,23 @@ export const queryResultItemSchema = z.object({
   explain: z.array(z.string()).default([]),
 });
 
+export const queryPolicySummarySchema = z.object({
+  selected_capability_id: z.string().min(1).optional(),
+  selected_query_pack: z.string().min(1).optional(),
+  query_mode: catalogQueryModeSchema,
+  supports_explain: z.boolean().default(true),
+  accepted_filters: z.array(z.string()).default([]),
+  rejected_filters: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
+});
+
 export const catalogQueryResultSchema = z.object({
   ocp_version: ocpVersionSchema,
   kind: z.literal('CatalogQueryResult'),
   id: z.string(),
   catalog_id: z.string(),
   query_pack: z.string().optional(),
+  query_mode: catalogQueryModeSchema.optional(),
   query: z.string(),
   result_count: z.number().int().min(0),
   page: z.object({
@@ -292,6 +426,8 @@ export const catalogQueryResultSchema = z.object({
     next_offset: z.number().int().min(0).optional(),
   }),
   items: z.array(queryResultItemSchema),
+  policy_summary: queryPolicySummarySchema.optional(),
+  audit_id: z.string().min(1).optional(),
   explain: z.array(z.string()).default([]),
 });
 
@@ -300,14 +436,42 @@ export const resolveRequestSchema = z.object({
   kind: z.literal('ResolveRequest').optional(),
   catalog_id: z.string().min(1).optional(),
   entry_id: z.string().min(1),
+  purpose: z.enum(['view', 'checkout', 'contact', 'workflow']).default('view'),
+  live_check: z.boolean().default(true),
+  requested_fields: z.array(z.string().min(1)).default([]),
+});
+
+export const actionEntrypointSchema = z.object({
+  url: z.string().url(),
+  method: z.enum(['GET', 'POST']).default('GET'),
 });
 
 export const actionBindingSchema = z.object({
   action_id: z.string().min(1),
-  action_type: z.enum(['url']),
+  action_type: z.enum(['url', 'api', 'workflow', 'contact']),
   label: z.string().min(1),
-  url: z.string().url(),
-  method: z.literal('GET').default('GET'),
+  description: z.string().optional(),
+  entrypoint: actionEntrypointSchema,
+  input_schema_url: z.string().url().optional(),
+  input_schema: z.record(z.string(), z.unknown()).optional(),
+  auth_requirements: z.record(z.string(), z.unknown()).default({}),
+  requires_user_confirmation: z.boolean().default(false),
+  expires_at: z.string().datetime().optional(),
+});
+
+export const liveCheckSchema = z.object({
+  check_id: z.string().min(1),
+  status: z.enum(['passed', 'failed', 'unknown', 'not_applicable']),
+  checked_at: z.string().datetime(),
+  summary: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const resolveAccessSchema = z.object({
+  visibility: z.enum(['public', 'partner', 'private']).default('public'),
+  permission_state: z.enum(['granted', 'limited', 'denied']).default('granted'),
+  redacted_fields: z.array(z.string()).default([]),
+  policy_notes: z.array(z.string()).default([]),
 });
 
 export const resolvableReferenceSchema = z.object({
@@ -323,6 +487,8 @@ export const resolvableReferenceSchema = z.object({
   registration_version: z.number().int().min(1).optional(),
   title: z.string().min(1),
   visible_attributes: z.record(z.string(), z.unknown()),
+  access: resolveAccessSchema.optional(),
+  live_checks: z.array(liveCheckSchema).default([]),
   action_bindings: z.array(actionBindingSchema),
   freshness: z.object({
     object_updated_at: z.string().datetime(),
@@ -356,6 +522,7 @@ export const inventoryPackSchema = z.object({
 }).strict();
 
 export type CatalogManifest = z.infer<typeof catalogManifestSchema>;
+export type FederationProfile = z.infer<typeof federationProfileSchema>;
 export type ObjectContract = z.infer<typeof objectContractSchema>;
 export type SyncCapability = z.infer<typeof syncCapabilitySchema>;
 export type SelectedSyncCapability = z.infer<typeof selectedSyncCapabilitySchema>;
@@ -367,7 +534,10 @@ export type ObjectSyncResult = z.infer<typeof objectSyncResultSchema>;
 export type ObjectSyncItemResult = z.infer<typeof objectSyncItemResultSchema>;
 export type CatalogQueryRequest = z.infer<typeof catalogQueryRequestSchema>;
 export type CatalogQueryResult = z.infer<typeof catalogQueryResultSchema>;
+export type QueryPolicySummary = z.infer<typeof queryPolicySummarySchema>;
 export type QueryResultItem = z.infer<typeof queryResultItemSchema>;
 export type ResolveRequest = z.infer<typeof resolveRequestSchema>;
 export type ResolvableReference = z.infer<typeof resolvableReferenceSchema>;
 export type ActionBinding = z.infer<typeof actionBindingSchema>;
+export type LiveCheck = z.infer<typeof liveCheckSchema>;
+export type ResolveAccess = z.infer<typeof resolveAccessSchema>;
