@@ -7,6 +7,7 @@ The target is intentionally narrow:
 - one stable `catalog_id`
 - one discovery document
 - one manifest
+- one health endpoint
 - one query endpoint
 - one Registration node registration request
 
@@ -44,6 +45,7 @@ new Elysia()
     catalog_id: 'hello_catalog',
     catalog_name: 'Hello Catalog',
     manifest_url: `${baseUrl}/ocp/manifest`,
+    health_url: `${baseUrl}/ocp/health`,
     query_url: `${baseUrl}/ocp/query`,
   }))
   .get('/ocp/manifest', () => ({
@@ -53,8 +55,13 @@ new Elysia()
     catalog_name: 'Hello Catalog',
     description: 'Minimal example catalog with one boolean query field.',
     endpoints: {
+      health: {
+        url: `${baseUrl}/ocp/health`,
+        method: 'GET',
+      },
       query: {
         url: `${baseUrl}/ocp/query`,
+        method: 'POST',
       },
     },
     query_capabilities: [
@@ -81,6 +88,16 @@ new Elysia()
       },
     ],
     object_contracts: [],
+  }))
+  .get('/ocp/health', () => ({
+    ocp_version: '1.0',
+    kind: 'CatalogHealth',
+    catalog_id: 'hello_catalog',
+    status: 'healthy',
+    ready: true,
+    checked_at: new Date().toISOString(),
+    details: {},
+    dependencies: [],
   }))
   .post('/ocp/query', async ({ body }) => {
     const request = typeof body === 'object' && body ? body as Record<string, unknown> : {};
@@ -118,6 +135,7 @@ That tiny server already satisfies the core catalog obligations:
 
 - a Registration node can fetch discovery from `/.well-known/ocp-catalog`
 - a Registration node can fetch your manifest from `/ocp/manifest`
+- a Registration node can verify readiness through `/ocp/health`
 - an agent can learn the query contract from the manifest metadata
 - an agent can call `/ocp/query`
 
@@ -154,10 +172,10 @@ await fetch('https://registration.example.com/ocp/catalogs/register', {
 
 ```text
 catalog process starts
--> serves discovery + manifest + query
+-> serves discovery + manifest + health + query
 -> posts CatalogRegistration to a Registration node
 -> Registration node fetches discovery and manifest
--> Registration node verifies and health-checks the catalog
+-> Registration node calls the declared health endpoint
 -> agents can route queries to /ocp/query
 ```
 

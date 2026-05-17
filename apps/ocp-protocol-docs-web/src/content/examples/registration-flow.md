@@ -9,14 +9,14 @@ catalog admin submits CatalogRegistration
 -> Registration node validates registration_id and registration_version
 -> Registration node fetches /.well-known/ocp-catalog and the catalog manifest
 -> Registration node validates fetched identity and endpoint/domain consistency
--> Registration node checks the catalog query endpoint for health
+-> Registration node checks endpoints.health, or falls back to a query probe
 -> Registration node stores registration record and manifest snapshot
 -> Registration node indexes the active snapshot
 -> Registration node issues catalog_access_token
--> later refresh re-fetches discovery/manifest and updates the active snapshot
+-> later refresh re-fetches discovery/manifest/health and updates the active snapshot
 ```
 
-In the current implementation, `operator` metadata is optional. A catalog only needs to identify itself and expose discovery/manifest/query endpoints that the Registration node can fetch.
+In the current implementation, `operator` metadata is optional. A catalog needs to identify itself and expose discovery, manifest, query, and preferably health endpoints that the Registration node can fetch.
 
 ## What The Current Implementation Actually Persists
 
@@ -59,12 +59,13 @@ So in this repository, registration no longer waits on a domain-verification gat
 
 ## Health And Indexing
 
-The current Registration node does not treat health as a passive metadata field. It actively checks the catalog by calling the query endpoint and recording the result.
+The current Registration node does not treat health as a passive metadata field. It actively checks the catalog by calling `manifest.endpoints.health` when present, or by sending a minimal query probe for older manifests.
 
 That health status then feeds into:
 
 - whether a newly registered catalog is marked healthy
 - whether a refreshed snapshot stays healthy
+- whether consecutive failures eventually mark the index entry stale
 - the trust and health information returned in route hints
 
 ## Current Repository Example
@@ -75,7 +76,7 @@ The current verified path in this workspace looks like:
 catalog admin posts CatalogRegistration
 -> Registration node fetches the catalog discovery document
 -> Registration node fetches the manifest
--> Registration node sends a minimal POST /ocp/query health probe
+-> Registration node calls GET /ocp/health from manifest.endpoints.health
 -> Registration node stores registration + snapshot
 -> Registration node writes catalog_index_entries
 -> Registration node issues catalog_access_token
@@ -90,5 +91,6 @@ This repository's Registration node flow is more than a schema demo:
 - registration is versioned and stateful
 - snapshots are first-class runtime objects
 - token issuance, health checks, and indexing are connected
+- repeated health failures hide the catalog from default search by marking the index entry stale
 - Registration node search runs over an internal catalog metadata index, not raw remote catalogs
 - route hints are derived from active indexed snapshots, not from raw registration input alone

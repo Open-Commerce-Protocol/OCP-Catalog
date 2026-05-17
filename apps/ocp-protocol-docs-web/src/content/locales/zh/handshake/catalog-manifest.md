@@ -18,14 +18,34 @@
 ```json
 {
   "endpoints": {
-    "query": { "url": "https://catalog.example/query" },
-    "resolve": { "url": "https://catalog.example/resolve" },
-    "provider_registration": { "url": "https://catalog.example/providers/register" },
-    "contracts": { "url": "https://catalog.example/contracts" },
-    "object_sync": { "url": "https://catalog.example/object-sync" }
+    "health": { "url": "https://catalog.example/ocp/health", "method": "GET" },
+    "query": { "url": "https://catalog.example/ocp/query", "method": "POST" },
+    "resolve": { "url": "https://catalog.example/ocp/resolve", "method": "POST" },
+    "provider_registration": { "url": "https://catalog.example/ocp/providers/register", "method": "POST" },
+    "contracts": { "url": "https://catalog.example/ocp/contracts", "method": "GET" },
+    "object_sync": { "url": "https://catalog.example/ocp/objects/sync", "method": "POST" }
   }
 }
 ```
+
+`endpoints.health` 为了 schema 兼容仍是可选字段，但生产级 catalog 应该暴露它。Registration node 在注册和 refresh 时会优先调用这个 endpoint；旧 manifest 没声明时才降级为 query probe。
+
+health endpoint 返回 `CatalogHealth`：
+
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogHealth",
+  "catalog_id": "hello_catalog",
+  "status": "healthy",
+  "ready": true,
+  "checked_at": "2026-05-17T00:00:00.000Z",
+  "details": {},
+  "dependencies": []
+}
+```
+
+Registration 只把 `status: "healthy"` 且 `ready: true` 视为健康检查成功。`degraded` 是诊断状态，在搜索可见性里会按 unhealthy 计数。
 
 ## Provider Contract 形状
 

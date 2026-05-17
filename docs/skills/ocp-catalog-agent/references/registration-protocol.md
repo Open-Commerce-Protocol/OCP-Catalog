@@ -87,6 +87,7 @@ The most useful route-hint fields for an agent are:
 - `catalog_id`
 - `catalog_name`
 - `manifest_url`
+- `health_url`
 - `query_url`
 - `resolve_url`
 - `supported_query_packs`
@@ -107,6 +108,7 @@ When searching Registration node:
 
 - search for catalogs, not products
 - prefer catalogs whose trust and health are suitable for the task
+- remember that repeated Catalog health failures can make a route hint disappear from default search when its index entry becomes stale
 - prefer catalogs whose `supported_query_packs` match the intended query shape
 - use route hints as routing input, not as complete catalog truth
 
@@ -116,4 +118,3 @@ When searching Registration node:
 - assuming Registration node search results are product results
 - ignoring trust and health fields during routing
 - skipping route-hint inspection before catalog query
-

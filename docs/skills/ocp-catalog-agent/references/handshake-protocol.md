@@ -32,6 +32,7 @@ These tell the agent:
 
 - who the catalog is
 - where the public query and resolve endpoints are
+- where the catalog health endpoint is, when declared
 - which query capabilities and query packs exist
 - which fields are accepted by the query contract
 
@@ -42,9 +43,12 @@ Typical public catalog endpoints are:
 ```text
 GET  /.well-known/ocp-catalog
 GET  /ocp/manifest
+GET  /ocp/health
 POST /ocp/query
 POST /ocp/resolve
 ```
+
+`/ocp/health` returns `CatalogHealth`. Registration nodes treat only `status: "healthy"` with `ready: true` as a successful health check; `degraded` is diagnostic and should not be preferred for routing.
 
 Provider-facing endpoints may also exist:
 
@@ -89,12 +93,13 @@ But the agent must still verify what the selected catalog actually declares.
 Before calling `/ocp/query`, inspect:
 
 1. `endpoints.query.url`
-2. `endpoints.resolve.url` if resolve is needed
-3. `query_capabilities`
-4. each declared `pack_id`
-5. query-pack metadata
-6. language hints
-7. accepted filter or input fields
+2. `endpoints.health.url` if present
+3. `endpoints.resolve.url` if resolve is needed
+4. `query_capabilities`
+5. each declared `pack_id`
+6. query-pack metadata
+7. language hints
+8. accepted filter or input fields
 
 ## Common Agent Mistakes
 

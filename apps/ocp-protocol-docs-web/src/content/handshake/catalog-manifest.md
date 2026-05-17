@@ -18,14 +18,34 @@ It tells a provider or agent:
 ```json
 {
   "endpoints": {
-    "query": { "url": "https://catalog.example/query" },
-    "resolve": { "url": "https://catalog.example/resolve" },
-    "provider_registration": { "url": "https://catalog.example/providers/register" },
-    "contracts": { "url": "https://catalog.example/contracts" },
-    "object_sync": { "url": "https://catalog.example/object-sync" }
+    "health": { "url": "https://catalog.example/ocp/health", "method": "GET" },
+    "query": { "url": "https://catalog.example/ocp/query", "method": "POST" },
+    "resolve": { "url": "https://catalog.example/ocp/resolve", "method": "POST" },
+    "provider_registration": { "url": "https://catalog.example/ocp/providers/register", "method": "POST" },
+    "contracts": { "url": "https://catalog.example/ocp/contracts", "method": "GET" },
+    "object_sync": { "url": "https://catalog.example/ocp/objects/sync", "method": "POST" }
   }
 }
 ```
+
+`endpoints.health` is optional for schema compatibility, but production catalogs should expose it. Registration nodes call it during registration and refresh before falling back to a query probe for older manifests.
+
+The health endpoint returns `CatalogHealth`:
+
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogHealth",
+  "catalog_id": "hello_catalog",
+  "status": "healthy",
+  "ready": true,
+  "checked_at": "2026-05-17T00:00:00.000Z",
+  "details": {},
+  "dependencies": []
+}
+```
+
+Only `status: "healthy"` with `ready: true` is treated as a successful Registration health check. `degraded` is a diagnostic state and is counted as unhealthy for search visibility.
 
 ## Provider Contract Shape
 

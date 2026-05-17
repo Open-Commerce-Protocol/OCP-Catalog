@@ -7,6 +7,7 @@
 - 一个稳定的 `catalog_id`
 - 一个 discovery 文档
 - 一个 manifest
+- 一个 health 接口
 - 一个 query 接口
 - 一次向 Registration node 发起的 registration 请求
 
@@ -44,6 +45,7 @@ new Elysia()
     catalog_id: 'hello_catalog',
     catalog_name: 'Hello Catalog',
     manifest_url: `${baseUrl}/ocp/manifest`,
+    health_url: `${baseUrl}/ocp/health`,
     query_url: `${baseUrl}/ocp/query`,
   }))
   .get('/ocp/manifest', () => ({
@@ -53,8 +55,13 @@ new Elysia()
     catalog_name: 'Hello Catalog',
     description: '一个只包含单个布尔查询字段的最小示例 catalog。',
     endpoints: {
+      health: {
+        url: `${baseUrl}/ocp/health`,
+        method: 'GET',
+      },
       query: {
         url: `${baseUrl}/ocp/query`,
+        method: 'POST',
       },
     },
     query_capabilities: [
@@ -81,6 +88,16 @@ new Elysia()
       },
     ],
     object_contracts: [],
+  }))
+  .get('/ocp/health', () => ({
+    ocp_version: '1.0',
+    kind: 'CatalogHealth',
+    catalog_id: 'hello_catalog',
+    status: 'healthy',
+    ready: true,
+    checked_at: new Date().toISOString(),
+    details: {},
+    dependencies: [],
   }))
   .post('/ocp/query', async ({ body }) => {
     const request = typeof body === 'object' && body ? body as Record<string, unknown> : {};
@@ -118,6 +135,7 @@ new Elysia()
 
 - Registration node 可以从 `/.well-known/ocp-catalog` 拉 discovery
 - Registration node 可以从 `/ocp/manifest` 拉 manifest
+- Registration node 可以通过 `/ocp/health` 检查 ready 状态
 - agent 可以从 manifest metadata 读到 query contract
 - agent 可以实际调用 `/ocp/query`
 
@@ -154,10 +172,10 @@ await fetch('https://registration.example.com/ocp/catalogs/register', {
 
 ```text
 catalog 进程启动
--> 对外提供 discovery + manifest + query
+-> 对外提供 discovery + manifest + health + query
 -> 向 Registration node 提交 CatalogRegistration
 -> Registration node 拉取 discovery 和 manifest
--> Registration node 验证并做健康检查
+-> Registration node 调用 manifest 声明的 health endpoint
 -> agent 开始把 query 路由到 /ocp/query
 ```
 

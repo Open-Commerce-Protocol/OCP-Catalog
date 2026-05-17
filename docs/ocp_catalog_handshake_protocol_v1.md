@@ -649,24 +649,43 @@ Provider 侧需要实现：
 
 返回 `CatalogManifest`。
 
-### 13.3 GET /ocp/contracts
+### 13.3 GET /ocp/health
+
+返回 `CatalogHealth`，用于让 Registration node 在注册和 refresh 时检查 Catalog 是否 ready。
+
+```json
+{
+  "ocp_version": "1.0",
+  "kind": "CatalogHealth",
+  "catalog_id": "cat_local_dev",
+  "status": "healthy",
+  "ready": true,
+  "checked_at": "2026-05-17T00:00:00.000Z",
+  "details": {},
+  "dependencies": []
+}
+```
+
+`CatalogManifest.endpoints.health` 是可选字段，但生产级 Catalog 应该声明该 endpoint。Registration node 只把 `status: "healthy"` 且 `ready: true` 视为健康检查成功；`degraded` 是诊断状态，在 registration 搜索可见性中按 unhealthy 处理。
+
+### 13.4 GET /ocp/contracts
 
 返回 `ObjectContract` 列表。
 
-### 13.4 POST /ocp/providers/register
+### 13.5 POST /ocp/providers/register
 
 请求：`ProviderRegistration`  
 返回：`RegistrationResult`
 
 Provider registration 是接入握手，不要求使用 object sync 的写入凭证。Catalog 可以为该入口设计自己的 intake、审核或限流策略，但不应把 object sync credential 当成 `ProviderRegistration` 的协议前置条件。
 
-### 13.5 POST /ocp/objects/sync
+### 13.6 POST /ocp/objects/sync
 
 用于真实对象数据同步。
 
 本协议要求 `CatalogManifest` 声明该 endpoint 的存在，但不在 `ocp.catalog.handshake.v1` 中冻结完整对象同步 payload。
 
-### 13.6 与运行时 schema 的关系
+### 13.7 与运行时 schema 的关系
 
 当前仓库中，完整的运行时 payload 仍由 `packages/ocp-schema` 维护，包括：
 
