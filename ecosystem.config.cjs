@@ -14,7 +14,7 @@ module.exports = {
       name: 'commerce-catalog-api',
       cwd: '.',
       script: 'bun',
-      args: 'apps/examples/commerce-catalog-api/dist/index.js',
+      args: 'run commerce:catalog:api',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
@@ -38,6 +38,17 @@ module.exports = {
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
+      },
+    },
+    {
+      name: 'alimama-provider-api',
+      cwd: '.',
+      script: 'bun',
+      args: 'run --cwd apps/examples/alimama-provider-api start',
+      interpreter: 'none',
+      env: {
+        NODE_ENV: 'production',
+        PROVIDER_PORT: '4310',
       },
     },
     {

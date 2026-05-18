@@ -101,13 +101,15 @@ export class AlimamaClient {
       };
     }
 
-    return this.callTop<AlimamaMaterialResponse>('taobao.tbk.dg.material.optional', {
+    const upgraded = await this.callTop<AlimamaMaterialOptionalUpgradeResponse>('taobao.tbk.dg.material.optional.upgrade', {
       ...(opts.q ? { q: opts.q } : {}),
       ...(opts.cat ? { cat: opts.cat } : {}),
       page_no: String(opts.pageNo),
       page_size: String(opts.pageSize),
       adzone_id: opts.adzoneId ?? this.cfg.ALIMAMA_ADZONE_ID,
     });
+
+    return normalizeMaterialOptionalUpgrade(upgraded);
   }
 
   /**
@@ -210,4 +212,103 @@ export class AlimamaClient {
 
     return data as T;
   }
+}
+
+type AlimamaMaterialOptionalUpgradeResponse = {
+  tbk_dg_material_optional_upgrade_response: {
+    total_results?: number;
+    result_list?: {
+      map_data?: Array<{
+        item_id?: string | number;
+        item_basic_info?: {
+          brand_name?: string;
+          category_id?: number;
+          category_name?: string;
+          pict_url?: string;
+          seller_id?: number;
+          shop_title?: string;
+          title?: string;
+          tk_total_sales?: string;
+          user_type?: number;
+          volume?: number;
+          white_image?: string;
+        };
+        price_promotion_info?: {
+          final_promotion_price?: string;
+          reserve_price?: string;
+          zk_final_price?: string;
+          final_promotion_path_list?: {
+            final_promotion_path_map_data?: Array<{
+              promotion_desc?: string;
+              promotion_end_time?: string;
+              promotion_fee?: string;
+              promotion_id?: string;
+              promotion_start_time?: string;
+              promotion_title?: string;
+            }>;
+          };
+        };
+        publish_info?: {
+          click_url?: string;
+          coupon_share_url?: string;
+          income_info?: {
+            commission_rate?: string;
+          };
+        };
+      }>;
+    };
+  };
+};
+
+function normalizeMaterialOptionalUpgrade(
+  response: AlimamaMaterialOptionalUpgradeResponse,
+): AlimamaMaterialResponse {
+  const payload = response.tbk_dg_material_optional_upgrade_response;
+  const items = payload.result_list?.map_data ?? [];
+
+  return {
+    tbk_dg_material_optional_response: {
+      total_results: payload.total_results ?? items.length,
+      result_list: {
+        map_data: items.map((item) => {
+          const basic = item.item_basic_info ?? {};
+          const price = item.price_promotion_info ?? {};
+          const publish = item.publish_info ?? {};
+          const primaryPromotion = price.final_promotion_path_list
+            ?.final_promotion_path_map_data
+            ?.find((promotion) => promotion.promotion_title?.includes('券') || promotion.promotion_desc);
+
+          return {
+            num_iid: item.item_id ?? '',
+            title: basic.title ?? '',
+            pict_url: basic.pict_url ?? basic.white_image ?? '',
+            small_images: basic.white_image && basic.white_image !== basic.pict_url
+              ? { string: [basic.white_image] }
+              : null,
+            item_url: publish.click_url ?? publish.coupon_share_url ?? '',
+            reserve_price: price.reserve_price ?? price.zk_final_price ?? price.final_promotion_price ?? '0',
+            zk_final_price: price.final_promotion_price ?? price.zk_final_price ?? price.reserve_price ?? '0',
+            user_type: basic.user_type ?? 0,
+            shop_title: basic.brand_name || basic.shop_title,
+            seller_id: basic.seller_id,
+            category_id: basic.category_id,
+            cat: basic.category_name ?? (basic.category_id !== undefined ? String(basic.category_id) : undefined),
+            volume: basic.volume,
+            commission_rate: publish.income_info?.commission_rate,
+            tk_total_sales: basic.tk_total_sales,
+            coupon_info: primaryPromotion?.promotion_desc ?? null,
+            coupon_start_time: normalizeTimestampMillis(primaryPromotion?.promotion_start_time),
+            coupon_end_time: normalizeTimestampMillis(primaryPromotion?.promotion_end_time),
+          };
+        }),
+      },
+    },
+  };
+}
+
+function normalizeTimestampMillis(value: string | undefined) {
+  if (!value) return null;
+  const millis = Number(value);
+  if (!Number.isFinite(millis)) return null;
+  return new Date(millis).toISOString().slice(0, 10);
 }

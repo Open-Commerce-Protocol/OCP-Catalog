@@ -2,7 +2,8 @@
  * 阿里妈妈淘宝联盟 API 的 TypeScript 类型（仅本服务用到的字段子集）。
  *
  * 参考接口：
- *   - taobao.tbk.dg.material.optional      物料搜索
+ *   - taobao.tbk.dg.material.optional      旧版物料搜索
+ *   - taobao.tbk.dg.material.optional.upgrade 新版物料搜索
  *   - taobao.tbk.privilege.get             单品券高效转链
  *   - taobao.tbk.order.get                 订单查询（暂未使用，预留）
  *
@@ -35,8 +36,8 @@ export interface AlimamaErrorResponse {
 
 /** material.optional 返回的单个商品 */
 export interface AlimamaMaterialItem {
-  /** 商品 ID（数字 num_iid） */
-  num_iid: number;
+  /** 商品 ID。新版接口可能返回加密/混淆后的字符串 item_id。 */
+  num_iid: number | string;
 
   /** 商品标题 */
   title: string;
@@ -84,7 +85,7 @@ export interface AlimamaMaterialItem {
    * 佣金率，基点单位（1550 = 15.5%）
    * 主流形态是 number，少数情况返字符串；mapper 兼容处理
    */
-  commission_rate?: number;
+  commission_rate?: number | string;
 
   /** 淘客 30 天销量（字符串） */
   tk_total_sales?: string;
