@@ -10,8 +10,10 @@
 - 哪些 endpoint 是公开的
 - 它接受哪些 object contract
 - 它暴露哪些 query capability
-- 它要求 provider 具备哪些字段
-- 它愿意和 provider 协商哪些 sync capability
+- 可选：它要求 provider 具备哪些字段
+- 可选：它愿意和 provider 协商哪些 sync capability
+
+Catalog Node 不一定要接受 Provider 写入。联盟分佣网络、联邦路由节点、实时 API 目录这类 source catalog，可以只暴露 query 和 resolve 表面。
 
 ## Endpoint 形状
 
@@ -29,6 +31,8 @@
 ```
 
 `endpoints.health` 为了 schema 兼容仍是可选字段，但生产级 catalog 应该暴露它。Registration node 在注册和 refresh 时会优先调用这个 endpoint；旧 manifest 没声明时才降级为 query probe。
+
+协议只强制要求 `endpoints.query` 和 `endpoints.resolve`。`provider_registration`、`object_sync`、`contracts`、`provider_contract` 只有在 Catalog 实现这些表面时才出现。实时分佣 Catalog 可以完全省略 Provider ingestion endpoints。
 
 health endpoint 返回 `CatalogHealth`：
 
@@ -48,6 +52,8 @@ health endpoint 返回 `CatalogHealth`：
 Registration 只把 `status: "healthy"` 且 `ready: true` 视为健康检查成功。`degraded` 是诊断状态，在搜索可见性里会按 unhealthy 计数。
 
 ## Provider Contract 形状
+
+`provider_contract` 是可选字段。只有当 Catalog 接受 Provider registration 或 object sync 时才需要声明；如果 Catalog 只是可查询、可解析的 source node，应直接省略。
 
 `provider_contract` 包含两个正式部分：
 

@@ -24,6 +24,7 @@
     "registration:admin": "bun run --cwd apps/ocp-registration-admin-web start",
     "commerce:provider:api": "bun run --cwd apps/examples/commerce-provider-api start",
     "commerce:provider:admin": "bun run --cwd apps/examples/commerce-provider-admin-web dev",
+    "alimama:catalog:api": "bun run --cwd apps/examples/alimama-catalog-api start",
     "user:demo:api": "bun run --cwd apps/examples/ocp-user-demo-api start",
     "user:demo": "bun run --cwd apps/examples/ocp-user-demo-web dev",
     "webmcp:demo": "bun run --cwd apps/examples/ocp-webmcp-mcp-demo-web dev",

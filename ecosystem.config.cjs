@@ -41,14 +41,14 @@ module.exports = {
       },
     },
     {
-      name: 'alimama-provider-api',
+      name: 'alimama-catalog-api',
       cwd: '.',
       script: 'bun',
-      args: 'run --cwd apps/examples/alimama-provider-api start',
+      args: 'run --cwd apps/examples/alimama-catalog-api start',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',
-        PROVIDER_PORT: '4310',
+        ALIMAMA_CATALOG_PORT: '4310',
       },
     },
     {

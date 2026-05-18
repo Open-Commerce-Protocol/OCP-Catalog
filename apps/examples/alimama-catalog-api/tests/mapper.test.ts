@@ -11,8 +11,8 @@ import type { AlimamaMaterialItem } from '../src/alimama/types';
 const items = fixture.tbk_dg_material_optional_response.result_list.map_data as AlimamaMaterialItem[];
 
 const ctx: MapperContext = {
-  providerId: 'alimama_test',
-  providerBaseUrl: 'http://localhost:4300',
+  sourceId: 'alimama_test',
+  catalogBaseUrl: 'http://localhost:4310',
 };
 
 // ============================================================
@@ -108,7 +108,7 @@ describe('mapMaterialToCommercialObject', () => {
     expect(attrs.requires_affiliate_resolution).toBeUndefined();
     expect(attrs.provider_resolve_hook_url).toBeUndefined();
     expect(attrs.action_endpoint).toBeUndefined();
-    expect(attrs.affiliate_provider).toBe('alimama_taobao_union');
+    expect(attrs.affiliate_source).toBe('alimama_taobao_union');
   });
 
   test('price 是 number 不是 string', () => {

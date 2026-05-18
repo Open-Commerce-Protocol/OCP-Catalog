@@ -1,13 +1,12 @@
 /**
- * Mapper: taobao.tbk.privilege.get 响应 → provider-owned affiliate links.
+ * Mapper: taobao.tbk.privilege.get 响应 → affiliate action links.
  *
  * 一个商品可能产出多个 affiliate links:
  *   - coupon_click_url      → 'buy_with_coupon'  优先(带 affiliate PID + 券)
  *   - item_url (无券)       → 'buy_now'           带 affiliate PID 但无券
  *   - mm_coupon_click_url   → 'buy_with_tmall_coupon' 天猫专属券(独立 link)
  *
- * 这些链接是 provider API 的内部结果，不是 OCP ActionBinding。动态
- * affiliate action 如何进入 OCP Resolve 应由后续正式协议定义。
+ * Catalog resolve 会把这些链接包装成 OCP ActionBinding。
  */
 import type { AlimamaPrivilegeData } from '../alimama/types';
 

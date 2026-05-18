@@ -10,7 +10,6 @@
     "catalog_name",
     "endpoints",
     "query_capabilities",
-    "provider_contract",
     "object_contracts"
   ],
   "properties": {
@@ -41,7 +40,7 @@
     },
     "endpoints": {
       "type": "object",
-      "required": ["query", "resolve", "provider_registration", "contracts", "object_sync"],
+      "required": ["query", "resolve"],
       "properties": {
         "health": {
           "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"

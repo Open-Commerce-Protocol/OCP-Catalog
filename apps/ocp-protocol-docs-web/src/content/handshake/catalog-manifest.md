@@ -10,8 +10,12 @@ It tells a provider or agent:
 - which endpoints are public
 - which object contracts it accepts
 - which query capabilities it exposes
-- which provider fields it requires
-- which sync capabilities it is willing to negotiate with providers
+- optionally, which provider fields it requires
+- optionally, which sync capabilities it is willing to negotiate with providers
+
+A Catalog Node is not required to accept Provider ingestion. Source catalogs such
+as affiliate networks, federated routing nodes, or live API directories may only
+expose query and resolve surfaces.
 
 ## Endpoint Shape
 
@@ -29,6 +33,11 @@ It tells a provider or agent:
 ```
 
 `endpoints.health` is optional for schema compatibility, but production catalogs should expose it. Registration nodes call it during registration and refresh before falling back to a query probe for older manifests.
+
+Only `endpoints.query` and `endpoints.resolve` are required. `provider_registration`,
+`object_sync`, `contracts`, and `provider_contract` are present only when the
+Catalog implements those surfaces. A live affiliate Catalog can omit Provider
+ingestion endpoints entirely.
 
 The health endpoint returns `CatalogHealth`:
 
@@ -48,6 +57,10 @@ The health endpoint returns `CatalogHealth`:
 Only `status: "healthy"` with `ready: true` is treated as a successful Registration health check. `degraded` is a diagnostic state and is counted as unhealthy for search visibility.
 
 ## Provider Contract Shape
+
+`provider_contract` is optional. It is needed when the Catalog accepts Provider
+registration or object sync, and should be omitted when the Catalog only acts as
+a queryable/resolvable source node.
 
 `provider_contract` includes two formal surfaces:
 

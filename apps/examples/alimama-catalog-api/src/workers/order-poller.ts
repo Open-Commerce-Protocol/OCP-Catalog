@@ -4,7 +4,7 @@
  * 默认行为:每次拉过去 24 小时的订单（涵盖延迟下单)。
  * 真接 Alimama 后建议改成"拉过去 7 天",因为订单状态 4 个月内还可能变化(维权扣回)。
  *
- * 间隔由 ORDER_POLL_INTERVAL_SEC 控制,0 表示不启用。
+ * 间隔由 ALIMAMA_ORDER_POLL_INTERVAL_SEC 控制,0 表示不启用。
  */
 import type { AlimamaClient } from '../alimama/client';
 import { AlimamaApiError } from '../alimama/client';
@@ -53,7 +53,7 @@ export async function syncOrdersOnce(
 }
 
 export function startOrderPoller(deps: OrderPollerDeps): { stop: () => void } {
-  const intervalSec = deps.cfg.ORDER_POLL_INTERVAL_SEC;
+  const intervalSec = deps.cfg.ALIMAMA_ORDER_POLL_INTERVAL_SEC;
   if (intervalSec <= 0) {
     return { stop: () => {} };
   }

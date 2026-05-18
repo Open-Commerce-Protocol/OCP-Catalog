@@ -32,12 +32,14 @@ export type ResolveContext = {
   expires_at: string;
 };
 
+type ProviderContract = NonNullable<CatalogManifest['provider_contract']>;
+
 export type CatalogScenarioModule = {
   description?: string;
   registryVisibility?: CatalogManifest['registry_visibility'];
   objectContracts(): ObjectContract[];
-  providerFieldRules?(): CatalogManifest['provider_contract']['field_rules'];
-  providerSyncCapabilities?(): CatalogManifest['provider_contract']['sync_capabilities'];
+  providerFieldRules?(): ProviderContract['field_rules'];
+  providerSyncCapabilities?(): ProviderContract['sync_capabilities'];
   queryCapabilities(): CatalogManifest['query_capabilities'];
   validateDescriptorPack(packId: string, data: unknown): DescriptorValidationResult;
   buildSearchProjection(object: CommercialObject): SearchProjection;
@@ -48,7 +50,7 @@ export type CatalogScenarioModule = {
   buildResolveLiveChecks?(context: ResolveContext): ResolvableReference['live_checks'];
 };
 
-export function defaultProviderFieldRules(): CatalogManifest['provider_contract']['field_rules'] {
+export function defaultProviderFieldRules(): ProviderContract['field_rules'] {
   return [
     {
       field_ref: 'provider#/display_name',
@@ -63,6 +65,6 @@ export function defaultProviderFieldRules(): CatalogManifest['provider_contract'
   ];
 }
 
-export function defaultProviderSyncCapabilities(): CatalogManifest['provider_contract']['sync_capabilities'] {
+export function defaultProviderSyncCapabilities(): ProviderContract['sync_capabilities'] {
   return [];
 }

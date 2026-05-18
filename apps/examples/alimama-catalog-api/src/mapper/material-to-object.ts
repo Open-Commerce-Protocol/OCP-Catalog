@@ -1,5 +1,5 @@
 /**
- * Mapper: 阿里妈妈 material.optional 单条商品 → OCP CommercialObject
+ * Mapper: 阿里妈妈 material.optional 单条商品 → OCP-style catalog item.
  *
  * 这是 "用 OCP Catalog 包阿里妈妈" 翻译适配层的核心翻译函数。
  *
@@ -12,16 +12,16 @@
  * 关键不变量（被单测固化）：
  *   1. 所有 image_urls 都是绝对 https:// URL
  *   2. price 字段是 number 而非 string
- *   3. affiliate metadata stays descriptive; dynamic action protocol belongs to a future OCP extension
+ *   3. affiliate metadata stays descriptive; dynamic purchase actions are minted by /ocp/resolve
  *   4. 缺失的可选字段被优雅省略而不是写 undefined
  */
 import type { AlimamaMaterialItem } from '../alimama/types';
 
 export interface MapperContext {
-  /** OCP Provider ID (env OCP_PROVIDER_ID) */
-  providerId: string;
-  /** 本 alimama-provider 服务的对外可访问 base URL */
-  providerBaseUrl: string;
+  /** Source connector id inside this Catalog Node. */
+  sourceId: string;
+  /** Catalog public base URL. */
+  catalogBaseUrl: string;
 }
 
 /** 与 OCP CommercialObject 协议对齐的对象形状（描述性，运行时由 OCP catalog 校验） */
@@ -113,17 +113,17 @@ export function mapMaterialToCommercialObject(
     commission_rate_bp: m.commission_rate ?? null,
     tk_sales_30d: m.tk_total_sales ?? null,
     coupon,
-    affiliate_provider: 'alimama_taobao_union',
+    affiliate_source: 'alimama_taobao_union',
   };
 
   // 6. 拼装 CommercialObject
   return {
     ocp_version: '1.0',
     kind: 'CommercialObject',
-    id: `obj_${ctx.providerId}_${m.num_iid}`,
+    id: `obj_${ctx.sourceId}_${m.num_iid}`,
     object_id: String(m.num_iid),
     object_type: 'product',
-    provider_id: ctx.providerId,
+    provider_id: ctx.sourceId,
     title: m.title,
     status: 'active',
     ...(productUrl ? { source_url: productUrl } : {}),

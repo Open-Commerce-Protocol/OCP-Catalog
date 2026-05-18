@@ -4,7 +4,7 @@
 
 它负责冻结三类内容：
 
-1. Catalog 如何暴露自己的 manifest、query 能力和 provider 接入面
+1. Catalog 如何暴露自己的 manifest、query 能力和可选的 provider 接入面
 2. Catalog 如何声明对象契约
 3. Provider 如何提交版本化注册声明并协商 sync capability
 
@@ -65,7 +65,11 @@ ocp.catalog.handshake.v1/
 - 公开 endpoint
 - 接受哪些对象契约
 - 暴露哪些查询能力
-- 暴露哪些 provider-facing sync capabilities
+- 可选暴露哪些 provider-facing sync capabilities
+
+`CatalogManifest` 只强制要求 query 和 resolve endpoints。`provider_registration`、
+`object_sync` 和 `provider_contract` 是可选能力，用于接受 Provider 写入的
+Catalog；实时 source catalog（例如联盟分佣目录）可以只提供 query/resolve。
 
 ### Query Capability Structure
 

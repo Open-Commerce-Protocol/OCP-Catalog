@@ -64,7 +64,7 @@ describe('privilegeToAffiliateLinks', () => {
     expect(privilegeToAffiliateLinks(undefined)).toEqual([]);
   });
 
-  test('所有 link 都是 provider-owned URL 结果，不暴露 OCP ActionBinding 字段', () => {
+  test('所有 link 都是 affiliate URL 结果，不暴露 OCP ActionBinding 字段', () => {
     const data: AlimamaPrivilegeData = {
       coupon_click_url: 'https://s.click.taobao.com/a',
       mm_coupon_click_url: 'https://s.click.taobao.com/b',

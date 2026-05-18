@@ -3,18 +3,17 @@ import { AlimamaClient, AlimamaApiError } from '../src/alimama/client';
 import type { AlimamaConfig } from '../src/config';
 
 const mockCfg: AlimamaConfig = {
-  OCP_CATALOG_BASE_URL: 'http://localhost:4000',
-  OCP_CATALOG_ID: 'cat_local_dev',
-  OCP_PROVIDER_ID: 'alimama_test',
-  OCP_API_KEY: 'dev-api-key',
-  OCP_PROVIDER_BASE_URL: 'http://localhost:4300',
-  OCP_PROVIDER_ADMIN_KEY: 'dev-admin-key',
-  OCP_PROVIDER_HOOK_SECRET: 'dev-hook-secret',
-  PROVIDER_PORT: 4300,
+  ALIMAMA_CATALOG_ID: 'cat_alimama_test',
+  ALIMAMA_CATALOG_NAME: 'Alimama Test Catalog',
+  ALIMAMA_CATALOG_PUBLIC_BASE_URL: 'http://localhost:4310',
+  ALIMAMA_CATALOG_ADMIN_KEY: 'dev-admin-key',
+  ALIMAMA_CATALOG_PORT: 4310,
   ALIMAMA_MOCK: true,
   ALIMAMA_ADZONE_ID: 'mock_adzone_001',
   ALIMAMA_BASE_URL: 'https://gw.api.taobao.com/router/rest',
-  OCP_AUTO_SYNC: false,
+  ALIMAMA_QUERY_TIMEOUT_MS: 5000,
+  ALIMAMA_DEFAULT_PAGE_SIZE: 20,
+  ALIMAMA_ORDER_POLL_INTERVAL_SEC: 0,
 };
 
 describe('AlimamaClient (mock 模式)', () => {

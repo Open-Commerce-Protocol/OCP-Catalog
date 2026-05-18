@@ -1,11 +1,11 @@
 {
-  "name": "@ocp-catalog/alimama-provider-api",
+  "name": "@ocp-catalog/alimama-catalog-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "cd ../../.. && bun --watch apps/examples/alimama-provider-api/src/index.ts",
-    "start": "cd ../../.. && bun apps/examples/alimama-provider-api/src/index.ts",
+    "dev": "cd ../../.. && bun --watch apps/examples/alimama-catalog-api/src/index.ts",
+    "start": "cd ../../.. && bun apps/examples/alimama-catalog-api/src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "bun test --pass-with-no-tests"

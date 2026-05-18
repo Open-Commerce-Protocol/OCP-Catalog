@@ -210,7 +210,7 @@ export interface AlimamaOrder {
   adzone_id?: number;
   /** 媒体 ID */
   site_id?: number;
-  /** Provider 在调 privilege.get 时传入的 external_id 透传回来 */
+  /** 调用 privilege.get 时传入的 external_id 透传回来 */
   click_time?: string;
   /** 数量 */
   item_num?: number;
