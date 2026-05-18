@@ -1,9 +1,23 @@
 import { resolveRequestSchema } from '@ocp-catalog/ocp-schema';
 import type { AlimamaClient } from '../alimama/client';
 import type { AlimamaConfig } from '../config';
-import { privilegeToAffiliateLinks } from '../mapper/privilege-to-link';
+import { materialToAffiliateLinks } from '../mapper/material-to-link';
 import { sourceId } from './manifest';
 
+/**
+ * /ocp/resolve 服务。
+ *
+ * 关键设计 (2026-05 修复 session 错误)：
+ *   旧实现走 taobao.tbk.privilege.get,该 API 要 TOP session,
+ *   在无 OAuth 授权场景下报 "传入http参数中必需包含session字段"。
+ *
+ *   新实现走 taobao.tbk.dg.material.optional.upgrade,接受 item_id_list 参数
+ *   查询单个商品的最新信息;响应里 publish_info.click_url 就是带 PID 的 affiliate URL。
+ *   AlimamaClient.getMaterialByItemId() 封装了这个调用 + normalize 把 click_url
+ *   写进 AlimamaMaterialItem.item_url。
+ *
+ *   每次 resolve 实时调一次上游 → catalog 真正保持无状态。
+ */
 export class AffiliateCatalogResolveService {
   constructor(
     private readonly alimama: AlimamaClient,
@@ -14,12 +28,14 @@ export class AffiliateCatalogResolveService {
     const request = resolveRequestSchema.parse(input);
     const objectId = objectIdFromEntry(request.entry_id);
     const checkedAt = new Date();
-    const privilege = await this.alimama.generatePrivilegeLink({
+
+    // 实时调上游拿带 PID 的 click_url（避开 privilege.get 的 TOP session 要求）
+    const item = await this.alimama.getMaterialByItemId({
       itemId: objectId,
       adzoneId: this.cfg.ALIMAMA_ADZONE_ID,
-      externalId: request.entry_id,
     });
-    const links = privilegeToAffiliateLinks(privilege.tbk_privilege_get_response?.result?.data);
+    const links = materialToAffiliateLinks(item);
+    const title = item?.title ?? `Alimama affiliate item ${objectId}`;
 
     return {
       ocp_version: '1.0',
@@ -31,7 +47,7 @@ export class AffiliateCatalogResolveService {
       object_id: objectId,
       object_type: 'product',
       provider_id: sourceId(),
-      title: `Alimama affiliate item ${objectId}`,
+      title,
       visible_attributes: {
         source_id: sourceId(),
         source_type: 'affiliate_network',
@@ -49,10 +65,13 @@ export class AffiliateCatalogResolveService {
       },
       live_checks: [
         {
-          check_id: 'alimama_privilege_link',
+          check_id: 'alimama_material_lookup',
           status: links.length > 0 ? 'passed' : 'unknown',
           checked_at: checkedAt.toISOString(),
-          summary: links.length > 0 ? 'Alimama returned affiliate links.' : 'No affiliate links returned.',
+          summary:
+            links.length > 0
+              ? 'Alimama returned affiliate links via material.optional.upgrade.'
+              : 'No affiliate links returned for this item id.',
         },
       ],
       action_bindings: links.map((link) => ({
