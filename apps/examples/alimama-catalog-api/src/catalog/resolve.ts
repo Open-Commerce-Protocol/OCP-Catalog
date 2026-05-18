@@ -2,6 +2,7 @@ import { resolveRequestSchema } from '@ocp-catalog/ocp-schema';
 import type { AlimamaClient } from '../alimama/client';
 import type { AlimamaConfig } from '../config';
 import { materialToAffiliateLinks } from '../mapper/material-to-link';
+import type { MaterialResolveCache } from './material-cache';
 import { sourceId } from './manifest';
 
 /**
@@ -22,6 +23,7 @@ export class AffiliateCatalogResolveService {
   constructor(
     private readonly alimama: AlimamaClient,
     private readonly cfg: AlimamaConfig,
+    private readonly resolveCache?: MaterialResolveCache,
   ) {}
 
   async resolve(input: unknown) {
@@ -30,10 +32,11 @@ export class AffiliateCatalogResolveService {
     const checkedAt = new Date();
 
     // 实时调上游拿带 PID 的 click_url（避开 privilege.get 的 TOP session 要求）
-    const item = await this.alimama.getMaterialByItemId({
-      itemId: objectId,
-      adzoneId: this.cfg.ALIMAMA_ADZONE_ID,
-    });
+    const item = this.resolveCache?.get(request.entry_id)
+      ?? await this.alimama.getMaterialByItemId({
+        itemId: objectId,
+        adzoneId: this.cfg.ALIMAMA_ADZONE_ID,
+      });
     const links = materialToAffiliateLinks(item);
     const title = item?.title ?? `Alimama affiliate item ${objectId}`;
 

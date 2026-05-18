@@ -6,6 +6,7 @@ import type { AlimamaConfig } from './config';
 import { AffiliateCatalogQueryService } from './catalog/query';
 import { AffiliateCatalogResolveService } from './catalog/resolve';
 import { buildCatalogHealth, buildCatalogManifest, buildWellKnownDiscovery } from './catalog/manifest';
+import { MaterialResolveCache } from './catalog/material-cache';
 import { createAdminRoutes } from './http/admin';
 import type { CommissionLedger } from './services/commission-ledger';
 
@@ -16,8 +17,9 @@ export interface AlimamaCatalogAppDeps {
 }
 
 export function createAlimamaCatalogApp(deps: AlimamaCatalogAppDeps) {
-  const queryService = new AffiliateCatalogQueryService(deps.alimama, deps.cfg);
-  const resolveService = new AffiliateCatalogResolveService(deps.alimama, deps.cfg);
+  const resolveCache = new MaterialResolveCache();
+  const queryService = new AffiliateCatalogQueryService(deps.alimama, deps.cfg, resolveCache);
+  const resolveService = new AffiliateCatalogResolveService(deps.alimama, deps.cfg, resolveCache);
 
   return new Elysia()
     .use(cors({ origin: false }))

@@ -3,12 +3,14 @@ import type { AlimamaClient } from '../alimama/client';
 import type { AlimamaMaterialItem } from '../alimama/types';
 import type { AlimamaConfig } from '../config';
 import { mapMaterialToCommercialObject, type CommercialObject } from '../mapper/material-to-object';
+import type { MaterialResolveCache } from './material-cache';
 import { sourceId } from './manifest';
 
 export class AffiliateCatalogQueryService {
   constructor(
     private readonly alimama: AlimamaClient,
     private readonly cfg: AlimamaConfig,
+    private readonly resolveCache?: MaterialResolveCache,
   ) {}
 
   async query(input: unknown) {
@@ -43,7 +45,11 @@ export class AffiliateCatalogQueryService {
         has_more: request.offset + objects.length < total,
         ...(request.offset + objects.length < total ? { next_offset: request.offset + objects.length } : {}),
       },
-      items: objects.map((object, index) => queryItemFromObject(object, materials[index], request.query)),
+      items: objects.map((object, index) => {
+        const item = queryItemFromObject(object, materials[index], request.query);
+        this.resolveCache?.set(item.entry_id, materials[index]);
+        return item;
+      }),
       policy_summary: {
         selected_capability_id: 'ocp.affiliate.product.search.v1',
         selected_query_pack: request.query_pack ?? 'ocp.query.keyword.v1',

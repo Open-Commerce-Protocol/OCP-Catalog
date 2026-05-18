@@ -70,5 +70,6 @@ export function materialToAffiliateLinks(
 function cleanUrl(value: string | undefined | null): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
+  if (trimmed.length === 0) return undefined;
+  return trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
 }

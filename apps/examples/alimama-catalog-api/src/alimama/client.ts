@@ -140,6 +140,7 @@ export class AlimamaClient {
       'taobao.tbk.dg.material.optional.upgrade',
       {
         item_id_list: String(opts.itemId),
+        q: String(opts.itemId),
         page_no: '1',
         page_size: '1',
         adzone_id: opts.adzoneId ?? this.cfg.ALIMAMA_ADZONE_ID,
