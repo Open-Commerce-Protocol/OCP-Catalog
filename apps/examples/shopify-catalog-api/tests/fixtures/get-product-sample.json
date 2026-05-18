@@ -1,0 +1,82 @@
+{
+  "ucp": {
+    "version": "2026-04-08",
+    "capabilities": {
+      "dev.ucp.shopping.catalog.get": [{ "version": "2026-04-08" }]
+    }
+  },
+  "product": {
+    "id": "gid://shopify/p/7f3a2b8c1d9e",
+    "title": "Organic Cotton Crewneck Sweater",
+    "description": { "plain": "Mid-weight organic cotton crew. Pre-shrunk & ethically sourced." },
+    "url": "https://demo.myshopify.com/products/organic-crew",
+    "price_range": {
+      "min": { "amount": 4900, "currency": "USD" },
+      "max": { "amount": 5900, "currency": "USD" }
+    },
+    "media": [
+      { "type": "image", "url": "https://cdn.shopify.com/p/7f3a/crew-1.jpg" }
+    ],
+    "options": [
+      {
+        "name": "Color",
+        "values": [
+          { "label": "Black", "available": true, "exists": true },
+          { "label": "Sand",  "available": false, "exists": true }
+        ]
+      },
+      {
+        "name": "Size",
+        "values": [
+          { "label": "S", "available": true, "exists": true },
+          { "label": "M", "available": true, "exists": true },
+          { "label": "L", "available": true, "exists": true }
+        ]
+      }
+    ],
+    "selected": [{ "name": "Color", "label": "Black" }],
+    "variants": [
+      {
+        "id": "gid://shopify/ProductVariant/100001",
+        "sku": "OCC-BLK-S",
+        "title": "Black / S",
+        "price": { "amount": 4900, "currency": "USD" },
+        "checkout_url": "https://demo.myshopify.com/checkouts/cn/100001",
+        "eligible": { "native_checkout": true },
+        "availability": { "available": true, "status": "in_stock", "running_low": false },
+        "options": [
+          { "name": "Color", "label": "Black" },
+          { "name": "Size",  "label": "S" }
+        ],
+        "seller": { "name": "Acme Apparel", "id": "gid://shopify/Shop/55501", "domain": "demo.myshopify.com", "url": "https://demo.myshopify.com" }
+      },
+      {
+        "id": "gid://shopify/ProductVariant/100003",
+        "sku": "OCC-BLK-M",
+        "title": "Black / M",
+        "price": { "amount": 4900, "currency": "USD" },
+        "checkout_url": "https://demo.myshopify.com/checkouts/cn/100003",
+        "eligible": { "native_checkout": true },
+        "availability": { "available": true, "status": "in_stock", "running_low": true },
+        "options": [
+          { "name": "Color", "label": "Black" },
+          { "name": "Size",  "label": "M" }
+        ],
+        "seller": { "name": "Acme Apparel", "id": "gid://shopify/Shop/55501" }
+      },
+      {
+        "id": "gid://shopify/ProductVariant/100005",
+        "sku": "OCC-BLK-L",
+        "title": "Black / L",
+        "price": { "amount": 4900, "currency": "USD" },
+        "eligible": { "native_checkout": false },
+        "availability": { "available": false, "status": "out_of_stock" },
+        "options": [
+          { "name": "Color", "label": "Black" },
+          { "name": "Size",  "label": "L" }
+        ]
+      }
+    ],
+    "rating": { "value": 4.7, "scale_max": 5, "count": 213 }
+  }
+}

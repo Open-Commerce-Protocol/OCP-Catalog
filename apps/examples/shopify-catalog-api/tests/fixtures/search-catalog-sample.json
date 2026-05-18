@@ -1,0 +1,112 @@
+{
+  "ucp": {
+    "version": "2026-04-08",
+    "capabilities": {
+      "dev.ucp.shopping.catalog.search": [{ "version": "2026-04-08" }],
+      "dev.shopify.catalog.global": [{ "version": "2026-04-08" }]
+    }
+  },
+  "products": [
+    {
+      "id": "gid://shopify/p/7f3a2b8c1d9e",
+      "title": "Organic Cotton Crewneck Sweater",
+      "description": {
+        "html": "<p>Mid-weight organic cotton crew. <strong>Pre-shrunk</strong> & ethically sourced.</p>"
+      },
+      "url": "https://demo.myshopify.com/products/organic-crew",
+      "categories": [
+        { "value": "Apparel & Accessories > Clothing > Tops", "taxonomy": "google" }
+      ],
+      "price_range": {
+        "min": { "amount": 4900, "currency": "USD" },
+        "max": { "amount": 5900, "currency": "USD" }
+      },
+      "media": [
+        { "type": "image", "url": "https://cdn.shopify.com/p/7f3a/crew-1.jpg", "alt_text": "Black sweater front" },
+        { "type": "image", "url": "https://cdn.shopify.com/p/7f3a/crew-2.jpg", "alt_text": "Sand sweater front" }
+      ],
+      "options": [
+        { "name": "Color", "values": [{ "label": "Black" }, { "label": "Sand" }] },
+        { "name": "Size",  "values": [{ "label": "S" }, { "label": "M" }, { "label": "L" }] }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/100001",
+          "sku": "OCC-BLK-M",
+          "title": "Black / M",
+          "description": { "plain": "Organic cotton crew, black, size M" },
+          "price": { "amount": 4900, "currency": "USD" },
+          "checkout_url": "https://demo.myshopify.com/checkouts/cn/100001",
+          "condition": ["new"],
+          "eligible": { "native_checkout": true },
+          "availability": { "available": true, "status": "in_stock", "running_low": false },
+          "requires": { "shipping": true, "selling_plan": false, "components": false },
+          "options": [
+            { "name": "Color", "label": "Black" },
+            { "name": "Size",  "label": "M" }
+          ],
+          "tags": ["bestseller"],
+          "seller": {
+            "name": "Acme Apparel",
+            "id": "gid://shopify/Shop/55501",
+            "domain": "demo.myshopify.com",
+            "url": "https://demo.myshopify.com"
+          }
+        },
+        {
+          "id": "gid://shopify/ProductVariant/100002",
+          "sku": "OCC-SND-L",
+          "title": "Sand / L",
+          "price": { "amount": 5900, "currency": "USD" },
+          "checkout_url": "https://demo.myshopify.com/checkouts/cn/100002",
+          "eligible": { "native_checkout": true },
+          "availability": { "available": false, "status": "out_of_stock", "running_low": false },
+          "options": [
+            { "name": "Color", "label": "Sand" },
+            { "name": "Size",  "label": "L" }
+          ],
+          "seller": {
+            "name": "Acme Apparel",
+            "id": "gid://shopify/Shop/55501",
+            "domain": "demo.myshopify.com",
+            "url": "https://demo.myshopify.com"
+          }
+        }
+      ],
+      "rating": { "value": 4.7, "scale_max": 5, "count": 213 }
+    },
+    {
+      "id": "gid://shopify/p/8a4c1f2d6e0a",
+      "title": "Recycled Wool Beanie",
+      "description": { "html": "<p>Made from recycled wool blends.</p>" },
+      "url": "https://demo.myshopify.com/products/wool-beanie",
+      "categories": [
+        { "value": "Apparel & Accessories > Clothing Accessories > Hats", "taxonomy": "google" }
+      ],
+      "price_range": {
+        "min": { "amount": 2200, "currency": "USD" },
+        "max": { "amount": 2200, "currency": "USD" }
+      },
+      "media": [
+        { "type": "image", "url": "//cdn.shopify.com/p/8a4c/beanie-1.jpg" }
+      ],
+      "options": [
+        { "name": "Color", "values": [{ "label": "Charcoal" }, { "label": "Cream" }] }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/100101",
+          "sku": "RWB-CHR",
+          "title": "Charcoal",
+          "price": { "amount": 2200, "currency": "USD" },
+          "checkout_url": "https://demo.myshopify.com/checkouts/cn/100101",
+          "eligible": { "native_checkout": false },
+          "availability": { "available": true, "status": "in_stock", "running_low": true },
+          "options": [{ "name": "Color", "label": "Charcoal" }],
+          "seller": { "name": "Acme Apparel", "id": "gid://shopify/Shop/55501" }
+        }
+      ],
+      "rating": { "value": 4.4, "scale_max": 5, "count": 88 }
+    }
+  ]
+}
