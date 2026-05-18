@@ -77,6 +77,61 @@ interface JsonRpcResponse<T> {
   error?: { code: number; message: string; data?: unknown };
 }
 
+function contentTypeIncludes(res: Response, mediaType: string): boolean {
+  return (res.headers.get('content-type') ?? '').toLowerCase().includes(mediaType);
+}
+
+async function parseJsonRpcPayload<T>(res: Response): Promise<JsonRpcResponse<T>> {
+  if (contentTypeIncludes(res, 'text/event-stream')) {
+    return parseSseJsonRpcPayload<T>(await res.text());
+  }
+
+  if (contentTypeIncludes(res, 'application/json')) {
+    try {
+      return (await res.json()) as JsonRpcResponse<T>;
+    } catch (err) {
+      throw new ShopifyApiError(
+        'invalid_json',
+        `Shopify MCP response was not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  throw new ShopifyApiError(
+    'unsupported_content_type',
+    `Shopify MCP returned unsupported content-type: ${res.headers.get('content-type') ?? 'unknown'}`,
+  );
+}
+
+function parseSseJsonRpcPayload<T>(stream: string): JsonRpcResponse<T> {
+  const events = stream.split(/\r?\n\r?\n/);
+
+  for (const event of events) {
+    const dataLines = event
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice('data:'.length).trimStart());
+
+    if (dataLines.length === 0) continue;
+
+    const data = dataLines.join('\n').trim();
+    if (!data || data === '[DONE]') continue;
+
+    try {
+      return JSON.parse(data) as JsonRpcResponse<T>;
+    } catch (err) {
+      throw new ShopifyApiError(
+        'invalid_sse_json',
+        `Shopify MCP SSE data frame was not valid JSON: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  throw new ShopifyApiError('empty_sse', 'Shopify MCP SSE response did not include a JSON data frame');
+}
+
 type SearchInput = {
   query: string;
   filters?: Record<string, unknown>;
@@ -169,7 +224,7 @@ export class ShopifyCatalogClient {
       );
     }
 
-    const payload = (await res.json()) as JsonRpcResponse<T>;
+    const payload = await parseJsonRpcPayload<T>(res);
     if (payload.error) {
       throw new ShopifyApiError(
         `rpc_${payload.error.code}`,

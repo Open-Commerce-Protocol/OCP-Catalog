@@ -27,6 +27,42 @@ export class ShopifyCatalogQueryService {
       shipsToCountry: SHIPS_TO_COUNTRY_FROM_ENV,
     });
 
+    const offsetPaginationWarning =
+      'Shopify Catalog pagination is cursor-based and is not yet bridged to OCP offset pagination.';
+
+    if (request.offset > 0) {
+      return {
+        ocp_version: '1.0',
+        kind: 'CatalogQueryResult',
+        id: `qry_${crypto.randomUUID()}`,
+        catalog_id: this.cfg.SHOPIFY_CATALOG_ID,
+        query_pack: request.query_pack ?? 'ocp.query.keyword.v1',
+        query_mode: request.query ? 'keyword' : 'filter',
+        query: request.query,
+        result_count: 0,
+        page: {
+          limit: request.limit,
+          offset: request.offset,
+          has_more: false,
+        },
+        items: [],
+        policy_summary: {
+          selected_capability_id: 'ocp.shopify.product.search.v1',
+          selected_query_pack: request.query_pack ?? 'ocp.query.keyword.v1',
+          query_mode: request.query ? 'keyword' : 'filter',
+          supports_explain: true,
+          accepted_filters: filterResult.acceptedFilters,
+          rejected_filters: filterResult.rejectedFilters,
+          warnings: [...filterResult.warnings, offsetPaginationWarning],
+        },
+        explain: [
+          'OCP offset pagination was requested after the first page.',
+          offsetPaginationWarning,
+          'Returned an empty page instead of replaying the Shopify first page.',
+        ],
+      };
+    }
+
     const upstream = await this.shopify.search({
       query: request.query,
       filters: Object.keys(filterResult.shopifyFilters).length > 0
@@ -42,8 +78,9 @@ export class ShopifyCatalogQueryService {
       }),
     );
 
-    const hasMore = Boolean(upstream.pagination?.has_next_page);
-    const nextOffset = request.offset + products.length;
+    const hasUnbridgedCursorPage = Boolean(
+      upstream.pagination?.has_next_page || upstream.pagination?.cursor,
+    );
 
     return {
       ocp_version: '1.0',
@@ -57,8 +94,7 @@ export class ShopifyCatalogQueryService {
       page: {
         limit: request.limit,
         offset: request.offset,
-        has_more: hasMore,
-        ...(hasMore ? { next_offset: nextOffset } : {}),
+        has_more: false,
       },
       items: products.map((product, idx) =>
         queryItemFromProduct(product, objects[idx], sid, request.query),
@@ -70,13 +106,15 @@ export class ShopifyCatalogQueryService {
         supports_explain: true,
         accepted_filters: filterResult.acceptedFilters,
         rejected_filters: filterResult.rejectedFilters,
-        warnings: filterResult.warnings,
+        warnings: hasUnbridgedCursorPage
+          ? [...filterResult.warnings, offsetPaginationWarning]
+          : filterResult.warnings,
       },
       explain: [
         `Forwarded keyword to Shopify search_catalog (mode=${this.cfg.SHOPIFY_CATALOG_MODE}).`,
         'Products are not persisted by this Catalog Node before query.',
-        ...(upstream.pagination?.cursor
-          ? [`Upstream returned cursor (not yet bridged to OCP offset).`]
+        ...(hasUnbridgedCursorPage
+          ? [offsetPaginationWarning]
           : []),
       ],
     };
