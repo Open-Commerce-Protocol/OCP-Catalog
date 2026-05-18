@@ -52,6 +52,17 @@ module.exports = {
       },
     },
     {
+      name: 'shopify-catalog-api',
+      cwd: '.',
+      script: 'bun',
+      args: 'run --cwd apps/examples/shopify-catalog-api start',
+      interpreter: 'none',
+      env: {
+        NODE_ENV: 'production',
+        SHOPIFY_CATALOG_PORT: '4320',
+      },
+    },
+    {
       name: 'ocp-protocol-docs-web',
       cwd: '.',
       script: 'bun',
