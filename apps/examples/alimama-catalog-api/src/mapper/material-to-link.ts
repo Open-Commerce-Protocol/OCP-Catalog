@@ -21,14 +21,10 @@ import type { AffiliateLink } from './privilege-to-link';
  * 把单个商品转成 1 个或 0 个 AffiliateLink。
  *
  * 当前规则：
- *   - item.item_url 为空 → 返 [] (resolve 会把 link_count 设为 0、live_check 设为 'unknown')
- *   - item.coupon_info 存在 → 1 个 'buy_with_coupon' link (label 带券描述)
- *   - 否则 → 1 个 'buy_now' link
- *
- * 未来想增强 (返多 link)：
- *   - upgrade 响应里 publish_info.coupon_share_url 与 click_url 不同时,可再加一个 'buy_with_coupon'
- *     这需要 normalize 时保留两个 URL —— 当前 normalize 把它们合成了一个 item_url
- *     如要支持,可让 normalize 在 small_images 上"挤"一格,或者再加一个 affiliate_urls 字段
+ *   - 没有任何可用推广 URL → 返 []
+ *   - coupon_share_url 存在 → 'buy_with_coupon'
+ *   - click_url/item_url 存在 → 'buy_now'
+ *   - 两个 URL 都存在且不同 → 返回两个 action
  *
  * @param item  AlimamaMaterialItem;为 null/undefined 返空数组
  */
@@ -37,26 +33,42 @@ export function materialToAffiliateLinks(
 ): AffiliateLink[] {
   if (!item) return [];
 
-  const url = typeof item.item_url === 'string' ? item.item_url.trim() : '';
-  if (url.length === 0) return [];
+  const clickUrl = cleanUrl(item.affiliate_urls?.click_url) ?? cleanUrl(item.item_url);
+  const couponUrl = cleanUrl(item.affiliate_urls?.coupon_share_url);
+  const links: AffiliateLink[] = [];
 
-  if (item.coupon_info) {
-    return [
-      {
-        link_id: 'buy_with_coupon',
-        label: `领券购买 (${item.coupon_info})`,
-        url,
-        description: 'Open an Alimama PID-attributed coupon purchase URL.',
-      },
-    ];
+  if (item.coupon_info && couponUrl) {
+    links.push({
+      link_id: 'buy_with_coupon',
+      label: `领券购买 (${item.coupon_info})`,
+      url: couponUrl,
+      description: 'Open an Alimama PID-attributed coupon purchase URL.',
+    });
   }
 
-  return [
-    {
+  if (clickUrl && clickUrl !== couponUrl) {
+    links.push({
       link_id: 'buy_now',
       label: '去淘宝购买',
-      url,
+      url: clickUrl,
       description: 'Open an Alimama PID-attributed purchase URL.',
-    },
-  ];
+    });
+  }
+
+  if (links.length === 0 && couponUrl) {
+    links.push({
+      link_id: 'buy_with_coupon',
+      label: item.coupon_info ? `领券购买 (${item.coupon_info})` : '去淘宝购买(含券)',
+      url: couponUrl,
+      description: 'Open an Alimama PID-attributed coupon purchase URL.',
+    });
+  }
+
+  return links;
+}
+
+function cleanUrl(value: string | undefined | null): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
 }

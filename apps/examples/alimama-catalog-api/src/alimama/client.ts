@@ -129,11 +129,11 @@ export class AlimamaClient {
     adzoneId?: string;
   }): Promise<AlimamaMaterialItem | null> {
     if (this.cfg.ALIMAMA_MOCK) {
-      // mock 模式:从 fixture 找 id 匹配的条目；没匹配就返第一条作为兜底
+      // mock 模式:从 fixture 找 id 匹配的条目；没匹配必须返 null,避免 resolve 错商品
       const all = await loadMaterialFixture();
       const items = all.tbk_dg_material_optional_response.result_list.map_data;
       const matched = items.find((i) => String(i.num_iid) === String(opts.itemId));
-      return matched ?? items[0] ?? null;
+      return matched ?? null;
     }
 
     const upgraded = await this.callTop<AlimamaMaterialOptionalUpgradeResponse>(
@@ -148,7 +148,7 @@ export class AlimamaClient {
 
     const normalized = normalizeMaterialOptionalUpgrade(upgraded);
     const items = normalized.tbk_dg_material_optional_response.result_list.map_data;
-    return items[0] ?? null;
+    return items.find((item) => String(item.num_iid) === String(opts.itemId)) ?? null;
   }
 
   /**
@@ -329,6 +329,10 @@ function normalizeMaterialOptionalUpgrade(
               ? { string: [basic.white_image] }
               : null,
             item_url: publish.click_url ?? publish.coupon_share_url ?? '',
+            affiliate_urls: {
+              ...(publish.click_url ? { click_url: publish.click_url } : {}),
+              ...(publish.coupon_share_url ? { coupon_share_url: publish.coupon_share_url } : {}),
+            },
             reserve_price: price.reserve_price ?? price.zk_final_price ?? price.final_promotion_price ?? '0',
             zk_final_price: price.final_promotion_price ?? price.zk_final_price ?? price.reserve_price ?? '0',
             user_type: basic.user_type ?? 0,

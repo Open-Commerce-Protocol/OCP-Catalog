@@ -48,8 +48,14 @@ export interface AlimamaMaterialItem {
   /** 副图。top 风格："包了一层"为 { string: string[] }，可能为 null 或字段缺失 */
   small_images?: { string: string[] } | null;
 
-  /** 商品页 URL（非 affiliate） */
+  /** 归一化后的主推广 URL；新版 upgrade 下通常来自 publish_info.click_url */
   item_url: string;
+
+  /** 新版 material.optional.upgrade 的推广 URL 细分字段。 */
+  affiliate_urls?: {
+    click_url?: string;
+    coupon_share_url?: string;
+  };
 
   /** 一口价（吊牌价），字符串形如 "299.00" */
   reserve_price: string;

@@ -58,6 +58,15 @@ describe('AlimamaClient (mock 模式)', () => {
       b.tbk_privilege_get_response.result.data.coupon_click_url,
     );
   });
+
+  test('getMaterialByItemId 只返回精确匹配的物料', async () => {
+    const client = new AlimamaClient(mockCfg);
+    const matched = await client.getMaterialByItemId({ itemId: '700123456001' });
+    expect(matched?.num_iid).toBe(700123456001);
+
+    const missing = await client.getMaterialByItemId({ itemId: 'missing-item-id' });
+    expect(missing).toBeNull();
+  });
 });
 
 describe('AlimamaClient (real 模式守卫)', () => {

@@ -101,4 +101,20 @@ describe('Alimama Catalog Node routes', () => {
     expect(body.action_bindings[0]!.action_type).toBe('url');
     expect(body.action_bindings[0]!.entrypoint.url).toContain('s.click.taobao.com');
   });
+
+  test('resolve does not return a purchase action for an unknown item id', async () => {
+    const res = await app().handle(new Request('http://localhost/ocp/resolve', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'ResolveRequest',
+        entry_id: 'entry_alimama_taobao_union_missing-item-id',
+        purpose: 'checkout',
+      }),
+    }));
+    const body = resolvableReferenceSchema.parse(await json(res));
+    expect(body.object_id).toBe('missing-item-id');
+    expect(body.action_bindings).toEqual([]);
+    expect(body.live_checks[0]!.status).toBe('unknown');
+  });
 });
