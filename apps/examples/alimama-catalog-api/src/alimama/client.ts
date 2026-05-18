@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import type { AlimamaConfig } from '../config';
 import { topSign } from './sign';
 import {
+  type AlimamaMaterialItem,
   type AlimamaMaterialResponse,
   type AlimamaOrderResponse,
   type AlimamaPrivilegeResponse,
@@ -113,10 +114,52 @@ export class AlimamaClient {
   }
 
   /**
+   * 按 item_id 查询单个物料的最新信息（含 publish_info.click_url affiliate URL）。
+   *
+   * Resolve 阶段用它**取代** taobao.tbk.privilege.get —— privilege.get 要 TOP session
+   * （OAuth 用户授权），这条路在无 session 环境里走不通；material.optional.upgrade
+   * 不需要 session 但同样返带 PID 归因的 affiliate URL（在 publish_info.click_url 里）。
+   *
+   * @param opts.itemId    商品 num_iid（或 catalog query 返回的 entry_id 拆出的 id）
+   * @param opts.adzoneId  推广位 ID（决定佣金归谁；默认 cfg.ALIMAMA_ADZONE_ID）
+   * @returns              单个 AlimamaMaterialItem 或 null（未命中）
+   */
+  async getMaterialByItemId(opts: {
+    itemId: string;
+    adzoneId?: string;
+  }): Promise<AlimamaMaterialItem | null> {
+    if (this.cfg.ALIMAMA_MOCK) {
+      // mock 模式:从 fixture 找 id 匹配的条目；没匹配就返第一条作为兜底
+      const all = await loadMaterialFixture();
+      const items = all.tbk_dg_material_optional_response.result_list.map_data;
+      const matched = items.find((i) => String(i.num_iid) === String(opts.itemId));
+      return matched ?? items[0] ?? null;
+    }
+
+    const upgraded = await this.callTop<AlimamaMaterialOptionalUpgradeResponse>(
+      'taobao.tbk.dg.material.optional.upgrade',
+      {
+        item_id_list: String(opts.itemId),
+        page_no: '1',
+        page_size: '1',
+        adzone_id: opts.adzoneId ?? this.cfg.ALIMAMA_ADZONE_ID,
+      },
+    );
+
+    const normalized = normalizeMaterialOptionalUpgrade(upgraded);
+    const items = normalized.tbk_dg_material_optional_response.result_list.map_data;
+    return items[0] ?? null;
+  }
+
+  /**
    * 转链 (核心动作:Agent resolve 时调用此方法拿带 PID 的短链)。
    * @param opts.itemId      商品 num_iid
    * @param opts.adzoneId    推广位 ID,决定佣金归到哪
    * @param opts.externalId  外部业务 ID,会出现在订单回执（用于 OCP entry_id 归因）
+   *
+   * @deprecated 此 API 要求 TOP session。新代码请用 {@link getMaterialByItemId} +
+   *             {@link materialToAffiliateLinks} 获取 affiliate URL,等同效果但不需 session。
+   *             保留导出仅为向后兼容(测试 / 万一拿到 session 时还能用)。
    */
   async generatePrivilegeLink(opts: {
     itemId: string;

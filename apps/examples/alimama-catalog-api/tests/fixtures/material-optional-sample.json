@@ -14,7 +14,7 @@
               "//gw.alicdn.com/imgextra/i3/tmall/T1abcd3456.jpg"
             ]
           },
-          "item_url": "https://detail.tmall.com/item.htm?id=700123456001",
+          "item_url": "https://s.click.taobao.com/mock_tmall_700123456001",
           "reserve_price": "299.00",
           "zk_final_price": "199.00",
           "user_type": 1,
@@ -38,7 +38,7 @@
           "title": "Taobao 大容量充电宝 20000mAh 快充移动电源",
           "pict_url": "https://gw.alicdn.com/imgextra/i1/taobao/Tb002.jpg",
           "small_images": null,
-          "item_url": "https://item.taobao.com/item.htm?id=600234567002",
+          "item_url": "https://s.click.taobao.com/mock_taobao_600234567002",
           "reserve_price": "89.00",
           "zk_final_price": "59.00",
           "user_type": 0,
@@ -58,7 +58,7 @@
           "small_images": {
             "string": []
           },
-          "item_url": "https://detail.tmall.com/item.htm?id=700345678003",
+          "item_url": "https://s.click.taobao.com/mock_tmall_700345678003",
           "reserve_price": "599.00",
           "zk_final_price": "399.00",
           "user_type": 1,
@@ -86,7 +86,7 @@
               "//gw.alicdn.com/imgextra/i3/taobao/Tb004b.jpg"
             ]
           },
-          "item_url": "https://item.taobao.com/item.htm?id=600456789004",
+          "item_url": "https://s.click.taobao.com/mock_taobao_600456789004",
           "reserve_price": "29.00",
           "zk_final_price": "9.90",
           "user_type": 0,
@@ -115,7 +115,7 @@
               "//gw.alicdn.com/imgextra/i3/tmall/T1ijkl9012.jpg"
             ]
           },
-          "item_url": "https://detail.tmall.com/item.htm?id=700567890005",
+          "item_url": "https://s.click.taobao.com/mock_tmall_700567890005",
           "reserve_price": "399.00",
           "zk_final_price": "249.00",
           "user_type": 1,
@@ -132,7 +132,7 @@
           "num_iid": 600678901006,
           "title": "Taobao USB-C 数据线 PD 快充 1.5 米",
           "pict_url": "//gw.alicdn.com/imgextra/i1/taobao/Tb006.jpg",
-          "item_url": "https://item.taobao.com/item.htm?id=600678901006",
+          "item_url": "https://s.click.taobao.com/mock_taobao_600678901006",
           "reserve_price": "29.00",
           "zk_final_price": "12.90",
           "user_type": 0,
