@@ -20,6 +20,14 @@ import type {
 
 const FIXTURE_BASE = new URL('../../tests/fixtures/', import.meta.url);
 
+/**
+ * Shopify hosts a public "valid-with-capabilities" agent profile for testing.
+ * We use it as the default so that real-mode requests succeed without any
+ * operator setup. Production deployments should host their own profile.
+ */
+export const DEFAULT_SHOPIFY_AGENT_PROFILE_URL =
+  'https://shopify.dev/ucp/agent-profiles/2026-04-08/valid-with-capabilities.json';
+
 let _searchFixtureCache: ShopifyCatalogListPayload | null = null;
 let _lookupFixtureCache: ShopifyCatalogListPayload | null = null;
 let _productFixtureCache: ShopifyCatalogProductPayload | null = null;
@@ -107,25 +115,36 @@ export class ShopifyCatalogClient {
 
   private async callTool<T>(name: string, args: Record<string, unknown>): Promise<T> {
     const id = ++this.idCounter;
+
+    // Shopify's UCP MCP requires every tools/call to carry
+    // arguments.meta["ucp-agent"].profile (in the request body, not headers).
+    // Falls back to Shopify's published sample profile so the bridge works
+    // out-of-the-box without operators hosting their own profile first.
+    const profile =
+      this.cfg.SHOPIFY_AGENT_PROFILE_URL ?? DEFAULT_SHOPIFY_AGENT_PROFILE_URL;
+    const argsWithMeta = {
+      ...args,
+      meta: {
+        ...((args as { meta?: Record<string, unknown> }).meta ?? {}),
+        'ucp-agent': { profile },
+      },
+    };
+
     const body = {
       jsonrpc: '2.0' as const,
       id,
       method: 'tools/call',
-      params: { name, arguments: args },
+      params: { name, arguments: argsWithMeta },
     };
 
     const headers: Record<string, string> = {
       'content-type': 'application/json',
-      accept: 'application/json',
+      // Shopify returns either JSON or SSE depending on transport upgrade;
+      // declare both so we don't accidentally negotiate a stream.
+      accept: 'application/json, text/event-stream',
     };
     if (this.cfg.SHOPIFY_API_KEY) {
       headers.authorization = `Bearer ${this.cfg.SHOPIFY_API_KEY}`;
-    }
-    if (this.cfg.SHOPIFY_AGENT_PROFILE_URL) {
-      // Exact header name is not documented; this is a placeholder until the
-      // Negotiate-and-Authenticate page clarifies it. Override via reverse
-      // proxy if needed.
-      headers['x-agent-profile-url'] = this.cfg.SHOPIFY_AGENT_PROFILE_URL;
     }
 
     let res: Response;

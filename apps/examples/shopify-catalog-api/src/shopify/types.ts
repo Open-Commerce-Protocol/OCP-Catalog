@@ -54,6 +54,11 @@ export interface ShopifyVariant {
   price?: ShopifyMoney;
   /** URL the agent can redirect a buyer to in order to start checkout. */
   checkout_url?: string;
+  /** Real responses also include a PDP url on the variant (not the product). */
+  url?: string;
+  /** Variants in real responses can carry their own media/rating. */
+  media?: ShopifyImage[];
+  rating?: { value?: number; scale_min?: number; scale_max?: number; count?: number };
   condition?: Array<'new' | 'secondhand'>;
   eligible?: { native_checkout?: boolean };
   availability?: {
@@ -125,11 +130,13 @@ export interface ShopifyCatalogProductPayload {
 // ---------- helpers ----------
 
 /**
- * Strip the `gid://shopify/...` prefix to produce an opaque OCP object_id.
+ * Strip the `gid://shopify/...` prefix and any trailing query string
+ * (Shopify variant gids in real responses come as
+ * `gid://shopify/ProductVariant/47211751801071?shop=69791023343`).
  * Falls back to the original string if the prefix isn't present.
  */
 export function stripShopifyGid(gid: string): string {
-  return gid.replace(/^gid:\/\/shopify\//, '');
+  return gid.replace(/^gid:\/\/shopify\//, '').replace(/\?.*$/, '');
 }
 
 /** Money is `<integer>`; the doc strongly implies minor units. */

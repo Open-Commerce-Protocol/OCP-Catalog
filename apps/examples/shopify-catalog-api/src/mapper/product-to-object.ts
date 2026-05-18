@@ -107,7 +107,11 @@ export function mapProductToCommercialObject(
   ctx: MapperContext,
 ): CommercialObject {
   const objectId = stripShopifyGid(p.id);
-  const productUrl = absolutize(p.url ?? undefined);
+  // Real Shopify products often omit `url` and put the PDP URL on the first
+  // variant instead. Fall back to that so OCP `source_url` is populated.
+  const productUrl =
+    absolutize(p.url ?? undefined) ??
+    absolutize(p.variants?.find((v) => v.url)?.url);
   const images = imageList(p.media);
   const category = primaryCategory(p);
   const brand = brandFromSeller(p);
