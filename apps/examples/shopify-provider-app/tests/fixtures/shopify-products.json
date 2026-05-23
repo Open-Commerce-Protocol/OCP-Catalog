@@ -1,0 +1,98 @@
+[
+  {
+    "id": "gid://shopify/Product/8001001",
+    "title": "Heritage Wool Crewneck Sweater",
+    "handle": "heritage-wool-crewneck-sweater",
+    "descriptionHtml": "<p>Heavyweight 100% merino wool, made in Portugal.</p>",
+    "vendor": "Local Dev Merchant",
+    "productType": "Sweaters",
+    "status": "ACTIVE",
+    "tags": ["sweater", "wool", "bestseller"],
+    "totalInventory": 42,
+    "onlineStoreUrl": "https://local-dev-merchant.myshopify.com/products/heritage-wool-crewneck-sweater",
+    "createdAt": "2026-04-01T12:00:00Z",
+    "updatedAt": "2026-05-10T08:00:00Z",
+    "options": [
+      { "name": "Color", "values": ["Black", "Sand"] },
+      { "name": "Size",  "values": ["S", "M", "L"] }
+    ],
+    "featuredImage": { "url": "https://cdn.shopify.com/p/8001001/wool-crew-1.jpg", "altText": "Heritage Wool Crewneck Sweater" },
+    "media": {
+      "nodes": [
+        { "preview": { "image": { "url": "https://cdn.shopify.com/p/8001001/wool-crew-1.jpg", "altText": "front" } } },
+        { "preview": { "image": { "url": "//cdn.shopify.com/p/8001001/wool-crew-2.jpg", "altText": "back" } } }
+      ]
+    },
+    "variants": {
+      "nodes": [
+        {
+          "id": "gid://shopify/ProductVariant/8001001001",
+          "sku": "HWS-BLK-M",
+          "title": "Black / M",
+          "price": "129.00",
+          "compareAtPrice": "149.00",
+          "availableForSale": true,
+          "inventoryQuantity": 12,
+          "selectedOptions": [{ "name": "Color", "value": "Black" }, { "name": "Size", "value": "M" }]
+        },
+        {
+          "id": "gid://shopify/ProductVariant/8001001002",
+          "sku": "HWS-SND-L",
+          "title": "Sand / L",
+          "price": "129.00",
+          "compareAtPrice": null,
+          "availableForSale": false,
+          "inventoryQuantity": 0,
+          "selectedOptions": [{ "name": "Color", "value": "Sand" }, { "name": "Size", "value": "L" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "gid://shopify/Product/8001002",
+    "title": "Linen Field Shirt",
+    "handle": "linen-field-shirt",
+    "descriptionHtml": "<p>Mid-weight European linen.</p>",
+    "vendor": "Local Dev Merchant",
+    "productType": "Shirts",
+    "status": "ACTIVE",
+    "tags": ["shirt", "linen"],
+    "totalInventory": 18,
+    "onlineStoreUrl": "https://local-dev-merchant.myshopify.com/products/linen-field-shirt",
+    "createdAt": "2026-04-05T12:00:00Z",
+    "updatedAt": "2026-05-15T10:00:00Z",
+    "options": [{ "name": "Size", "values": ["S", "M", "L"] }],
+    "featuredImage": { "url": "https://cdn.shopify.com/p/8001002/linen-1.jpg", "altText": "Linen Field Shirt" },
+    "variants": {
+      "nodes": [
+        {
+          "id": "gid://shopify/ProductVariant/8001002001",
+          "sku": "LFS-M",
+          "title": "M",
+          "price": "89.00",
+          "compareAtPrice": null,
+          "availableForSale": true,
+          "inventoryQuantity": 18,
+          "selectedOptions": [{ "name": "Size", "value": "M" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "gid://shopify/Product/8001003",
+    "title": "(draft) Spring Cardigan",
+    "handle": "spring-cardigan",
+    "descriptionHtml": "",
+    "vendor": "Local Dev Merchant",
+    "productType": "Sweaters",
+    "status": "DRAFT",
+    "tags": [],
+    "totalInventory": 0,
+    "onlineStoreUrl": null,
+    "createdAt": "2026-05-18T09:00:00Z",
+    "updatedAt": "2026-05-22T07:00:00Z",
+    "options": [],
+    "featuredImage": null,
+    "variants": { "nodes": [] }
+  }
+]

@@ -1,0 +1,28 @@
+{
+  "902": [
+    {
+      "id": 9201,
+      "sku": "WTB-GRY-140",
+      "price": "129.00",
+      "regular_price": "129.00",
+      "stock_status": "instock",
+      "stock_quantity": 15,
+      "attributes": [
+        { "name": "Color", "option": "Grey" },
+        { "name": "Size", "option": "140cm" }
+      ]
+    },
+    {
+      "id": 9202,
+      "sku": "WTB-RST-180",
+      "price": "149.00",
+      "regular_price": "149.00",
+      "stock_status": "outofstock",
+      "stock_quantity": 0,
+      "attributes": [
+        { "name": "Color", "option": "Rust" },
+        { "name": "Size", "option": "180cm" }
+      ]
+    }
+  ]
+}

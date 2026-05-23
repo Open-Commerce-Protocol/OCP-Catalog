@@ -1,0 +1,6 @@
+{
+  "name": "Local Dev Merchant",
+  "primaryDomain": "local-dev-merchant.myshopify.com",
+  "email": "ops@local-dev-merchant.test",
+  "currencyCode": "USD"
+}
