@@ -1,7 +1,6 @@
 ---
 title: What is a Catalog
 description: A Catalog in OCP is the node that hosts commercial-object indexing, query, resolve, and action entry points behind a unified protocol contract.
-slug: /docs/concepts/what-is-catalog
 category: concepts
 order: 2
 ---
@@ -37,7 +36,7 @@ A Catalog abstracts these concerns into a protocol shell: Providers keep their i
 A Catalog is described by several interlocking objects:
 
 - **CatalogProfile** — stable identity, capability summary, trust and health state. Consumed by Registration Nodes and agent profile caches.
-- **CatalogManifest** — the full capability declaration: protocol version, endpoints, object types, Query Packs, resolve capability, Provider integration requirements, sync capabilities, auth, rate limits, trust, freshness. This is the primary entry point for other roles to understand a Catalog.
+- **CatalogManifest** — the full capability declaration: protocol version, endpoints, Query Packs, resolve capability, Provider integration requirements, sync capabilities, auth, rate limits, trust, freshness, and optional metadata hints. This is the primary entry point for other roles to understand a Catalog.
 - **CatalogRouteHint** — a cacheable, TTL-bounded routing summary returned by Registration Nodes.
 - **ObjectContract / Descriptor Contract** — field-level requirements for objects entering the Catalog (required fields, substitutable field groups, additional-fields policy, field usage, sensitivity).
 - **CatalogEntry** — the index projection of a `CommercialObject` inside a Catalog. It carries retrieval, ranking, deduplication, aggregation, visibility filtering, freshness, and resolve references.

@@ -68,7 +68,7 @@ Provider -> Catalog -> Registration node
 
 ## 为什么要这样拆分
 
-这种拆分把三个关注点分开了：
+这种拆分把四个关注点分开了：
 
 - 对象供给
 - catalog 服务

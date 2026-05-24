@@ -45,6 +45,7 @@ It should tell the agent:
 
 - where the catalog lives
 - whether it is trusted and healthy
-- which object types and query packs it broadly supports
+- which query packs it broadly supports
+- which optional metadata hints may help route selection
 
 If the agent needs full capability detail, it should fetch the manifest from `manifest_url`.

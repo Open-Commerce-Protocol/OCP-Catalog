@@ -11,8 +11,8 @@
 因此 route hint 更关注：
 
 - 可路由 endpoint
-- 支持的 object type
 - 支持的 query pack
+- 可选 metadata hint
 - trust 与 health 状态
 - cache 信息
 

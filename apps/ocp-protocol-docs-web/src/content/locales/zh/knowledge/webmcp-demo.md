@@ -1,7 +1,6 @@
 ---
 title: WebMCP Demo
 description: WebMCP Demo 把 OCP Catalog Mall 的浏览、搜索与商品页打开能力暴露为浏览器内 WebMCP 工具，便于端到端验证 Agent 调用。
-slug: /docs/demos/webmcp-demo
 category: demos
 order: 1
 ---

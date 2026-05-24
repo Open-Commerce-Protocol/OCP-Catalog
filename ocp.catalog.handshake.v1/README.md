@@ -291,5 +291,4 @@ Catalog 注册到 Registration node 使用的是：
 详见：
 
 - [../ocp.catalog.registration.v1/README.md](../ocp.catalog.registration.v1/README.md)
-- [../docs/ocp_catalog_handshake_protocol_v1.md](../docs/ocp_catalog_handshake_protocol_v1.md)
-
+- [../docs/specs/handshake/v1.md](../docs/specs/handshake/v1.md)

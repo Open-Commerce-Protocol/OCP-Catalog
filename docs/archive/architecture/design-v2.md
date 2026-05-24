@@ -4,9 +4,9 @@
 >
 > 当前仓库的真实实现状态请优先参考：
 >
-> - [../README.md](../README.md)
-> - [ocp_catalog_handshake_protocol_v1.md](./ocp_catalog_handshake_protocol_v1.md)
-> - [ocp_catalog_registration_protocol_v1.md](./ocp_catalog_registration_protocol_v1.md)
+> - [README.md](../../../README.md)
+> - [handshake v1](../../specs/handshake/v1.md)
+> - [registration v1](../../specs/registration/v1.md)
 >
 > 当前已落地的是 Phase 1 可运行闭环，包含：
 >
@@ -53,7 +53,7 @@ Provider -> Catalog
 
 也就是说，OCP Catalog Registration node 的核心查询对象是 Catalog metadata；Catalog Node 的核心查询对象才是 CommercialObject / CatalogEntry。
 
-Catalog 注册到 OCP Catalog Registration node 的协议详见 `docs/ocp_catalog_registration_protocol_v1.md`。
+Catalog 注册到 OCP Catalog Registration node 的协议详见 [registration v1](../../specs/registration/v1.md)。
 
 ---
 本版设计明确放弃“Catalog 仅服务电商商品发现”的假设，转而将 OCP Catalog 定位为：

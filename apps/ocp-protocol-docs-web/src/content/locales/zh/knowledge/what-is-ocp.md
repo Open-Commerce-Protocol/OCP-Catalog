@@ -1,7 +1,6 @@
 ---
 title: OCP 是什么
 description: OCP 是一组让 AI Agent 与异构商业系统在同一协议语义下发现、查询、解析与触发动作的开放规范。
-slug: /docs/concepts/what-is-ocp
 category: concepts
 order: 1
 ---

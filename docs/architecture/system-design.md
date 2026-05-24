@@ -6,11 +6,11 @@
 >
 > 当前已落地的协议细节和实现状态请优先参考：
 >
-> - [README.md](../README.md)
-> - [ocp_catalog_handshake_protocol_v1.md](./ocp_catalog_handshake_protocol_v1.md)
-> - [ocp_catalog_registration_protocol_v1.md](./ocp_catalog_registration_protocol_v1.md)
+> - [README.md](../../README.md)
+> - [Handshake v1](../specs/handshake/v1.md)
+> - [Registration v1](../specs/registration/v1.md)
 >
-> `design_v2.md` 保留了较早阶段的设计推演和实施路径；本文档是更结构化的系统设计说明，用于统一长期概念边界。
+> [design-v2](../archive/architecture/design-v2.md) 保留了较早阶段的设计推演和实施路径；本文档是更结构化的系统设计说明，用于统一长期概念边界。
 
 ## 1. 文档定位
 

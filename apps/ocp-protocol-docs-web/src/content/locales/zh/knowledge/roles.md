@@ -1,7 +1,6 @@
 ---
 title: OCP 角色模型
 description: OCP 把 Catalog 发现、索引、接入、解析、执行等职责分给不同角色，使权限边界、责任与数据流向都清晰可审计。
-slug: /docs/concepts/roles
 category: concepts
 order: 3
 ---

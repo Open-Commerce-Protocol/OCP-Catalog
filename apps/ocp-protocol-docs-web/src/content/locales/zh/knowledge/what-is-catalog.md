@@ -1,7 +1,6 @@
 ---
 title: Catalog 是什么
 description: Catalog 是 OCP 体系中承载商业对象索引、查询、解析与动作入口的节点；对外用统一契约，对内允许自由实现。
-slug: /docs/concepts/what-is-catalog
 category: concepts
 order: 2
 ---

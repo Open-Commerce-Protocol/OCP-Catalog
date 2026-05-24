@@ -214,7 +214,7 @@ catalog process starts
 -> catalog serves discovery + manifest + query
 -> catalog registers to Registration node
 -> Registration node fetches and verifies catalog metadata
--> Registration node indexes routeable catalog information
+-> Registration node indexes routable catalog information
 -> agents discover the catalog through route hints
 ```
 

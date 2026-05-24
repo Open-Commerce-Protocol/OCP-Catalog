@@ -1,7 +1,6 @@
 ---
 title: What is OCP
 description: Open Commerce Protocol (OCP) is an open spec that lets AI agents and heterogeneous commerce systems discover, query, resolve, and act on commercial objects through one shared semantic.
-slug: /docs/concepts/what-is-ocp
 category: concepts
 order: 1
 ---

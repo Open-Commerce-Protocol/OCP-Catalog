@@ -18,6 +18,7 @@
     "test": "turbo test",
     "test:integration": "bun run --cwd apps/examples/commerce-catalog-api test:integration",
     "lint": "turbo lint",
+    "docs:check": "bun scripts/check-docs-integrity.ts",
     "commerce:catalog:api": "bun run --cwd apps/examples/commerce-catalog-api start",
     "commerce:catalog:admin": "bun run --cwd apps/examples/commerce-catalog-admin-web start",
     "registration:api": "bun run --cwd apps/ocp-registration-api start",

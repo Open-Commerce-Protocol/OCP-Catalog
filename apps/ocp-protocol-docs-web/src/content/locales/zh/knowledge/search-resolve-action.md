@@ -1,7 +1,6 @@
 ---
 title: Search / Resolve / Action 三步法
 description: OCP 把"从需求到下单"拆为 Search、Resolve、Action 三个严格分开的阶段，分别承担候选发现、权限化详情与动作执行。
-slug: /docs/concepts/search-resolve-action
 category: concepts
 order: 4
 ---

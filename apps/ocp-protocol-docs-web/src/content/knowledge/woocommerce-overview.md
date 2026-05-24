@@ -1,7 +1,6 @@
 ---
 title: WooCommerce integration overview
 description: Translate an existing WooCommerce store into an OCP protocol surface so agents talk to one unified contract instead of WooCommerce's private REST API.
-slug: /docs/integrations/woocommerce-overview
 category: integrations
 order: 1
 ---

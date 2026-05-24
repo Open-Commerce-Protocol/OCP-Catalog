@@ -45,6 +45,7 @@ Route hint 是一个摘要。
 
 - 这个 catalog 在哪里
 - 它是否可信和健康
-- 它大致支持哪些 object type 和 query pack
+- 它大致支持哪些 query pack
+- 哪些可选 metadata hint 能帮助路由选择
 
 如果 agent 需要更完整的能力说明，应该去请求 `manifest_url`。

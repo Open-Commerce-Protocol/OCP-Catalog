@@ -10,9 +10,9 @@ It should not try to mirror the entire manifest.
 
 That is why route hint focuses on:
 
-- routeable endpoints
-- supported object types
+- routable endpoints
 - supported query packs
+- optional metadata hints
 - trust and health state
 - declared federation summary
 - trust profile projection
@@ -50,7 +50,7 @@ Registration nodes and catalogs exchange:
 
 - profile snapshots
 - object contract summaries
-- catalog entry summaries
+- catalog summary projections
 - mutation metadata
 - trust and verification metadata
 

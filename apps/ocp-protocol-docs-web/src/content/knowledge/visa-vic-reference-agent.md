@@ -1,7 +1,6 @@
 ---
 title: Visa VIC reference agent
 description: The Visa VIC reference agent demonstrates a clean three-layer split — discovery to OCP, trust to Visa, fulfillment to the merchant — with the agent only orchestrating, never overreaching.
-slug: /docs/agentic-commerce/visa-vic-reference-agent
 category: agentic-commerce
 order: 1
 ---

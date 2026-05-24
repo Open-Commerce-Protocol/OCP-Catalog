@@ -11,18 +11,31 @@ It provides a three-column documentation experience for:
 - `ocp.catalog.registration.v1`
 - example flows and implementation notes
 
-## Content model
+## Content Model
 
 Markdown content lives under [`src/content`](./src/content):
 
-- `docs/` for top-level protocol pages
-- `handshake/` for handshake-specific pages
-- `registration/` for Registration node-specific pages
-- `examples/` for scenario walkthroughs
-- `pages/` for extra standalone sections
+- `docs/` for top-level protocol pages.
+- `handshake/` for `ocp.catalog.handshake.v1` pages.
+- `registration/` for `ocp.catalog.registration.v1` pages.
+- `examples/` for scenario walkthroughs and runtime flows.
+- `knowledge/` for concept-oriented OCP knowledge-base pages.
+- `locales/zh/` for the Chinese mirror of the same route tree.
 
 The left navigation defines the canonical route structure in
 [`src/content/navigation.ts`](./src/content/navigation.ts).
+
+The rendered site intentionally has its own user-facing Markdown. Formal
+protocol and architecture source documents live under the repository root
+[`docs`](../../docs):
+
+- `docs/specs/` for stable protocol specifications.
+- `docs/architecture/` for system and repository architecture.
+- `docs/integrations/` for scenario and platform integration designs.
+- `docs/archive/` for superseded planning material.
+
+Keep these layers aligned through review and integrity checks; do not add a
+second untracked copy of protocol truth in the site.
 
 ## Development
 
@@ -44,8 +57,11 @@ bun run dev
 - right-side table of contents is generated from page headings
 - top search is a local navigation filter, not a full-text index
 
-## Next likely work
+## Integrity
 
-- add the missing handshake, registration, and example markdown pages
-- wire schema snippets and example payload blocks into content
-- add a richer search index when the content set grows
+Run the docs integrity check from the repository root before changing route
+structure or artifacts:
+
+```bash
+bun run docs:check
+```

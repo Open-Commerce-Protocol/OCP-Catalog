@@ -9,7 +9,7 @@ forward to Shopify in real time.
 - `/ocp/resolve` → Shopify `get_product` (returns variants with `checkout_url`)
 - Manifest declares only query + resolve capabilities; no provider/sync flow.
 
-See `docs/shopify_ocp_catalog_integration_design.md` for the design rationale,
+See `docs/integrations/shopify-catalog.md` for the design rationale,
 field mapping rules, and risks.
 
 ## Modes
