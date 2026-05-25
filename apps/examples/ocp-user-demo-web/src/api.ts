@@ -3,7 +3,7 @@ export type CatalogSearchItem = {
   catalog_name: string;
   description?: string;
   score: number;
-  matched_query_capabilities: string[];
+  matched_query_packs: string[];
   verification_status: string;
   trust_tier: string;
   health_status: string;
@@ -32,13 +32,23 @@ export type CatalogSearchItem = {
 };
 
 export type CatalogQueryItem = {
+  kind: 'CatalogEntry';
+  catalog_id: string;
   entry_id: string;
   provider_id: string;
   object_id: string;
+  object_type?: string;
+  commercial_object_id?: string;
   title: string;
   summary?: string;
   score: number;
   attributes: Record<string, unknown>;
+  explain: string[];
+};
+
+export type CatalogQueryMatch = {
+  entry: Omit<CatalogQueryItem, 'score' | 'explain'>;
+  score: number;
   explain: string[];
 };
 
@@ -166,7 +176,7 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
     'VITE_CATALOG_API_BASE_URL or VITE_DEFAULT_CATALOG_QUERY_URL',
     fallbackCatalogQueryUrl,
   );
-  return request<{ items: CatalogQueryItem[]; explain: string[] }>(queryUrl, {
+  const payload = await request<{ entries: CatalogQueryMatch[]; explain: string[] }>(queryUrl, {
     method: 'POST',
     body: {
       ocp_version: '1.0',
@@ -179,6 +189,10 @@ export async function queryCatalog(routeHint: CatalogSearchItem['route_hint'] | 
       explain: true,
     },
   });
+  return {
+    ...payload,
+    items: payload.entries.map(flattenCatalogEntryMatch),
+  };
 }
 
 export async function resolveEntry(routeHint: CatalogSearchItem['route_hint'] | null, entryId: string) {
@@ -252,6 +266,14 @@ async function getRegistrationDiscovery() {
     method: 'GET',
   });
   return await registrationDiscoveryPromise;
+}
+
+function flattenCatalogEntryMatch(match: CatalogQueryMatch): CatalogQueryItem {
+  return {
+    ...match.entry,
+    score: match.score,
+    explain: match.explain,
+  };
 }
 
 export async function agentTurn(input: {

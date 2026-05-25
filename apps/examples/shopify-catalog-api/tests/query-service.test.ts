@@ -24,7 +24,7 @@ function makeServiceWithPayload(payload: ShopifyCatalogListPayload) {
 }
 
 describe('ShopifyCatalogQueryService.query', () => {
-  test('returns OCP CatalogQueryResult with items', async () => {
+  test('returns OCP CatalogQueryResult with catalog entry matches', async () => {
     const { service } = makeService();
     const result: any = await service.query({ query: 'sweater' });
 
@@ -32,11 +32,23 @@ describe('ShopifyCatalogQueryService.query', () => {
     expect(result.query).toBe('sweater');
     expect(result.query_mode).toBe('keyword');
     expect(result.result_count).toBeGreaterThan(0);
-    expect(result.items.length).toBe(result.result_count);
-    expect(result.items[0].entry_id).toMatch(/^entry_shopify_global_/);
-    expect(result.items[0].provider_id).toBe('shopify_global');
-    expect(result.items[0].title).toBeDefined();
+    expect(result.entries.length).toBe(result.result_count);
+    expect(result.entries[0].entry.kind).toBe('CatalogEntry');
+    expect(result.entries[0].entry.entry_id).toMatch(/^entry_shopify_global_/);
+    expect(result.entries[0].entry.provider_id).toBe('shopify_global');
+    expect(result.entries[0].entry.title).toBeDefined();
     expect(result.policy_summary.selected_capability_id).toBe('ocp.shopify.product.search.v1');
+  });
+
+  test('rejects query packs not declared in the manifest', async () => {
+    const { service } = makeService();
+    await expect(service.query({ query: 'sweater', query_pack: 'ocp.query.semantic.v1' }))
+      .rejects.toMatchObject({
+        code: 'validation_error',
+        details: {
+          supported_query_packs: ['ocp.query.keyword.v1'],
+        },
+      });
   });
 
   test('rejects unsupported filters into policy_summary', async () => {
@@ -63,8 +75,8 @@ describe('ShopifyCatalogQueryService.query', () => {
     const firstPage: any = await service.query({ query: 'sweater', limit: 1, offset: 0 });
     const secondPage: any = await service.query({ query: 'sweater', limit: 1, offset: 1 });
 
-    expect(firstPage.items.length).toBe(1);
-    expect(secondPage.items).toEqual([]);
+    expect(firstPage.entries.length).toBe(1);
+    expect(secondPage.entries).toEqual([]);
     expect(secondPage.result_count).toBe(0);
     expect(secondPage.page).toEqual({
       limit: 1,
@@ -72,7 +84,7 @@ describe('ShopifyCatalogQueryService.query', () => {
       has_more: false,
     });
     expect(secondPage.page.next_offset).toBeUndefined();
-    expect(secondPage.items[0]?.entry_id).not.toBe(firstPage.items[0].entry_id);
+    expect(secondPage.entries[0]?.entry.entry_id).not.toBe(firstPage.entries[0].entry.entry_id);
     expect(secondPage.policy_summary.warnings).toContain(
       'Shopify Catalog pagination is cursor-based and is not yet bridged to OCP offset pagination.',
     );
@@ -95,7 +107,7 @@ describe('ShopifyCatalogQueryService.query', () => {
 
     const result: any = await service.query({ query: 'cursor', limit: 1, offset: 0 });
 
-    expect(result.items.length).toBe(1);
+    expect(result.entries.length).toBe(1);
     expect(result.page.has_more).toBe(false);
     expect(result.page.next_offset).toBeUndefined();
     expect(result.policy_summary.warnings).toContain(

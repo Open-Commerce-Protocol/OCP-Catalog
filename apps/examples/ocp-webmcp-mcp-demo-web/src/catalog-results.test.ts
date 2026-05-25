@@ -11,16 +11,20 @@ test('summarizes find_and_query_catalog results into product cards', () => {
       },
       query_result: {
         entries: [{
-          id: 'sku-1',
-          title: 'Goody Two-Shoes',
-          attributes: {
-            brand: 'ColourPop',
-            amount: 5,
-            currency: 'USD',
-            availability_status: 'in_stock',
-            primary_image_url: 'https://example.com/shoe.jpg',
-            product_url: 'https://example.com/shoe',
+          entry: {
+            entry_id: 'sku-1',
+            title: 'Goody Two-Shoes',
+            attributes: {
+              brand: 'ColourPop',
+              amount: 5,
+              currency: 'USD',
+              availability_status: 'in_stock',
+              primary_image_url: 'https://example.com/shoe.jpg',
+              product_url: 'https://example.com/shoe',
+            },
           },
+          score: 1,
+          explain: [],
         }],
       },
     },
@@ -63,9 +67,13 @@ test('keeps the latest query-like catalog result when later calls have no entrie
       structuredContent: {
         catalog_name: 'Direct Query Catalog',
         entries: [{
-          entry_id: 'sku-2',
-          title: 'Direct Query Shoes',
-          attributes: { amount: 12.5, currency: 'USD' },
+          entry: {
+            entry_id: 'sku-2',
+            title: 'Direct Query Shoes',
+            attributes: { amount: 12.5, currency: 'USD' },
+          },
+          score: 1,
+          explain: [],
         }],
       },
     }, 'ocp.mcp.query_catalog'),
@@ -89,17 +97,21 @@ test('ignores malformed entries without throwing', () => {
   expect(summary.title).toBe('没有找到商品');
 });
 
-test('summarizes direct catalog HTTP list response items', () => {
+test('summarizes direct catalog HTTP list response entries', () => {
   const summary = summarizeCatalogResponse({
     catalog_id: 'cat_local_dev',
-    items: [{
-      entry_id: 'entry-1',
-      title: 'HTTP Listed Product',
-      attributes: {
-        amount: 9,
-        currency: 'USD',
-        primary_image_url: 'https://example.com/item.jpg',
+    entries: [{
+      entry: {
+        entry_id: 'entry-1',
+        title: 'HTTP Listed Product',
+        attributes: {
+          amount: 9,
+          currency: 'USD',
+          primary_image_url: 'https://example.com/item.jpg',
+        },
       },
+      score: 1,
+      explain: [],
     }],
   }, 'Commerce Product Search Catalog');
 

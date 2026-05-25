@@ -4,9 +4,10 @@ import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import {
   catalogQueryRequestSchema,
+  type CatalogEntry,
+  type CatalogEntryMatch,
   type CatalogQueryRequest,
   type CatalogQueryResult,
-  type QueryResultItem,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
@@ -84,8 +85,8 @@ export class CommerceQueryService {
       })
       : [];
     const rows = mergeRows(keywordRows, semanticRows);
-    const rankedItems = rows
-      .map((row): QueryResultItem | null => {
+    const rankedMatches = rows
+      .map((row): CatalogEntryMatch | null => {
         const projection = asRecord(row.visibleAttributesPayload);
         if (!matchesFilters(projection, request.filters)) return null;
 
@@ -98,24 +99,30 @@ export class CommerceQueryService {
         if (queryMode !== 'semantic' && terms.length > 0 && keywordScore <= 0 && semanticScore <= 0) return null;
 
         return {
-          entry_id: row.entryId,
-          provider_id: row.providerId,
-          object_id: row.objectId,
-          title: row.title || stringValue(projection.title) || row.objectId,
-          ...(row.summary || stringValue(projection.summary) ? { summary: row.summary ?? stringValue(projection.summary) } : {}),
+          entry: {
+            kind: 'CatalogEntry',
+            catalog_id: catalogId,
+            entry_id: row.entryId,
+            provider_id: row.providerId,
+            object_id: row.objectId,
+            object_type: row.objectType,
+            commercial_object_id: row.commercialObjectId,
+            title: row.title || stringValue(projection.title) || row.objectId,
+            ...(row.summary || stringValue(projection.summary) ? { summary: row.summary ?? stringValue(projection.summary) } : {}),
+            attributes: projection,
+          } satisfies CatalogEntry,
           score,
-          attributes: projection,
           explain: explainEnabled ? buildItemExplain(projection, request.filters, terms, keywordScore, semanticScore, queryMode) : [],
         };
       })
-      .filter((item): item is QueryResultItem => item !== null)
-      .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title));
-    const items = usesDatabasePagination
-      ? rankedItems.slice(0, request.limit)
-      : rankedItems.slice(request.offset, pageEnd);
+      .filter((item): item is CatalogEntryMatch => item !== null)
+      .sort((left, right) => right.score - left.score || left.entry.title.localeCompare(right.entry.title));
+    const entries = usesDatabasePagination
+      ? rankedMatches.slice(0, request.limit)
+      : rankedMatches.slice(request.offset, pageEnd);
     const hasMore = usesDatabasePagination
-      ? rankedItems.length > request.limit
-      : rankedItems.length > pageEnd;
+      ? rankedMatches.length > request.limit
+      : rankedMatches.length > pageEnd;
 
     const auditId = newId('qaudit');
     const result: CatalogQueryResult = {
@@ -126,14 +133,14 @@ export class CommerceQueryService {
       query_pack: queryPlan.selectedQueryPack,
       query_mode: queryMode,
       query: request.query,
-      result_count: items.length,
+      result_count: entries.length,
       page: {
         limit: request.limit,
         offset: request.offset,
         has_more: hasMore,
         ...(hasMore ? { next_offset: pageEnd } : {}),
       },
-      items,
+      entries,
       policy_summary: queryPlan.policySummary,
       audit_id: auditId,
       explain: explainEnabled
@@ -143,7 +150,7 @@ export class CommerceQueryService {
           ...(usesSemanticScore && semanticScores.size > 0 ? ['Applied semantic ANN shortlist with exact cosine rerank.'] : []),
           ...(usesSemanticScore && semanticScores.size === 0 ? ['Semantic retrieval ran but found no ready embedding candidates. Check embedding readiness and pending index jobs.'] : []),
           `Applied filters: ${Object.keys(request.filters).length ? Object.keys(request.filters).join(', ') : 'none'}.`,
-          `Returned ${items.length} result(s) at offset ${request.offset}.`,
+          `Returned ${entries.length} result(s) at offset ${request.offset}.`,
         ]
         : [],
     };
@@ -153,7 +160,7 @@ export class CommerceQueryService {
       catalogId,
       queryKind: 'catalog_query',
       requestPayload: request as unknown as Record<string, unknown>,
-      resultCount: items.length,
+      resultCount: entries.length,
       requesterKeyHash: meta.requesterKey ? hashKey(meta.requesterKey) : null,
     });
 
@@ -182,10 +189,12 @@ export class CommerceQueryService {
       .select({
         documentId: schema.catalogSearchDocuments.id,
         entryId: schema.catalogSearchDocuments.catalogEntryId,
+        commercialObjectId: schema.catalogSearchDocuments.commercialObjectId,
         title: schema.catalogSearchDocuments.title,
         summary: schema.catalogSearchDocuments.summary,
         providerId: schema.catalogSearchDocuments.providerId,
         objectId: schema.catalogSearchDocuments.objectId,
+        objectType: schema.catalogSearchDocuments.objectType,
         searchText: schema.catalogSearchDocuments.searchText,
         fullTextRank,
         visibleAttributesPayload: schema.catalogSearchDocuments.visibleAttributesPayload,

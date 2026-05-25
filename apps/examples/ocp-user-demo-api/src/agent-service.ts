@@ -44,7 +44,7 @@ const catalogSearchItemSchema = z.object({
   catalog_name: z.string(),
   description: z.string().optional(),
   score: z.number(),
-  matched_query_capabilities: z.array(z.string()),
+  matched_query_packs: z.array(z.string()),
   verification_status: z.string(),
   trust_tier: z.string(),
   health_status: z.string(),
@@ -100,13 +100,23 @@ const querySessionSchema = z.object({
 });
 
 const catalogQueryItemSchema = z.object({
+  kind: z.literal('CatalogEntry'),
+  catalog_id: z.string(),
   entry_id: z.string(),
   provider_id: z.string(),
   object_id: z.string(),
+  object_type: z.string().optional(),
+  commercial_object_id: z.string().optional(),
   title: z.string(),
   summary: z.string().optional(),
   score: z.number(),
   attributes: z.record(z.string(), z.unknown()),
+  explain: z.array(z.string()),
+});
+
+const catalogQueryMatchSchema = z.object({
+  entry: catalogQueryItemSchema.omit({ score: true, explain: true }),
+  score: z.number(),
   explain: z.array(z.string()),
 });
 
@@ -598,7 +608,7 @@ export class UserDemoAgentService {
         query_pack: step.queryPack,
         filters: step.filters,
       });
-      collected.push(...result.items);
+      collected.push(...result.entries.map(flattenCatalogEntryMatch));
     }
 
     return sortItems(dedupeItems(collected), session.sortPreference);
@@ -632,7 +642,7 @@ export class UserDemoAgentService {
       filters: QuerySession['activeFilters'];
     },
   ) {
-    return requestJson<{ items: CatalogQueryItem[] }>(routeHint.query_url, {
+    return requestJson<{ entries: Array<z.infer<typeof catalogQueryMatchSchema>> }>(routeHint.query_url, {
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: routeHint.catalog_id,
@@ -643,6 +653,14 @@ export class UserDemoAgentService {
       explain: false,
     });
   }
+}
+
+function flattenCatalogEntryMatch(match: z.infer<typeof catalogQueryMatchSchema>): CatalogQueryItem {
+  return {
+    ...match.entry,
+    score: match.score,
+    explain: match.explain,
+  };
 }
 
 async function requestJson<T>(url: string, body: unknown) {
@@ -798,4 +816,3 @@ function normalizeQueryPack(
 
   return supportedQueryPacks[0];
 }
-

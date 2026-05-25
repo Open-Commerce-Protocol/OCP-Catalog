@@ -99,15 +99,19 @@ function firstCatalog(search: Record<string, unknown>) {
 }
 
 function firstEntry(queryResult: Record<string, unknown>) {
-  const items = queryResult.items;
-  if (!Array.isArray(items) || items.length === 0) {
+  const entries = queryResult.entries;
+  if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error('Catalog query returned no entries. Seed and publish provider data before running validate:mcp.');
   }
-  const first = items[0];
+  const first = entries[0];
   if (!first || typeof first !== 'object' || Array.isArray(first)) {
     throw new Error('Catalog query returned an invalid entry.');
   }
-  return first as Record<string, unknown>;
+  const entry = (first as Record<string, unknown>).entry;
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error('Catalog query returned an invalid CatalogEntry match.');
+  }
+  return entry as Record<string, unknown>;
 }
 
 function firstSupportedQueryPack(manifest: Record<string, unknown>) {

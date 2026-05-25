@@ -37,8 +37,10 @@ describe('query and resolve tools', () => {
     }, createToolDeps());
 
     expect(result.entries[0]).toMatchObject({
-      entry_id: 'entry_1',
-      title: 'Demo Headphones',
+      entry: {
+        entry_id: 'entry_1',
+        title: 'Demo Headphones',
+      },
     });
     expect(result.page.limit).toBe(10);
   });

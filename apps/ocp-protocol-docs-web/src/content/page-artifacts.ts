@@ -715,25 +715,30 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
         response: {
           kind: 'CatalogQueryResult',
           result_count: 3,
-          items: [
+          entries: [
             {
-              entry_id: 'centry_01_example',
-              provider_id: 'commerce_provider_local_dev',
-              object_id: 'electronics-headphones-001',
-              title: 'Noise Cancelling Headphones',
-              score: 0.97,
-              attributes: {
-                category: 'electronics',
-                brand: 'North Audio',
-                sku: 'electronics-headphones-001',
-                amount: 129,
-                list_amount: 159,
-                availability_status: 'low_stock',
-                primary_image_url: 'https://commerce-provider.example.test/images/electronics-headphones-001.jpg',
-                quality_tier: 'rich',
-                has_image: true,
-                discount_present: true,
+              entry: {
+                kind: 'CatalogEntry',
+                catalog_id: 'commerce_catalog_local_dev',
+                entry_id: 'centry_01_example',
+                provider_id: 'commerce_provider_local_dev',
+                object_id: 'electronics-headphones-001',
+                object_type: 'product',
+                title: 'Noise Cancelling Headphones',
+                attributes: {
+                  category: 'electronics',
+                  brand: 'North Audio',
+                  sku: 'electronics-headphones-001',
+                  amount: 129,
+                  list_amount: 159,
+                  availability_status: 'low_stock',
+                  primary_image_url: 'https://commerce-provider.example.test/images/electronics-headphones-001.jpg',
+                  quality_tier: 'rich',
+                  has_image: true,
+                  discount_present: true,
+                },
               },
+              score: 0.97,
               explain: [
                 'Inferred query strategy: hybrid.',
                 'Matched category filter: electronics.',
@@ -816,10 +821,19 @@ const artifactRegistry: Record<string, PageArtifactDefinition> = {
           kind: 'CatalogQueryResult',
           catalog_id: 'hello_catalog',
           result_count: 1,
-          items: [
+          entries: [
             {
-              entry_id: 'hello_entry',
-              title: 'hello world! true example filed',
+              entry: {
+                kind: 'CatalogEntry',
+                catalog_id: 'hello_catalog',
+                entry_id: 'hello_entry',
+                provider_id: 'hello_provider',
+                object_id: 'hello_object',
+                title: 'hello world! true example filed',
+                attributes: {},
+              },
+              score: 1,
+              explain: [],
             },
           ],
         },

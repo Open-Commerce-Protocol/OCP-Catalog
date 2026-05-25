@@ -1,4 +1,5 @@
-import { catalogQueryRequestSchema } from '@ocp-catalog/ocp-schema';
+import { planCatalogQuery } from '@ocp-catalog/catalog-core';
+import { catalogQueryRequestSchema, type CatalogEntry } from '@ocp-catalog/ocp-schema';
 import type { ShopifyConfig } from '../config';
 import { bridgeFilters } from '../mapper/filter-bridge';
 import {
@@ -8,7 +9,7 @@ import {
 } from '../mapper/product-to-object';
 import type { ShopifyCatalogClient } from '../shopify/mcp-client';
 import { moneyToMajorUnits, stripShopifyGid, type ShopifyProduct } from '../shopify/types';
-import { sourceId } from './manifest';
+import { buildCatalogManifest, sourceId } from './manifest';
 
 const SHIPS_TO_COUNTRY_FROM_ENV = process.env.SHOPIFY_SHIPS_TO_COUNTRY;
 
@@ -21,6 +22,9 @@ export class ShopifyCatalogQueryService {
   async query(input: unknown) {
     const request = catalogQueryRequestSchema.parse(input);
     const sid = sourceId(this.cfg);
+    const queryPlan = planCatalogQuery(buildCatalogManifest(this.cfg).query_capabilities, request, {
+      retrievalAvailable: false,
+    });
 
     const filterResult = bridgeFilters(request, {
       mode: this.cfg.SHOPIFY_CATALOG_MODE,
@@ -36,8 +40,8 @@ export class ShopifyCatalogQueryService {
         kind: 'CatalogQueryResult',
         id: `qry_${crypto.randomUUID()}`,
         catalog_id: this.cfg.SHOPIFY_CATALOG_ID,
-        query_pack: request.query_pack ?? 'ocp.query.keyword.v1',
-        query_mode: request.query ? 'keyword' : 'filter',
+        query_pack: queryPlan.selectedQueryPack,
+        query_mode: queryPlan.queryMode,
         query: request.query,
         result_count: 0,
         page: {
@@ -45,11 +49,11 @@ export class ShopifyCatalogQueryService {
           offset: request.offset,
           has_more: false,
         },
-        items: [],
+        entries: [],
         policy_summary: {
           selected_capability_id: 'ocp.shopify.product.search.v1',
-          selected_query_pack: request.query_pack ?? 'ocp.query.keyword.v1',
-          query_mode: request.query ? 'keyword' : 'filter',
+          selected_query_pack: queryPlan.selectedQueryPack,
+          query_mode: queryPlan.queryMode,
           supports_explain: true,
           accepted_filters: filterResult.acceptedFilters,
           rejected_filters: filterResult.rejectedFilters,
@@ -87,8 +91,8 @@ export class ShopifyCatalogQueryService {
       kind: 'CatalogQueryResult',
       id: `qry_${crypto.randomUUID()}`,
       catalog_id: this.cfg.SHOPIFY_CATALOG_ID,
-      query_pack: request.query_pack ?? 'ocp.query.keyword.v1',
-      query_mode: request.query ? 'keyword' : 'filter',
+      query_pack: queryPlan.selectedQueryPack,
+      query_mode: queryPlan.queryMode,
       query: request.query,
       result_count: objects.length,
       page: {
@@ -96,13 +100,13 @@ export class ShopifyCatalogQueryService {
         offset: request.offset,
         has_more: false,
       },
-      items: products.map((product, idx) =>
-        queryItemFromProduct(product, objects[idx], sid, request.query),
+      entries: products.map((product, idx) =>
+        queryItemFromProduct(product, objects[idx], this.cfg.SHOPIFY_CATALOG_ID, sid, request.query),
       ),
       policy_summary: {
         selected_capability_id: 'ocp.shopify.product.search.v1',
-        selected_query_pack: request.query_pack ?? 'ocp.query.keyword.v1',
-        query_mode: request.query ? 'keyword' : 'filter',
+        selected_query_pack: queryPlan.selectedQueryPack,
+        query_mode: queryPlan.queryMode,
         supports_explain: true,
         accepted_filters: filterResult.acceptedFilters,
         rejected_filters: filterResult.rejectedFilters,
@@ -124,6 +128,7 @@ export class ShopifyCatalogQueryService {
 function queryItemFromProduct(
   product: ShopifyProduct,
   object: CommercialObject,
+  catalogId: string,
   sid: string,
   query: string,
 ) {
@@ -158,14 +163,22 @@ function queryItemFromProduct(
         : null,
   };
 
-  return {
+  const entry: CatalogEntry = {
+    kind: 'CatalogEntry',
+    catalog_id: catalogId,
     entry_id: `entry_${sid}_${stripShopifyGid(product.id)}`,
     provider_id: sid,
     object_id: object.object_id,
+    object_type: object.object_type,
+    commercial_object_id: object.id,
     title: product.title,
     ...(summary ? { summary } : {}),
-    score: query ? 1 : 0.8,
     attributes,
+  };
+
+  return {
+    entry,
+    score: query ? 1 : 0.8,
     explain: [
       'Mapped from Shopify search_catalog response.',
       'Resolve this entry to fetch variant checkout URLs.',

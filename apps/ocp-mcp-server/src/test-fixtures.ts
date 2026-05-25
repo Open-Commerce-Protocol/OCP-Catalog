@@ -110,7 +110,7 @@ export const searchResult: CatalogSearchResult = {
       catalog_name: validRouteHint.catalog_name,
       description: validRouteHint.description,
       score: 1,
-      matched_query_capabilities: ['ocp.commerce.product.search.v1'],
+      matched_query_packs: ['ocp.query.keyword.v1'],
       verification_status: validRouteHint.verification_status,
       trust_tier: validRouteHint.trust_tier,
       health_status: validRouteHint.health_status,
@@ -134,17 +134,23 @@ export const queryResult: CatalogQueryResult = {
     offset: 0,
     has_more: false,
   },
-  items: [
+  entries: [
     {
-      entry_id: 'entry_1',
-      provider_id: 'provider_1',
-      object_id: 'object_1',
-      title: 'Demo Headphones',
-      summary: 'Wireless demo headphones',
-      score: 0.95,
-      attributes: {
-        category: 'electronics',
+      entry: {
+        kind: 'CatalogEntry',
+        catalog_id: 'cat_local_dev',
+        entry_id: 'entry_1',
+        provider_id: 'provider_1',
+        object_id: 'object_1',
+        object_type: 'product',
+        commercial_object_id: 'commercial_object_1',
+        title: 'Demo Headphones',
+        summary: 'Wireless demo headphones',
+        attributes: {
+          category: 'electronics',
+        },
       },
+      score: 0.95,
       explain: ['keyword match'],
     },
   ],

@@ -46,12 +46,12 @@ export function buildCatalogManifest(cfg: AlimamaConfig) {
           {
             pack_id: 'ocp.query.keyword.v1',
             description: 'Keyword search against upstream affiliate material APIs.',
-            query_modes: ['keyword'],
+            query_modes: ['keyword'] as const,
           },
           {
             pack_id: 'ocp.query.filter.v1',
             description: 'Filter by category, platform, price, coupon, and source metadata.',
-            query_modes: ['filter'],
+            query_modes: ['filter'] as const,
           },
         ],
         searchable_field_refs: [

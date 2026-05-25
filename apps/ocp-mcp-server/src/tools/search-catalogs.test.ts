@@ -53,7 +53,7 @@ describe('search and inspect tools', () => {
                     catalog_name: validRouteHint.catalog_name,
                     description: validRouteHint.description,
                     score: 1,
-                    matched_query_capabilities: ['ocp.query.keyword.v1'],
+                    matched_query_packs: ['ocp.query.keyword.v1'],
                     verification_status: validRouteHint.verification_status,
                     trust_tier: validRouteHint.trust_tier,
                     health_status: validRouteHint.health_status,

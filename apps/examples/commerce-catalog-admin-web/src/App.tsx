@@ -671,20 +671,20 @@ function QueryLabPage({
                 </div>
               ) : null}
               <div className="space-y-3">
-                {result.items.map((item) => (
-                  <article key={item.entry_id} className="rounded-sm border border-operator-border bg-operator-bg p-4">
+                {result.entries.map((match) => (
+                  <article key={match.entry.entry_id} className="rounded-sm border border-operator-border bg-operator-bg p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-medium">{item.title}</div>
-                        <div className="mt-1 text-xs text-operator-muted operator-mono">{item.provider_id} · score {item.score}</div>
+                        <div className="font-medium">{match.entry.title}</div>
+                        <div className="mt-1 text-xs text-operator-muted operator-mono">{match.entry.provider_id} · score {match.score}</div>
                       </div>
-                      <button onClick={() => void handleResolve(item.entry_id)} className="rounded-sm border border-operator-border px-3 py-1 text-xs transition-colors hover:bg-operator-surface">
+                      <button onClick={() => void handleResolve(match.entry.entry_id)} className="rounded-sm border border-operator-border px-3 py-1 text-xs transition-colors hover:bg-operator-surface">
                         Resolve
                       </button>
                     </div>
-                    {item.explain.length > 0 ? (
+                    {match.explain.length > 0 ? (
                       <ul className="mt-3 space-y-1 text-xs text-operator-muted">
-                        {item.explain.map((line) => <li key={line}>{line}</li>)}
+                        {match.explain.map((line) => <li key={line}>{line}</li>)}
                       </ul>
                     ) : null}
                   </article>

@@ -100,7 +100,7 @@ await check('Follow route_hint.query_url → keyword search returns at least one
   const result = await postAbs(routeQueryUrl, { query: 'sweater', limit: 5 });
   assert(result.kind === 'CatalogQueryResult', `expected CatalogQueryResult, got ${result.kind}`);
   assert(result.result_count >= 1, `expected ≥1 results, got ${result.result_count}`);
-  firstEntryId = result.items[0].entry_id;
+  firstEntryId = result.entries[0].entry.entry_id;
   assert(firstEntryId?.startsWith('entry_'), 'entry_id should have entry_ prefix');
   assert(result.policy_summary?.selected_capability_id === 'ocp.shopify.product.search.v1', 'capability mismatch');
 });

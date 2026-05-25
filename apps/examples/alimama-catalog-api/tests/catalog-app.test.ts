@@ -77,10 +77,29 @@ describe('Alimama Catalog Node routes', () => {
     }));
     const body = catalogQueryResultSchema.parse(await json(res));
     expect(body.kind).toBe('CatalogQueryResult');
-    expect(body.items).toHaveLength(3);
-    expect(body.items[0]!.entry_id).toMatch(/^entry_alimama_taobao_union_/);
-    expect(body.items[0]!.provider_id).toBe('alimama_taobao_union');
-    expect(body.items[0]!.attributes.source_id).toBe('alimama_taobao_union');
+    expect(body.entries).toHaveLength(3);
+    expect(body.entries[0]!.entry.entry_id).toMatch(/^entry_alimama_taobao_union_/);
+    expect(body.entries[0]!.entry.provider_id).toBe('alimama_taobao_union');
+    expect(body.entries[0]!.entry.attributes.source_id).toBe('alimama_taobao_union');
+  });
+
+  test('query rejects query packs not declared in the manifest', async () => {
+    const res = await app().handle(new Request('http://localhost/ocp/query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'CatalogQueryRequest',
+        query_pack: 'ocp.query.semantic.v1',
+        query: 'coffee',
+      }),
+    }));
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('validation_error');
+    expect(body.error.details.supported_query_packs).toEqual([
+      'ocp.query.keyword.v1',
+      'ocp.query.filter.v1',
+    ]);
   });
 
   test('resolve returns OCP ActionBindings instead of hook links', async () => {

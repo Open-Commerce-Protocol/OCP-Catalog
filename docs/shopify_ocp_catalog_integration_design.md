@@ -160,28 +160,33 @@ Shopify 2026 年推出的 [Shopify Catalog](https://shopify.dev/docs/agents/cata
 | `offset` | Storefront 用 cursor；Global 文档未提供；先实现"仅首页"，再考虑游标 ↔ offset 桥接 | — |
 | `explain` | 写入 OCP 返回 `explain[]` | — |
 
-**反方向（Shopify product → OCP `queryResultItem`）**：
+**反方向（Shopify product → OCP `CatalogEntryMatch`）**：
 
 ```ts
-queryResultItem = {
-  entry_id: `entry_shopify_${global ? 'global' : storeDomain}_${productUpid}`,
-  provider_id: 'shopify_global' | `shopify_storefront_${storeDomain}`,
-  object_id: stripGid(product.id),     // 'p/7f3a...'
-  title: product.title,
-  summary: htmlToPlainText(product.description.html).slice(0, 200),
-  score: 1.0,                           // Shopify 未提供 score；用相对位置或固定 1.0
-  attributes: {
-    ...productCoreV1(product),
-    price: priceV1(product.price_range),
-    inventory: inventoryV1(product.variants),
-    media: product.media,
-    rating: product.rating,
-    categories: product.categories,
-    source_id: 'shopify_global' | 'shopify_storefront',
-    source_object_id: product.id,
-    variant_count: product.variants.length,
-    has_native_checkout: product.variants.some(v => v.eligible?.native_checkout),
+catalogEntryMatch = {
+  entry: {
+    kind: 'CatalogEntry',
+    catalog_id: catalogId,
+    entry_id: `entry_shopify_${global ? 'global' : storeDomain}_${productUpid}`,
+    provider_id: 'shopify_global' | `shopify_storefront_${storeDomain}`,
+    object_id: stripGid(product.id),     // 'p/7f3a...'
+    object_type: 'product',
+    title: product.title,
+    summary: htmlToPlainText(product.description.html).slice(0, 200),
+    attributes: {
+      ...productCoreV1(product),
+      price: priceV1(product.price_range),
+      inventory: inventoryV1(product.variants),
+      media: product.media,
+      rating: product.rating,
+      categories: product.categories,
+      source_id: 'shopify_global' | 'shopify_storefront',
+      source_object_id: product.id,
+      variant_count: product.variants.length,
+      has_native_checkout: product.variants.some(v => v.eligible?.native_checkout),
+    },
   },
+  score: 1.0,                           // Shopify 未提供 score；用相对位置或固定 1.0
   explain: ['Mapped from Shopify search_catalog response.'],
 };
 ```
@@ -398,7 +403,7 @@ export class ShopifyCatalogClient {
 
 ### Phase 2 — Query 通路（1–2 day）
 
-- 实现 `search_catalog` → `queryResultItem` 完整映射（mapper.test.ts + query-service.test.ts）
+- 实现 `search_catalog` → `CatalogEntryMatch` 完整映射（mapper.test.ts + query-service.test.ts）
 - 用 fixture 跑通单元测试，再用真 endpoint 做一次 end-to-end smoke。
 - 处理 OCP filter ↔ Shopify filter 的 reject + warning，落到 `policy_summary`。
 

@@ -12,14 +12,18 @@ describe('CatalogClient', () => {
       query_pack: 'ocp.query.keyword.v1',
       query: '渠道 招商 代理',
       result_count: 1,
-      items: [
+      entries: [
         {
-          entry_id: 'centry_1',
-          provider_id: 'provider_1',
-          object_id: 'object_1',
-          title: 'CRM SaaS 华东渠道代理计划',
+          entry: {
+            kind: 'CatalogEntry',
+            catalog_id: 'channel_catalog_prod',
+            entry_id: 'centry_1',
+            provider_id: 'provider_1',
+            object_id: 'object_1',
+            title: 'CRM SaaS 华东渠道代理计划',
+            attributes: {},
+          },
           score: 1,
-          attributes: {},
           explain: [],
         },
       ],
@@ -44,7 +48,7 @@ describe('CatalogClient', () => {
         offset: 0,
         has_more: false,
       });
-      expect(result.items[0]?.entry_id).toBe('centry_1');
+      expect(result.entries[0]?.entry.entry_id).toBe('centry_1');
     } finally {
       globalThis.fetch = originalFetch;
     }

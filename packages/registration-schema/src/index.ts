@@ -213,7 +213,7 @@ export const catalogSearchResultItemSchema = z.object({
   catalog_name: z.string().min(1),
   description: z.string().optional(),
   score: z.number(),
-  matched_query_capabilities: z.array(z.string()).default([]),
+  matched_query_packs: z.array(z.string()).default([]),
   verification_status: z.string(),
   trust_tier: z.string(),
   health_status: z.string(),
