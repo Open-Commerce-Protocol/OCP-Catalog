@@ -73,7 +73,7 @@ export class SyncService {
       if (!product) {
         return { objects: [], cursorAdvancedTo: null };
       }
-      return { objects: [mapShopifyProductToCommercialObject(product, ctx)], cursorAdvancedTo: product.updatedAt };
+      return { objects: [mapShopifyProductToCommercialObject(product, ctx)], cursorAdvancedTo: null };
     });
   }
 
@@ -164,9 +164,13 @@ export class SyncService {
         ? 'succeeded'
         : 'failed';
 
+    const committedCursor =
+      (type === 'sync_full' || type === 'sync_delta') && status === 'succeeded'
+        ? cursorAdvancedTo
+        : null;
     const finished = new Date();
     await this.state.update({
-      ...(cursorAdvancedTo ? { last_synced_at: cursorAdvancedTo } : {}),
+      ...(committedCursor ? { last_synced_at: committedCursor } : {}),
       last_run: {
         type,
         status,
@@ -186,7 +190,7 @@ export class SyncService {
       accepted_count: accepted,
       rejected_count: rejected,
       errors,
-      cursor_advanced_to: cursorAdvancedTo,
+      cursor_advanced_to: committedCursor,
     };
   }
 }

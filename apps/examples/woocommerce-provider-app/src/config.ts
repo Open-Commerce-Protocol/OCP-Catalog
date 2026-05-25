@@ -51,6 +51,10 @@ export function loadWcProviderConfig(env: NodeJS.ProcessEnv = process.env): WcPr
     if (!parsed.WC_PROVIDER_CONSUMER_KEY || !parsed.WC_PROVIDER_CONSUMER_SECRET) {
       throw new Error('WC_PROVIDER_MOCK=false requires WC_PROVIDER_CONSUMER_KEY and WC_PROVIDER_CONSUMER_SECRET');
     }
+    const siteUrl = new URL(parsed.WC_PROVIDER_SITE_URL);
+    if (siteUrl.protocol !== 'https:') {
+      throw new Error('WC_PROVIDER_MOCK=false requires WC_PROVIDER_SITE_URL to use https:// for WooCommerce credentials');
+    }
   }
   return parsed;
 }

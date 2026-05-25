@@ -64,7 +64,7 @@ export class SyncService {
       const p = await this.wc.getProduct(productId);
       if (!p) return { objects: [], cursorAdvancedTo: null };
       const obj = await this.attachVariations(p, ctx);
-      return { objects: [obj], cursorAdvancedTo: p.date_modified_gmt ?? null };
+      return { objects: [obj], cursorAdvancedTo: null };
     });
   }
 
@@ -90,11 +90,7 @@ export class SyncService {
 
   private async attachVariations(p: any, ctx: MapperContext): Promise<CommercialObject> {
     if (p.type === 'variable' && p.variations && p.variations.length > 0 && !p.variation_details) {
-      try {
-        p.variation_details = await this.wc.listVariations(p.id);
-      } catch {
-        // non-fatal — variations stay empty
-      }
+      p.variation_details = await this.wc.listVariations(p.id);
     }
     return mapWcProductToCommercialObject(p, ctx);
   }
@@ -177,9 +173,13 @@ export class SyncService {
         ? 'succeeded'
         : 'failed';
 
+    const committedCursor =
+      (type === 'sync_full' || type === 'sync_delta') && status === 'succeeded'
+        ? cursorAdvancedTo
+        : null;
     const finished = new Date();
     await this.state.update({
-      ...(cursorAdvancedTo ? { last_synced_at: cursorAdvancedTo } : {}),
+      ...(committedCursor ? { last_synced_at: committedCursor } : {}),
       last_run: {
         type,
         status,
@@ -199,7 +199,7 @@ export class SyncService {
       accepted_count: accepted,
       rejected_count: rejected,
       errors,
-      cursor_advanced_to: cursorAdvancedTo,
+      cursor_advanced_to: committedCursor,
     };
   }
 }

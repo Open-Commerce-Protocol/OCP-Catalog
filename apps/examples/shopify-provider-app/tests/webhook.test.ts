@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createHmac } from 'node:crypto';
+import { createShopifyWebhookRoute } from '../src/http/webhooks';
 import { classifyTopic, verifyShopifyHmac } from '../src/shopify/webhook';
 
 describe('verifyShopifyHmac', () => {
@@ -31,5 +32,39 @@ describe('classifyTopic', () => {
   test('unknown topic', () => {
     expect(classifyTopic('orders/create')).toBe('unknown');
     expect(classifyTopic(undefined)).toBe('unknown');
+  });
+});
+
+describe('createShopifyWebhookRoute', () => {
+  test('returns retryable non-2xx when webhook sync fails', async () => {
+    const secret = 'test_webhook_secret';
+    const body = JSON.stringify({ id: 8001001 });
+    const hmac = createHmac('sha256', secret).update(body).digest('base64');
+    const app = createShopifyWebhookRoute({
+      cfg: {
+        SHOPIFY_PROVIDER_WEBHOOK_SECRET: secret,
+        SHOPIFY_PROVIDER_MOCK: false,
+      } as any,
+      sync: {
+        syncOne: async () => {
+          throw new Error('catalog unavailable');
+        },
+      } as any,
+    });
+
+    const res = await app.handle(new Request('http://localhost/webhooks/shopify', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-shopify-topic': 'products/update',
+        'x-shopify-hmac-sha256': hmac,
+      },
+      body,
+    }));
+    const payload = await res.json();
+
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    expect(payload.ok).toBe(false);
+    expect(payload.retryable).toBe(true);
   });
 });

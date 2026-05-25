@@ -18,6 +18,9 @@ export class RegistrationService {
     const startedAt = new Date();
     try {
       const result = await this.catalog.registerProvider(registration);
+      if (result.status === 'rejected') {
+        throw new Error(`Provider registration rejected: ${String(result.message ?? 'catalog rejected registration')}`);
+      }
       const acceptedVersion = (result.effective_registration_version as number | undefined) ?? version;
       await this.state.update({
         active_registration_version: acceptedVersion,

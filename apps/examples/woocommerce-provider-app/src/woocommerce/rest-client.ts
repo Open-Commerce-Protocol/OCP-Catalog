@@ -95,7 +95,19 @@ export class WcRestClient {
       const all = await loadVariationsFixture();
       return all[Number(productId)] ?? [];
     }
-    return this.get<WcVariation[]>(`products/${productId}/variations`, new URLSearchParams({ per_page: '100' }));
+    const out: WcVariation[] = [];
+    let page = 1;
+    while (true) {
+      const params = new URLSearchParams({ page: String(page), per_page: '100' });
+      const items = await this.get<WcVariation[]>(`products/${productId}/variations`, params);
+      out.push(...items);
+      if (items.length < 100) break;
+      page += 1;
+      if (page > 200) {
+        throw new WcApiError(0, `WC product ${productId} variations exceeded pagination safety limit`);
+      }
+    }
+    return out;
   }
 
   private async get<T>(path: string, params?: URLSearchParams): Promise<T> {

@@ -47,7 +47,8 @@ export function createWcWebhookRoute(deps: WebhookDeps) {
         : await deps.sync.syncOne(productId, 'webhook');
       return { ok: true, topic, productId, result };
     } catch (err) {
-      return { ok: false, topic, productId, error: err instanceof Error ? err.message : String(err) };
+      set.status = 502;
+      return { ok: false, topic, productId, retryable: true, error: err instanceof Error ? err.message : String(err) };
     }
   });
 }

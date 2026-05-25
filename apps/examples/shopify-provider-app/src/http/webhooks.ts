@@ -8,7 +8,7 @@
  *   3. Dispatch by X-Shopify-Topic:
  *        products/create | products/update → syncOne()
  *        products/delete                    → syncTombstone()
- *   4. Return 200 promptly so Shopify doesn't retry storm us.
+ *   4. Return 2xx only after the catalog write has succeeded.
  */
 import { Elysia } from 'elysia';
 import type { ShopifyProviderConfig } from '../config';
@@ -63,12 +63,12 @@ export function createShopifyWebhookRoute(deps: WebhookDeps) {
         : await deps.sync.syncOne(productId, 'webhook');
       return { ok: true, topic, productId, result };
     } catch (err) {
-      // Still return 200 so Shopify doesn't retry on permanent errors; the
-      // last_run on /admin/status will surface the failure to operators.
+      set.status = 502;
       return {
         ok: false,
         topic,
         productId,
+        retryable: true,
         error: err instanceof Error ? err.message : String(err),
       };
     }
