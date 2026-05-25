@@ -11,31 +11,15 @@
  *   3. inventory.availability_status is one of in_stock / out_of_stock / unknown
  *   4. Optional fields are omitted, not set to null
  */
+import { commercialObjectSchema, type CommercialObject } from '@ocp-catalog/ocp-schema';
 import { parseShopifyPrice, stripShopifyGid, type ShopifyProduct } from '../shopify/types';
+
+export type { CommercialObject };
 
 export interface MapperContext {
   providerId: string;
   defaultCurrency: string;
   storeDomain?: string;
-}
-
-export interface Descriptor {
-  pack_id: string;
-  data: Record<string, unknown>;
-}
-
-export interface CommercialObject {
-  ocp_version: '1.0';
-  kind: 'CommercialObject';
-  id: string;
-  object_id: string;
-  object_type: 'product';
-  provider_id: string;
-  title: string;
-  summary?: string;
-  status: 'active' | 'inactive' | 'draft';
-  source_url?: string;
-  descriptors: Descriptor[];
 }
 
 export function htmlToPlainText(html: string | null | undefined): string | undefined {
@@ -150,7 +134,7 @@ export function mapShopifyProductToCommercialObject(p: ShopifyProduct, ctx: Mapp
     shopify_updated_at: p.updatedAt,
   };
 
-  return {
+  const object: CommercialObject = {
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.providerId}_${objectId}`,
@@ -196,12 +180,13 @@ export function mapShopifyProductToCommercialObject(p: ShopifyProduct, ctx: Mapp
       },
     ],
   };
+  return commercialObjectSchema.parse(object);
 }
 
 /** Build a soft-delete CommercialObject for tombstone (delete) webhook events. */
 export function buildTombstoneCommercialObject(productId: string, ctx: MapperContext): CommercialObject {
   const objectId = stripShopifyGid(productId);
-  return {
+  const object: CommercialObject = {
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.providerId}_${objectId}`,
@@ -225,4 +210,5 @@ export function buildTombstoneCommercialObject(productId: string, ctx: MapperCon
       },
     ],
   };
+  return commercialObjectSchema.parse(object);
 }

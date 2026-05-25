@@ -33,7 +33,7 @@ test('lists catalog products with clean list body when query is empty', async ()
   const requests: unknown[] = [];
   await listCatalogProducts(createCatalog(), { query: '', limit: 12 }, async (_input, init) => {
     requests.push(JSON.parse(String(init?.body)));
-    return Response.json({ items: [] });
+    return Response.json({ entries: [] });
   });
 
   expect(requests[0]).toEqual({
@@ -47,7 +47,7 @@ test('queries catalog products with keyword pack when query is present', async (
   const requests: unknown[] = [];
   await listCatalogProducts(createCatalog(), { query: 'shoes', limit: 12 }, async (_input, init) => {
     requests.push(JSON.parse(String(init?.body)));
-    return Response.json({ items: [] });
+    return Response.json({ entries: [] });
   });
 
   expect(requests[0]).toEqual({
@@ -67,7 +67,7 @@ test('queries catalog products with semantic mode when requested', async () => {
     limit: 8,
   }, async (_input, init) => {
     requests.push(JSON.parse(String(init?.body)));
-    return Response.json({ items: [] });
+    return Response.json({ entries: [] });
   });
 
   expect(requests[0]).toEqual({
@@ -92,7 +92,7 @@ test('queries catalog products with filter pack and structured filters', async (
     offset: 20,
   }, async (_input, init) => {
     requests.push(JSON.parse(String(init?.body)));
-    return Response.json({ items: [] });
+    return Response.json({ entries: [] });
   });
 
   expect(requests[0]).toEqual({
@@ -115,7 +115,7 @@ test('rejects unsupported requested query packs before calling catalog', async (
     limit: 10,
   }, async () => {
     called = true;
-    return Response.json({ items: [] });
+    return Response.json({ entries: [] });
   })).rejects.toThrow('does not support query_pack ocp.query.unknown.v1');
 
   expect(called).toBe(false);

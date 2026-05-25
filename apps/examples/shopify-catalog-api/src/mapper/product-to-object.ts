@@ -13,6 +13,7 @@
  *   3. inventory.availability_status is one of 'in_stock' | 'out_of_stock' | 'unknown'
  *   4. Optional fields are omitted, not set to undefined
  */
+import { commercialObjectSchema, type CommercialObject } from '@ocp-catalog/ocp-schema';
 import {
   moneyToMajorUnits,
   stripShopifyGid,
@@ -20,27 +21,11 @@ import {
   type ShopifyProduct,
 } from '../shopify/types';
 
+export type { CommercialObject };
+
 export interface MapperContext {
   sourceId: string;
   catalogBaseUrl: string;
-}
-
-export interface Descriptor {
-  pack_id: string;
-  data: Record<string, unknown>;
-}
-
-export interface CommercialObject {
-  ocp_version: '1.0';
-  kind: 'CommercialObject';
-  id: string;
-  object_id: string;
-  object_type: 'product';
-  provider_id: string;
-  title: string;
-  status: 'active' | 'inactive' | 'draft';
-  source_url?: string;
-  descriptors: Descriptor[];
 }
 
 export function absolutize(url: string | undefined | null): string | undefined {
@@ -136,7 +121,7 @@ export function mapProductToCommercialObject(
     affiliate_source: 'shopify_catalog',
   };
 
-  return {
+  const object: CommercialObject = {
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.sourceId}_${objectId}`,
@@ -176,4 +161,5 @@ export function mapProductToCommercialObject(
       },
     ],
   };
+  return commercialObjectSchema.parse(object);
 }

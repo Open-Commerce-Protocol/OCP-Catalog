@@ -160,10 +160,10 @@ describe('commerce catalog semantic integration', () => {
       explain: true,
     });
 
-    expect(semanticResult.items).toHaveLength(1);
-    expect(semanticResult.items[0]?.title).toContain(providerId);
-    expect(semanticResult.items[0]?.attributes.quality_tier).toBe('rich');
-    expect(semanticResult.items[0]?.score).toBeGreaterThan(0);
+    expect(semanticResult.entries).toHaveLength(1);
+    expect(semanticResult.entries[0]?.entry.title).toContain(providerId);
+    expect(semanticResult.entries[0]?.entry.attributes.quality_tier).toBe('rich');
+    expect(semanticResult.entries[0]?.score).toBeGreaterThan(0);
 
     const hybridResult = await commerceQueryService.query({
       ocp_version: '1.0',
@@ -178,9 +178,9 @@ describe('commerce catalog semantic integration', () => {
       explain: true,
     });
 
-    expect(hybridResult.items.length).toBeGreaterThanOrEqual(2);
-    expect(hybridResult.items[0]?.attributes.quality_tier).toBe('rich');
-    expect(hybridResult.items[0]?.score).toBeGreaterThan(hybridResult.items[1]?.score ?? 0);
+    expect(hybridResult.entries.length).toBeGreaterThanOrEqual(2);
+    expect(hybridResult.entries[0]?.entry.attributes.quality_tier).toBe('rich');
+    expect(hybridResult.entries[0]?.score).toBeGreaterThan(hybridResult.entries[1]?.score ?? 0);
     expect(hybridResult.explain).toContain('Applied semantic ANN shortlist with exact cosine rerank.');
 
     const noCandidateSemanticResult = await new CommerceQueryService(db, baseConfig, scenario, {
@@ -198,7 +198,7 @@ describe('commerce catalog semantic integration', () => {
       explain: true,
     });
 
-    expect(noCandidateSemanticResult.items).toHaveLength(0);
+    expect(noCandidateSemanticResult.entries).toHaveLength(0);
     expect(noCandidateSemanticResult.explain).toContain('Semantic retrieval ran but found no ready embedding candidates. Check embedding readiness and pending index jobs.');
     expect(noCandidateSemanticResult.explain).not.toContain('Applied semantic ANN shortlist with exact cosine rerank.');
   });

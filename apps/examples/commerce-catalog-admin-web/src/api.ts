@@ -97,13 +97,21 @@ export type CatalogAdminEntry = {
 };
 
 export type CatalogQueryItem = {
+  kind: 'CatalogEntry';
+  catalog_id: string;
   entry_id: string;
   provider_id: string;
   object_id: string;
+  object_type?: string;
+  commercial_object_id?: string;
   title: string;
   summary?: string;
-  score: number;
   attributes: Record<string, unknown>;
+};
+
+export type CatalogQueryMatch = {
+  entry: CatalogQueryItem;
+  score: number;
   explain: string[];
 };
 
@@ -115,7 +123,7 @@ export type CatalogQueryResult = {
     has_more: boolean;
     next_offset?: number;
   };
-  items: CatalogQueryItem[];
+  entries: CatalogQueryMatch[];
   explain: string[];
 };
 

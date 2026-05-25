@@ -54,12 +54,12 @@ await check('OCP query: keyword returns at least one item', async () => {
   const result = await post('/ocp/query', { query: 'sweater', limit: 5 });
   assert(result.kind === 'CatalogQueryResult', 'kind should be CatalogQueryResult');
   assert(result.result_count >= 1, 'should return at least one item');
-  assert(result.items[0].entry_id?.startsWith('entry_'), 'entry_id should have entry_ prefix');
+  assert(result.entries[0].entry.entry_id?.startsWith('entry_'), 'entry_id should have entry_ prefix');
   assert(
     result.policy_summary.selected_capability_id === 'ocp.shopify.product.search.v1',
     'policy_summary.capability should match',
   );
-  firstEntryId = result.items[0].entry_id;
+  firstEntryId = result.entries[0].entry.entry_id;
 });
 
 await check('OCP query: rejected_filters surface unsupported filters', async () => {

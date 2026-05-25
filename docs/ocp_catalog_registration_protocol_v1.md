@@ -467,7 +467,7 @@ POST /ocp/catalogs/search
       "catalog_name": "Demo Catalog",
       "description": "Product and service discovery catalog.",
       "score": 0.91,
-      "matched_query_capabilities": ["ocp.commerce.product.search.v1"],
+      "matched_query_packs": ["ocp.query.keyword.v1"],
       "verification_status": "verified",
       "trust_tier": "verified_domain",
       "health_status": "healthy",

@@ -132,18 +132,24 @@ Search 返回轻量商品结果：
 {
   "kind": "CatalogQueryResult",
   "catalog_id": "woo_acme_catalog",
-  "items": [
+  "entries": [
     {
-      "entry_id": "centry_woo_123_456",
-      "object_type": "product",
-      "title": "Merino Wool Runner - Navy",
-      "summary": "Lightweight everyday shoe",
-      "attributes": {
-        "brand": "Acme",
-        "amount": 89,
-        "currency": "USD",
-        "availability_status": "in_stock",
-        "primary_image_url": "https://store.example/wp-content/uploads/shoe.jpg"
+      "entry": {
+        "kind": "CatalogEntry",
+        "catalog_id": "woo_acme_catalog",
+        "entry_id": "centry_woo_123_456",
+        "object_type": "product",
+        "provider_id": "woo_store_example",
+        "object_id": "woocommerce://store.example/products/123/variations/456",
+        "title": "Merino Wool Runner - Navy",
+        "summary": "Lightweight everyday shoe",
+        "attributes": {
+          "brand": "Acme",
+          "amount": 89,
+          "currency": "USD",
+          "availability_status": "in_stock",
+          "primary_image_url": "https://store.example/wp-content/uploads/shoe.jpg"
+        }
       }
     }
   ]

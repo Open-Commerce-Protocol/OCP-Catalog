@@ -1,5 +1,6 @@
 import { cors } from '@elysiajs/cors';
 import { Elysia } from 'elysia';
+import { AppError } from '@ocp-catalog/shared';
 import { ZodError } from 'zod';
 import type { AlimamaClient } from './alimama/client';
 import type { AlimamaConfig } from './config';
@@ -31,6 +32,16 @@ export function createAlimamaCatalogApp(deps: AlimamaCatalogAppDeps) {
             code: 'validation_error',
             message: 'Invalid request body',
             details: error.issues,
+          },
+        };
+      }
+      if (error instanceof AppError) {
+        set.status = error.status;
+        return {
+          error: {
+            code: error.code,
+            message: error.message,
+            details: error.details,
           },
         };
       }

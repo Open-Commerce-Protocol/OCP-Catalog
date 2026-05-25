@@ -13,7 +13,6 @@ export type CatalogQueryResponse = {
   query?: string;
   query_pack?: string;
   result_count?: number;
-  items?: Array<Record<string, unknown>>;
   entries?: Array<Record<string, unknown>>;
   page?: {
     limit?: number;

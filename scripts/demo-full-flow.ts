@@ -346,7 +346,7 @@ step('DB check — both providers + new commercial_objects landed');
 step('Wait for search index worker (catalog runs one every 30s)');
 const queryFor = async (q: string) => {
   const r = await httpJson('POST', `${CATALOG}/ocp/query`, { query: q, limit: 10 });
-  return r.body?.items ?? [];
+  return (r.body?.entries ?? []).map((match: any) => match.entry);
 };
 
 const queries = ['wool', 'apron', 'blanket', 'shirt'];

@@ -38,7 +38,7 @@ export function normalizeCatalogCandidate(item: CatalogSearchResultItem) {
     catalog_name: item.catalog_name,
     description: item.description ?? null,
     score: item.score,
-    matched_query_capabilities: item.matched_query_capabilities,
+    matched_query_packs: item.matched_query_packs,
     verification_status: item.verification_status,
     trust_tier: item.trust_tier,
     health_status: item.health_status,

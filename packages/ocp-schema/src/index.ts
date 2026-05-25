@@ -411,14 +411,22 @@ export const catalogQueryRequestSchema = z.object({
   explain: z.boolean().optional().default(true),
 }).strict();
 
-export const queryResultItemSchema = z.object({
-  entry_id: z.string(),
-  provider_id: z.string(),
-  object_id: z.string(),
-  title: z.string(),
+export const catalogEntrySchema = z.object({
+  kind: z.literal('CatalogEntry'),
+  catalog_id: z.string().min(1),
+  entry_id: z.string().min(1),
+  provider_id: z.string().min(1),
+  object_id: z.string().min(1),
+  object_type: z.string().min(1).optional(),
+  commercial_object_id: z.string().min(1).optional(),
+  title: z.string().min(1),
   summary: z.string().optional(),
-  score: z.number(),
   attributes: z.record(z.string(), z.unknown()),
+});
+
+export const catalogEntryMatchSchema = z.object({
+  entry: catalogEntrySchema,
+  score: z.number(),
   explain: z.array(z.string()).default([]),
 });
 
@@ -447,7 +455,7 @@ export const catalogQueryResultSchema = z.object({
     has_more: z.boolean(),
     next_offset: z.number().int().min(0).optional(),
   }),
-  items: z.array(queryResultItemSchema),
+  entries: z.array(catalogEntryMatchSchema),
   policy_summary: queryPolicySummarySchema.optional(),
   audit_id: z.string().min(1).optional(),
   explain: z.array(z.string()).default([]),
@@ -559,7 +567,8 @@ export type ObjectSyncItemResult = z.infer<typeof objectSyncItemResultSchema>;
 export type CatalogQueryRequest = z.infer<typeof catalogQueryRequestSchema>;
 export type CatalogQueryResult = z.infer<typeof catalogQueryResultSchema>;
 export type QueryPolicySummary = z.infer<typeof queryPolicySummarySchema>;
-export type QueryResultItem = z.infer<typeof queryResultItemSchema>;
+export type CatalogEntry = z.infer<typeof catalogEntrySchema>;
+export type CatalogEntryMatch = z.infer<typeof catalogEntryMatchSchema>;
 export type ResolveRequest = z.infer<typeof resolveRequestSchema>;
 export type ResolvableReference = z.infer<typeof resolvableReferenceSchema>;
 export type ActionBinding = z.infer<typeof actionBindingSchema>;

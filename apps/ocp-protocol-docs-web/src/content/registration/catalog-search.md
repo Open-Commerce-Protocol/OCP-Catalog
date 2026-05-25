@@ -34,7 +34,7 @@ Each result item includes both ranking and route information.
   "catalog_id": "commerce_catalog_local_dev",
   "catalog_name": "Commerce Product Search Catalog",
   "score": 0.96,
-  "matched_query_capabilities": ["ocp.query.keyword.v1"],
+  "matched_query_packs": ["ocp.query.keyword.v1"],
   "route_hint": {
     "catalog_id": "commerce_catalog_local_dev",
     "query_url": "http://localhost:4000/ocp/query",

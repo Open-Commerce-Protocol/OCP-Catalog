@@ -44,9 +44,9 @@ await check('Catalog /ocp/query finds the synced Shopify product (waits for asyn
   for (let attempt = 0; attempt < 20; attempt++) {
     const result = await post(`${catalogBaseUrl}/ocp/query`, { query: 'wool crewneck', limit: 10 });
     if (result.kind === 'CatalogQueryResult') {
-      mine = (result.items ?? []).filter((i: any) => i.provider_id === providerId);
+      mine = (result.entries ?? []).filter((match: any) => match.entry.provider_id === providerId);
       if (mine.length >= 1) {
-        firstObjectId = mine[0].object_id;
+        firstObjectId = mine[0].entry.object_id;
         return;
       }
     }

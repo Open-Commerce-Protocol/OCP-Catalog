@@ -23,6 +23,6 @@ describe('catalog selection', () => {
 
     expect(result.selected_catalog.catalog_id).toBe('cat_local_dev');
     expect(result.query_result.entries).toHaveLength(1);
-    expect(result.query_result.entries[0]?.title).toBe('Demo Headphones');
+    expect(result.query_result.entries[0]?.entry.title).toBe('Demo Headphones');
   });
 });

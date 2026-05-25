@@ -1,5 +1,6 @@
 import { cors } from '@elysiajs/cors';
 import { Elysia } from 'elysia';
+import { AppError } from '@ocp-catalog/shared';
 import { ZodError } from 'zod';
 import type { ShopifyConfig } from './config';
 import {
@@ -41,6 +42,16 @@ export function createShopifyCatalogApp(deps: ShopifyCatalogAppDeps) {
           error: {
             code: error.code,
             message: error.message,
+          },
+        };
+      }
+      if (error instanceof AppError) {
+        set.status = error.status;
+        return {
+          error: {
+            code: error.code,
+            message: error.message,
+            details: error.details,
           },
         };
       }

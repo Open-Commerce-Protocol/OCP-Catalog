@@ -42,7 +42,7 @@ export async function queryCatalogTool(input: QueryCatalogInput, deps: ToolDeps)
     query_mode: result.query_mode ?? queryPolicy.queryMode,
     query: result.query,
     result_count: result.result_count,
-    entries: result.items,
+    entries: result.entries,
     page: result.page,
     policy_summary: result.policy_summary ?? queryPolicy.policySummary,
     audit_id: result.audit_id ?? null,

@@ -4,32 +4,16 @@
  * Variable products: variations are embedded under attributes.variations.
  * Price uses Woo's resolved `price` (which already accounts for sale).
  */
+import { commercialObjectSchema, type CommercialObject } from '@ocp-catalog/ocp-schema';
 import type { WcProduct, WcVariation } from '../woocommerce/types';
+
+export type { CommercialObject };
 
 export interface MapperContext {
   providerId: string;
   defaultCurrency: string;
   /** Optional, used to fall back to construct product URL if permalink missing. */
   siteUrl?: string;
-}
-
-export interface Descriptor {
-  pack_id: string;
-  data: Record<string, unknown>;
-}
-
-export interface CommercialObject {
-  ocp_version: '1.0';
-  kind: 'CommercialObject';
-  id: string;
-  object_id: string;
-  object_type: 'product';
-  provider_id: string;
-  title: string;
-  summary?: string;
-  status: 'active' | 'inactive' | 'draft';
-  source_url?: string;
-  descriptors: Descriptor[];
 }
 
 export function htmlToPlainText(html: string | null | undefined): string | undefined {
@@ -122,7 +106,7 @@ export function mapWcProductToCommercialObject(p: WcProduct, ctx: MapperContext)
     total_sales: p.total_sales ?? null,
   };
 
-  return {
+  const object: CommercialObject = {
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.providerId}_${objectId}`,
@@ -164,11 +148,12 @@ export function mapWcProductToCommercialObject(p: WcProduct, ctx: MapperContext)
       },
     ],
   };
+  return commercialObjectSchema.parse(object);
 }
 
 export function buildWcTombstoneCommercialObject(productId: string | number, ctx: MapperContext): CommercialObject {
   const objectId = String(productId);
-  return {
+  const object: CommercialObject = {
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.providerId}_${objectId}`,
@@ -186,4 +171,5 @@ export function buildWcTombstoneCommercialObject(productId: string | number, ctx
       { pack_id: 'ocp.commerce.inventory.v1', data: { availability_status: 'out_of_stock' } },
     ],
   };
+  return commercialObjectSchema.parse(object);
 }

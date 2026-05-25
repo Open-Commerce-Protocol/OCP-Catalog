@@ -52,7 +52,7 @@ export function buildCatalogManifest(cfg: ShopifyConfig) {
           {
             pack_id: 'ocp.query.keyword.v1',
             description: 'Keyword search forwarded to Shopify search_catalog.',
-            query_modes: ['keyword', 'filter'],
+            query_modes: ['keyword', 'filter'] as const,
           },
         ],
         supports_explain: true,

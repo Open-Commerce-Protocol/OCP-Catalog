@@ -69,7 +69,7 @@ await check('Query keyword finds synced product with explain', async () => {
     limit: 10,
     explain: true,
   }, false);
-  assert(result.items.some((item: any) => item.entry_id === acceptedEntryId), 'orchid query should find synced entry');
+  assert(result.entries.some((match: any) => match.entry.entry_id === acceptedEntryId), 'orchid query should find synced entry');
   assert(result.explain.length > 0, 'query explain should be present');
 });
 
@@ -80,8 +80,8 @@ await check('Query structured filters apply', async () => {
     limit: 10,
     explain: true,
   }, false);
-  assert(result.items.length >= 1, 'filtered query should return at least one item');
-  assert(result.items.every((item: any) => item.attributes.category === 'flowers'), 'all items should match category filter');
+  assert(result.entries.length >= 1, 'filtered query should return at least one item');
+  assert(result.entries.every((match: any) => match.entry.attributes.category === 'flowers'), 'all items should match category filter');
 });
 
 await check('Resolve returns ResolvableReference with URL action binding', async () => {

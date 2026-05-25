@@ -108,17 +108,22 @@ new Elysia()
       kind: 'CatalogQueryResult',
       catalog_id: 'hello_catalog',
       result_count: 1,
-      items: [
+      entries: [
         {
-          entry_id: 'hello_entry',
-          object_id: 'hello_object',
-          object_type: 'example',
-          provider_id: 'hello_catalog',
-          title: `hello world! ${exampleFiled} example filed`,
-          score: 1,
-          attributes: {
-            message: `hello world! ${exampleFiled} example filed`,
+          entry: {
+            kind: 'CatalogEntry',
+            catalog_id: 'hello_catalog',
+            entry_id: 'hello_entry',
+            object_id: 'hello_object',
+            object_type: 'example',
+            provider_id: 'hello_catalog',
+            title: `hello world! ${exampleFiled} example filed`,
+            attributes: {
+              message: `hello world! ${exampleFiled} example filed`,
+            },
           },
+          score: 1,
+          explain: [],
         },
       ],
       explain: [

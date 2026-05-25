@@ -304,7 +304,7 @@ export class CatalogRegistryService {
           catalog_name: row.catalogName,
           ...(row.description ? { description: row.description } : {}),
           score,
-          matched_query_capabilities: row.supportedQueryPacks,
+          matched_query_packs: row.supportedQueryPacks,
           verification_status: row.verificationStatus,
           trust_tier: row.trustTier,
           health_status: row.healthStatus,
@@ -874,4 +874,3 @@ function hashJson(value: unknown) {
 function hashText(value: string) {
   return createHash('sha256').update(value).digest('hex');
 }
-

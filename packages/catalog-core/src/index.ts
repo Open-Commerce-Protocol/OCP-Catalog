@@ -12,7 +12,9 @@ export { asProjection, numberField, stringField, visibleAttributes } from './pro
 export { RegistrationService } from './registration-service';
 export { ObjectSyncService } from './object-sync-service';
 export { ResolveService } from './resolve-service';
+export { planCatalogQuery } from './query-planner';
 export { defaultProviderFieldRules } from './scenario';
+export type { CatalogQueryMode, CatalogQueryPlan } from './query-planner';
 export type { CatalogScenarioModule, DescriptorValidationResult, SearchProjection } from './scenario';
 
 export function createCatalogServices(

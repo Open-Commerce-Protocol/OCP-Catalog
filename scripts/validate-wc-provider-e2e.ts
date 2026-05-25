@@ -30,7 +30,7 @@ await check('Catalog /ocp/query finds the synced WC product (waits for async ind
   for (let attempt = 0; attempt < 20; attempt++) {
     const r = await post(`${catalogBaseUrl}/ocp/query`, { query: 'cotton apron', limit: 10 });
     if (r.kind === 'CatalogQueryResult') {
-      const mine = (r.items ?? []).filter((i: any) => i.provider_id === providerId);
+      const mine = (r.entries ?? []).filter((match: any) => match.entry.provider_id === providerId);
       if (mine.length >= 1) return;
     }
     await new Promise((r) => setTimeout(r, 2000));

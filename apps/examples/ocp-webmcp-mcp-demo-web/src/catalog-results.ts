@@ -29,7 +29,7 @@ export function findLatestCatalogSummary(history: readonly DemoCallRecord[]) {
 }
 
 export function summarizeCatalogResponse(response: CatalogQueryResponse, catalogName?: string): CatalogSearchSummary {
-  const products = getEntryArray(response.items ?? response.entries).map(toProductCard);
+  const products = getEntryArray(response.entries).map(toProductCard);
   return {
     title: products.length > 0 ? `${products.length} 件商品` : '没有找到商品',
     catalogName,
@@ -53,7 +53,7 @@ export function summarizeCatalogCall(record: DemoCallRecord): CatalogSearchSumma
   const selectedCatalog = isRecord(content?.selected_catalog) ? content.selected_catalog : undefined;
   const directCatalog = isRecord(content?.catalog) ? content.catalog : undefined;
   const queryResult = isRecord(content?.query_result) ? content.query_result : undefined;
-  const entries = queryResult ? getEntryArray(queryResult.entries ?? queryResult.items) : getEntryArray(content?.entries ?? content?.items);
+  const entries = queryResult ? getEntryArray(queryResult.entries) : getEntryArray(content?.entries);
   const products = entries.map(toProductCard);
 
   return {
@@ -69,6 +69,9 @@ function getEntryArray(value: unknown) {
 }
 
 function toProductCard(entry: Record<string, unknown>, index: number): ProductCard {
+  const match = isRecord(entry.entry) ? entry : undefined;
+  const score = typeof match?.score === 'number' ? match.score : undefined;
+  entry = match ? match.entry as Record<string, unknown> : entry;
   const attributes = isRecord(entry.attributes) ? entry.attributes : {};
   const title = getString(entry.title) ?? getString(attributes.name) ?? `Catalog item ${index + 1}`;
   return {
@@ -79,7 +82,7 @@ function toProductCard(entry: Record<string, unknown>, index: number): ProductCa
     availability: formatAvailability(getString(attributes.availability_status) ?? getString(attributes.availability)),
     imageUrl: getString(attributes.primary_image_url) ?? getString(attributes.image_url),
     productUrl: getString(attributes.product_url) ?? getString(attributes.url),
-    subtitle: getString(attributes.category) ?? getString(attributes.description),
+    subtitle: getString(attributes.category) ?? getString(attributes.description) ?? (score !== undefined ? `score ${score}` : undefined),
   };
 }
 

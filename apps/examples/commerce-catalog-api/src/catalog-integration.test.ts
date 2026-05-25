@@ -114,10 +114,10 @@ describe('commerce catalog integration', () => {
       explain: true,
     });
 
-    expect(queryResult.items.length).toBeGreaterThanOrEqual(2);
-    expect(queryResult.items[0]?.attributes.quality_tier).toBe('rich');
-    expect(queryResult.items[0]?.attributes.has_image).toBe(true);
-    expect(queryResult.items[0]?.score).toBeGreaterThan(queryResult.items[1]?.score ?? 0);
+    expect(queryResult.entries.length).toBeGreaterThanOrEqual(2);
+    expect(queryResult.entries[0]?.entry.attributes.quality_tier).toBe('rich');
+    expect(queryResult.entries[0]?.entry.attributes.has_image).toBe(true);
+    expect(queryResult.entries[0]?.score).toBeGreaterThan(queryResult.entries[1]?.score ?? 0);
 
     const firstListPage = await commerceQueryService.query({
       ocp_version: '1.0',
@@ -135,16 +135,16 @@ describe('commerce catalog integration', () => {
       explain: true,
     });
 
-    expect(firstListPage.items).toHaveLength(1);
+    expect(firstListPage.entries).toHaveLength(1);
     expect(firstListPage.page).toEqual({
       limit: 1,
       offset: 0,
       has_more: true,
       next_offset: 1,
     });
-    expect(secondListPage.items).toHaveLength(1);
+    expect(secondListPage.entries).toHaveLength(1);
     expect(secondListPage.page.offset).toBe(1);
-    expect(secondListPage.items[0]?.entry_id).not.toBe(firstListPage.items[0]?.entry_id);
+    expect(secondListPage.entries[0]?.entry.entry_id).not.toBe(firstListPage.entries[0]?.entry.entry_id);
 
     const filteredQuery = await commerceQueryService.query({
       ocp_version: '1.0',
@@ -161,15 +161,15 @@ describe('commerce catalog integration', () => {
       explain: true,
     });
 
-    expect(filteredQuery.items).toHaveLength(1);
-    expect(filteredQuery.items[0]?.attributes.primary_image_url).toBe(`https://provider.example/images/${providerId}-rich.jpg`);
-    expect(filteredQuery.items[0]?.attributes.list_amount).toBe(159.99);
+    expect(filteredQuery.entries).toHaveLength(1);
+    expect(filteredQuery.entries[0]?.entry.attributes.primary_image_url).toBe(`https://provider.example/images/${providerId}-rich.jpg`);
+    expect(filteredQuery.entries[0]?.entry.attributes.list_amount).toBe(159.99);
 
     const resolved = await services.resolve.resolve({
       ocp_version: '1.0',
       kind: 'ResolveRequest',
       catalog_id: baseConfig.CATALOG_ID,
-      entry_id: filteredQuery.items[0]!.entry_id,
+      entry_id: filteredQuery.entries[0]!.entry.entry_id,
       purpose: 'view',
       live_check: true,
       requested_fields: ['availability_status'],
