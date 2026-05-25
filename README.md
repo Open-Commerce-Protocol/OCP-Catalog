@@ -77,7 +77,7 @@ packages/
   shared/                      通用错误和工具
 ```
 
-架构边界说明见 [docs/repo-architecture.md](./docs/repo-architecture.md)。
+架构边界说明见 [docs/architecture/repo-architecture.md](./docs/architecture/repo-architecture.md)。
 
 ## 当前实现了什么
 
@@ -143,7 +143,7 @@ packages/
   - API endpoint 示例
   - 仓库实现映射
 
-协议与设计文档见 `docs/` 下的正式协议稿与设计稿。
+协议与设计文档见 [docs/README.md](./docs/README.md)。正式协议稿、架构文档、集成设计和历史材料已经拆分到不同目录，避免继续混放。
 
 ## 当前示例 Catalog 是什么
 
@@ -251,7 +251,7 @@ CommercialObject
 ANN shortlist -> exact cosine rerank -> final merge/rank
 ```
 
-实现边界和协议约束优先参考 `README.md`、`docs/ocp_catalog_handshake_protocol_v1.md`、`docs/ocp_catalog_registration_protocol_v1.md`。
+实现边界和协议约束优先参考 `README.md`、`docs/specs/handshake/v1.md`、`docs/specs/registration/v1.md`。
 
 ## 快速开始
 
@@ -375,7 +375,8 @@ bun run test
 
 ## 主要文档
 
-- [docs/repo-architecture.md](./docs/repo-architecture.md)
-- [docs/ocp_catalog_registration_protocol_v1.md](./docs/ocp_catalog_registration_protocol_v1.md)
-- [docs/ocp_catalog_handshake_protocol_v1.md](./docs/ocp_catalog_handshake_protocol_v1.md)
-- [docs/design_v2.md](./docs/design_v2.md)
+- [docs/README.md](./docs/README.md)
+- [docs/architecture/repo-architecture.md](./docs/architecture/repo-architecture.md)
+- [docs/architecture/system-design.md](./docs/architecture/system-design.md)
+- [docs/specs/registration/v1.md](./docs/specs/registration/v1.md)
+- [docs/specs/handshake/v1.md](./docs/specs/handshake/v1.md)

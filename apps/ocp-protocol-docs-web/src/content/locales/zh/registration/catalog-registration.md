@@ -53,4 +53,4 @@ Registration node 接受注册后，可以继续：
 - 校验 catalog 控制权
 - 拉取 catalog manifest
 - 生成 snapshot
-- 索引可路由的 metadata
+- 索引可路由 metadata

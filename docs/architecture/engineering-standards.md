@@ -4,9 +4,9 @@ This repository is now a protocol-first OCP Catalog v2 codebase. The old public 
 
 ## Current Product Direction
 
-- Treat `docs/ocp_catalog_registration_protocol_v1.md` as the source of truth for the OCP Catalog Registration node / Catalog Registry handshake.
-- Treat `docs/ocp_catalog_handshake_protocol_v1.md` as the source of truth for the Provider -> Catalog Node handshake.
-- Treat `docs/design_v2.md` as the object-centric architecture direction.
+- Treat `docs/specs/registration/v1.md` as the source of truth for the OCP Catalog Registration node / Catalog Registry handshake.
+- Treat `docs/specs/handshake/v1.md` as the source of truth for the Provider -> Catalog Node handshake.
+- Treat `docs/architecture/system-design.md` as the object-centric architecture direction.
 - Treat `ocp.catalog.handshake.v1/` as the concrete JSON Schema package.
 - Do not call a single Catalog Node implementation an OCP Catalog Registration node. A Catalog Node indexes commercial objects. An OCP Catalog Registration node indexes Catalog nodes.
 - Do not reintroduce Offer / ItemReference as top-level system centers. Product offers may be represented as `CommercialObject` instances with `object_type = "product"`.

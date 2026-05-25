@@ -1,7 +1,6 @@
 ---
 title: WebMCP demo
 description: The WebMCP demo exposes OCP Catalog Mall's browse, search, and product-page-open capabilities as in-browser WebMCP tools, enabling end-to-end verification of agent calls.
-slug: /docs/demos/webmcp-demo
 category: demos
 order: 1
 ---

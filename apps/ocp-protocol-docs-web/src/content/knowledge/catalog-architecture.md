@@ -1,7 +1,6 @@
 ---
 title: Catalog architecture
 description: OCP Catalog is layered into Discovery, Catalog, Provider Integration, Object Semantics, and Action, with two main flows running on top — the Agent invocation flow and the Provider integration flow.
-slug: /docs/architecture/catalog-architecture
 category: architecture
 order: 1
 ---

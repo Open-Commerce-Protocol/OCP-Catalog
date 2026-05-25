@@ -24,7 +24,7 @@
 当前仓库里的这条 example 已经比“泛化搜索某个 catalog”更具体：
 
 - Registration node search 会返回 commerce catalog 的 route hint
-- agent 会用 `query_pack = ocp.commerce.product.search.v1` 去查询 commerce catalog
+- agent 会用 Catalog 支持的 query pack（例如 `ocp.query.keyword.v1`）去查询 commerce catalog；`ocp.commerce.product.search.v1` 是 catalog capability，不是 query pack
 - catalog 可以使用 keyword、filter、hybrid，以及启用时的 semantic retrieval
 - query result 现在会带上价格、图片、库存、质量层级等 commerce attributes
 - agent resolve 的是选中的 `entry_id`，而不只是一个 `object_id`

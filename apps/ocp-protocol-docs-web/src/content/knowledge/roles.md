@@ -1,7 +1,6 @@
 ---
 title: Role model
 description: OCP splits Catalog discovery, indexing, sourcing, resolution, and action execution into distinct roles, so each carries clear authority, responsibility, and audit boundaries.
-slug: /docs/concepts/roles
 category: concepts
 order: 3
 ---

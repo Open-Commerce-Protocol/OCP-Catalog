@@ -9,8 +9,6 @@ const sectionAliases: Record<string, string> = {
   registration: 'registration',
   example: 'examples',
   examples: 'examples',
-  page: 'pages',
-  pages: 'pages',
 };
 
 function stripFrontmatter(markdown: string): string {

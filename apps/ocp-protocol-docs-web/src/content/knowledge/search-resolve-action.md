@@ -1,7 +1,6 @@
 ---
 title: Search / Resolve / Action
 description: OCP splits "from intent to checkout" into three strictly separate phases — Search, Resolve, and Action — each with its own visibility, freshness, permission, and audit profile.
-slug: /docs/concepts/search-resolve-action
 category: concepts
 order: 4
 ---

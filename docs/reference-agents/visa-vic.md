@@ -325,5 +325,5 @@ Agent 应保留 checkout failure event，向用户说明是否已创建 pending 
 
 - Visa Intelligent Commerce overview: https://developer.visa.com/capabilities/visa-intelligent-commerce/overview
 - Visa Trusted Agent Protocol overview: https://developer.visa.com/capabilities/trusted-agent-protocol/overview
-- OCP Catalog Registration Protocol: `docs/ocp_catalog_registration_protocol_v1.md`
-- OCP Catalog Handshake Protocol: `docs/ocp_catalog_handshake_protocol_v1.md`
+- OCP Catalog Registration Protocol: `docs/specs/registration/v1.md`
+- OCP Catalog Handshake Protocol: `docs/specs/handshake/v1.md`

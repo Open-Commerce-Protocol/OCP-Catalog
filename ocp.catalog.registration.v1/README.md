@@ -24,7 +24,7 @@
 
 协议草案与生命周期说明见：
 
-- [../docs/ocp_catalog_registration_protocol_v1.md](../docs/ocp_catalog_registration_protocol_v1.md)
+- [../docs/specs/registration/v1.md](../docs/specs/registration/v1.md)
 
 ## Boundary
 
@@ -191,4 +191,4 @@ ocp.catalog.registration.v1
 ## Related Docs
 
 - [../ocp.catalog.handshake.v1/README.md](../ocp.catalog.handshake.v1/README.md)
-- [../docs/ocp_catalog_registration_protocol_v1.md](../docs/ocp_catalog_registration_protocol_v1.md)
+- [../docs/specs/registration/v1.md](../docs/specs/registration/v1.md)

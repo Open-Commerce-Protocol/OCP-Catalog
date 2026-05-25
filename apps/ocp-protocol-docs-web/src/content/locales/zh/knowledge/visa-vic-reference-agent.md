@@ -1,7 +1,6 @@
 ---
 title: Visa VIC 参考 Agent
 description: Visa VIC 参考 Agent 示范了一种清晰的分层：发现归 OCP、信任归 Visa、履约归商家，Agent 只编排不越权。
-slug: /docs/agentic-commerce/visa-vic-reference-agent
 category: agentic-commerce
 order: 1
 ---

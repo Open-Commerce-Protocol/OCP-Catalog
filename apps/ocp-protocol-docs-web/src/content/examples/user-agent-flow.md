@@ -24,7 +24,7 @@ The current user demo does two important things:
 The current repository example is now more concrete than a generic "search some catalog" flow:
 
 - Registration node search returns a route hint for the commerce catalog
-- the agent queries the commerce catalog with `query_pack = ocp.commerce.product.search.v1`
+- the agent queries the commerce catalog with a supported query pack such as `ocp.query.keyword.v1`; `ocp.commerce.product.search.v1` is the catalog capability, not the query pack
 - the catalog can use keyword, filter, hybrid, and optionally semantic retrieval
 - query results now carry commerce attributes such as price, image, availability, and quality tier
 - the agent resolves a selected `entry_id`, not just an `object_id`

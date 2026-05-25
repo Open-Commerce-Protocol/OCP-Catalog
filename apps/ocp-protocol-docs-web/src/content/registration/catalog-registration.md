@@ -55,4 +55,4 @@ After accepting a registration, the Registration node can:
 - verify catalog control
 - fetch the catalog manifest
 - create a snapshot
-- index routeable metadata
+- index routable metadata

@@ -427,7 +427,7 @@ export class ShopifyCatalogClient {
 
 ### Phase 6 — 文档 + PR 准备（0.5 day）
 
-- README + `docs/shopify_ocp_catalog_integration_design.md`（即本文）持续更新到与代码一致。
+- README + `docs/integrations/shopify-catalog.md`（即本文）持续更新到与代码一致。
 - 提交一个独立 PR 到 upstream，**不与 channel 分支耦合**。
 
 总工时估计：**4–5 个工作日**（不含拿 Shopify dev store 的等待时间）。

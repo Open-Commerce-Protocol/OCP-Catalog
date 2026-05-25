@@ -68,7 +68,7 @@ Provider -> Catalog -> Registration node
 
 ## Why This Split Matters
 
-This split keeps three different concerns separate:
+This split keeps four different concerns separate:
 
 - object supply
 - catalog serving

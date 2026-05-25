@@ -5,7 +5,7 @@
 It implements the `Catalog Node -> OCP Catalog Registration` side of the protocol, defined by:
 
 ```text
-docs/ocp_catalog_registration_protocol_v1.md
+docs/specs/registration/v1.md
 ocp.catalog.registration.v1/
 ```
 

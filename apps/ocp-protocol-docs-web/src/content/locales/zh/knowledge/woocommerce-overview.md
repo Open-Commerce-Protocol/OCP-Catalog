@@ -1,7 +1,6 @@
 ---
 title: WooCommerce 集成概览
 description: 把已运行的 WooCommerce 店铺翻译成 OCP 协议面，让 Agent 通过统一接口与商家协作，而不直接对接私有 REST API。
-slug: /docs/integrations/woocommerce-overview
 category: integrations
 order: 1
 ---

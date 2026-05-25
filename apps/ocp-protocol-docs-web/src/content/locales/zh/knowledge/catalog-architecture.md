@@ -1,7 +1,6 @@
 ---
 title: Catalog 架构
 description: OCP Catalog 由 Discovery、Catalog、Provider Integration、Object Semantics、Action 五层组成，承载 Agent 调用与 Provider 接入两条主链路。
-slug: /docs/architecture/catalog-architecture
 category: architecture
 order: 1
 ---
