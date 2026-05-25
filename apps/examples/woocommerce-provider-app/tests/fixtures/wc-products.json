@@ -1,0 +1,87 @@
+[
+  {
+    "id": 901,
+    "name": "Cotton Apron — Olive",
+    "slug": "cotton-apron-olive",
+    "permalink": "https://wc-demo.example.test/product/cotton-apron-olive/",
+    "type": "simple",
+    "status": "publish",
+    "description": "<p>Heavy <strong>10oz</strong> cotton apron with leather straps.</p>",
+    "short_description": "<p>Heavy cotton apron.</p>",
+    "sku": "APRON-OL",
+    "price": "39.00",
+    "regular_price": "45.00",
+    "sale_price": "39.00",
+    "on_sale": true,
+    "total_sales": 312,
+    "stock_status": "instock",
+    "stock_quantity": 84,
+    "manage_stock": true,
+    "categories": [{ "id": 12, "name": "Aprons", "slug": "aprons" }],
+    "tags": [{ "id": 31, "name": "kitchen" }, { "id": 33, "name": "made-in-pt" }],
+    "images": [
+      { "id": 9001, "src": "https://cdn.wc-demo.example.test/apron-1.jpg", "alt": "Apron front" },
+      { "id": 9002, "src": "https://cdn.wc-demo.example.test/apron-2.jpg", "alt": "Apron back" }
+    ],
+    "attributes": [
+      { "id": 6, "name": "Brand", "options": ["WC Demo Co"], "variation": false, "visible": true }
+    ],
+    "date_created_gmt": "2026-04-01T12:00:00",
+    "date_modified_gmt": "2026-05-10T08:00:00"
+  },
+  {
+    "id": 902,
+    "name": "Wool Throw Blanket",
+    "slug": "wool-throw-blanket",
+    "permalink": "https://wc-demo.example.test/product/wool-throw-blanket/",
+    "type": "variable",
+    "status": "publish",
+    "description": "<p>Heavyweight wool throw. <em>Made in Scotland.</em></p>",
+    "short_description": "",
+    "sku": "WTB",
+    "price": "129.00",
+    "regular_price": "129.00",
+    "sale_price": "",
+    "on_sale": false,
+    "total_sales": 78,
+    "stock_status": "instock",
+    "stock_quantity": null,
+    "manage_stock": false,
+    "categories": [{ "id": 14, "name": "Home", "slug": "home" }],
+    "tags": [],
+    "images": [
+      { "id": 9101, "src": "https://cdn.wc-demo.example.test/throw-1.jpg" }
+    ],
+    "attributes": [
+      { "id": 7, "name": "Color", "options": ["Grey", "Cream", "Rust"], "variation": true, "visible": true },
+      { "id": 8, "name": "Size", "options": ["140cm", "180cm"], "variation": true, "visible": true }
+    ],
+    "variations": [9201, 9202],
+    "date_created_gmt": "2026-03-15T09:00:00",
+    "date_modified_gmt": "2026-05-15T11:00:00"
+  },
+  {
+    "id": 903,
+    "name": "(draft) Linen Bag",
+    "slug": "linen-bag",
+    "permalink": "https://wc-demo.example.test/product/linen-bag/",
+    "type": "simple",
+    "status": "draft",
+    "description": "",
+    "short_description": "",
+    "sku": "LBAG",
+    "price": "0",
+    "regular_price": "",
+    "sale_price": "",
+    "on_sale": false,
+    "stock_status": "outofstock",
+    "stock_quantity": 0,
+    "manage_stock": true,
+    "categories": [],
+    "tags": [],
+    "images": [],
+    "attributes": [],
+    "date_created_gmt": "2026-05-18T09:00:00",
+    "date_modified_gmt": "2026-05-20T07:00:00"
+  }
+]

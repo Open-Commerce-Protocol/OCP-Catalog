@@ -1,0 +1,5 @@
+{
+  "name": "Local Dev Woo Merchant",
+  "url": "https://wc-demo.example.test",
+  "default_currency": "EUR"
+}
