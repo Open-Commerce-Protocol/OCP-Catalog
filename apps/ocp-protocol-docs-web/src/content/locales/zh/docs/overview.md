@@ -2,7 +2,7 @@
 
 这个站点说明的是当前仓库里已经实现的 OCP Catalog 协议面。
 
-![OCP Catalog 协议层连接 merchant system、provider app、catalog 与 agent query side](/Hero.png)
+![OCP Catalog 协议层连接 merchant system、provider app、catalog 与 agent query side](images/ocp-catalog-protocol-layer.png)
 
 它主要覆盖两层协议：
 
@@ -129,3 +129,4 @@ Catalog 告诉 agent 如何搜索，主要通过 `query_packs`，而不是一个
 - 再看 Handshake 概览
 - 再看 注册发现概览
 - 最后看示例流程
+

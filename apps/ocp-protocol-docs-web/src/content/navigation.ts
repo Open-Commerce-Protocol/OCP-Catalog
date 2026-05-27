@@ -3,8 +3,11 @@ export const navigation = [
     title: { en: 'Top-Level', zh: '顶层说明' },
     links: [
       { title: { en: 'Overview', zh: '总览' }, href: '/overview' },
+      { title: { en: 'What Is OCP', zh: 'OCP 是什么' }, href: '/what-is-ocp' },
+      { title: { en: 'What Is Catalog', zh: 'Catalog 是什么' }, href: '/what-is-catalog' },
       { title: { en: 'Roles', zh: '角色' }, href: '/roles' },
-      { title: { en: 'Resolve & Actions', zh: 'Resolve 与动作' }, href: '/resolve-actions' },
+      { title: { en: 'Catalog Architecture', zh: 'Catalog 架构' }, href: '/catalog-architecture' },
+      { title: { en: 'Search / Resolve / Action', zh: 'Search / Resolve / Action' }, href: '/resolve-actions' },
       { title: { en: 'Getting Started', zh: '快速接入' }, href: '/getting-started' },
       { title: { en: 'FAQ', zh: 'FAQ' }, href: '/faq' },
     ],
@@ -42,6 +45,9 @@ export const navigation = [
       { title: { en: 'Commerce Catalog', zh: '电商目录示例' }, href: '/examples/commerce-catalog' },
       { title: { en: 'Provider Flow', zh: '提供方流程' }, href: '/examples/provider-flow' },
       { title: { en: 'User / Agent Flow', zh: '用户 / Agent 流程' }, href: '/examples/user-agent-flow' },
+      { title: { en: 'WooCommerce Overview', zh: 'WooCommerce 集成概览' }, href: '/examples/woocommerce-overview' },
+      { title: { en: 'WebMCP Demo', zh: 'WebMCP Demo' }, href: '/examples/webmcp-demo' },
+      { title: { en: 'Visa VIC Reference Agent', zh: 'Visa VIC 参考 Agent' }, href: '/examples/visa-vic-reference-agent' },
     ],
   },
   {
@@ -50,20 +56,6 @@ export const navigation = [
       { title: { en: 'Protocol Principles', zh: '协议原则' }, href: '/protocol-principles' },
       { title: { en: 'Query Contract Principles', zh: '查询契约原则' }, href: '/query-contract-principles' },
       { title: { en: 'Routing Principles', zh: '路由原则' }, href: '/routing-principles' },
-    ],
-  },
-  {
-    title: { en: 'OCP Knowledge Base', zh: 'OCP 中文知识库' },
-    links: [
-      { title: { en: 'Overview', zh: '总览' }, href: '/knowledge/overview' },
-      { title: { en: 'What Is OCP', zh: 'OCP 是什么' }, href: '/knowledge/what-is-ocp' },
-      { title: { en: 'What Is Catalog', zh: 'Catalog 是什么' }, href: '/knowledge/what-is-catalog' },
-      { title: { en: 'Roles', zh: '角色模型' }, href: '/knowledge/roles' },
-      { title: { en: 'Search / Resolve / Action', zh: 'Search / Resolve / Action 三步法' }, href: '/knowledge/search-resolve-action' },
-      { title: { en: 'Catalog Architecture', zh: 'Catalog 架构' }, href: '/knowledge/catalog-architecture' },
-      { title: { en: 'WooCommerce Overview', zh: 'WooCommerce 集成概览' }, href: '/knowledge/woocommerce-overview' },
-      { title: { en: 'WebMCP Demo', zh: 'WebMCP Demo' }, href: '/knowledge/webmcp-demo' },
-      { title: { en: 'Visa VIC Reference Agent', zh: 'Visa VIC 参考 Agent' }, href: '/knowledge/visa-vic-reference-agent' },
     ],
   },
 ];

@@ -95,8 +95,9 @@ The plugin acts as both Provider and Catalog Node — a single store exposes man
 
 ## See also
 
-- [What is OCP](/knowledge/what-is-ocp)
-- [What is a Catalog](/knowledge/what-is-catalog)
-- [Role model](/knowledge/roles)
-- [Catalog architecture](/knowledge/catalog-architecture)
-- [Search / Resolve / Action](/knowledge/search-resolve-action)
+- [What is OCP](/what-is-ocp)
+- [What is a Catalog](/what-is-catalog)
+- [Role model](/roles)
+- [Catalog architecture](/catalog-architecture)
+- [Search / Resolve / Action](/resolve-actions)
+

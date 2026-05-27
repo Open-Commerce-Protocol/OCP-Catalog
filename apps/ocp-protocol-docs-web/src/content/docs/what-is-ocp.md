@@ -36,9 +36,9 @@ OCP places a protocol layer over these systems so an agent can use one consisten
 OCP rests on a few principles that interlock:
 
 - **Object-neutral core.** The protocol centers on a generic `CommercialObject`, not "products." Products, services, talent, jobs, RFQs, channel opportunities, bookable resources, and workflow entry points are all concrete types; industry differences are expressed via versioned **Descriptor Packs** and **Query Packs**.
-- **Role separation.** Catalog discovery, object indexing, data sourcing, resolve, and action execution are split across distinct roles, so no single party is data source, search engine, and payment gateway at once. See [Role model](/knowledge/roles).
+- **Role separation.** Catalog discovery, object indexing, data sourcing, resolve, and action execution are split across distinct roles, so no single party is data source, search engine, and payment gateway at once. See [Role model](/roles).
 - **Contract-first integration.** A Provider negotiates field, object, and sync contracts before joining a Catalog. Registration establishes the contract; sync carries the data.
-- **Search / Resolve separation.** Search returns candidates with explanations and freshness hints; Resolve returns permissioned details and action entry points. See [Search / Resolve / Action](/knowledge/search-resolve-action).
+- **Search / Resolve separation.** Search returns candidates with explanations and freshness hints; Resolve returns permissioned details and action entry points. See [Search / Resolve / Action](/resolve-actions).
 - **Permissions, trust, provenance, and freshness as first-class.** Visibility, purpose, identity, audit, expiry, and signatures are part of the protocol, not endpoint-level switches.
 - **Remote-first federation.** Catalogs federate by exchanging profiles, route hints, contracts, summaries, and trust metadata — they do **not** replicate complete object databases by default.
 
@@ -46,7 +46,8 @@ These principles drive OCP's data model (CatalogProfile, CatalogManifest, Catalo
 
 ## See also
 
-- [What is a Catalog](/knowledge/what-is-catalog)
-- [Role model](/knowledge/roles)
-- [Search / Resolve / Action](/knowledge/search-resolve-action)
-- [Catalog architecture](/knowledge/catalog-architecture)
+- [What is a Catalog](/what-is-catalog)
+- [Role model](/roles)
+- [Search / Resolve / Action](/resolve-actions)
+- [Catalog architecture](/catalog-architecture)
+

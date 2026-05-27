@@ -78,3 +78,13 @@ Typical fields include:
 The catalog exposes the action entrance and calling requirements. It does not become the booking system, order system, ATS, CRM, ERP, or approval workflow.
 
 That boundary matters: OCP Catalog standardizes discovery, resolution, and action exposure while leaving execution and state transitions close to the authoritative service.
+
+## Phase Discipline
+
+Search, resolve, and action have different visibility, freshness, permission, and audit profiles.
+
+- Search should not expose pricing internals, exact inventory, contact information, or payment credentials.
+- Resolve is not bulk detail retrieval. Call it after a user or agent has selected a candidate and needs restricted fields, live validation, or an action entry point.
+- Action happens through the Action Provider or business system after confirmation, idempotency, expiry, schema, and risk checks pass.
+
+Concrete integrations follow the same shape: browser demos may expose search tools, commerce providers map resolve to checkout creation, and payment-aware agents create checkout only after resolve and explicit user authorization.

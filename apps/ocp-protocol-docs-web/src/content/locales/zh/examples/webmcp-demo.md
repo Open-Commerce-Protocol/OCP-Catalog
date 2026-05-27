@@ -25,8 +25,8 @@ Demo 把这三件事打包到同一页面，作为 OCP Catalog 的"开箱即验"
 
 ## 它不是什么
 
-- **不是 OCP 协议本体**——Catalog 协议的核心是 discovery / query / resolve / action binding（参见 [Catalog 架构](/knowledge/catalog-architecture)）；WebMCP 只是其中一种**绑定层 / 适配层**呈现方式。
-- **不是正式商家 checkout / order 系统**——没有真实下单、没有真实支付、没有 Order 状态机；和 [WooCommerce 集成概览](/knowledge/woocommerce-overview) 中描述的完整 merchant layer 不在一个层级。
+- **不是 OCP 协议本体**——Catalog 协议的核心是 discovery / query / resolve / action binding（参见 [Catalog 架构](/catalog-architecture)）；WebMCP 只是其中一种**绑定层 / 适配层**呈现方式。
+- **不是正式商家 checkout / order 系统**——没有真实下单、没有真实支付、没有 Order 状态机；和 [WooCommerce 集成概览](/examples/woocommerce-overview) 中描述的完整 merchant layer 不在一个层级。
 - **不是浏览器安装教程**——本页不复述 Chrome flag、Beta 版本号等启用细节。
 - **不是 WebMCP 规范**——`navigator.modelContext.registerTool(...)` 等 API 形态由浏览器侧规范定义。
 - **不是固定数据快照**——商品列表取决于当前所选的 Registration Node、Catalog 与索引数据，截图仅示意。
@@ -53,7 +53,7 @@ Demo 把这三件事打包到同一页面，作为 OCP Catalog 的"开箱即验"
 - **Filter**——结构化过滤；常见字段包括 `category` / `brand` / `currency` / `availability_status` / `provider_id` / `sku` / `min_amount` / `max_amount` / `in_stock_only` / `has_image`。具体支持以当前 Catalog 的 Query Pack 与服务端 schema 为准。
 - **Semantic**——自然语言意图，例如 `morning drink` 可被关联到咖啡类商品。适合 Agent 不替用户做关键词归纳的场景。
 
-三者对应到 [Search / Resolve / Action 三步法](/knowledge/search-resolve-action) 中的 Search 阶段；它们不是各自独立的"另一种协议"，而是同一 Search 阶段下不同 Query Pack 的呈现。
+三者对应到 [Search / Resolve / Action 三步法](/resolve-actions) 中的 Search 阶段；它们不是各自独立的"另一种协议"，而是同一 Search 阶段下不同 Query Pack 的呈现。
 
 ### 标准演示流程
 
@@ -75,9 +75,10 @@ Demo 把这三件事打包到同一页面，作为 OCP Catalog 的"开箱即验"
 
 ## 相关页面
 
-- [OCP 是什么](/knowledge/what-is-ocp)
-- [Catalog 是什么](/knowledge/what-is-catalog)
-- [OCP 角色模型](/knowledge/roles)
-- [Catalog 架构](/knowledge/catalog-architecture)
-- [Search / Resolve / Action 三步法](/knowledge/search-resolve-action)
-- [WooCommerce 集成概览](/knowledge/woocommerce-overview)
+- [OCP 是什么](/what-is-ocp)
+- [Catalog 是什么](/what-is-catalog)
+- [OCP 角色模型](/roles)
+- [Catalog 架构](/catalog-architecture)
+- [Search / Resolve / Action 三步法](/resolve-actions)
+- [WooCommerce 集成概览](/examples/woocommerce-overview)
+

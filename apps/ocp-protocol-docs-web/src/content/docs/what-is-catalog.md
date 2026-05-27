@@ -51,7 +51,8 @@ A Catalog can be a **public catalog aggregating multiple merchants**, or a **mer
 
 ## See also
 
-- [What is OCP](/knowledge/what-is-ocp)
-- [Role model](/knowledge/roles)
-- [Search / Resolve / Action](/knowledge/search-resolve-action)
-- [Catalog architecture](/knowledge/catalog-architecture)
+- [What is OCP](/what-is-ocp)
+- [Role model](/roles)
+- [Search / Resolve / Action](/resolve-actions)
+- [Catalog architecture](/catalog-architecture)
+

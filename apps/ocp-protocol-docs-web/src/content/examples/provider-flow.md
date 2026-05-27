@@ -6,7 +6,7 @@ For a platform-plugin style onboarding scenario, see [Shopify-Style Provider](/e
 
 ## Real Lifecycle
 
-![Commerce data pipeline from raw merchant records to OCP CommercialObject batches, catalog indexing, and search/resolve](/data-sync.png)
+![Commerce data pipeline from raw merchant records to OCP CommercialObject batches, catalog indexing, and search/resolve](images/commerce-data-sync-pipeline.png)
 
 ```text
 provider admin seeds or edits products
@@ -101,3 +101,4 @@ The provider example now demonstrates a realistic split of responsibilities:
 - the provider admin surface closes the loop by showing whether the feed is merely accepted or actually high quality
 
 The same provider shape can be packaged as a storefront plugin or marketplace app. In that model, the merchant chooses a target catalog once, and the app handles registration, product mapping, batch sync, and later product-change syncs.
+

@@ -2,7 +2,7 @@
 
 This repository now implements a concrete commerce product catalog that is closer to a real provider and product-search workflow than the original protocol-only MVP.
 
-![Commerce product data synchronization pipeline into OCP Catalog query and resolve surfaces](/data-sync.png)
+![Commerce product data synchronization pipeline into OCP Catalog query and resolve surfaces](images/commerce-data-sync-pipeline.png)
 
 ## What The Live Example Actually Does
 
@@ -182,3 +182,4 @@ This example now demonstrates more than protocol shape. It shows a real catalog 
 - query ranking mixes text relevance with commerce quality signals
 - provider and catalog both expose feed-quality feedback
 - semantic retrieval is part of the verified implementation path, not just a placeholder in the manifest
+

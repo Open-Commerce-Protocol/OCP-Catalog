@@ -27,7 +27,7 @@ The reference agent's value is to **demonstrate a clean separation**: discovery 
 - Not a payment API specification — Visa VIC, VTS, and MCP Server APIs are out of scope here.
 - Not part of the OCP protocol — it **consumes** OCP; it does not **define** OCP.
 - Not an "automatic buying bot" — discovery shortcuts like `find_and_query_catalog` are **not** automatic-buy tools.
-- Not a merchant system proxy — the merchant layer described in [WooCommerce integration overview](/knowledge/woocommerce-overview) still owns orders, taxes, fulfillment, and refunds.
+- Not a merchant system proxy — the merchant layer described in [WooCommerce integration overview](/examples/woocommerce-overview) still owns orders, taxes, fulfillment, and refunds.
 
 ## Core ideas
 
@@ -87,7 +87,7 @@ User intent
   -> Agent submits commerce signals / audit events
 ```
 
-This chain strictly respects [Search / Resolve / Action](/knowledge/search-resolve-action): Search yields candidates, Resolve yields ActionBinding plus a constrained context, and Action — in this case, checkout — only happens after the user confirms.
+This chain strictly respects [Search / Resolve / Action](/resolve-actions): Search yields candidates, Resolve yields ActionBinding plus a constrained context, and Action — in this case, checkout — only happens after the user confirms.
 
 ### Payment Instruction: a structured authorization
 
@@ -118,10 +118,11 @@ The correct model is: **the user authenticates a constrained instruction → the
 
 ## See also
 
-- [What is OCP](/knowledge/what-is-ocp)
-- [What is a Catalog](/knowledge/what-is-catalog)
-- [Role model](/knowledge/roles)
-- [Search / Resolve / Action](/knowledge/search-resolve-action)
-- [Catalog architecture](/knowledge/catalog-architecture)
-- [WooCommerce integration overview](/knowledge/woocommerce-overview)
-- [WebMCP demo](/knowledge/webmcp-demo)
+- [What is OCP](/what-is-ocp)
+- [What is a Catalog](/what-is-catalog)
+- [Role model](/roles)
+- [Search / Resolve / Action](/resolve-actions)
+- [Catalog architecture](/catalog-architecture)
+- [WooCommerce integration overview](/examples/woocommerce-overview)
+- [WebMCP demo](/examples/webmcp-demo)
+

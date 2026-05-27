@@ -2,7 +2,7 @@
 
 This site documents the protocol surface implemented in the current repository for OCP Catalog.
 
-![OCP Catalog protocol layer connecting merchant systems, provider apps, catalogs, and agent query side](/Hero.png)
+![OCP Catalog protocol layer connecting merchant systems, provider apps, catalogs, and agent query side](images/ocp-catalog-protocol-layer.png)
 
 It focuses on two protocol layers:
 
@@ -129,3 +129,4 @@ This keeps the protocol stable while still giving agents useful planning hints.
 - Then read the Handshake overview
 - Then read the Registration node overview
 - Finally inspect the example flows
+

@@ -95,8 +95,9 @@ Merchant Layer    WooCommerce OCP Plugin
 
 ## 相关页面
 
-- [OCP 是什么](/knowledge/what-is-ocp)
-- [Catalog 是什么](/knowledge/what-is-catalog)
-- [OCP 角色模型](/knowledge/roles)
-- [Catalog 架构](/knowledge/catalog-architecture)
-- [Search / Resolve / Action 三步法](/knowledge/search-resolve-action)
+- [OCP 是什么](/what-is-ocp)
+- [Catalog 是什么](/what-is-catalog)
+- [OCP 角色模型](/roles)
+- [Catalog 架构](/catalog-architecture)
+- [Search / Resolve / Action 三步法](/resolve-actions)
+

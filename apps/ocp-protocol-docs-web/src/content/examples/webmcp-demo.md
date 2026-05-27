@@ -25,8 +25,8 @@ The Demo packages all three into one page — a "try it now" entry into OCP Cata
 
 ## What it is not
 
-- **Not the OCP protocol core.** The Catalog protocol's core is discovery / query / resolve / action binding (see [Catalog architecture](/knowledge/catalog-architecture)). WebMCP is one **binding / adapter** shape among several.
-- **Not a real merchant checkout / order system.** No real purchase, no real payment, no order state machine; this is a different layer from the full merchant layer described in [WooCommerce integration overview](/knowledge/woocommerce-overview).
+- **Not the OCP protocol core.** The Catalog protocol's core is discovery / query / resolve / action binding (see [Catalog architecture](/catalog-architecture)). WebMCP is one **binding / adapter** shape among several.
+- **Not a real merchant checkout / order system.** No real purchase, no real payment, no order state machine; this is a different layer from the full merchant layer described in [WooCommerce integration overview](/examples/woocommerce-overview).
 - **Not a browser setup guide.** Chrome flags, Beta version numbers, and similar enablement details are out of scope here.
 - **Not a WebMCP specification.** API shapes like `navigator.modelContext.registerTool(...)` are defined by browser-side specs.
 - **Not a fixed data snapshot.** The product list depends on the chosen Registration Node, Catalog, and index data; screenshots are illustrative only.
@@ -53,7 +53,7 @@ The page registers five tools via `navigator.modelContext.registerTool(...)`:
 - **Filter** — structured filters. Common fields include `category`, `brand`, `currency`, `availability_status`, `provider_id`, `sku`, `min_amount`, `max_amount`, `in_stock_only`, `has_image`. Supported fields ultimately depend on the current Catalog's Query Pack and server schema.
 - **Semantic** — natural-language intent. For example, `morning drink` can be associated with coffee products. Use when the agent does not want to reduce the user's intent into keywords.
 
-These map to the Search phase in [Search / Resolve / Action](/knowledge/search-resolve-action); they are not separate protocols, just different Query Packs surfaced through the same phase.
+These map to the Search phase in [Search / Resolve / Action](/resolve-actions); they are not separate protocols, just different Query Packs surfaced through the same phase.
 
 ### Standard demo flow
 
@@ -75,9 +75,10 @@ These map to the Search phase in [Search / Resolve / Action](/knowledge/search-r
 
 ## See also
 
-- [What is OCP](/knowledge/what-is-ocp)
-- [What is a Catalog](/knowledge/what-is-catalog)
-- [Role model](/knowledge/roles)
-- [Catalog architecture](/knowledge/catalog-architecture)
-- [Search / Resolve / Action](/knowledge/search-resolve-action)
-- [WooCommerce integration overview](/knowledge/woocommerce-overview)
+- [What is OCP](/what-is-ocp)
+- [What is a Catalog](/what-is-catalog)
+- [Role model](/roles)
+- [Catalog architecture](/catalog-architecture)
+- [Search / Resolve / Action](/resolve-actions)
+- [WooCommerce integration overview](/examples/woocommerce-overview)
+

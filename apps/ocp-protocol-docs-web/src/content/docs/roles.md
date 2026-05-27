@@ -82,3 +82,13 @@ It also keeps protocol power distributed:
 - providers do not depend on a single discovery authority
 - catalogs do not need permission from one global operator to exist
 - registration nodes can compete or specialize without changing the handshake protocol
+
+## Practical Combinations
+
+One organization can still operate multiple roles. The boundary is protocol-level authority, not company structure or process topology.
+
+- A WooCommerce store can be both **Provider** and **Action Provider**: it supplies product objects and still owns checkout, orders, taxes, fulfillment, and refunds.
+- A reference commerce agent plays **Agent** while combining separate payment trust and confirmation rules outside the Catalog protocol.
+- A public commerce catalog plays **Catalog**, aggregates multiple Providers, and registers with one or more Registration nodes.
+
+The important rule is that each surface keeps its responsibility clear. A Registration node does not become product search, a Catalog does not become the order system, and an Agent does not bypass resolve or user confirmation.

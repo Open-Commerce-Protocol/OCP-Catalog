@@ -58,7 +58,7 @@ Agent / User
   -> Action Provider / Merchant / Workflow
 ```
 
-The agent consults its local profile cache first; on a miss, it asks a Registration Node. With a RouteHint or Manifest in hand, it switches to the target Catalog Node to run a query, picks a candidate, and calls resolve. The result is a permissioned ResolvableReference and an ActionBinding. The actual action runs in the Action Provider, the merchant, or a business workflow. This chain enforces the [Search / Resolve / Action](/knowledge/search-resolve-action) discipline: discovery, resolution, and execution are separate.
+The agent consults its local profile cache first; on a miss, it asks a Registration Node. With a RouteHint or Manifest in hand, it switches to the target Catalog Node to run a query, picks a candidate, and calls resolve. The result is a permissioned ResolvableReference and an ActionBinding. The actual action runs in the Action Provider, the merchant, or a business workflow. This chain enforces the [Search / Resolve / Action](/resolve-actions) discipline: discovery, resolution, and execution are separate.
 
 ### Typical Provider integration flow
 
@@ -85,7 +85,8 @@ The Provider reads discovery and manifest first to learn which object types and 
 
 ## See also
 
-- [What is OCP](/knowledge/what-is-ocp)
-- [What is a Catalog](/knowledge/what-is-catalog)
-- [Role model](/knowledge/roles)
-- [Search / Resolve / Action](/knowledge/search-resolve-action)
+- [What is OCP](/what-is-ocp)
+- [What is a Catalog](/what-is-catalog)
+- [Role model](/roles)
+- [Search / Resolve / Action](/resolve-actions)
+

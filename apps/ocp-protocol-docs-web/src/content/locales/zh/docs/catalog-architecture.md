@@ -58,7 +58,7 @@ Agent/User
   -> Action Provider / Merchant / Workflow
 ```
 
-Agent 先查本地 profile cache，命中失败再向 Registration Node 搜索；拿到 RouteHint 或 Manifest 后，**切换**到目标 Catalog Node 执行 query；从候选 CatalogEntry 中选定对象后调用 resolve，拿到带权限约束的 ResolvableReference 与 ActionBinding；动作的真正执行在 Action Provider / 商家 / 业务工作流里完成。整条链路体现的是 [Search / Resolve / Action 三步法](/knowledge/search-resolve-action)：发现、解析、执行各走一阶。
+Agent 先查本地 profile cache，命中失败再向 Registration Node 搜索；拿到 RouteHint 或 Manifest 后，**切换**到目标 Catalog Node 执行 query；从候选 CatalogEntry 中选定对象后调用 resolve，拿到带权限约束的 ResolvableReference 与 ActionBinding；动作的真正执行在 Action Provider / 商家 / 业务工作流里完成。整条链路体现的是 [Search / Resolve / Action 三步法](/resolve-actions)：发现、解析、执行各走一阶。
 
 ### 典型 Provider 接入链路
 
@@ -85,7 +85,8 @@ Provider 先读 discovery document 和 Manifest，理解目标 Catalog 接受哪
 
 ## 相关页面
 
-- [OCP 是什么](/knowledge/what-is-ocp)
-- [Catalog 是什么](/knowledge/what-is-catalog)
-- [OCP 角色模型](/knowledge/roles)
-- [Search / Resolve / Action 三步法](/knowledge/search-resolve-action)
+- [OCP 是什么](/what-is-ocp)
+- [Catalog 是什么](/what-is-catalog)
+- [OCP 角色模型](/roles)
+- [Search / Resolve / Action 三步法](/resolve-actions)
+

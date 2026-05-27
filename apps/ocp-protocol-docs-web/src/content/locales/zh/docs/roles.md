@@ -82,3 +82,13 @@ Provider -> Catalog -> Registration node
 - provider 不需要依赖单一 discovery authority
 - catalog 不需要得到某个全局中心的许可才能存在
 - Registration node 可以彼此竞争、分工或垂直化，而不需要改变 handshake 协议本身
+
+## 实践中的角色组合
+
+同一个组织仍然可以承担多个角色。这里强调的是协议层面的权责边界，不是公司边界或进程拓扑。
+
+- WooCommerce 店铺可以同时是 **Provider** 和 **Action Provider**：它提供商品对象，同时继续负责 checkout、订单、税费、履约和退款。
+- 参考 commerce agent 扮演 **Agent**，并在 Catalog 协议之外组合独立的支付信任和确认规则。
+- 公共 commerce catalog 扮演 **Catalog**，聚合多个 Provider，并注册到一个或多个 Registration node。
+
+关键规则是每个协议面都保持职责清晰：Registration node 不变成商品搜索引擎，Catalog 不变成订单系统，Agent 不绕过 resolve 或用户确认。

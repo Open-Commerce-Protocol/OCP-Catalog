@@ -36,9 +36,9 @@ OCP 想做的就是在这些异构系统之上铺一层**协议语义**：让 Ag
 OCP 的核心是几条彼此咬合的设计原则：
 
 - **对象中立（Object-Neutral Core）**：协议的中心是"通用商业对象（CommercialObject）"，而不是"商品"。商品、服务、人才、职位、采购需求、渠道机会、可预约资源、工作流入口都是它的具体类型，差异通过可版本化的 **Descriptor Pack** 与 **Query Pack** 表达。
-- **角色分离（Role Separation）**：发现 Catalog、索引对象、接入数据源、解析详情、执行动作是分给不同角色的，避免一方既当数据源又当检索引擎又当支付网关。详见 [OCP 角色模型](/knowledge/roles)。
+- **角色分离（Role Separation）**：发现 Catalog、索引对象、接入数据源、解析详情、执行动作是分给不同角色的，避免一方既当数据源又当检索引擎又当支付网关。详见 [OCP 角色模型](/roles)。
 - **契约先行（Contract-First Integration）**：Provider 接入 Catalog 前先完成字段、对象、同步能力的协商——注册建立契约，同步才传输数据。
-- **Search / Resolve 分离**：搜索负责候选发现和解释，解析负责权限化详情和动作入口，详见 [Search / Resolve / Action 三步法](/knowledge/search-resolve-action)。
+- **Search / Resolve 分离**：搜索负责候选发现和解释，解析负责权限化详情和动作入口，详见 [Search / Resolve / Action 三步法](/resolve-actions)。
 - **权限、信任、来源、新鲜度内建**：可见性、用途、身份、审计、过期、签名是协议的一等公民，而不是接口外层的开关。
 - **远程优先的联邦协作**：多个 Catalog 之间默认交换 profile、route hint、contract、summary、trust metadata，**不**默认复制完整对象数据库。
 
@@ -46,7 +46,8 @@ OCP 的核心是几条彼此咬合的设计原则：
 
 ## 相关页面
 
-- [Catalog 是什么](/knowledge/what-is-catalog)
-- [OCP 角色模型](/knowledge/roles)
-- [Search / Resolve / Action 三步法](/knowledge/search-resolve-action)
-- [Catalog 架构](/knowledge/catalog-architecture)
+- [Catalog 是什么](/what-is-catalog)
+- [OCP 角色模型](/roles)
+- [Search / Resolve / Action 三步法](/resolve-actions)
+- [Catalog 架构](/catalog-architecture)
+

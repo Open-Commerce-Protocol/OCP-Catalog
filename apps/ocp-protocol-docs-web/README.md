@@ -19,7 +19,6 @@ Markdown content lives under [`src/content`](./src/content):
 - `handshake/` for `ocp.catalog.handshake.v1` pages.
 - `registration/` for `ocp.catalog.registration.v1` pages.
 - `examples/` for scenario walkthroughs and runtime flows.
-- `knowledge/` for concept-oriented OCP knowledge-base pages.
 - `locales/zh/` for the Chinese mirror of the same route tree.
 
 The left navigation defines the canonical route structure in

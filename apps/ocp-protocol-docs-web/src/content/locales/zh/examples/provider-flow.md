@@ -6,7 +6,7 @@
 
 ## 真实生命周期
 
-![Commerce data 从商家原始记录到 OCP CommercialObject batch、catalog indexing 和 search/resolve 的管线](/data-sync.png)
+![Commerce data 从商家原始记录到 OCP CommercialObject batch、catalog indexing 和 search/resolve 的管线](images/commerce-data-sync-pipeline.png)
 
 ```text
 provider admin seed 或编辑商品
@@ -101,3 +101,4 @@ provider admin seed 或编辑商品
 - provider admin 界面再把结果反馈回来，告诉你这个 feed 是“只是被接收”，还是“已经达到高质量目录标准”
 
 同样的 provider 形状也可以被包装成 storefront plugin 或 marketplace app。在这种模型里，商家只需要选择一次目标 catalog，后续由 app 负责 registration、商品映射、batch sync，以及商品变化后的增量同步。
+

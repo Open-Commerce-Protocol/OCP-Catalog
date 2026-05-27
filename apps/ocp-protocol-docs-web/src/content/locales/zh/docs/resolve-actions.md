@@ -78,3 +78,13 @@ Action binding 描述调用方下一步可以采取的动作。
 Catalog 暴露的是动作入口和调用要求。它不会因此变成预约系统、订单系统、ATS、CRM、ERP 或审批流系统。
 
 这个边界很重要：OCP Catalog 标准化的是发现、解析和动作入口暴露；真正的执行与状态流转仍然应该留在权威服务附近。
+
+## 阶段纪律
+
+Search、Resolve、Action 的可见性、新鲜度、权限强度和审计粒度都不同。
+
+- Search 不应该暴露价格内部细节、精确库存、联系方式或支付凭据。
+- Resolve 不是批量详情查询。它应在用户或 Agent 选定候选对象之后，用来返回受限字段、实时校验或动作入口。
+- Action 由 Action Provider 或业务系统执行，并且必须先通过用户确认、幂等、过期时间、schema 和风险校验。
+
+具体集成也遵守同一结构：浏览器 demo 可以暴露搜索工具，commerce provider 可以把 resolve 映射到 checkout 创建，带支付能力的 agent 只能在 resolve 和明确用户授权之后创建 checkout。

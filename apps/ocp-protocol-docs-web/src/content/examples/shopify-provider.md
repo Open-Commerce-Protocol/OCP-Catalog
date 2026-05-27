@@ -10,7 +10,7 @@ A merchant owns a Shopify store and wants its products to become searchable and 
 
 The merchant installs an OCP provider app in the store, chooses a target catalog, grants product read access, and the app publishes the store's products into that catalog.
 
-![Provider app onboarding flow from install through catalog selection, manifest fetch, registration, initial sync, and scheduled sync](/Onboarding-Flow.png)
+![Provider app onboarding flow from install through catalog selection, manifest fetch, registration, initial sync, and scheduled sync](images/provider-onboarding-flow.png)
 
 ```text
 merchant installs OCP provider app
@@ -96,7 +96,7 @@ The app registers the Shopify store as a merchant provider.
 
 The provider app maps each Shopify product or variant into an OCP `CommercialObject`.
 
-![Commerce data pipeline from merchant product data through mapping, CommercialObject creation, batch push, catalog index, and search/resolve API](/data-sync.png)
+![Commerce data pipeline from merchant product data through mapping, CommercialObject creation, batch push, catalog index, and search/resolve API](images/commerce-data-sync-pipeline.png)
 
 ```json
 {
@@ -217,3 +217,4 @@ This is the provider-side mirror of the catalog story:
 - the target catalog receives normalized commercial objects
 - agents can query the catalog without learning Shopify-specific APIs
 - resolve can still send the user back to the authoritative storefront or checkout flow
+
