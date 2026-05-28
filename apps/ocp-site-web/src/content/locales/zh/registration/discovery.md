@@ -27,8 +27,8 @@
 ```json
 {
   "kind": "RegistrationDiscovery",
-  "registration_id": "registration_local_dev",
-  "registration_name": "OCP Catalog Registration node Local Dev",
+  "registration_id": "ocp_registry_public",
+  "registration_name": "Open Commerce Protocol Registry",
   "registration_protocol": "ocp.catalog.registration.v1",
   "manifest_url": "http://localhost:4100/ocp/registration/manifest",
   "catalog_registration_url": "http://localhost:4100/ocp/catalogs/register",

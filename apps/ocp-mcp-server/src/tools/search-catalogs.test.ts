@@ -43,7 +43,7 @@ describe('search and inspect tools', () => {
             ocp_version: '1.0',
             kind: 'CatalogSearchResult',
             id: `search_${calls.length}`,
-            registration_id: 'registration_local_dev',
+            registration_id: 'ocp_registry_public',
             result_count: calls.length === 1 ? 0 : 1,
             items: calls.length === 1
               ? []

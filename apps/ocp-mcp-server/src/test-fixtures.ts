@@ -102,7 +102,7 @@ export const searchResult: CatalogSearchResult = {
   ocp_version: '1.0',
   kind: 'CatalogSearchResult',
   id: 'search_1',
-  registration_id: 'registration_local_dev',
+  registration_id: 'ocp_registry_public',
   result_count: 1,
   items: [
     {

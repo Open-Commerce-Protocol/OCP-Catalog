@@ -83,8 +83,8 @@ Relevant settings:
 ```text
 REGISTRATION_API_PORT=4100
 REGISTRATION_PUBLIC_BASE_URL=http://localhost:4100
-REGISTRATION_ID=registration_local_dev
-REGISTRATION_NAME=Local OCP Catalog Registration
+REGISTRATION_ID=ocp_registry_public
+REGISTRATION_NAME=Open Commerce Protocol Registry
 REGISTRATION_REFRESH_SCHEDULER_ENABLED=true
 REGISTRATION_REFRESH_INTERVAL_SECONDS=300
 REGISTRATION_HEALTH_CHECK_TIMEOUT_MS=5000
@@ -124,7 +124,7 @@ curl -X POST http://localhost:4100/ocp/catalogs/register \
     "ocp_version": "1.0",
     "kind": "CatalogRegistration",
     "id": "catreg_local_1",
-    "registration_id": "registration_local_dev",
+    "registration_id": "ocp_registry_public",
     "catalog_id": "cat_local_dev",
     "registration_version": 1,
     "updated_at": "2026-04-21T00:00:00.000Z",
