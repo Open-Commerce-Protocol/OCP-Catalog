@@ -73,6 +73,16 @@ module.exports = {
       },
     },
     {
+      name: 'ocp-activity-api',
+      cwd: '.',
+      script: 'bun',
+      args: 'run activity:api',
+      interpreter: 'none',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+    {
       name: 'ocp-webmcp-mcp-demo-web',
       cwd: '.',
       script: 'bun',

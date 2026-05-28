@@ -111,11 +111,11 @@ export class ActivityEventService {
 
   async getRollups(hours = 24) {
     const safeHours = Math.max(1, Math.min(Math.trunc(hours), 168));
-    const since = new Date(Date.now() - safeHours * 60 * 60 * 1000);
+    const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
     const rows = await this.db
       .select()
       .from(schema.ocpActivityPublicEvents)
-      .where(sql`${schema.ocpActivityPublicEvents.occurredAt} >= ${since}`);
+      .where(sql`${schema.ocpActivityPublicEvents.occurredAt} >= ${since}::timestamptz`);
 
     const byType: Record<string, number> = {};
     const byProtocol: Record<string, number> = {};
