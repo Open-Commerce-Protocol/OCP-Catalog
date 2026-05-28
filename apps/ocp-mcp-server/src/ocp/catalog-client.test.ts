@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { OcpClient } from '@ocp-catalog/ocp-client';
 import { CatalogClient } from './catalog-client';
 
 describe('CatalogClient', () => {
@@ -34,7 +35,9 @@ describe('CatalogClient', () => {
     })) as unknown as typeof fetch;
 
     try {
-      const client = new CatalogClient({ timeoutMs: 1000, userAgent: 'test' });
+      const client = new CatalogClient({
+        client: new OcpClient({ timeoutMs: 1000, userAgent: 'test' }),
+      });
       const result = await client.query('https://example.test/ocp/query', {
         query: '渠道 招商 代理',
         filters: {},
@@ -49,6 +52,38 @@ describe('CatalogClient', () => {
         has_more: false,
       });
       expect(result.entries[0]?.entry.entry_id).toBe('centry_1');
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test('query maps shared client HTTP failures to MCP query errors', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      error: { code: 'unavailable' },
+    }), {
+      status: 503,
+      headers: { 'content-type': 'application/json' },
+    })) as unknown as typeof fetch;
+
+    try {
+      const client = new CatalogClient({
+        client: new OcpClient({ timeoutMs: 1000, userAgent: 'test' }),
+      });
+
+      await expect(client.query('https://example.test/ocp/query', {
+        query: '渠道 招商 代理',
+        filters: {},
+        limit: 5,
+        offset: 0,
+        explain: true,
+      })).rejects.toMatchObject({
+        code: 'catalog_query_failed',
+        details: {
+          status: 503,
+          url: 'https://example.test/ocp/query',
+        },
+      });
     } finally {
       globalThis.fetch = originalFetch;
     }

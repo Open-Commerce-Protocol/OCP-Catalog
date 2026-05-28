@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { OcpClient, type OcpClientOptions } from '@ocp-catalog/ocp-client';
 import { errorResult } from './errors';
 import { selectTransportConfig, type McpGatewayConfig } from './config';
 import { CatalogClient } from './ocp/catalog-client';
@@ -49,17 +50,40 @@ export function createMcpServer(config: McpGatewayConfig) {
 }
 
 function createToolDeps(config: McpGatewayConfig): ToolDeps {
+  const clientOptions = createOcpClientOptions(config);
+  const protocolClient = new OcpClient(clientOptions);
+  const queryClient = config.OCP_MCP_API_KEY
+    ? new OcpClient({ ...clientOptions, apiKey: config.OCP_MCP_API_KEY })
+    : protocolClient;
+
   return {
     config,
-    registrationClient: new RegistrationClient({
-      timeoutMs: config.OCP_MCP_REQUEST_TIMEOUT_MS,
-      userAgent: config.OCP_MCP_USER_AGENT,
-    }),
+    registrationClient: new RegistrationClient(protocolClient),
     catalogClient: new CatalogClient({
-      timeoutMs: config.OCP_MCP_REQUEST_TIMEOUT_MS,
-      userAgent: config.OCP_MCP_USER_AGENT,
+      client: protocolClient,
+      queryClient,
     }),
   };
+}
+
+function createOcpClientOptions(config: McpGatewayConfig): OcpClientOptions {
+  return {
+    timeoutMs: config.OCP_MCP_REQUEST_TIMEOUT_MS,
+    userAgent: config.OCP_MCP_USER_AGENT,
+    activity: {
+      apiUrl: optionalConfigString(config.OCP_ACTIVITY_PUBLIC_BASE_URL),
+      apiKey: optionalConfigString(config.OCP_ACTIVITY_API_KEY) ?? optionalConfigString(config.API_KEY_DEV),
+      sourceKind: 'mcp_gateway',
+      clientKind: 'mcp',
+      sourceName: 'ocp-mcp-server',
+      clientName: config.OCP_MCP_USER_AGENT,
+      publicVisibility: 'aggregate_only',
+    },
+  };
+}
+
+function optionalConfigString(value: string | undefined) {
+  return value && value.length > 0 ? value : undefined;
 }
 
 async function toolResult(run: () => Promise<unknown>) {

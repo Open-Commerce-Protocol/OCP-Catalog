@@ -1,61 +1,27 @@
 import {
-  catalogRouteHintSchema,
-  catalogSearchResultSchema,
   type CatalogRouteHint,
   type CatalogSearchRequest,
   type CatalogSearchResult,
 } from '@ocp-catalog/registration-schema';
-import { fetchJson } from './http';
+import type { OcpClient } from '@ocp-catalog/ocp-client';
+import { mapOcpClientError } from './client-errors';
 
 export class RegistrationClient {
-  constructor(
-    private readonly options: {
-      timeoutMs: number;
-      userAgent: string;
-    },
-  ) {}
+  constructor(private readonly client: OcpClient) {}
 
   async search(baseUrl: string, body: CatalogSearchRequest): Promise<CatalogSearchResult> {
-    const payload = await fetchJson<unknown>(
-      `${trimTrailingSlash(baseUrl)}/ocp/catalogs/search`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      },
-      {
-        timeoutMs: this.options.timeoutMs,
-        userAgent: this.options.userAgent,
-        unavailableCode: 'registration_unavailable',
-      },
-    );
-
-    return catalogSearchResultSchema.parse(payload);
+    try {
+      return await this.client.searchCatalogs(baseUrl, body);
+    } catch (error) {
+      mapOcpClientError(error, 'registration_unavailable');
+    }
   }
 
   async resolve(baseUrl: string, catalogId: string): Promise<CatalogRouteHint> {
-    const payload = await fetchJson<unknown>(
-      `${trimTrailingSlash(baseUrl)}/ocp/catalogs/resolve`,
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          ocp_version: '1.0',
-          kind: 'CatalogResolveRequest',
-          catalog_id: catalogId,
-        }),
-      },
-      {
-        timeoutMs: this.options.timeoutMs,
-        userAgent: this.options.userAgent,
-        unavailableCode: 'registration_unavailable',
-      },
-    );
-
-    return catalogRouteHintSchema.parse(payload);
+    try {
+      return await this.client.resolveCatalogRoute(baseUrl, catalogId);
+    } catch (error) {
+      mapOcpClientError(error, 'registration_unavailable');
+    }
   }
-}
-
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/+$/, '');
 }

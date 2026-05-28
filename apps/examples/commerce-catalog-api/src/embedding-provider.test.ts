@@ -68,6 +68,9 @@ function config(overrides: Partial<AppConfig>): AppConfig {
     OCP_MCP_API_KEY: '',
     OCP_MCP_HTTP_PORT: 4300,
     OCP_MCP_HTTP_PATH: '/mcp',
+    OCP_ACTIVITY_API_PORT: 4400,
+    OCP_ACTIVITY_PUBLIC_BASE_URL: 'http://localhost:4400',
+    OCP_ACTIVITY_API_KEY: '',
     ...overrides,
   };
 }

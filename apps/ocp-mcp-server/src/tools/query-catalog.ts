@@ -31,7 +31,7 @@ export async function queryCatalogTool(input: QueryCatalogInput, deps: ToolDeps)
     limit: input.limit ?? 10,
     offset: input.offset ?? 0,
     explain: queryPolicy.supportsExplain ? input.explain ?? true : false,
-  }, deps.config.OCP_MCP_API_KEY || undefined);
+  });
 
   return {
     catalog_id: result.catalog_id,

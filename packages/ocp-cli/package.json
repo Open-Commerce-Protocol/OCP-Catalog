@@ -1,0 +1,29 @@
+{
+  "name": "@ocp-catalog/ocp-cli",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "bin": {
+    "ocp": "./dist/index.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun ../../scripts/build-ocp-cli.ts",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "devDependencies": {
+    "@ocp-catalog/ocp-client": "workspace:*",
+    "@ocp-catalog/ocp-schema": "workspace:*",
+    "@ocp-catalog/registration-schema": "workspace:*"
+  }
+}

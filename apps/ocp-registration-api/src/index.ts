@@ -4,6 +4,8 @@ import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildRegistrationDiscovery, buildRegistrationManifest, createRegistrationServices, startCatalogRefreshScheduler } from '@ocp-catalog/registration-core';
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb, schema } from '@ocp-catalog/db';
+import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
+import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
@@ -11,6 +13,7 @@ import { ZodError } from 'zod';
 const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
 const services = createRegistrationServices(db, config);
+const activityEvents = new ActivityEventService(db);
 const refreshScheduler = startCatalogRefreshScheduler(services.catalogs, config);
 const registrationAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
@@ -58,10 +61,32 @@ const app = new Elysia()
   })
   .get('/.well-known/ocp-registration', () => buildRegistrationDiscovery(config))
   .get('/ocp/registration/manifest', () => buildRegistrationManifest(config))
-  .post('/ocp/catalogs/register', async ({ body, headers }) => services.catalogs.register(body, {
-    sourceIp: firstHeader(headers['x-forwarded-for']) ?? firstHeader(headers['x-real-ip']),
-    userAgent: firstHeader(headers['user-agent']),
-  }))
+  .post('/ocp/catalogs/register', async ({ body, headers }) => {
+    const result = await services.catalogs.register(body, {
+      sourceIp: firstHeader(headers['x-forwarded-for']) ?? firstHeader(headers['x-real-ip']),
+      userAgent: firstHeader(headers['user-agent']),
+    });
+    await recordActivityEvent({
+      event_type: 'registration.catalog_registered',
+      source_kind: 'registration_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'registration',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/catalogs/register',
+      status_code: 200,
+      registration_id: config.REGISTRATION_ID,
+      catalog_id: result.catalog_id ?? stringPayload(body, 'catalog_id'),
+      public_visibility: 'public',
+      metadata: {
+        registration_status: result.status,
+        verification_status: result.verification_status,
+        health_status: result.health_status,
+      },
+    });
+    return result;
+  })
   .get('/ocp/catalogs/:catalogId', async ({ params }) => services.catalogs.getCatalog(params.catalogId))
   .get('/ocp/catalogs/:catalogId/manifest-snapshot', async ({ params }) => services.catalogs.getManifestSnapshot(params.catalogId))
   .get('/ocp/catalogs/:catalogId/health', async ({ params }) => ({
@@ -81,10 +106,44 @@ const app = new Elysia()
   .post('/ocp/catalogs/:catalogId/token/rotate', async ({ params, headers }) => services.catalogs.rotateToken(params.catalogId, {
     catalogToken: firstHeader(headers['x-catalog-token']),
   }))
-  .post('/ocp/catalogs/search', async ({ body, headers }) => services.catalogs.search(body, {
-    requesterKey: firstHeader(headers['x-api-key']),
-  }))
-  .post('/ocp/catalogs/resolve', async ({ body }) => services.catalogs.resolve(body))
+  .post('/ocp/catalogs/search', async ({ body, headers }) => {
+    const result = await services.catalogs.search(body, {
+      requesterKey: firstHeader(headers['x-api-key']),
+    });
+    await recordActivityEvent({
+      event_type: 'registration.catalog_searched',
+      source_kind: 'registration_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'registration',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/catalogs/search',
+      status_code: 200,
+      registration_id: config.REGISTRATION_ID,
+      result_count: result.result_count,
+      public_visibility: 'aggregate_only',
+    });
+    return result;
+  })
+  .post('/ocp/catalogs/resolve', async ({ body }) => {
+    const result = await services.catalogs.resolve(body);
+    await recordActivityEvent({
+      event_type: 'registration.catalog_resolved',
+      source_kind: 'registration_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'registration',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/catalogs/resolve',
+      status_code: 200,
+      registration_id: config.REGISTRATION_ID,
+      catalog_id: result.catalog_id,
+      public_visibility: 'public',
+    });
+    return result;
+  })
   .get('/', () => serveRegistrationAdmin('/'))
   .get('/*', async ({ request }) => {
     const pathname = new URL(request.url).pathname;
@@ -119,6 +178,26 @@ function assertAdminAuth(headers: Record<string, string | undefined>) {
 
 function firstHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+async function recordActivityEvent(input: OcpActivityEventInput) {
+  try {
+    await activityEvents.ingest(input);
+  } catch (error) {
+    console.warn(JSON.stringify({
+      ts: new Date().toISOString(),
+      level: 'warn',
+      event: 'activity_event_record_failed',
+      activity_event_type: input.event_type,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
+}
+
+function stringPayload(payload: unknown, key: string) {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 async function serveRegistrationAdmin(pathname: string) {
@@ -287,4 +366,3 @@ async function getRegistrationAdminSearchAudits() {
       })),
   };
 }
-

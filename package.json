@@ -38,6 +38,8 @@
     "site:dev": "bun run --cwd apps/ocp-site-web dev",
     "site:start": "bun run --cwd apps/ocp-site-web start",
     "site:build": "bun run --cwd apps/ocp-site-web build",
+    "skill:ocp:export": "bun scripts/export-ocp-skill.ts",
+    "activity:api": "bun run --cwd apps/ocp-activity-api start",
     "mcp:gateway": "bun run --cwd apps/ocp-mcp-server start",
     "validate:mvp": "bun scripts/validate-mvp.ts",
     "validate:registration": "bun scripts/validate-registration.ts",

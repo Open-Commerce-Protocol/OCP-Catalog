@@ -8,6 +8,8 @@ import {
 } from '@ocp-catalog/catalog-core';
 import { loadConfig } from '@ocp-catalog/config';
 import { createDb, schema } from '@ocp-catalog/db';
+import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
+import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { and, count, desc, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
@@ -24,6 +26,7 @@ import { SearchRetrievalService } from './search/retrieval/search-retrieval-serv
 
 const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
+const activityEvents = new ActivityEventService(db);
 const embeddingProvider = createCommerceEmbeddingProvider(config);
 const commerceCatalogScenario = createCommerceCatalogScenario({
   semanticSearchEnabled: true,
@@ -123,10 +126,30 @@ const app = new Elysia()
     };
   })
   .post('/ocp/providers/register', async ({ body, headers }) => {
-    return services.registrations.register(body, {
+    const result = await services.registrations.register(body, {
       sourceIp: firstHeader(headers['x-forwarded-for']) ?? firstHeader(headers['x-real-ip']),
       userAgent: firstHeader(headers['user-agent']),
     });
+    await recordActivityEvent({
+      event_type: 'catalog.provider_registered',
+      source_kind: 'catalog_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'catalog',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/providers/register',
+      status_code: 200,
+      catalog_id: config.CATALOG_ID,
+      provider_id: result.provider_id,
+      capability_id: result.selected_sync_capability?.capability_id,
+      public_visibility: 'public',
+      metadata: {
+        registration_status: result.status,
+        matched_object_contract_count: result.matched_object_contract_count,
+      },
+    });
+    return result;
   })
   .get('/ocp/providers/:providerId', async ({ params }) => services.registrations.getProvider(params.providerId))
   .get('/ocp/providers/:providerId/registrations', async ({ params }) => ({
@@ -188,6 +211,26 @@ const app = new Elysia()
     assertWriteAuth(headers);
     const result = await services.objects.sync(body);
     await enqueueSearchIndexJobs(result);
+    await recordActivityEvent({
+      event_type: 'catalog.object_synced',
+      source_kind: 'catalog_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'catalog',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/objects/sync',
+      status_code: 200,
+      catalog_id: result.catalog_id,
+      provider_id: result.provider_id,
+      sync_object_count: result.items.length,
+      public_visibility: 'public',
+      metadata: {
+        sync_status: result.status,
+        accepted_count: result.accepted_count,
+        rejected_count: result.rejected_count,
+      },
+    });
     return result;
   })
   .get('/ocp/providers/:providerId/objects', async ({ params }) => ({
@@ -196,10 +239,45 @@ const app = new Elysia()
     objects: await services.objects.listProviderObjects(params.providerId),
   }))
   .get('/ocp/objects/:objectId', async ({ params }) => services.objects.getObject(params.objectId))
-  .post('/ocp/query', async ({ body, headers }) => commerceQueryService.query(body, {
-    requesterKey: firstHeader(headers['x-api-key']),
-  }))
-  .post('/ocp/resolve', async ({ body }) => services.resolve.resolve(body))
+  .post('/ocp/query', async ({ body, headers }) => {
+    const result = await commerceQueryService.query(body, {
+      requesterKey: firstHeader(headers['x-api-key']),
+    });
+    await recordActivityEvent({
+      event_type: 'catalog.queried',
+      source_kind: 'catalog_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'catalog',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/query',
+      status_code: 200,
+      catalog_id: config.CATALOG_ID,
+      query_pack: stringPayload(body as Record<string, unknown>, 'query_pack'),
+      result_count: result.result_count,
+      public_visibility: 'aggregate_only',
+    });
+    return result;
+  })
+  .post('/ocp/resolve', async ({ body }) => {
+    const result = await services.resolve.resolve(body);
+    await recordActivityEvent({
+      event_type: 'catalog.resolved',
+      source_kind: 'catalog_node',
+      client_kind: 'http',
+      endpoint_role: 'inbound',
+      protocol_family: 'catalog',
+      protocol_version: '1.0',
+      method: 'POST',
+      path_template: '/ocp/resolve',
+      status_code: 200,
+      catalog_id: config.CATALOG_ID,
+      object_type: result.object_type,
+      public_visibility: 'aggregate_only',
+    });
+    return result;
+  })
   .get('/', () => serveCatalogAdmin('/'))
   .get('/*', async ({ request }) => {
     const pathname = new URL(request.url).pathname;
@@ -238,6 +316,20 @@ function assertAdminAuth(headers: Record<string, string | undefined>) {
 
 function firstHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+async function recordActivityEvent(input: OcpActivityEventInput) {
+  try {
+    await activityEvents.ingest(input);
+  } catch (error) {
+    console.warn(JSON.stringify({
+      ts: new Date().toISOString(),
+      level: 'warn',
+      event: 'activity_event_record_failed',
+      activity_event_type: input.event_type,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+  }
 }
 
 async function serveCatalogAdmin(pathname: string) {
@@ -881,8 +973,9 @@ function numberPayload(payload: unknown, key: string) {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
-function stringPayload(payload: Record<string, unknown>, key: string) {
-  const value = payload[key];
+function stringPayload(payload: unknown, key: string) {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const value = (payload as Record<string, unknown>)[key];
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 

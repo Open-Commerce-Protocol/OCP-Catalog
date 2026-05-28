@@ -14,6 +14,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@ocp-catalog/config": "workspace:*",
+    "@ocp-catalog/ocp-client": "workspace:*",
     "@ocp-catalog/ocp-schema": "workspace:*",
     "@ocp-catalog/registration-schema": "workspace:*",
     "zod": "^4.1.12"

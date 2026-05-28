@@ -1,0 +1,21 @@
+{
+  "name": "@ocp-catalog/ocp-activity-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@ocp-catalog/db": "workspace:*",
+    "@ocp-catalog/ocp-activity-schema": "workspace:*",
+    "@ocp-catalog/shared": "workspace:*",
+    "drizzle-orm": "^0.44.7"
+  }
+}

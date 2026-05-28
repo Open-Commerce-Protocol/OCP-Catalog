@@ -1,0 +1,20 @@
+{
+  "name": "@ocp-catalog/ocp-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --pass-with-no-tests"
+  },
+  "dependencies": {
+    "@ocp-catalog/ocp-activity-schema": "workspace:*",
+    "@ocp-catalog/ocp-schema": "workspace:*",
+    "@ocp-catalog/registration-schema": "workspace:*"
+  }
+}
