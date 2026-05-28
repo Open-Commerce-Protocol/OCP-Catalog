@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BookOpen, Menu, Newspaper, X } from 'lucide-react';
 import { docsUiText, useDocsLocale } from '../content/i18n';
 import { stripLocalePrefix } from '../content/routing';
+import { OcpLogo } from '../components/site/OcpLogo';
 
 const navItems = [
   { label: { en: 'Docs', zh: '文档' }, href: '/docs', icon: BookOpen },
@@ -25,8 +26,8 @@ export function SiteLayout() {
       <header className="sticky top-0 z-50 border-b border-black/10 bg-[rgba(246,247,242,0.88)] backdrop-blur-xl">
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to={localizePath('/')} className="group flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-md bg-[var(--ocp-ink)] text-sm font-semibold text-[var(--ocp-paper)] shadow-[0_10px_24px_rgba(20,20,20,0.18)]">
-              OCP
+            <span className="grid h-10 w-10 place-items-center rounded-md bg-[var(--ocp-ink)] shadow-[0_10px_24px_rgba(20,20,20,0.18)]">
+              <OcpLogo className="h-7 w-7" title="Open Commerce Protocol" />
             </span>
             <span className="hidden leading-tight sm:block">
               <span className="block font-semibold">{text(docsUiText.brand)}</span>
@@ -123,10 +124,13 @@ export function SiteLayout() {
 
       <footer className="border-t border-black/10 bg-[var(--ocp-ink)] px-4 py-10 text-[var(--ocp-paper)]">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="font-semibold">Open Commerce Protocol</div>
-            <div className="text-sm text-white/58">
-              {locale === 'zh' ? '开放商业中的发现、查询、解析与动作绑定。' : 'Discovery, query, resolve, and action binding for open commerce.'}
+          <div className="flex items-center gap-3">
+            <OcpLogo className="h-8 w-8 shrink-0" title="Open Commerce Protocol" />
+            <div>
+              <div className="font-semibold">Open Commerce Protocol</div>
+              <div className="text-sm text-white/58">
+                {locale === 'zh' ? '开放商业中的发现、查询、解析与动作绑定。' : 'Discovery, query, resolve, and action binding for open commerce.'}
+              </div>
             </div>
           </div>
           <div className="flex gap-3 text-sm text-white/66">
