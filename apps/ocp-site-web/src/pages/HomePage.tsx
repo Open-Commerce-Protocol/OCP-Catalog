@@ -157,20 +157,36 @@ export function HomePage() {
     window.scrollTo({ top, behavior: 'smooth' });
   };
 
+  const activeIndex = sectionIds.indexOf(activeSection);
+  const railProgress =
+    sectionIds.length > 1 ? activeIndex / (sectionIds.length - 1) : 0;
+
   return (
     <main className="home-story">
-      <nav className="home-section-nav" aria-label="Sections">
-        {sectionIds.map((id) => (
-          <button
-            key={id}
-            type="button"
-            className={activeSection === id ? 'is-active' : ''}
-            onClick={() => scrollToSection(id)}
-            aria-label={label(sectionLabels[id], locale)}
-          >
-            <span>{label(sectionLabels[id], locale)}</span>
-          </button>
-        ))}
+      <nav
+        className="home-section-nav"
+        aria-label="Sections"
+        style={{ '--rail-progress': railProgress } as CSSProperties}
+      >
+        {sectionIds.map((id, index) => {
+          const isActive = activeSection === id;
+          const isPast = index < activeIndex;
+          const classes = ['', isActive ? 'is-active' : '', isPast ? 'is-past' : '']
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <button
+              key={id}
+              type="button"
+              className={classes}
+              onClick={() => scrollToSection(id)}
+              aria-label={label(sectionLabels[id], locale)}
+              aria-current={isActive ? 'true' : undefined}
+            >
+              <span>{label(sectionLabels[id], locale)}</span>
+            </button>
+          );
+        })}
       </nav>
 
       <div className="home-panel-track">
