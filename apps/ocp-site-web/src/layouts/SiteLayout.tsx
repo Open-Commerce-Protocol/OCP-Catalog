@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Activity, BookOpen, Menu, Newspaper, X } from 'lucide-react';
+import { BookOpen, Menu, Newspaper, X } from 'lucide-react';
 import { docsUiText, useDocsLocale } from '../content/i18n';
 import { stripLocalePrefix } from '../content/routing';
 import { OcpLogo } from '../components/site/OcpLogo';
@@ -8,7 +8,6 @@ import { OcpLogo } from '../components/site/OcpLogo';
 const navItems = [
   { label: { en: 'Docs', zh: '文档' }, href: '/docs', icon: BookOpen },
   { label: { en: 'Updates', zh: '最新动态' }, href: '/updates', icon: Newspaper },
-  { label: { en: 'Activity', zh: '活动流' }, href: '/activity', icon: Activity },
 ];
 
 export function SiteLayout() {
@@ -137,7 +136,6 @@ export function SiteLayout() {
           <div className="flex gap-3 text-sm text-white/66">
             <Link to={localizePath('/docs')} className="hover:text-white">{text(docsUiText.docs)}</Link>
             <Link to={localizePath('/updates')} className="hover:text-white">{text(docsUiText.updates)}</Link>
-            <Link to={localizePath('/activity')} className="hover:text-white">Activity</Link>
           </div>
         </div>
       </footer>

@@ -5,7 +5,6 @@ import { HomePage } from './pages/HomePage';
 import { DocsLandingPage } from './pages/DocsLandingPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { UpdateDetailPage } from './pages/UpdateDetailPage';
-import { ActivityPage } from './pages/ActivityPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PageView } from './pages/PageView';
 
@@ -21,7 +20,6 @@ function App() {
           </Route>
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="updates/:slug" element={<UpdateDetailPage />} />
-          <Route path="activity" element={<ActivityPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
         <Route path="/zh" element={<SiteLayout />}>
@@ -32,7 +30,6 @@ function App() {
           </Route>
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="updates/:slug" element={<UpdateDetailPage />} />
-          <Route path="activity" element={<ActivityPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

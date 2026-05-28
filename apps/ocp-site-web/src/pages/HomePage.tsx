@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Boxes, Braces, Network, RadioTower, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, Boxes, Braces, Network, RadioTower, ShieldCheck } from 'lucide-react';
 import { ProtocolRelayCanvas } from '../components/site/ProtocolRelayCanvas';
 import {
   CatalogArchitectureDiagram,
@@ -8,6 +8,8 @@ import {
   SearchResolveActionDiagram,
   TrustBoundaryDiagram,
 } from '../components/site/OcpDiagrams';
+import { LiveActivityPulse } from '../components/site/LiveActivityPulse';
+import { LiveActivitySection } from '../components/site/LiveActivitySection';
 import { resolveLocalizedText, useDocsLocale, type LocalizedText } from '../content/i18n';
 import { updates } from '../content/updates';
 
@@ -48,12 +50,13 @@ const layerToneClass: Record<string, string> = {
   ink: 'protocol-chip-ink',
 };
 
-const sectionIds = ['hero', 'flow', 'glance', 'why', 'onboarding', 'paths'] as const;
+const sectionIds = ['hero', 'flow', 'live', 'glance', 'why', 'onboarding', 'paths'] as const;
 type SectionId = (typeof sectionIds)[number];
 
 const sectionLabels: Record<SectionId, LocalizedText> = {
   hero: { en: 'Intro', zh: '简介' },
   flow: { en: 'How', zh: '流程' },
+  live: { en: 'Live', zh: '实时' },
   glance: { en: 'At a glance', zh: '一眼看懂' },
   why: { en: 'Why', zh: '为什么' },
   onboarding: { en: 'Onboarding', zh: '接入' },
@@ -220,18 +223,8 @@ export function HomePage() {
               ))}
             </div>
           </div>
-          <div className="pointer-events-none hidden min-h-[32rem] items-end justify-end lg:flex">
-            <div className="hero-orbit-card hero-parallax-fast reveal-item relative mb-10 w-80 overflow-hidden rounded-md border border-white/44 bg-white/58 p-5 shadow-2xl shadow-black/16 backdrop-blur-xl">
-              <div className="flex items-center gap-2 text-sm font-semibold text-black/68">
-                <Sparkles className="h-4 w-4 text-[var(--ocp-gold)]" />
-                {locale === 'zh' ? '开放目录层' : 'Open catalog layer'}
-              </div>
-              <div className="mt-4 grid gap-2 text-sm text-black/64">
-                <div className="hero-status-row flex items-center justify-between rounded bg-white/66 px-3 py-2"><span>{locale === 'zh' ? '发现入口' : 'Discovery'}</span><span className="font-semibold text-[var(--ocp-cyan)]">{locale === 'zh' ? '开放' : 'live'}</span></div>
-                <div className="hero-status-row flex items-center justify-between rounded bg-white/66 px-3 py-2"><span>{locale === 'zh' ? '对象查询' : 'Object search'}</span><span className="font-semibold text-[var(--ocp-green)]">{locale === 'zh' ? '可用' : 'ready'}</span></div>
-                <div className="hero-status-row flex items-center justify-between rounded bg-white/66 px-3 py-2"><span>{locale === 'zh' ? '动作确认' : 'Action consent'}</span><span className="font-semibold text-[var(--ocp-vermilion)]">{locale === 'zh' ? '必需' : 'required'}</span></div>
-              </div>
-            </div>
+          <div className="hidden min-h-[32rem] items-end justify-end lg:flex">
+            <LiveActivityPulse />
           </div>
         </div>
         <div className="hero-scroll-cue hidden lg:flex" aria-hidden="true">
@@ -258,6 +251,10 @@ export function HomePage() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section id="live" className="home-panel site-section border-y border-black/10 bg-[var(--ocp-paper)]">
+        <LiveActivitySection />
       </section>
 
       <section id="glance" className="home-panel home-diagram-panel site-section border-y border-black/10 bg-white">
