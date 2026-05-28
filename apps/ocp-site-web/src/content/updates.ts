@@ -16,6 +16,66 @@ export type SiteUpdate = {
 
 export const updates: SiteUpdate[] = [
   {
+    slug: 'shopify-provider-app-syncs-merchant-products',
+    publishedAt: '2026-05-29',
+    category: 'Implementation',
+    version: 'provider-app-v1',
+    breaking: false,
+    tags: ['shopify', 'provider-app', 'merchant-products', 'commerce'],
+    title: {
+      en: 'Shopify merchant products can now flow into OCP catalogs',
+      zh: 'Shopify 商家的商品现在可以同步进 OCP Catalog',
+    },
+    summary: {
+      en: 'The Shopify provider app turns an installed merchant store into an OCP Provider, registers it with a catalog, and syncs products so agents can discover the items while the final deal still returns to the merchant storefront.',
+      zh: 'Shopify provider app 会把已安装的商家店铺变成 OCP Provider，注册到合适的 Catalog，并同步商品，让 Agent 可以发现商品，而最终交易仍回到商家店铺页面完成。',
+    },
+    body: [
+      {
+        en: 'The app connects to Shopify Admin GraphQL, builds a ProviderRegistration for the merchant, maps Shopify products into OCP CommercialObjects, and pushes them through /ocp/providers/register and /ocp/objects/sync.',
+        zh: '这个 app 会连接 Shopify Admin GraphQL，为商家生成 ProviderRegistration，把 Shopify 商品映射成 OCP CommercialObject，并通过 /ocp/providers/register 与 /ocp/objects/sync 推送到 Catalog。',
+      },
+      {
+        en: 'Full sync, delta sync, one-product sync, signed product webhooks, tombstones for deleted products, and an admin status endpoint are implemented in the example app. Mock fixtures are enabled by default so the flow can be validated without real merchant credentials.',
+        zh: '示例 app 已实现全量同步、增量同步、单商品同步、带签名校验的商品 webhook、删除商品 tombstone，以及 admin status 端点。默认启用 mock fixtures，因此不需要真实商家凭证也能验证完整流程。',
+      },
+      {
+        en: 'The value is practical distribution: a merchant does not need to build a catalog or rewrite agent-side integrations. Once the app is installed and connected, its products become searchable in a compatible OCP catalog, while checkout and the final commercial relationship remain on the original Shopify storefront.',
+        zh: '它的价值是实际分发：商家不需要自己搭建 Catalog，也不需要改造 Agent 侧集成。安装并连接 app 之后，商品就可以出现在兼容的 OCP Catalog 中被搜索和推荐；结账与最终商业关系仍然回到原始 Shopify 店铺。',
+      },
+    ],
+  },
+  {
+    slug: 'woocommerce-provider-app-opens-wordpress-commerce-to-ocp',
+    publishedAt: '2026-05-29',
+    category: 'Implementation',
+    version: 'provider-app-v1',
+    breaking: false,
+    tags: ['woocommerce', 'provider-app', 'wordpress', 'commerce'],
+    title: {
+      en: 'WooCommerce stores can publish products through an OCP Provider app',
+      zh: 'WooCommerce 店铺可以通过 OCP Provider App 发布商品',
+    },
+    summary: {
+      en: 'The WooCommerce provider app mirrors the Shopify flow over WooCommerce REST: it registers the merchant, syncs products and variations, handles webhooks, and sends catalog traffic back to the store page for the final deal.',
+      zh: 'WooCommerce provider app 通过 WooCommerce REST 复用 Shopify 同类流程：注册商家、同步商品和变体、处理 webhook，并把最终成交流量带回店铺商品页面。',
+    },
+    body: [
+      {
+        en: 'The app reads products from /wp-json/wc/v3/products, maps WooCommerce fields into OCP product, price, and inventory packs, and registers the merchant as a Provider with ocp.push.batch sync capability.',
+        zh: '这个 app 会从 /wp-json/wc/v3/products 读取商品，把 WooCommerce 字段映射到 OCP 的 product、price、inventory packs，并以带 ocp.push.batch 同步能力的 Provider 形式注册商家。',
+      },
+      {
+        en: 'It supports full sync, modified-after delta sync, single-product sync, variable-product variation embedding, HMAC-signed WooCommerce webhooks, and inactive tombstones for deleted products.',
+        zh: '它支持全量同步、基于 modified_after 的增量同步、单商品同步、可变商品变体嵌入、WooCommerce HMAC webhook 校验，以及删除商品的 inactive tombstone。',
+      },
+      {
+        en: 'This makes WordPress commerce inventory available to OCP-compatible catalogs without forcing merchants into a new storefront. Catalogs can promote and resolve the merchant products, but the final product page and transaction remain under the merchant site.',
+        zh: '这让 WordPress 电商库存可以进入 OCP 兼容 Catalog，而不要求商家迁移到新的店铺系统。Catalog 可以负责推广、搜索和 resolve 商品，但最终商品页与交易仍保留在商家自己的站点。',
+      },
+    ],
+  },
+  {
     slug: 'unified-public-site',
     publishedAt: '2026-05-28',
     category: 'Docs',
