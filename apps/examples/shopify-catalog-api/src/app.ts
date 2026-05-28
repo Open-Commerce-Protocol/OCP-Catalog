@@ -24,7 +24,7 @@ export function createShopifyCatalogApp(deps: ShopifyCatalogAppDeps) {
   const resolveService = new ShopifyCatalogResolveService(deps.shopify, deps.cfg);
 
   return new Elysia()
-    .use(cors({ origin: false }))
+    .use(cors())
     .onError(({ error, set }) => {
       if (error instanceof ZodError) {
         set.status = 400;

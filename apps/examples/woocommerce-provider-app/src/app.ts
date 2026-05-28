@@ -20,7 +20,7 @@ export async function createWcProviderApp(deps: { cfg: WcProviderConfig }) {
   const sync = new SyncService(deps.cfg, wc, catalog, state);
 
   return new Elysia()
-    .use(cors({ origin: false }))
+    .use(cors())
     .onError(({ error, set }) => {
       if (error instanceof ZodError) {
         set.status = 400;

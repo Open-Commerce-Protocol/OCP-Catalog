@@ -841,3 +841,222 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---- Directory page ---- */
+
+.directory-topology {
+  isolation: isolate;
+}
+
+.directory-topology-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+.directory-topology-glow {
+  position: absolute;
+  inset: -20% -10% auto auto;
+  width: 60%;
+  height: 80%;
+  background: radial-gradient(circle at 70% 30%, rgba(0, 222, 218, 0.18), transparent 60%);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.directory-topology-pulse {
+  filter: drop-shadow(0 0 6px var(--ocp-cyan));
+}
+
+.registry-card {
+  position: relative;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(20, 20, 20, 0.1);
+  background: var(--ocp-porcelain);
+  padding: 1.25rem;
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms cubic-bezier(0.2, 0.72, 0.18, 1);
+  overflow: hidden;
+}
+
+.registry-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--ocp-cyan), transparent 80%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.registry-card:hover {
+  border-color: rgba(0, 167, 165, 0.4);
+  box-shadow: 0 20px 36px rgba(20, 20, 20, 0.1);
+  transform: translateY(-2px);
+}
+
+.registry-card:hover::before {
+  opacity: 1;
+}
+
+.registry-card.is-offline {
+  opacity: 0.72;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(217, 84, 54, 0.04) 0,
+      rgba(217, 84, 54, 0.04) 6px,
+      transparent 6px,
+      transparent 12px
+    ),
+    var(--ocp-porcelain);
+}
+
+.catalog-card {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.catalog-card-frame {
+  position: relative;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(20, 20, 20, 0.1);
+  background: var(--ocp-porcelain);
+  padding: 1rem;
+  box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms cubic-bezier(0.2, 0.72, 0.18, 1);
+  overflow: hidden;
+}
+
+.catalog-card-frame::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ocp-cyan), transparent);
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+.catalog-card:hover .catalog-card-frame {
+  border-color: rgba(0, 167, 165, 0.4);
+  box-shadow: 0 16px 28px rgba(20, 20, 20, 0.08);
+  transform: translateY(-2px);
+}
+
+.catalog-card:hover .catalog-card-frame::after {
+  opacity: 1;
+}
+
+.catalog-card:focus-visible .catalog-card-frame {
+  outline: 2px solid var(--ocp-cyan);
+  outline-offset: 2px;
+}
+
+.catalog-health-dot {
+  flex: none;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(20, 20, 20, 0.06);
+}
+
+.catalog-trust-cell {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 1px;
+}
+
+.directory-filters {
+  border-radius: 0.5rem;
+  border: 1px solid rgba(20, 20, 20, 0.08);
+  background: var(--ocp-porcelain);
+  padding: 1rem 1.1rem;
+}
+
+.directory-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 20, 20, 0.12);
+  background: rgba(20, 20, 20, 0.02);
+  color: rgba(20, 20, 20, 0.62);
+  font-size: 0.7rem;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.directory-chip:hover {
+  border-color: rgba(0, 167, 165, 0.5);
+  color: var(--ocp-ink);
+}
+
+.directory-chip.is-active {
+  background: var(--ocp-ink);
+  border-color: var(--ocp-ink);
+  color: var(--ocp-paper);
+}
+
+.catalog-drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.32);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease;
+  z-index: 60;
+}
+
+.catalog-drawer-scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.catalog-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(36rem, 100vw);
+  background: var(--ocp-paper);
+  box-shadow: -20px 0 60px rgba(20, 20, 20, 0.18);
+  border-left: 1px solid rgba(20, 20, 20, 0.12);
+  transform: translateX(100%);
+  transition: transform 280ms cubic-bezier(0.2, 0.72, 0.18, 1);
+  overflow-y: auto;
+  z-index: 70;
+}
+
+.catalog-drawer.is-open {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .registry-card,
+  .catalog-card-frame,
+  .catalog-drawer,
+  .catalog-drawer-scrim {
+    transition: none;
+  }
+}

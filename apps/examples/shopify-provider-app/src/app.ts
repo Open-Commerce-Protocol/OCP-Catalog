@@ -24,7 +24,7 @@ export async function createShopifyProviderApp(deps: AppDeps) {
   const sync = new SyncService(deps.cfg, admin, catalog, state);
 
   return new Elysia()
-    .use(cors({ origin: false }))
+    .use(cors())
     .onError(({ error, set }) => {
       if (error instanceof ZodError) {
         set.status = 400;

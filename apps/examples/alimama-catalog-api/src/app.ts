@@ -23,7 +23,7 @@ export function createAlimamaCatalogApp(deps: AlimamaCatalogAppDeps) {
   const resolveService = new AffiliateCatalogResolveService(deps.alimama, deps.cfg, resolveCache);
 
   return new Elysia()
-    .use(cors({ origin: false }))
+    .use(cors())
     .onError(({ error, set }) => {
       if (error instanceof ZodError) {
         set.status = 400;

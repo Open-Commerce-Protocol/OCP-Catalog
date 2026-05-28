@@ -96,6 +96,10 @@ export const docsUiText = {
     en: 'Updates',
     zh: '最新动态',
   },
+  directory: {
+    en: 'Directory',
+    zh: '目录',
+  },
 } satisfies Record<string, LocalizedText>;
 
 export function resolveDocsLocale(value: string | null | undefined): DocsLocale {
