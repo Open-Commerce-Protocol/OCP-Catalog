@@ -50,7 +50,7 @@ function config(overrides: Partial<AppConfig>): AppConfig {
     API_KEY_DEV: 'dev-api-key',
     API_KEYS: '',
     CATALOG_ID: 'cat_local_dev',
-    CATALOG_NAME: 'Local OCP Catalog',
+    CATALOG_NAME: 'Commerce Product Search Catalog',
     COMMERCE_PROVIDER_ID: 'commerce_provider_local_dev',
     COMMERCE_PROVIDER_NAME: 'Local Commerce Provider',
     COMMERCE_PROVIDER_CONTACT_EMAIL: 'ops@example.test',
