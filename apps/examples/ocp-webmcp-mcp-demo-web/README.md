@@ -4,7 +4,7 @@ This demo renders OCP Commerce product catalog entries as a shopping mall and ex
 
 The page actively discovers catalogs from a Registration node and calls the selected Catalog HTTP query endpoint directly:
 
-- Registration discovery/search defaults to `https://ocp.deeplumen.io`.
+- Registration discovery/search defaults to `https://ocp.deeplumen.io/registry`.
 - Current public Commerce catalog: `cat_local_dev`.
 - Current query endpoint: `https://ocp.catalog.pageflux.net/ocp/query`.
 - Clean list request: `{ "catalog_id": "cat_local_dev", "limit": 24, "offset": 0 }`.

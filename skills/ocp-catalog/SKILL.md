@@ -22,9 +22,9 @@ Use the repository CLI or shared client for protocol calls. Do not reimplement O
 Prefer the OCP CLI instead of hand-written HTTP calls. In a released standalone skill, run the bundled CLI through `scripts/ocp-skill-runner.ts` or call an installed `ocp` binary:
 
 ```bash
-bun scripts/ocp-skill-runner.ts registration search --registration-url http://localhost:4100 --query "commerce"
+bun scripts/ocp-skill-runner.ts registration search --registration-url https://ocp.deeplumen.io/registry --query "commerce"
 ocp catalog inspect http://localhost:4000/ocp/manifest
-ocp events tail --activity-url http://localhost:4400
+ocp events tail --activity-url https://ocp.deeplumen.io
 ```
 
 The runner resolves the CLI in this order: `OCP_CLI_COMMAND`, `OCP_CLI_BIN`, bundled skill CLI, `ocp` on PATH, `bunx @ocp-catalog/ocp-cli`, then `npx @ocp-catalog/ocp-cli`.

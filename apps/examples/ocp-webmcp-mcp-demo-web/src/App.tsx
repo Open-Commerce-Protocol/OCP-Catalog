@@ -5,7 +5,7 @@ import { listCatalogProducts, searchCatalogOptions, type CatalogOption } from '.
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
 import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, OpenProductInput, ProductSearchInput } from './webmcp/tools';
 
-const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io';
+const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io/registry';
 const defaultSearchPack = 'ocp.query.keyword.v1';
 
 export function App() {

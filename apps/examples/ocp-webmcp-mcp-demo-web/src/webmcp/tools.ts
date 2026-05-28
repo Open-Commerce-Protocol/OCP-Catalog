@@ -100,7 +100,7 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
       inputSchema: {
         type: 'object',
         properties: {
-          registration_base_url: { type: 'string', description: 'OCP Registration base URL, for example https://ocp.deeplumen.io.' },
+          registration_base_url: { type: 'string', description: 'OCP Registration base URL, for example https://ocp.deeplumen.io/registry.' },
           catalog_id: { type: 'string', description: 'Catalog id returned by Registration search, for example cat_local_dev.' },
         },
       },

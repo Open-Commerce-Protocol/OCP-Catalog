@@ -69,7 +69,7 @@ test('forwards WebMCP product search to page logic and records the result', asyn
 test('page state summary exposes selected data source and call history', async () => {
   const state = summarizeDemoState({
     webMcpAvailable: true,
-    registrationBaseUrl: 'https://ocp.deeplumen.io',
+    registrationBaseUrl: 'https://ocp.deeplumen.io/registry',
     selectedCatalogId: 'cat_local_dev',
     selectedCatalogName: 'Commerce Product Search Catalog',
     productCount: 12,
@@ -83,7 +83,7 @@ test('page state summary exposes selected data source and call history', async (
   });
 
   expect(state.webMcpAvailable).toBe(true);
-  expect(state.registrationBaseUrl).toBe('https://ocp.deeplumen.io');
+  expect(state.registrationBaseUrl).toBe('https://ocp.deeplumen.io/registry');
   expect(state.selectedCatalogId).toBe('cat_local_dev');
   expect(state.productCount).toBe(12);
   expect(state.history).toHaveLength(1);
@@ -120,7 +120,7 @@ function createContext(overrides: Partial<OcpMcpDemoContext> = {}): OcpMcpDemoCo
   return {
     getState: () => ({
       webMcpAvailable: true,
-      registrationBaseUrl: 'https://ocp.deeplumen.io',
+      registrationBaseUrl: 'https://ocp.deeplumen.io/registry',
       selectedCatalogId: 'cat_local_dev',
       selectedCatalogName: 'Commerce Product Search Catalog',
       productCount: 0,

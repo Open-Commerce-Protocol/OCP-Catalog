@@ -5,7 +5,7 @@ test('page WebMCP tools are available without MCP gateway tools/list metadata', 
   const tools = createOcpMcpDemoWebMcpTools({
     getState: () => ({
       webMcpAvailable: true,
-      registrationBaseUrl: 'https://ocp.deeplumen.io',
+      registrationBaseUrl: 'https://ocp.deeplumen.io/registry',
       productCount: 0,
       history: [],
     }),
