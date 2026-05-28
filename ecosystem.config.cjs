@@ -63,10 +63,10 @@ module.exports = {
       },
     },
     {
-      name: 'ocp-protocol-docs-web',
+      name: 'ocp-site-web',
       cwd: '.',
       script: 'bun',
-      args: 'run protocol:docs:host',
+      args: 'run site:start',
       interpreter: 'none',
       env: {
         NODE_ENV: 'production',

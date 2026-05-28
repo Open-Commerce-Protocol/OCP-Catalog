@@ -23,7 +23,7 @@ At runtime, the workspace currently collapses into 5 service units:
 4. `ocp-user-demo`
    - `apps/examples/ocp-user-demo-api`
    - `apps/examples/ocp-user-demo-web`
-5. `apps/ocp-protocol-docs-web`
+5. `apps/ocp-site-web`
 
 The monorepo contains 7 app directories, but two pairs are intentionally split frontend/backend companions rather than separate product surfaces.
 
@@ -65,8 +65,8 @@ Current app ownership:
   - user-side agent backend
 - `apps/examples/ocp-user-demo-web`
   - user-side demo frontend
-- `apps/ocp-protocol-docs-web`
-  - protocol documentation site
+- `apps/ocp-site-web`
+  - public OCP website, protocol documentation, and latest updates
 
 ## Package Responsibilities
 

@@ -7,7 +7,7 @@ export const envSchema = z.object({
   PROVIDER_API_PORT: z.coerce.number().default(4200),
   PROVIDER_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4200'),
   USER_DEMO_API_PORT: z.coerce.number().default(4230),
-  PROTOCOL_DOCS_PORT: z.coerce.number().default(5173),
+  OCP_SITE_PORT: z.coerce.number().default(5173),
   REGISTRATION_API_PORT: z.coerce.number().default(4100),
   REGISTRATION_ADMIN_UI_PORT: z.coerce.number().default(4250),
   REGISTRATION_PUBLIC_BASE_URL: z.string().url().default('https://ocp.deeplumen.io'),

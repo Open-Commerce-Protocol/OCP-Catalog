@@ -34,7 +34,7 @@ function config(overrides: Partial<AppConfig>): AppConfig {
     PROVIDER_API_PORT: 4200,
     PROVIDER_PUBLIC_BASE_URL: 'http://localhost:4200',
     USER_DEMO_API_PORT: 4230,
-    PROTOCOL_DOCS_PORT: 5173,
+    OCP_SITE_PORT: 5173,
     REGISTRATION_API_PORT: 4100,
     REGISTRATION_ADMIN_UI_PORT: 4250,
     REGISTRATION_PUBLIC_BASE_URL: 'http://localhost:4100',
@@ -71,4 +71,3 @@ function config(overrides: Partial<AppConfig>): AppConfig {
     ...overrides,
   };
 }
-

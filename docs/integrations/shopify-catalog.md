@@ -467,7 +467,7 @@ Shopify 还有 Cart MCP / Checkout MCP / Order MCP。本次集成 **只接 Catal
 接入正式开工前需要确认：
 
 1. **目标模式**：先做 Global Catalog 还是 Storefront Catalog？（推荐 Global，覆盖面更大，没有店铺申请门槛）
-2. **Agent profile 托管**：放在哪？OCP-Catalog 自带的 `ocp-protocol-docs-web` 是否方便挂一份 well-known 静态文件？
+2. **Agent profile 托管**：放在哪？OCP-Catalog 自带的 `ocp-site-web` 是否方便挂一份 well-known 静态文件？
 3. **Catalog_id 命名规范**：上游 alimama 用 `alimama_taobao_union`。Shopify 我们用 `shopify_global` 还是更具体 `shopify_global_ocp_bridge_v1`？影响 PR 评审。
 4. **Variant 暴露策略**：是否在 query 返回里就把 variants 摊平？还是只在 resolve 里返？（默认建议后者，保持 query 轻量。）
 5. **要不要在 search 路径加 LLM 二次重排**：Shopify 的 `score` 文档未给，我们暂用固定值。是否后续接入 embedding 服务做重排？

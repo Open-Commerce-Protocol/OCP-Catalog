@@ -43,8 +43,8 @@ User / Agent -> Registration node -> Catalog
    由 ocp-user-demo-api + ocp-user-demo-web 组成
    负责用户侧 agent 体验
 
-5. ocp-protocol-docs-web
-   协议文档站，纯静态前端
+5. ocp-site-web
+   OCP 官网 + 协议文档 + 最新动态，纯静态前端
 ```
 
 也就是说，仓库里虽然有 3 个顶层 `apps/*` 单元和一组 `apps/examples/*` 示例应用，但其中有两组本质上是配套单元：
@@ -57,7 +57,7 @@ User / Agent -> Registration node -> Catalog
 ```text
 apps/
   ocp-registration-api/        OCP Catalog Registration node / Catalog Registry
-  ocp-protocol-docs-web/       协议文档站
+  ocp-site-web/                 OCP 官网、协议文档和最新动态
   examples/
     commerce-catalog-api/        第一个 Catalog 实现，场景为 commerce product catalog
     commerce-catalog-admin-web/  Catalog 管理台
@@ -134,10 +134,12 @@ packages/
   - 用户侧 demo UI
   - 承载对话、catalog profile 和记忆、结果展示与 resolve
 
-### 5. Protocol Docs
+### 5. OCP Site
 
-- `ocp-protocol-docs-web`
-  - OCP Catalog 协议文档站
+- `ocp-site-web`
+  - OCP 官网首页
+  - 最新动态页面
+  - OCP Catalog 协议文档
   - 中英文内容
   - schema 片段展示
   - API endpoint 示例
@@ -295,7 +297,7 @@ bun run user:demo:api
 ```bash
 bun run commerce:provider:admin
 bun run user:demo
-bun run protocol:docs
+bun run site:dev
 ```
 
 默认地址：
@@ -306,20 +308,20 @@ bun run protocol:docs
 - User Demo API: `http://localhost:4230`
 - Provider Admin Web: `http://localhost:4210`
 - User Demo Web: `http://localhost:4220`
-- Protocol Docs Web: `http://localhost:5173`（若端口被占用会顺延）
+- OCP Site Web: `http://localhost:5173`（若端口被占用会顺延）
 
 ## 按服务启动
 
 如果你不需要整套链路，可以按 5 个服务视角选择性启动：
 
-### 1. 只启动协议文档站
+### 1. 只启动 OCP 官网
 
 ```bash
-bun run --cwd apps/ocp-protocol-docs-web build
-bun run protocol:docs
+bun run site:build
+bun run site:dev
 ```
 
-`ocp-protocol-docs-web` 是纯静态站，不依赖后端服务。
+`ocp-site-web` 是纯静态站，不依赖后端服务。
 
 ### 2. 只启动 Catalog + Registration node
 
