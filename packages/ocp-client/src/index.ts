@@ -76,6 +76,140 @@ export class OcpClientError extends Error {
   }
 }
 
+export class OcpClientValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly details: Record<string, unknown> & { code: string },
+  ) {
+    super(message);
+    this.name = 'OcpClientValidationError';
+  }
+}
+
+export type CatalogQueryValidationResult = {
+  ok: true;
+  request: CatalogQueryRequest;
+  policy_summary: {
+    selected_capability_id?: string;
+    selected_query_pack?: string;
+    query_mode: QueryMode;
+    supports_explain: boolean;
+    accepted_filters: string[];
+    rejected_filters: string[];
+    warnings: string[];
+  };
+};
+
+export function validateCatalogQueryRequest(
+  manifest: CatalogManifest,
+  request: CatalogQueryRequest,
+  options: { queryUrl?: string } = {},
+): CatalogQueryValidationResult {
+  if (options.queryUrl && options.queryUrl !== manifest.endpoints.query.url) {
+    throw new OcpClientValidationError('query_url does not match the Catalog manifest endpoint', {
+      code: 'invalid_query_endpoint',
+      received_query_url: options.queryUrl,
+      manifest_query_url: manifest.endpoints.query.url,
+      correction: 'Use the query endpoint declared by the same manifest used for validation.',
+    });
+  }
+
+  const descriptors = manifestQueryPackDescriptors(manifest);
+  const supportedQueryPacks = descriptors.map((descriptor) => descriptor.pack_id);
+  const requestedDescriptor = request.query_pack
+    ? descriptors.find((descriptor) => descriptor.pack_id === request.query_pack)
+    : undefined;
+
+  if (request.query_pack && !requestedDescriptor) {
+    throw new OcpClientValidationError(`unsupported query_pack: ${request.query_pack}`, {
+      code: 'invalid_query_pack',
+      query_pack: request.query_pack,
+      supported_query_packs: supportedQueryPacks,
+      correction: 'Use one of the manifest-declared query packs or omit query_pack so the Catalog can select a default.',
+    });
+  }
+
+  if (request.query_pack && requestedDescriptor?.query_modes.length === 0) {
+    throw new OcpClientValidationError(`query_pack ${request.query_pack} does not declare query_modes`, {
+      code: 'invalid_query_pack',
+      query_pack: request.query_pack,
+      supported_query_packs: supportedQueryPacks,
+      correction: 'Inspect the Catalog manifest and choose a query pack that declares supported query_modes.',
+    });
+  }
+
+  const queryMode = requestedDescriptor
+    ? inferQueryModeForPack(requestedDescriptor.query_modes, request.query ?? '', request.filters ?? {})
+    : inferQueryModeForManifest(descriptors, request.query ?? '', request.filters ?? {});
+  const selectedDescriptor = requestedDescriptor
+    ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode))
+    ?? descriptors[0];
+
+  if (!selectedDescriptor) {
+    throw new OcpClientValidationError('catalog manifest does not declare any query packs', {
+      code: 'invalid_query_pack',
+      supported_query_packs: supportedQueryPacks,
+      correction: 'Inspect a different Catalog manifest before sending a query.',
+    });
+  }
+
+  if (!selectedDescriptor.query_modes.includes(queryMode)) {
+    throw new OcpClientValidationError(`query_pack ${selectedDescriptor.pack_id} does not support query mode ${queryMode}`, {
+      code: 'invalid_query_mode',
+      query_pack: selectedDescriptor.pack_id,
+      query_mode: queryMode,
+      supported_query_modes: selectedDescriptor.query_modes,
+      correction: 'Choose a query pack whose query_modes match the request shape.',
+    });
+  }
+
+  if (queryMode === 'semantic' && !(request.query ?? '').trim()) {
+    throw new OcpClientValidationError('semantic query requires a non-empty query', {
+      code: 'invalid_query',
+      query_pack: selectedDescriptor.pack_id,
+      query_mode: queryMode,
+      correction: 'Provide --query text or choose a non-semantic query pack.',
+    });
+  }
+
+  const filterFields = Object.entries(request.filters ?? {})
+    .filter(([, value]) => value !== undefined && value !== false)
+    .map(([field]) => field)
+    .sort();
+  const supportedFilterFields = manifestSupportedFilterFields(manifest);
+  const rejectedFilters = supportedFilterFields.length === 0
+    ? []
+    : filterFields.filter((field) => !supportedFilterFields.includes(field));
+
+  if (rejectedFilters.length > 0) {
+    throw new OcpClientValidationError(`unsupported filter fields: ${rejectedFilters.join(', ')}`, {
+      code: 'invalid_filter_field',
+      rejected_filter_fields: rejectedFilters,
+      supported_filter_fields: supportedFilterFields,
+      correction: 'Remove unsupported filters or inspect the manifest for accepted filters.* input fields.',
+    });
+  }
+
+  const requestWithSelectedPack = {
+    ...request,
+    query_pack: request.query_pack ?? selectedDescriptor.pack_id,
+  };
+
+  return {
+    ok: true,
+    request: requestWithSelectedPack,
+    policy_summary: {
+      selected_capability_id: selectedDescriptor.capability_id,
+      selected_query_pack: selectedDescriptor.pack_id,
+      query_mode: queryMode,
+      supports_explain: selectedDescriptor.supports_explain,
+      accepted_filters: filterFields,
+      rejected_filters: [],
+      warnings: selectedDescriptor.supports_explain ? [] : ['Selected query capability does not support explain output.'],
+    },
+  };
+}
+
 export class OcpClient {
   constructor(private readonly options: OcpClientOptions = {}) {}
 
@@ -291,6 +425,69 @@ export class OcpClient {
   }
 }
 
+function manifestQueryPackDescriptors(manifest: CatalogManifest) {
+  return manifest.query_capabilities.flatMap((capability) => (
+    capability.query_packs.map((pack) => ({
+      capability_id: capability.capability_id,
+      pack_id: pack.pack_id,
+      query_modes: pack.query_modes,
+      supports_explain: capability.supports_explain,
+    }))
+  ));
+}
+
+function manifestSupportedFilterFields(manifest: CatalogManifest) {
+  return unique(manifest.query_capabilities.flatMap((capability) => (
+    capability.input_fields
+      .map((field) => typeof field.name === 'string' ? field.name : null)
+      .filter((name): name is string => Boolean(name?.startsWith('filters.')))
+      .map((name) => name.replace(/^filters\./, ''))
+  )));
+}
+
+type QueryMode = 'keyword' | 'filter' | 'semantic' | 'hybrid';
+
+function inferQueryModeForManifest(
+  descriptors: ReturnType<typeof manifestQueryPackDescriptors>,
+  query: string,
+  filters: Record<string, unknown>,
+): QueryMode {
+  const desired = inferBaseQueryMode(query, filters);
+  if (descriptors.some((descriptor) => descriptor.query_modes.includes(desired))) return desired;
+
+  const fallbackOrder: QueryMode[] = desired === 'hybrid'
+    ? ['keyword', 'filter', 'semantic']
+    : ['filter', 'keyword', 'hybrid', 'semantic'];
+  return fallbackOrder.find((mode) => descriptors.some((descriptor) => descriptor.query_modes.includes(mode))) ?? desired;
+}
+
+function inferQueryModeForPack(
+  queryModes: QueryMode[],
+  query: string,
+  filters: Record<string, unknown>,
+): QueryMode {
+  const hasQuery = query.trim().length > 0;
+  const hasFilters = Object.values(filters).some(Boolean);
+
+  if (hasQuery && hasFilters && queryModes.includes('hybrid')) return 'hybrid';
+  if (!hasQuery && queryModes.includes('filter')) return 'filter';
+  if (hasQuery && queryModes.includes('keyword')) return 'keyword';
+  if (queryModes.includes('semantic')) return 'semantic';
+  if (queryModes.includes('hybrid')) return 'hybrid';
+  if (queryModes.includes('filter')) return 'filter';
+  if (queryModes.includes('keyword')) return 'keyword';
+  return queryModes[0] ?? inferBaseQueryMode(query, filters);
+}
+
+function inferBaseQueryMode(query: string, filters: Record<string, unknown>): QueryMode {
+  const hasQuery = query.trim().length > 0;
+  const hasFilters = Object.values(filters).some(Boolean);
+  if (hasQuery && hasFilters) return 'hybrid';
+  if (hasFilters) return 'filter';
+  if (!hasQuery) return 'filter';
+  return 'keyword';
+}
+
 export function createCorrelationId(prefix = 'corr') {
   return `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`;
 }
@@ -352,6 +549,10 @@ function sanitizeActivityMetadata(metadata: OcpClientActivityMetadata): OcpClien
 
 function compactActivityEvent(event: OcpActivityEventInput): OcpActivityEventInput {
   return Object.fromEntries(Object.entries(event).filter(([, value]) => value !== undefined)) as OcpActivityEventInput;
+}
+
+function unique<T>(values: T[]) {
+  return [...new Set(values)];
 }
 
 function truncateActivityString(value: string, maxLength: number) {

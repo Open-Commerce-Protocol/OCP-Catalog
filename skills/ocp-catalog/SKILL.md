@@ -31,6 +31,16 @@ The runner resolves the CLI in this order: `OCP_CLI_COMMAND`, `OCP_CLI_BIN`, bun
 
 For command details, read `references/cli-usage.md`.
 
+Use CLI help when choosing commands or flags:
+
+```bash
+bun scripts/ocp-skill-runner.ts help
+bun scripts/ocp-skill-runner.ts registration --help
+bun scripts/ocp-skill-runner.ts catalog query --help
+```
+
+Top-level help describes the standard OCP workflow. Domain help explains the protocol stage. Command help explains the command's intent, options, and examples.
+
 ## Boundaries
 
 Read `references/protocol-boundaries.md` before designing or changing OCP integrations. The key separation is:

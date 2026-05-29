@@ -1,9 +1,16 @@
 #!/usr/bin/env bun
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
-import { OcpClient, OcpClientError, createCorrelationId } from '@ocp-catalog/ocp-client';
-import { catalogManifestSchema, catalogQueryRequestSchema, resolveRequestSchema } from '@ocp-catalog/ocp-schema';
+import {
+  OcpClient,
+  OcpClientError,
+  OcpClientValidationError,
+  createCorrelationId,
+  validateCatalogQueryRequest,
+} from '@ocp-catalog/ocp-client';
+import { catalogManifestSchema, catalogQueryRequestSchema, resolveRequestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
 import { doctorOcpSkill, installOcpSkill, uninstallOcpSkill, type SkillTarget } from './skill-installer';
+import { CLI_HELP, FULL_CLI_HELP, findCommandHelp, findDomainHelp } from './help';
 
 const args = process.argv.slice(2);
 
@@ -11,7 +18,11 @@ try {
   const result = await run(args);
   if (result !== undefined) printJson(result);
 } catch (error) {
-  const payload = error instanceof OcpClientError
+  const payload = error instanceof OcpClientValidationError
+    ? { error: { code: 'validation_error', message: error.message, details: error.details } }
+    : isZodLikeError(error)
+    ? { error: { code: 'validation_error', message: 'Request does not match the OCP protocol schema', details: formatZodLikeError(error) } }
+    : error instanceof OcpClientError
     ? { error: { code: 'ocp_client_error', message: error.message, details: error.details } }
     : { error: { code: 'cli_error', message: error instanceof Error ? error.message : String(error) } };
   console.error(JSON.stringify(payload, null, 2));
@@ -20,7 +31,11 @@ try {
 
 async function run(argv: string[]) {
   const [domain, command, ...rest] = argv;
-  if (!domain || domain === 'help' || domain === '--help') return help();
+  if (!domain || domain === 'help' || domain === '--help' || domain === '-h') {
+    return help(domain === 'help' ? [command, ...rest].filter((item): item is string => !!item) : []);
+  }
+  if (command === 'help' || command === '--help' || command === '-h') return help([domain]);
+  if (rest.includes('help') || rest.includes('--help') || rest.includes('-h')) return help([domain, command].filter(Boolean));
 
   if (domain === 'setup') {
     const flags = parseFlags([command, ...rest].filter((item): item is string => !!item));
@@ -100,16 +115,26 @@ async function run(argv: string[]) {
   }
 
   if (domain === 'catalog' && command === 'query') {
-    const request = catalogQueryRequestSchema.parse({
+    const queryPack = stringFlag(flags, 'query-pack');
+    let request = catalogQueryRequestSchema.parse({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
-      query_pack: requiredFlag(flags, 'query-pack'),
+      ...(queryPack ? { query_pack: queryPack } : {}),
       query: stringFlag(flags, 'query') ?? '',
       filters: jsonFlag(flags, 'filters', {}),
       limit: numberFlag(flags, 'limit', 20),
       offset: numberFlag(flags, 'offset', 0),
       explain: booleanFlag(flags, 'explain', true),
     });
+
+    const manifestTarget = stringFlag(flags, 'manifest');
+    if (manifestTarget) {
+      const manifest = catalogManifestSchema.parse(await loadManifestTarget(client, manifestTarget));
+      request = validateCatalogQueryRequest(manifest, request, {
+        queryUrl: requiredFlag(flags, 'query-url'),
+      }).request;
+    }
+
     return client.queryCatalog(requiredFlag(flags, 'query-url'), request);
   }
 
@@ -125,13 +150,29 @@ async function run(argv: string[]) {
 
   if (domain === 'validate' && command === 'manifest') {
     const target = flags.positionals[0] ?? requiredFlag(flags, 'input');
-    const payload = target.startsWith('http://') || target.startsWith('https://')
-      ? await client.inspectCatalog(target)
-      : JSON.parse(await readFile(target, 'utf8'));
+    const payload = await loadManifestTarget(client, target);
     return {
       ok: true,
       manifest: catalogManifestSchema.parse(payload),
     };
+  }
+
+  if (domain === 'validate' && command === 'query') {
+    const manifestTarget = requiredFlag(flags, 'manifest');
+    const manifest = catalogManifestSchema.parse(await loadManifestTarget(client, manifestTarget));
+    const queryPack = stringFlag(flags, 'query-pack');
+    const request = catalogQueryRequestSchema.parse({
+      ocp_version: '1.0',
+      kind: 'CatalogQueryRequest',
+      ...(queryPack ? { query_pack: queryPack } : {}),
+      query: stringFlag(flags, 'query') ?? '',
+      filters: jsonFlag(flags, 'filters', {}),
+      limit: numberFlag(flags, 'limit', 20),
+      offset: numberFlag(flags, 'offset', 0),
+      explain: booleanFlag(flags, 'explain', true),
+    });
+
+    return validateCatalogQueryRequest(manifest, request);
   }
 
   if (domain === 'events' && command === 'tail') {
@@ -141,26 +182,12 @@ async function run(argv: string[]) {
   throw new Error(`Unknown command: ${[domain, command].filter(Boolean).join(' ')}`);
 }
 
-function help() {
-  return {
-    usage: [
-      'ocp setup [--target auto|codex|agents|both|<skills-dir>] [--dry-run]',
-      'ocp update [--manager bun|npm] [--target auto|codex|agents|both|<skills-dir>] [--dry-run]',
-      'ocp skill install [--target auto|codex|agents|both|<skills-dir>] [--force] [--dry-run]',
-      'ocp skill install [--agent codex|agents|all] [--scope user|project] [--dir <skills-dir>] [--force]',
-      'ocp skill update [--target auto|codex|agents|both|<skills-dir>] [--force] [--dry-run]',
-      'ocp skill uninstall [--target auto|codex|agents|both|<skills-dir>] [--force] [--dry-run]',
-      'ocp skill doctor [--target auto|codex|agents|both|<skills-dir>]',
-      'ocp registration discover <discovery-url>',
-      'ocp registration search --registration-url <url> [--query <text>]',
-      'ocp registration resolve --registration-url <url> --catalog-id <id>',
-      'ocp catalog inspect <manifest-url>',
-      'ocp catalog query --query-url <url> --query-pack <id> [--query <text>]',
-      'ocp catalog resolve --resolve-url <url> --entry-id <id>',
-      'ocp validate manifest <file-or-url>',
-      'ocp events tail --activity-url <url>',
-    ],
-  };
+function help(tokens: string[] = []) {
+  const command = findCommandHelp(tokens);
+  if (command) return { ...command, workflow: CLI_HELP.workflow };
+  const domain = findDomainHelp(tokens);
+  if (domain) return { ...domain, workflow: CLI_HELP.workflow };
+  return FULL_CLI_HELP;
 }
 
 function updateOcpCliAndSkill(options: { manager?: string; dryRun: boolean; target: SkillTarget }) {
@@ -187,6 +214,12 @@ function updateOcpCliAndSkill(options: { manager?: string; dryRun: boolean; targ
     dry_run: false,
     commands: [installCommand, skillCommand],
   };
+}
+
+async function loadManifestTarget(client: OcpClient, target: string): Promise<CatalogManifest | unknown> {
+  return target.startsWith('http://') || target.startsWith('https://')
+    ? client.inspectCatalog(target)
+    : JSON.parse(await readFile(target, 'utf8'));
 }
 
 function skillTargetFromFlags(flags: ParsedFlags): SkillTarget {
@@ -283,4 +316,32 @@ function jsonFlag<T>(flags: ParsedFlags, key: string, fallback: T): T {
 
 function printJson(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
+}
+
+type ZodLikeIssue = {
+  code?: string;
+  path?: Array<string | number>;
+  message?: string;
+};
+
+type ZodLikeError = {
+  issues: ZodLikeIssue[];
+};
+
+function isZodLikeError(error: unknown): error is ZodLikeError {
+  return Boolean(error)
+    && typeof error === 'object'
+    && Array.isArray((error as { issues?: unknown }).issues);
+}
+
+function formatZodLikeError(error: ZodLikeError) {
+  return {
+    code: 'protocol_schema_error',
+    correction: 'Adjust the request so every field matches the OCP protocol schema before sending it.',
+    issues: error.issues.map((issue) => ({
+      code: issue.code ?? 'invalid',
+      path: issue.path?.join('.') ?? '',
+      message: issue.message ?? 'Invalid value',
+    })),
+  };
 }
