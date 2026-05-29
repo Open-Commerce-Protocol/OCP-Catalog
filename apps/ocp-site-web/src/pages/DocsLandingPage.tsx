@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Braces, Compass, FileCode2, Route } from 'lucide-react';
+import { ArrowRight, BookOpen, Braces, Compass, FileCode2, Route, Terminal } from 'lucide-react';
 import { navigation } from '../content/navigation';
 import { resolveLocalizedText, useDocsLocale } from '../content/i18n';
 
@@ -27,6 +27,12 @@ const entryCards = [
     href: '/docs/protocols/handshake-v1/catalog-manifest',
     title: { en: 'Schema reference', zh: 'Schema 参考' },
     body: { en: 'Inspect schema-backed pages with endpoint examples and implementation references.', zh: '查看带 schema、接口示例和实现引用的页面。' },
+  },
+  {
+    icon: Terminal,
+    href: '/docs/cli-and-skill',
+    title: { en: 'CLI & Skill (Coming soon)', zh: 'CLI 与 Skill（即将推出）' },
+    body: { en: 'Drive the OCP workflow from the CLI and agent skill, with manifest-based request validation.', zh: '用 CLI 和 Agent skill 驱动 OCP 工作流，并带 manifest 请求校验。' },
   },
 ];
 

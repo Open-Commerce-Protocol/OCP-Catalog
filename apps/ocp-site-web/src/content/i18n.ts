@@ -100,6 +100,10 @@ export const docsUiText = {
     en: 'Directory',
     zh: '目录',
   },
+  roadmap: {
+    en: 'Roadmap',
+    zh: '路线图',
+  },
 } satisfies Record<string, LocalizedText>;
 
 export function resolveDocsLocale(value: string | null | undefined): DocsLocale {

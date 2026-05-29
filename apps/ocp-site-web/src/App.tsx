@@ -6,6 +6,7 @@ import { DocsLandingPage } from './pages/DocsLandingPage';
 import { UpdatesPage } from './pages/UpdatesPage';
 import { UpdateDetailPage } from './pages/UpdateDetailPage';
 import { DirectoryPage } from './pages/DirectoryPage';
+import { RoadmapPage } from './pages/RoadmapPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PageView } from './pages/PageView';
 
@@ -22,6 +23,7 @@ function App() {
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="updates/:slug" element={<UpdateDetailPage />} />
           <Route path="directory" element={<DirectoryPage />} />
+          <Route path="roadmap" element={<RoadmapPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
         <Route path="/zh" element={<SiteLayout />}>
@@ -33,6 +35,7 @@ function App() {
           <Route path="updates" element={<UpdatesPage />} />
           <Route path="updates/:slug" element={<UpdateDetailPage />} />
           <Route path="directory" element={<DirectoryPage />} />
+          <Route path="roadmap" element={<RoadmapPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

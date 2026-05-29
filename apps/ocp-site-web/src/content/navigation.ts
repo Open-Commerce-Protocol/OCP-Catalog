@@ -9,6 +9,7 @@ export const navigation = [
       { title: { en: 'Catalog Architecture', zh: 'Catalog 架构' }, href: '/docs/concepts/catalog-architecture' },
       { title: { en: 'Search / Resolve / Action', zh: 'Search / Resolve / Action' }, href: '/docs/concepts/resolve-actions' },
       { title: { en: 'Getting Started', zh: '快速接入' }, href: '/docs/getting-started' },
+      { title: { en: 'CLI & Skill (Coming soon)', zh: 'CLI 与 Skill（即将推出）' }, href: '/docs/cli-and-skill' },
       { title: { en: 'FAQ', zh: 'FAQ' }, href: '/docs/faq' },
     ],
   },

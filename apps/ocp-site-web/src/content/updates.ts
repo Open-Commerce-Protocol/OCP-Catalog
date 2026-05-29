@@ -16,6 +16,61 @@ export type SiteUpdate = {
 
 export const updates: SiteUpdate[] = [
   {
+    slug: 'ocp-catalog-integrates-agent-platforms',
+    publishedAt: '2026-05-29',
+    category: 'Implementation',
+    breaking: false,
+    tags: ['coze', 'qclaw', 'agent-platform', 'integration'],
+    title: {
+      en: 'OCP Catalog is being integrated into agent platforms like Coze and QClaw',
+      zh: 'OCP Catalog 正在接入 Coze、QClaw 等智能体平台',
+    },
+    summary: {
+      en: 'The OCP Catalog plugin is being integrated and adapted across agent platforms such as Coze and QClaw, so their agents can discover catalog objects while the final deal still returns to the merchant.',
+      zh: 'OCP Catalog 插件正在接入、适配 Coze、QClaw 等智能体平台，让平台上的 Agent 可以发现 Catalog 对象，而最终成交仍回到商家侧。',
+    },
+    body: [
+      {
+        en: 'Work is currently in progress to bring the OCP Catalog plugin to agent platforms including Coze and QClaw. The goal is that an agent on those platforms can discover and compare catalog objects through the standard OCP workflow.',
+        zh: '我们正在推进将 OCP Catalog 插件接入 Coze、QClaw 等智能体平台。目标是让这些平台上的 Agent 能够通过标准 OCP 工作流，发现并比较 Catalog 对象。',
+      },
+      {
+        en: 'The boundary stays the same as every other OCP integration: catalogs help with discovery, search, and resolve, but checkout and the final commercial relationship return to the merchant. Platform availability will be rolled out gradually.',
+        zh: '边界与其他 OCP 集成保持一致：Catalog 负责发现、搜索与 resolve，但结账与最终商业关系仍回到商家。各平台的支持会逐步上线。',
+      },
+    ],
+  },
+  {
+    slug: 'ocp-cli-and-skill-coming-soon',
+    publishedAt: '2026-05-29',
+    category: 'Implementation',
+    version: 'cli-preview',
+    breaking: false,
+    tags: ['cli', 'skill', 'tooling', 'manifest-validation'],
+    title: {
+      en: 'An OCP CLI and agent skill are coming soon — available now from GitHub',
+      zh: 'OCP CLI 与 Agent skill 即将推出，现可从 GitHub 尝鲜',
+    },
+    summary: {
+      en: 'A CLI and an agent skill give agents a correct, repeatable way to drive the OCP workflow, including manifest-based request validation. They are not on npm yet, but early adopters can run them from the repository today.',
+      zh: 'CLI 与 Agent skill 让 Agent 以正确、可复用的方式驱动 OCP 工作流，并带 manifest 请求校验。它们还没上 npm，但尝鲜用户现在已经可以从仓库运行。',
+    },
+    body: [
+      {
+        en: 'The CLI turns the standard OCP workflow into commands — discover, search, inspect, query, resolve — and returns structured JSON for both help and results, so agents can act on output without parsing terminal prose.',
+        zh: 'CLI 把标准 OCP 工作流变成命令——发现、搜索、查看、查询、resolve——并且 help 和结果都返回结构化 JSON，因此 Agent 无需解析终端文本即可基于输出行动。',
+      },
+      {
+        en: 'The most useful piece is manifest-based request validation: before a query is sent, the CLI checks it against the Catalog manifest and rejects an unsupported query pack, an unknown filter field, invalid pagination, or a missing query string — keeping agent parameters clean and moving errors earlier.',
+        zh: '最有用的能力是基于 manifest 的请求校验：在查询发送前，CLI 会用 Catalog manifest 校验请求，拒绝不支持的 query pack、未知 filter 字段、非法分页或缺失的查询文本——让 Agent 传参更规范，把错误前移。',
+      },
+      {
+        en: 'It is not published to npm yet, so it is marked as coming soon. To try it now, clone github.com/Open-Commerce-Protocol/OCP-Catalog and run the bundled CLI, or install the standalone skill into your agent. See the docs page CLI & Skill (/docs/cli-and-skill) for the full guide.',
+        zh: '它还没有发布到 npm，因此标注为即将推出。想现在尝鲜，可以克隆 github.com/Open-Commerce-Protocol/OCP-Catalog 运行内置 CLI，或把独立 skill 安装到你的 Agent。完整引导见文档「CLI 与 Skill」页面（/docs/cli-and-skill）。',
+      },
+    ],
+  },
+  {
     slug: 'shopify-provider-app-syncs-merchant-products',
     publishedAt: '2026-05-29',
     category: 'Implementation',
