@@ -1,0 +1,48 @@
+# Shopify CLI app configuration for the OCP Provider public app.
+#
+# This is the file `shopify app deploy` reads when you register/update the
+# app in the Partner Dashboard. Replace client_id with your app's Client ID
+# and application_url with your deployed HTTPS URL (or ngrok tunnel in dev).
+
+name = "OCP Provider Adapter"
+client_id = "REPLACE_WITH_YOUR_CLIENT_ID"
+application_url = "https://your-app.example.com"
+embedded = true
+
+[access_scopes]
+# Only read scopes — this app never writes to the merchant store.
+scopes = "read_products,read_inventory,read_locations,read_product_listings"
+
+[auth]
+redirect_urls = [
+  "https://your-app.example.com/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-04"
+
+  # Product change feed → incremental OCP sync.
+  [[webhooks.subscriptions]]
+  topics = ["products/create", "products/update", "products/delete"]
+  uri = "https://your-app.example.com/webhooks/products"
+
+  # App lifecycle — purge the installation + tombstone the merchant's objects.
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "https://your-app.example.com/webhooks/app/uninstalled"
+
+  # Mandatory privacy/compliance webhooks (required for App Store listing).
+  [[webhooks.subscriptions]]
+  topics = ["customers/data_request"]
+  uri = "https://your-app.example.com/webhooks/compliance/customers-data-request"
+
+  [[webhooks.subscriptions]]
+  topics = ["customers/redact"]
+  uri = "https://your-app.example.com/webhooks/compliance/customers-redact"
+
+  [[webhooks.subscriptions]]
+  topics = ["shop/redact"]
+  uri = "https://your-app.example.com/webhooks/compliance/shop-redact"
+
+[build]
+automatically_update_urls_on_dev = true

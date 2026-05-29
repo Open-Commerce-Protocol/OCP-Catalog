@@ -1,0 +1,6 @@
+{
+  "name": "Demo Embedded Merchant",
+  "primaryDomain": "demo-embedded.myshopify.com",
+  "email": "ops@demo-embedded.test",
+  "currencyCode": "USD"
+}

@@ -1,0 +1,73 @@
+[
+  {
+    "id": "gid://shopify/Product/9001",
+    "title": "Pour-Over Coffee Dripper",
+    "handle": "pour-over-coffee-dripper",
+    "descriptionHtml": "<p>Ceramic <strong>V60-style</strong> dripper for single-cup pour-over.</p>",
+    "vendor": "Demo Embedded Merchant",
+    "productType": "Brewing",
+    "status": "ACTIVE",
+    "tags": ["coffee", "pour-over"],
+    "totalInventory": 120,
+    "onlineStoreUrl": "https://demo-embedded.myshopify.com/products/pour-over-coffee-dripper",
+    "createdAt": "2026-05-01T12:00:00Z",
+    "updatedAt": "2026-05-20T08:00:00Z",
+    "options": [{ "name": "Color", "values": ["White", "Black"] }],
+    "featuredImage": { "url": "https://cdn.shopify.com/p/9001/dripper-1.jpg", "altText": "Dripper" },
+    "media": { "nodes": [{ "preview": { "image": { "url": "//cdn.shopify.com/p/9001/dripper-2.jpg" } } }] },
+    "variants": {
+      "nodes": [
+        {
+          "id": "gid://shopify/ProductVariant/90011",
+          "sku": "POD-WHT",
+          "title": "White",
+          "price": "24.00",
+          "compareAtPrice": "30.00",
+          "availableForSale": true,
+          "inventoryQuantity": 60,
+          "selectedOptions": [{ "name": "Color", "value": "White" }]
+        },
+        {
+          "id": "gid://shopify/ProductVariant/90012",
+          "sku": "POD-BLK",
+          "title": "Black",
+          "price": "24.00",
+          "compareAtPrice": null,
+          "availableForSale": false,
+          "inventoryQuantity": 0,
+          "selectedOptions": [{ "name": "Color", "value": "Black" }]
+        }
+      ]
+    }
+  },
+  {
+    "id": "gid://shopify/Product/9002",
+    "title": "Gooseneck Kettle 1L",
+    "handle": "gooseneck-kettle-1l",
+    "descriptionHtml": "<p>Precision pour gooseneck kettle.</p>",
+    "vendor": "Demo Embedded Merchant",
+    "productType": "Kettles",
+    "status": "ACTIVE",
+    "tags": ["kettle"],
+    "totalInventory": 40,
+    "onlineStoreUrl": "https://demo-embedded.myshopify.com/products/gooseneck-kettle-1l",
+    "createdAt": "2026-05-02T12:00:00Z",
+    "updatedAt": "2026-05-21T09:00:00Z",
+    "options": [],
+    "featuredImage": { "url": "https://cdn.shopify.com/p/9002/kettle-1.jpg" },
+    "variants": {
+      "nodes": [
+        {
+          "id": "gid://shopify/ProductVariant/90021",
+          "sku": "GNK-1L",
+          "title": "Default",
+          "price": "59.00",
+          "compareAtPrice": null,
+          "availableForSale": true,
+          "inventoryQuantity": 40,
+          "selectedOptions": []
+        }
+      ]
+    }
+  }
+]
