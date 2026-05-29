@@ -152,6 +152,14 @@ const app = new Elysia()
     return result;
   })
   .get('/ocp/providers/:providerId', async ({ params }) => services.registrations.getProvider(params.providerId))
+  .post('/ocp/providers/:providerId/deactivate', async ({ params, headers }) => {
+    assertWriteAuth(headers);
+    return services.providerLifecycle.deactivateProvider(params.providerId);
+  })
+  .post('/ocp/providers/:providerId/erase', async ({ params, headers }) => {
+    assertWriteAuth(headers);
+    return services.providerLifecycle.eraseProvider(params.providerId);
+  })
   .get('/ocp/providers/:providerId/registrations', async ({ params }) => ({
     catalog_id: config.CATALOG_ID,
     provider_id: params.providerId,
