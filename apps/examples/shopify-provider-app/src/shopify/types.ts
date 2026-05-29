@@ -29,8 +29,6 @@ export interface ShopifyVariant {
   availableForSale?: boolean | null;
   inventoryQuantity?: number | null;
   selectedOptions?: Array<{ name: string; value: string }>;
-  weight?: number | null;
-  weightUnit?: string | null;
   image?: ShopifyImage | null;
 }
 

@@ -54,7 +54,7 @@ export class ShopifyApiError extends Error {
   }
 }
 
-const PRODUCT_FIELDS = `
+export const PRODUCT_FIELDS = `
   id
   title
   handle
