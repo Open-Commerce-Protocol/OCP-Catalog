@@ -1,0 +1,28 @@
+name: Maintainer contact request
+description: Request a private maintainer contact for security or conduct topics.
+title: "maintainer contact: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this only when you need a private maintainer contact and cannot find one. Do not include vulnerability details, exploit steps, private personal information, or sensitive conduct details in this public issue.
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      options:
+        - Security contact
+        - Code of conduct contact
+        - Other private maintainer contact
+    validations:
+      required: true
+  - type: textarea
+    id: request
+    attributes:
+      label: Request
+      description: Ask for the private contact channel. Keep this public request minimal.
+      placeholder: I need a private maintainer contact for a security report.
+    validations:
+      required: true

@@ -1,6 +1,7 @@
 {
   "name": "@ocp-catalog/catalog-core",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Core services, contracts, validators, and projections for an OCP Catalog Node.",
   "private": true,
   "type": "module",

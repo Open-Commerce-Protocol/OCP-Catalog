@@ -1,0 +1,63 @@
+name: Protocol change
+description: Propose a change to OCP specs, wire schemas, or protocol behavior.
+title: "protocol: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Protocol surface
+      options:
+        - Handshake v1
+        - Registration v1
+        - Query or resolve behavior
+        - Manifest or route hint
+        - Sync capability
+        - Descriptor pack
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: What protocol problem or implementation gap requires this change?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed protocol shape
+      description: Include fields, state transitions, endpoints, or schema changes as applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: affected_files
+    attributes:
+      label: Expected files to change
+      description: Mention specs, wire schema packages, typed schema packages, runtimes, and site docs.
+      placeholder: |
+        docs/specs/...
+        ocp.catalog.handshake.v1/...
+        packages/ocp-schema/...
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Breaking change?
+      options:
+        - "Yes"
+        - "No"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration or cleanup plan
+      description: If breaking, describe the new correct usage and what old logic should be removed.
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Tests, schema checks, or end-to-end flows that should pass.

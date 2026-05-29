@@ -1,7 +1,7 @@
 # OCP Site Web
 
-This app is the public OCP website for the OCP Catalog demo workspace. It
-contains the official homepage, protocol documentation, and latest updates.
+This app is the public website for the Open Commerce Protocol Catalog. It
+contains the homepage, protocol documentation, and latest updates.
 
 ## Purpose
 

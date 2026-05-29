@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Open-Commerce-Protocol/OCP-Catalog/security/advisories/new
+    about: Please do not disclose vulnerabilities in public issues. Use private vulnerability reporting if available.
+  - name: Contribution guide
+    url: https://github.com/Open-Commerce-Protocol/OCP-Catalog/blob/main/CONTRIBUTING.md
+    about: Read the contribution workflow before opening broad protocol or architecture proposals.

@@ -2,6 +2,7 @@
   "name": "@ocp-catalog/ocp-registration-admin-web",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "bunx vite --host 0.0.0.0 --port 4250",

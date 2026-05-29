@@ -1,223 +1,161 @@
-# OCP Catalog Demo Workspace
+# Open Commerce Protocol — Catalog
 
-这个仓库实现了一个可运行的 OCP Catalog Phase 1 工作区，不是只有协议草图。
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Spec](https://img.shields.io/badge/spec-v1-informational)](./docs/specs/registration/v1.md)
+[![Runtime](https://img.shields.io/badge/runtime-Bun%201.3-black)](https://bun.sh)
 
-当前已经具备三条真实运行链路：
+Open Commerce Protocol (OCP) is an open protocol for **discovering, querying,
+resolving and binding actions on commerce objects** across registrations,
+catalogs, providers, and user-side agents.
+
+This repository is the **official reference implementation** for the
+*OCP Catalog* family of protocols. It is not a sketch — every role in the
+protocol has a runnable service in this workspace, and every spec page is
+backed by code you can read and run.
+
+The three protocol surfaces, all live:
 
 ```text
 Catalog -> Registration node
-  Catalog 注册到 OCP Catalog Registration node
-  Registration node 拉取 manifest
-  Registration node 建立 catalog 索引和 route hint
+  Catalog registers with an OCP Catalog Registration node.
+  Registration node fetches the manifest and builds an index + route hint.
 
 Provider -> Catalog
-  Provider 发现 Catalog
-  Provider 注册到 Catalog
-  Catalog 选择 sync capability
-  Provider 分批同步对象
-  Catalog 校验、入库、建索引
+  Provider discovers a Catalog, registers, and negotiates sync capability.
+  Provider pushes objects; Catalog validates, persists, and indexes them.
 
 User / Agent -> Registration node -> Catalog
-  用户侧 agent 先查本地 catalog profile
-  缺失时到 Registration node 找 catalog
-  用户确认后保存本地 profile
-  agent 再对 Catalog query / resolve
+  Agent reads its local catalog profile first.
+  When missing, it asks a Registration node for catalog route hints.
+  After user confirmation it saves the profile and queries / resolves
+  directly against the Catalog.
 ```
 
-## 当前运行单元
-
-从运行和部署角度看，这个 monorepo 当前可以收敛成 5 个核心服务：
-
-```text
-1. ocp-registration-api
-   Catalog Registration / Discovery Node
-
-2. commerce-catalog-api
-   第一个 Catalog 实现，负责 registration / sync / query / resolve
-
-3. commerce-provider
-   由 commerce-provider-api + commerce-provider-admin-web 组成
-   负责商品源数据管理、注册和同步
-
-4. ocp-user-demo
-   由 ocp-user-demo-api + ocp-user-demo-web 组成
-   负责用户侧 agent 体验
-
-5. ocp-site-web
-   OCP 官网 + 协议文档 + 最新动态，纯静态前端
-```
-
-也就是说，仓库里虽然有 3 个顶层 `apps/*` 单元和一组 `apps/examples/*` 示例应用，但其中有两组本质上是配套单元：
-
-- `commerce-provider-api` + `commerce-provider-admin-web`
-- `ocp-user-demo-api` + `ocp-user-demo-web`
-
-## 仓库结构
+## What's in this repo
 
 ```text
 apps/
-  ocp-registration-api/        OCP Catalog Registration node / Catalog Registry
-  ocp-site-web/                 OCP 官网、协议文档和最新动态
-  examples/
-    commerce-catalog-api/        第一个 Catalog 实现，场景为 commerce product catalog
-    commerce-catalog-admin-web/  Catalog 管理台
-    commerce-provider-api/       商品 Provider API，负责注册和同步到 Catalog
-    commerce-provider-admin-web/ Provider 管理台
-    ocp-user-demo-api/           用户侧 agent backend
-    ocp-user-demo-web/           用户侧 demo UI
-
+  ocp-registration-api/         OCP Catalog Registration node runtime
+  ocp-registration-admin-web/   Registration node admin console
+  ocp-site-web/                 Public site, protocol docs, latest updates
+  ocp-activity-api/             Cross-service activity telemetry endpoint
+  ocp-mcp-server/               OCP <-> MCP gateway
+  examples/                     Reference implementations of each role
+    commerce-catalog-api/         First Catalog implementation (commerce)
+    commerce-catalog-admin-web/   Catalog admin console
+    commerce-provider-api/        Reference Provider API
+    commerce-provider-admin-web/  Provider admin console
+    alimama-catalog-api/          Catalog backed by Alimama
+    shopify-catalog-api/          Catalog backed by Shopify
+    shopify-provider-app/         Provider app embedded in Shopify Admin
+    shopify-app/                  Public Shopify lifecycle host
+    woocommerce-provider-app/     Provider app for WooCommerce
+    ocp-user-demo-api/            User-side agent reference backend
+    ocp-user-demo-web/            User-side agent reference UI
+    ocp-webmcp-mcp-demo-web/      WebMCP bridge sample
 packages/
-  ocp-schema/                  Provider <-> Catalog 协议 schema
-  registration-schema/         Catalog <-> Registration node 协议 schema
-  catalog-core/                Catalog 最小编排内核
-  registration-core/           Registration node 最小编排内核
-  auth-core/                   auth helpers
-  config/                      配置加载
-  db/                          Drizzle schema 和 migrations
-  shared/                      通用错误和工具
+  ocp-schema/                   Provider <-> Catalog protocol schema
+  registration-schema/          Catalog <-> Registration protocol schema
+  ocp-activity-schema/          Activity wire schema
+  catalog-core/                 Catalog orchestration kernel
+  registration-core/            Registration node kernel
+  ocp-activity-core/            Activity telemetry kernel
+  ocp-client/                   TypeScript client for OCP HTTP surfaces
+  ocp-cli/                      Command-line client (resolve, query, register)
+  webmcp-adapter/               WebMCP transport adapter
+  auth-core/                    Authentication helpers
+  config/                       Configuration loader
+  db/                           Drizzle schema and migrations
+  shared/                       Common errors and utilities
+docs/
+  specs/                        Stable protocol specifications
+  architecture/                 System and repository architecture
+  integrations/                 Platform and scenario designs
+  reference-agents/             Reference agent designs
+  agent-guides/                 Agent-facing usage material
+  archive/                      Superseded planning material
+ocp.catalog.handshake.v1/       Wire schema package (Provider <-> Catalog)
+ocp.catalog.registration.v1/    Wire schema package (Catalog <-> Registration)
+skills/                         Agent skill source for the OCP toolchain
+scripts/                        End-to-end validation scripts
 ```
 
-架构边界说明见 [docs/architecture/repo-architecture.md](./docs/architecture/repo-architecture.md)。
+Architecture boundaries are described in
+[docs/architecture/repo-architecture.md](./docs/architecture/repo-architecture.md).
+The full doc index is in [docs/README.md](./docs/README.md).
 
-## 当前实现了什么
+## What the reference implementation provides
 
-### 1. OCP Catalog Registration node
+### OCP Catalog Registration node
 
-- Catalog 注册
-- manifest snapshot 持久化
-- catalog health / verification / refresh
-- catalog search
-- route hint 返回，包含 manifest federation 摘要与 trust profile 投影
-- Registration node 侧索引字段抽取
-- Remote-first federation 当前只落地声明式契约投影：Registration node 交换 profile、contract、summary、mutation 和 trust metadata，不代理 Catalog 的 object query / resolve
+- Catalog registration with manifest snapshotting
+- Catalog health, verification, refresh, token rotation
+- Catalog search over indexed metadata, with stale-detection
+- Route hint return, including manifest federation summary and trust profile
+- Index field projection for Catalog manifests
+- Remote-first federation as a declarative contract projection: Registration
+  nodes exchange profile, contract, summary, mutation and trust metadata;
+  they do not proxy a Catalog's object query or resolve
 
-### 2. Commerce Catalog
+### Commerce Catalog
 
-- discovery / manifest / contracts
-- Provider registration versioning
-- Provider active contract state
-- sync capability negotiation
-- object sync
-- CommercialObject / DescriptorInstance / CatalogEntry 持久化
-- query
-  - keyword
-  - filter
-  - hybrid
-  - semantic
-- explain
-- resolve 到 `ResolvableReference`
+- Discovery, manifest, contracts
+- Provider registration versioning and active contract state
+- Sync capability negotiation and batched object sync
+- `CommercialObject`, `DescriptorInstance`, `CatalogEntry` persistence
+- Query: keyword, filter, hybrid, semantic
+- Explain
+- Resolve to `ResolvableReference`
 
-### 3. Commerce Provider
-
-- `commerce-provider-api`
-  - 商品后台 CRUD
-  - seed demo products
-  - register 到 catalog
-  - publish-to-catalog
-    - 先注册并协商 selected sync capability
-    - 再按当前 active registration version 分批同步
-  - sync run 审计
-- `commerce-provider-admin-web`
-  - Provider 管理台
-  - 商品维护
-  - register / publish / sync run 查看
-
-### 4. User Demo
-
-- `ocp-user-demo-api`
-  - 真正接入 agent backend，不是只在前端写规则
-  - agent 不直接把 tool raw output 返回给用户
-  - agent 先消化 Registration node / Catalog 的返回，再转述给用户
-  - 默认不自动保存 catalog profile 到本地
-  - 支持多轮 refinement
-- `ocp-user-demo-web`
-  - 用户侧 demo UI
-  - 承载对话、catalog profile 和记忆、结果展示与 resolve
-
-### 5. OCP Site
-
-- `ocp-site-web`
-  - OCP 官网首页
-  - 最新动态页面
-  - OCP Catalog 协议文档
-  - 中英文内容
-  - schema 片段展示
-  - API endpoint 示例
-  - 仓库实现映射
-
-协议与设计文档见 [docs/README.md](./docs/README.md)。正式协议稿、架构文档、集成设计和历史材料已经拆分到不同目录，避免继续混放。
-
-## 当前示例 Catalog 是什么
-
-当前仓库里的第一个 Catalog 是一个 commerce product catalog。
-
-它的目标不是做通用 marketplace，而是作为 OCP Catalog 的第一个垂直场景实现，承载：
-
-- commerce descriptor packs
-- 商品搜索和 resolve
-- Provider 注册与内容同步
-
-当前这个 commerce catalog 的真实接入基线已经不再是“只有 title 就能进”。
-
-当前 live object contract 最低要求：
+The commerce Catalog's minimum live object contract:
 
 - `ocp.commerce.product.core.v1#/title`
 - `ocp.commerce.price.v1#/currency`
 - `ocp.commerce.price.v1#/amount`
 
-当前 provider 默认 registration 还会额外保证：
+Default provider registration additionally guarantees:
 
 - `ocp.commerce.product.core.v1#/product_url`
 
-也就是说，当前仓库里的 commerce 示例已经明确朝“可消费商品目录”收敛，而不是只演示一个抽象对象索引。
+Declared query capability:
 
-它的 profile 和 query capability 当前会声明：
+- Modes: `keyword`, `filter`, `hybrid`; `semantic` when embeddings are enabled
+- Packs: `ocp.query.keyword.v1`, `ocp.query.filter.v1`,
+  optional `ocp.query.semantic.v1`
+- `supported_query_languages: ["en"]`, `content_languages: ["en"]`
+- Filter fields: `category`, `brand`, `currency`, `availability_status`,
+  `provider_id`, `sku`, `min_amount`, `max_amount`, `in_stock_only`,
+  `has_image`
 
-- 支持的 query modes：`keyword`、`filter`、`hybrid`
-- 开启 embedding 时还支持：`semantic`
-- 支持的 query packs：
-  - `ocp.query.keyword.v1`
-  - `ocp.query.filter.v1`
-  - 可选 `ocp.query.semantic.v1`
-- `supported_query_languages: ["en"]`
-- `content_languages: ["en"]`
-- `filter_fields`
-  - `category`
-  - `brand`
-  - `currency`
-  - `availability_status`
-  - `provider_id`
-  - `sku`
-  - `min_amount`
-  - `max_amount`
-  - `in_stock_only`
-  - `has_image`
-
-provider-facing sync capability 当前会声明：
+Declared provider-facing sync capability:
 
 - `ocp.push.batch`
 
-之所以显式声明英文能力，是因为当前 catalog 内的样例商品内容主要是英文；用户侧 agent 会在需要时把中文购物意图转换成英文检索短语，再调用 catalog。
+Query results include real commerce signal (price, image, availability,
+quantity, `quality_tier`, resolved `view_product` action). Providers also
+receive quality feedback (`local_quality`, `publish_readiness`,
+`catalog_quality`).
 
-当前 commerce catalog 返回的结果也不再只是标题列表，而是围绕真实商品目录信号建模：
+### Commerce Provider
 
-- 价格与对比价
-- 主图
-- 库存状态与数量
-- `quality_tier`
-- resolve 后的 `view_product` action
+- Product CRUD and seed corpus
+- Register with a Catalog
+- Publish to Catalog: register + negotiate selected sync capability, then
+  batch-sync at the current active registration version
+- Sync run audit
+- Provider admin console for inventory and registration lifecycle
 
-provider 侧也会回流质量反馈：
+### User-side agent
 
-- `local_quality`
-- `publish_readiness`
-- `catalog_quality`
+- A real agent backend, not just front-end rules
+- The agent digests Registration node and Catalog responses before talking
+  to the user — raw tool output is never returned
+- Local catalog profiles are opt-in
+- Multi-turn refinement against Catalog query
 
-## 索引和检索机制
+### Indexing and retrieval
 
-当前 commerce catalog 不是只有一张表加 `LIKE`。
-
-索引链路是：
+The commerce Catalog is not a single `LIKE` table:
 
 ```text
 CommercialObject
@@ -228,62 +166,52 @@ CommercialObject
   -> optional embedding rows
 ```
 
-当前检索机制包括：
+Retrieval mechanics:
 
-- 结构化过滤下推到 DB
-  - `provider_id`
-  - `category`
-  - `brand`
-  - `currency`
-  - `availability_status`
-  - `sku`
-  - `min_amount` / `max_amount`
-  - `in_stock_only`
-  - `has_image`
-- keyword 检索基于 `search_text`
-- hybrid 检索会融合 keyword 和 semantic 分数
-- semantic 检索使用 `pgvector`
-  - `embedding_vector_pg`
-  - HNSW ANN shortlist
-  - exact cosine rerank
-
-也就是说，当前语义检索已经不是“把所有向量拉回应用层再全量算 cosine”，而是：
+- Structured filters pushed to the database (`provider_id`, `category`,
+  `brand`, `currency`, `availability_status`, `sku`, `min_amount`,
+  `max_amount`, `in_stock_only`, `has_image`)
+- Keyword retrieval over `search_text`
+- Hybrid retrieval merges keyword and semantic scores
+- Semantic retrieval uses `pgvector` with HNSW ANN shortlist followed by an
+  exact cosine rerank — no full-set cosine scan in the application layer
 
 ```text
-ANN shortlist -> exact cosine rerank -> final merge/rank
+ANN shortlist -> exact cosine rerank -> final merge / rank
 ```
 
-实现边界和协议约束优先参考 `README.md`、`docs/specs/handshake/v1.md`、`docs/specs/registration/v1.md`。
+## Quick start
 
-## 快速开始
+### Prerequisites
 
-### 依赖
+- Bun `1.3.12+`
+- PostgreSQL with the `pgvector` extension
 
-- Bun `1.3.12`
-- PostgreSQL
-- `pgvector` extension
-
-### 初始化
+### Install and migrate
 
 ```bash
 bun install
 bun run db:migrate
 ```
 
-### 重建本地数据库
+### Reset the local database
 
-当前本地开发默认不保留已有 DB 数据。如果 schema 或 baseline migration 发生变化，直接重建本地数据库：
+Local development does not preserve existing data. When the schema or baseline
+migration changes, reset:
 
 ```bash
 docker compose up -d postgres
 bun run db:reset
 ```
 
-该命令会清空 `DATABASE_URL` 指向数据库内的 `public` 和 `drizzle` schema，然后重新执行当前 baseline migrations。它默认只允许 `localhost`、`127.0.0.1` 或 `::1` 数据库；一次性 disposable 环境可显式设置 `DB_RESET_ALLOW_NON_LOCAL=1`。
+This command clears the `public` and `drizzle` schemas of the database
+referenced by `DATABASE_URL`, then reapplies the current baseline migrations.
+It rejects non-local databases by default (`localhost`, `127.0.0.1`, `::1`).
+For disposable environments, set `DB_RESET_ALLOW_NON_LOCAL=1` explicitly.
 
-配置参考 [.env.example](./.env.example)。
+Configuration reference: [.env.example](./.env.example).
 
-### 启动完整本地链路
+### Run the full reference chain
 
 ```bash
 bun run registration:api
@@ -292,7 +220,7 @@ bun run commerce:provider:api
 bun run user:demo:api
 ```
 
-如果要打开两个前端：
+To run the consoles and site as well:
 
 ```bash
 bun run commerce:provider:admin
@@ -300,74 +228,48 @@ bun run user:demo
 bun run site:dev
 ```
 
-默认地址：
+Default ports:
 
-- Catalog API: `http://localhost:4000`
-- Registration node API: `http://localhost:4100`
-- Provider API: `http://localhost:4200`
-- User Demo API: `http://localhost:4230`
-- Provider Admin Web: `http://localhost:4210`
-- User Demo Web: `http://localhost:4220`
-- OCP Site Web: `http://localhost:5173`（若端口被占用会顺延）
+| Service                    | URL                       |
+| -------------------------- | ------------------------- |
+| Catalog API                | `http://localhost:4000`   |
+| Registration node API      | `http://localhost:4100`   |
+| Provider API               | `http://localhost:4200`   |
+| Provider admin console     | `http://localhost:4210`   |
+| User-side agent web        | `http://localhost:4220`   |
+| User-side agent API        | `http://localhost:4230`   |
+| OCP site web               | `http://localhost:5173`   |
 
-## 按服务启动
-
-如果你不需要整套链路，可以按 5 个服务视角选择性启动：
-
-### 1. 只启动 OCP 官网
+### Run a single slice
 
 ```bash
-bun run site:build
+# Site only (static front-end, no backend dependency)
 bun run site:dev
-```
 
-`ocp-site-web` 是纯静态站，不依赖后端服务。
-
-### 2. 只启动 Catalog + Registration node
-
-```bash
+# Catalog + Registration node (verify the Catalog -> Registration link)
 bun run registration:api
 bun run commerce:catalog:api
-```
 
-适合验证 `Catalog -> Registration node` 注册与发现链路。
-
-### 3. 启动 Provider 配套单元
-
-```bash
+# Provider pair (verify the Provider -> Catalog link)
 bun run commerce:provider:api
 bun run commerce:provider:admin
-```
 
-适合维护商品、注册到 Catalog、执行同步。
-
-### 4. 启动 User Demo 配套单元
-
-```bash
+# User-side agent pair (verify the Agent -> Catalog link)
 bun run user:demo:api
 bun run user:demo
 ```
 
-适合验证用户侧 agent 对 OCP Catalog 的消费链路。
-
-## 验证脚本
+## Validation
 
 ```bash
-bun run validate:mvp
-bun run validate:registration
-bun run test:integration
+bun run validate:mvp            # Provider -> Catalog flow
+bun run validate:registration   # Catalog -> Registration node flow
+bun run test:integration        # Catalog integration tests (needs Postgres)
 ```
 
-`validate:mvp` 覆盖 Provider -> Catalog 主链路。  
-`validate:registration` 覆盖 Catalog -> Registration node 主链路。
-`test:integration` 运行需要本地 Postgres 的 Catalog 集成测试；默认 `bun run test` 只覆盖无外部服务依赖的测试。
+`bun run test` runs only tests with no external dependency.
 
-### Breaking changes in this branch
-
-- Registration search results must return `registration_id`; legacy `center_id` responses are rejected by the MCP registration client.
-- `/center/*` protocol docs routes are no longer aliased to `/registration/*`.
-
-## 常用命令
+## Common commands
 
 ```bash
 bun run typecheck
@@ -375,10 +277,25 @@ bun run build
 bun run test
 ```
 
-## 主要文档
+## Documentation
 
-- [docs/README.md](./docs/README.md)
-- [docs/architecture/repo-architecture.md](./docs/architecture/repo-architecture.md)
-- [docs/architecture/system-design.md](./docs/architecture/system-design.md)
-- [docs/specs/registration/v1.md](./docs/specs/registration/v1.md)
-- [docs/specs/handshake/v1.md](./docs/specs/handshake/v1.md)
+- [docs/README.md](./docs/README.md) — documentation index
+- [docs/architecture/repo-architecture.md](./docs/architecture/repo-architecture.md) — repository architecture
+- [docs/architecture/system-design.md](./docs/architecture/system-design.md) — long-term system design
+- [docs/specs/registration/v1.md](./docs/specs/registration/v1.md) — Registration v1 spec
+- [docs/specs/handshake/v1.md](./docs/specs/handshake/v1.md) — Handshake v1 spec
+
+When protocol descriptions conflict, the order of authority is: specs >
+architecture > implementation > archived material.
+
+## Contributing
+
+Pull requests and issues are welcome. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow and
+[CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for community expectations.
+
+To report a security vulnerability, follow [SECURITY.md](./SECURITY.md).
+
+## License
+
+Released under the [MIT License](./LICENSE).

@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a product, runtime, tooling, or documentation improvement.
+title: "feat: "
+labels:
+  - enhancement
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Registration node
+        - Catalog runtime
+        - Provider runtime
+        - User-side agent
+        - MCP gateway
+        - Site or docs
+        - Tooling or scripts
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user, implementer, or maintainer problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the ideal long-term shape, not only the smallest patch.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Note tradeoffs or rejected approaches.
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and data impact
+      description: Does this change APIs, schemas, stored data, configuration, or user workflows?
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation idea
+      description: Tests, demos, or acceptance criteria that would prove the feature works.

@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem in the OCP Catalog repository.
+title: "fix: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please keep the report focused and reproducible.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Protocol spec
+        - Wire schema
+        - Registration node
+        - Catalog runtime
+        - Provider runtime
+        - User-side agent
+        - MCP gateway
+        - Site or docs
+        - Tooling or scripts
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Include commands, inputs, service URLs, or test names.
+      placeholder: |
+        1. Run ...
+        2. Send ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who is affected, and does this touch protocol compatibility?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Runtime versions, database, OS, branch, and commit if relevant.
+      placeholder: |
+        Bun:
+        PostgreSQL:
+        Branch:
+        Commit:
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or traces
+      description: Paste the smallest useful excerpt. Remove secrets.
+      render: shell
