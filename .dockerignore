@@ -1,0 +1,27 @@
+# 仅用于构建 ocp-skill-gateway 的 docker image
+# (docker build -f apps/examples/ocp-skill-gateway/Dockerfile .)
+#
+# Dockerfile 只 COPY:
+#   apps/examples/ocp-skill-gateway/package.json
+#   apps/examples/ocp-skill-gateway/src
+# 其它一切都可以排除,加快 build + 缩小 context。
+
+# 默认全部排除
+**
+
+# 白名单:只放进 build context 我们真正需要的东西
+!apps/examples/ocp-skill-gateway/package.json
+!apps/examples/ocp-skill-gateway/src
+!apps/examples/ocp-skill-gateway/src/**
+
+# 兜底:任何意外塞进来的 node_modules / 构建产物 / 敏感配置一律拦掉
+**/node_modules
+**/dist
+**/.turbo
+**/.next
+**/.cache
+**/coverage
+**/.DS_Store
+**/*.log
+**/.env
+**/.env.*

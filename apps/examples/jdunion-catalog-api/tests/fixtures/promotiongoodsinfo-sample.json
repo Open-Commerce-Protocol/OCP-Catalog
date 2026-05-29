@@ -1,0 +1,83 @@
+{
+  "code": 200,
+  "requestId": "fixture-promotion-001",
+  "result": [
+    {
+      "skuId": 100012345678,
+      "goodsName": "索尼(SONY)WH-1000XM5 头戴式无线降噪耳机 蓝牙耳机 长续航 黑色",
+      "imgUrl": "//img14.360buyimg.com/n0/jfs/t1/example/sony-xm5-main.jpg",
+      "unitPrice": 2799.00,
+      "unitPriceLow": 2499.00,
+      "commisionRatioWl": 3.0,
+      "isHot": 1,
+      "materialUrl": "https://item.jd.com/100012345678.html",
+      "clickURL": "https://union-click.jd.com/jdc?e=&p=AyIPZRtfEAYWAlMaUxYBVRxLQAdLWFkQXBYAW1tBCkpLBRACFlpKWxAaWQVcEAYDXVpQVEMAWFEXBlYWAh1eX0FCBQYDAhBJSWg4XllbUx5UZl5RcARBaDdVERtfEAYWBl0aXRpcVHEbZRteHA5fABwbVB0DUVcQBxoLVBoCWBYBWl9JRhdHE1IXAB5XGV4UWUI3ZRsLEhxbHV4UA1MeUxoLEhAHGVMQQAVeXVoYExAGFllZWxFTSxELE2I8DwwfEAYUMxJDDAFTfBlhEgI",
+      "shortURL": "https://u.jd.com/mock_sony_xm5",
+      "couponLink": "https://coupon.m.jd.com/coupons/show.action?key=mockcoupon001&affiliate=true",
+      "shopName": "索尼京东自营官方旗舰店",
+      "cidName": "耳机/耳麦",
+      "inOrderCount30Days": 12500
+    },
+    {
+      "skuId": 100023456789,
+      "goodsName": "Anker 安克 65W 氮化镓充电器 多口快充 PD/QC4+",
+      "imgUrl": "//img14.360buyimg.com/n0/jfs/t1/example/anker-65w-1.jpg",
+      "unitPrice": 199.00,
+      "unitPriceLow": 169.00,
+      "commisionRatioWl": 8.0,
+      "isHot": 0,
+      "materialUrl": "https://item.jd.com/100023456789.html",
+      "clickURL": "https://union-click.jd.com/jdc?e=&p=mock_anker_65w_long",
+      "shortURL": "https://u.jd.com/mock_anker_65w",
+      "couponLink": "https://coupon.m.jd.com/coupons/show.action?key=mockcoupon002&affiliate=true",
+      "shopName": "Anker京东自营旗舰店",
+      "cidName": "电源/充电器",
+      "inOrderCount30Days": 8200
+    },
+    {
+      "skuId": 100034567890,
+      "goodsName": "联想(Lenovo)小新Pro 14 2025款 Ultra5-125H 16G 1T",
+      "imgUrl": "//img14.360buyimg.com/n0/jfs/t1/example/lenovo-pro14-1.jpg",
+      "unitPrice": 5999.00,
+      "unitPriceLow": 5499.00,
+      "commisionRatioWl": 1.5,
+      "isHot": 0,
+      "materialUrl": "https://item.jd.com/100034567890.html",
+      "clickURL": "https://union-click.jd.com/jdc?e=&p=mock_lenovo_pro14_long",
+      "shortURL": "https://u.jd.com/mock_lenovo_pro14",
+      "shopName": "联想京东自营官方旗舰店",
+      "cidName": "笔记本",
+      "inOrderCount30Days": 3400
+    },
+    {
+      "skuId": 100045678901,
+      "goodsName": "云南白药牙膏 留兰香 165g",
+      "imgUrl": "//img14.360buyimg.com/n0/jfs/t1/example/ynbyya-toothpaste.jpg",
+      "unitPrice": 27.90,
+      "unitPriceLow": 19.90,
+      "commisionRatioWl": 12.0,
+      "isHot": 1,
+      "materialUrl": "https://item.jd.com/100045678901.html",
+      "clickURL": "https://union-click.jd.com/jdc?e=&p=mock_ynbyya_toothpaste_long",
+      "shortURL": "https://u.jd.com/mock_ynbyya",
+      "shopName": "云南白药健康京东自营官方旗舰店",
+      "cidName": "牙膏",
+      "inOrderCount30Days": 45600
+    },
+    {
+      "skuId": 100056789012,
+      "goodsName": "皇家(ROYAL CANIN)室内成猫粮 2kg",
+      "imgUrl": "//img14.360buyimg.com/n0/jfs/t1/example/royalcanin-2kg.jpg",
+      "unitPrice": 188.00,
+      "unitPriceLow": 158.00,
+      "commisionRatioWl": 5.0,
+      "isHot": 0,
+      "materialUrl": "https://item.jd.com/100056789012.html",
+      "clickURL": "https://union-click.jd.com/jdc?e=&p=mock_royalcanin_long",
+      "shortURL": "https://u.jd.com/mock_royalcanin",
+      "shopName": "ROYAL CANIN皇家京东自营官方旗舰店",
+      "cidName": "成猫粮",
+      "inOrderCount30Days": 6800
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "goods_promotion_url_list": [
+    {
+      "url": "https://mobile.yangkeduo.com/goods.html?goods_id=250012345678&pid=mock_pid_001&fixture=sony",
+      "short_url": "https://p.pinduoduo.com/mock_sony_xm5",
+      "mobile_short_url": "https://p.pinduoduo.com/mobile_sony_xm5",
+      "we_app_web_view_url": "https://mobile.yangkeduo.com/we_app/sony_xm5",
+      "we_app_web_view_short_url": "https://p.pinduoduo.com/we_sony_xm5",
+      "qq_app_web_view_url": "https://mobile.yangkeduo.com/qq_app/sony_xm5",
+      "qq_app_web_view_short_url": "https://p.pinduoduo.com/qq_sony_xm5",
+      "schema_url": "pinduoduo://com.xunmeng.pinduoduo/goods.html?goods_id=250012345678",
+      "qr_code_url": "https://img.pddpic.com/qr/sony_xm5.png"
+    },
+    {
+      "url": "https://mobile.yangkeduo.com/goods.html?goods_id=250023456789&pid=mock_pid_001&fixture=anker",
+      "short_url": "https://p.pinduoduo.com/mock_anker_65w",
+      "mobile_short_url": "https://p.pinduoduo.com/mobile_anker_65w",
+      "schema_url": "pinduoduo://com.xunmeng.pinduoduo/goods.html?goods_id=250023456789"
+    },
+    {
+      "url": "https://mobile.yangkeduo.com/goods.html?goods_id=250034567890&pid=mock_pid_001&fixture=lenovo",
+      "short_url": "https://p.pinduoduo.com/mock_lenovo_pro14",
+      "mobile_short_url": "https://p.pinduoduo.com/mobile_lenovo_pro14"
+    },
+    {
+      "url": "https://mobile.yangkeduo.com/goods.html?goods_id=250045678901&pid=mock_pid_001&fixture=ynbyya",
+      "short_url": "https://p.pinduoduo.com/mock_ynbyya",
+      "mobile_short_url": "https://p.pinduoduo.com/mobile_ynbyya"
+    },
+    {
+      "url": "https://mobile.yangkeduo.com/goods.html?goods_id=250056789012&pid=mock_pid_001&fixture=royalcanin",
+      "short_url": "https://p.pinduoduo.com/mock_royalcanin",
+      "mobile_short_url": "https://p.pinduoduo.com/mobile_royalcanin"
+    }
+  ]
+}

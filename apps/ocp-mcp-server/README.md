@@ -16,6 +16,8 @@ Agent -> MCP client -> ocp-mcp-server -> Registration node -> selected Catalog
 - `query_catalog`
 - `resolve_catalog_entry`
 - `find_and_query_catalog`
+- `skill_search`
+- `skill_deeplink`
 
 ## User intent to tool
 
@@ -52,6 +54,8 @@ OCP_MCP_USER_AGENT=ocp-mcp-server/0.1.0
 OCP_MCP_API_KEY=
 OCP_MCP_HTTP_PORT=4300
 OCP_MCP_HTTP_PATH=/mcp
+OCP_MCP_SKILL_GATEWAY_URL=http://localhost:4330
+OCP_MCP_SKILL_GATEWAY_KEY=
 ```
 
 `OCP_MCP_API_KEY` is sent as `x-api-key` when the gateway calls a selected catalog's query endpoint.
@@ -69,4 +73,10 @@ The validator checks the HTTP path that the MCP tools rely on:
 
 ```text
 Registration search -> route hint -> manifest -> catalog query -> catalog resolve
+```
+
+To validate the MCP -> skill-gateway chain:
+
+```bash
+bun run smoke:mcp-skill
 ```

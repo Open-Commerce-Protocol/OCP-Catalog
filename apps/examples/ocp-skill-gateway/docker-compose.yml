@@ -1,0 +1,34 @@
+# OCP Skill Gateway —— 一键 docker compose 启动
+#
+# 用法(在仓库根目录跑):
+#   docker compose -f apps/examples/ocp-skill-gateway/docker-compose.yml up -d
+#
+# 改 .env 或者在命令行加 -e 覆盖默认 env。
+# 健康检查在容器层面跑,docker ps 会显示 healthy/unhealthy。
+
+services:
+  skill-gateway:
+    build:
+      context: ../../..
+      dockerfile: apps/examples/ocp-skill-gateway/Dockerfile
+    image: ocp-skill-gateway:0.1.0
+    container_name: ocp-skill-gateway
+    restart: unless-stopped
+    ports:
+      - "4330:4330"
+    environment:
+      # 必填:用逗号分隔多个 key
+      SKILL_GATEWAY_API_KEYS: ${SKILL_GATEWAY_API_KEYS:-sk_dev_demo_001}
+      # 必填:对外公开的入口,要写进 /openapi.yaml 的 servers.url
+      # 部署到正式域名后改这个,例:https://skill-gateway.deeplumen.io
+      SKILL_GATEWAY_PUBLIC_BASE_URL: ${SKILL_GATEWAY_PUBLIC_BASE_URL:-http://localhost:4330}
+      # 可选:上游 OCP MCP 入口,默认就是公共注册中心
+      SKILL_GATEWAY_OCP_MCP_URL: ${SKILL_GATEWAY_OCP_MCP_URL:-https://ocp.deeplumen.io/mcp}
+      # 可选:fan-out 超时(ms)
+      SKILL_GATEWAY_FANOUT_TIMEOUT_MS: ${SKILL_GATEWAY_FANOUT_TIMEOUT_MS:-8000}
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4330/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

@@ -1,0 +1,228 @@
+{
+  "code": 200,
+  "requestId": "fixture-goods-001",
+  "totalCount": 5,
+  "hasMore": false,
+  "data": [
+    {
+      "skuId": 100012345678,
+      "skuName": "索尼(SONY)WH-1000XM5 头戴式无线降噪耳机 蓝牙耳机 长续航 黑色",
+      "imageInfo": {
+        "imageList": [
+          { "url": "//img14.360buyimg.com/n0/jfs/t1/example/sony-xm5-main.jpg" },
+          { "url": "//img14.360buyimg.com/n0/jfs/t1/example/sony-xm5-2.jpg" }
+        ],
+        "whiteImage": "//img14.360buyimg.com/n0/jfs/t1/example/sony-xm5-white.jpg"
+      },
+      "priceInfo": {
+        "price": 2799.00,
+        "lowestPrice": 2499.00,
+        "lowestPriceType": 2,
+        "lowestCouponPrice": 2499.00
+      },
+      "commissionInfo": {
+        "commissionShare": 3.0,
+        "commission": 74.97
+      },
+      "shopInfo": {
+        "shopId": 1000004123,
+        "shopName": "索尼京东自营官方旗舰店",
+        "shopLevel": 5
+      },
+      "categoryInfo": {
+        "cid1": 670,
+        "cid2": 677,
+        "cid3": 1110,
+        "cid1Name": "电脑、办公",
+        "cid2Name": "外设产品",
+        "cid3Name": "耳机/耳麦"
+      },
+      "couponInfo": {
+        "couponList": [
+          {
+            "discount": 300,
+            "quota": 2800,
+            "couponKind": 1,
+            "platformType": 1,
+            "link": "https://coupon.m.jd.com/coupons/show.action?key=mockcoupon001",
+            "getStartTime": 1716000000000,
+            "getEndTime": 1716604800000,
+            "useStartTime": 1716000000000,
+            "useEndTime": 1716604800000,
+            "isBest": 1
+          }
+        ]
+      },
+      "materialUrl": "https://item.jd.com/100012345678.html",
+      "inOrderCount30Days": 12500,
+      "inOrderCount30DaysSku": 12500,
+      "owner": "g",
+      "brandName": "SONY",
+      "brandCode": "1234"
+    },
+    {
+      "skuId": 100023456789,
+      "skuName": "Anker 安克 65W 氮化镓充电器 多口快充 PD/QC4+ 适配 iPhone15/MacBook",
+      "imageInfo": {
+        "imageList": [
+          { "url": "//img14.360buyimg.com/n0/jfs/t1/example/anker-65w-1.jpg" }
+        ]
+      },
+      "priceInfo": {
+        "price": 199.00,
+        "lowestPrice": 169.00,
+        "lowestPriceType": 2,
+        "lowestCouponPrice": 169.00
+      },
+      "commissionInfo": {
+        "commissionShare": 8.0,
+        "commission": 13.52
+      },
+      "shopInfo": {
+        "shopId": 1000003456,
+        "shopName": "Anker京东自营旗舰店",
+        "shopLevel": 5
+      },
+      "categoryInfo": {
+        "cid1": 670,
+        "cid2": 689,
+        "cid3": 5266,
+        "cid1Name": "电脑、办公",
+        "cid2Name": "电脑配件",
+        "cid3Name": "电源/充电器"
+      },
+      "couponInfo": {
+        "couponList": [
+          {
+            "discount": 30,
+            "quota": 199,
+            "couponKind": 1,
+            "platformType": 1,
+            "link": "https://coupon.m.jd.com/coupons/show.action?key=mockcoupon002",
+            "isBest": 1
+          }
+        ]
+      },
+      "materialUrl": "https://item.jd.com/100023456789.html",
+      "inOrderCount30Days": 8200,
+      "inOrderCount30DaysSku": 8200,
+      "owner": "g",
+      "brandName": "Anker",
+      "brandCode": "5678"
+    },
+    {
+      "skuId": 100034567890,
+      "skuName": "联想(Lenovo)小新Pro 14 2025款 Ultra5-125H 16G 1T 2.8K OLED 笔记本电脑",
+      "imageInfo": {
+        "imageList": [
+          { "url": "//img14.360buyimg.com/n0/jfs/t1/example/lenovo-pro14-1.jpg" }
+        ]
+      },
+      "priceInfo": {
+        "price": 5999.00,
+        "lowestPrice": 5499.00,
+        "lowestPriceType": 1
+      },
+      "commissionInfo": {
+        "commissionShare": 1.5,
+        "commission": 82.49
+      },
+      "shopInfo": {
+        "shopId": 1000005678,
+        "shopName": "联想京东自营官方旗舰店"
+      },
+      "categoryInfo": {
+        "cid1": 670,
+        "cid2": 671,
+        "cid3": 672,
+        "cid1Name": "电脑、办公",
+        "cid2Name": "电脑整机",
+        "cid3Name": "笔记本"
+      },
+      "materialUrl": "https://item.jd.com/100034567890.html",
+      "inOrderCount30Days": 3400,
+      "owner": "g",
+      "brandName": "Lenovo"
+    },
+    {
+      "skuId": 100045678901,
+      "skuName": "云南白药牙膏 留兰香 165g 清新口气 减轻牙龈出血",
+      "imageInfo": {
+        "imageList": [
+          { "url": "//img14.360buyimg.com/n0/jfs/t1/example/ynbyya-toothpaste.jpg" }
+        ]
+      },
+      "priceInfo": {
+        "price": 27.90,
+        "lowestPrice": 19.90,
+        "lowestPriceType": 2,
+        "lowestCouponPrice": 19.90
+      },
+      "commissionInfo": {
+        "commissionShare": 12.0,
+        "commission": 2.39
+      },
+      "shopInfo": {
+        "shopId": 1000007890,
+        "shopName": "云南白药健康京东自营官方旗舰店"
+      },
+      "categoryInfo": {
+        "cid1": 1320,
+        "cid2": 1583,
+        "cid3": 13796,
+        "cid1Name": "个人护理、清洁",
+        "cid2Name": "口腔护理",
+        "cid3Name": "牙膏"
+      },
+      "couponInfo": {
+        "couponList": [
+          {
+            "discount": 8,
+            "quota": 27,
+            "couponKind": 0,
+            "platformType": 1,
+            "isBest": 1
+          }
+        ]
+      },
+      "materialUrl": "https://item.jd.com/100045678901.html",
+      "inOrderCount30Days": 45600,
+      "owner": "g",
+      "brandName": "云南白药"
+    },
+    {
+      "skuId": 100056789012,
+      "skuName": "皇家(ROYAL CANIN)宠物猫粮 室内成猫粮 2kg 全价配方",
+      "imageInfo": {
+        "imageList": [
+          { "url": "//img14.360buyimg.com/n0/jfs/t1/example/royalcanin-2kg.jpg" }
+        ]
+      },
+      "priceInfo": {
+        "price": 188.00,
+        "lowestPrice": 158.00,
+        "lowestPriceType": 1
+      },
+      "commissionInfo": {
+        "commissionShare": 5.0,
+        "commission": 7.90
+      },
+      "shopInfo": {
+        "shopId": 1000009012,
+        "shopName": "ROYAL CANIN皇家京东自营官方旗舰店"
+      },
+      "categoryInfo": {
+        "cid1": 6233,
+        "cid2": 6240,
+        "cid3": 6247,
+        "cid1Name": "宠物生活",
+        "cid2Name": "猫主粮",
+        "cid3Name": "成猫粮"
+      },
+      "materialUrl": "https://item.jd.com/100056789012.html",
+      "inOrderCount30Days": 6800,
+      "owner": "g",
+      "brandName": "ROYAL CANIN"
+    }
+  ]
+}
