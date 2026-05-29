@@ -719,6 +719,25 @@
     color: rgba(20, 20, 20, 0.6);
   }
 
+  .product-status-chip {
+    @apply rounded-md px-2 py-1 text-xs font-semibold;
+  }
+
+  .product-status-stable {
+    background: rgba(46, 125, 87, 0.12);
+    color: #1f5e3e;
+  }
+
+  .product-status-in-progress {
+    background: rgba(0, 167, 165, 0.12);
+    color: #056967;
+  }
+
+  .product-status-coming-soon {
+    background: rgba(197, 154, 50, 0.14);
+    color: #755407;
+  }
+
   .roadmap-item {
     @apply rounded-md border border-black/10 bg-[var(--ocp-paper)] p-4;
     transition:

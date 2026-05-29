@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Boxes, Braces, Network, RadioTower, ShieldCheck, Terminal } from 'lucide-react';
+import { ArrowRight, Boxes, Braces, GitFork, Network, RadioTower, ShieldCheck, Terminal, Unlock } from 'lucide-react';
 import { ProtocolRelayCanvas } from '../components/site/ProtocolRelayCanvas';
 import {
   CatalogArchitectureDiagram,
@@ -51,7 +51,7 @@ const layerToneClass: Record<string, string> = {
   ink: 'protocol-chip-ink',
 };
 
-const sectionIds = ['hero', 'flow', 'live', 'glance', 'why', 'onboarding', 'paths'] as const;
+const sectionIds = ['hero', 'flow', 'live', 'glance', 'why', 'open', 'onboarding', 'paths'] as const;
 type SectionId = (typeof sectionIds)[number];
 
 const sectionLabels: Record<SectionId, LocalizedText> = {
@@ -60,9 +60,12 @@ const sectionLabels: Record<SectionId, LocalizedText> = {
   live: { en: 'Live', zh: '实时' },
   glance: { en: 'At a glance', zh: '一眼看懂' },
   why: { en: 'Why', zh: '为什么' },
+  open: { en: 'Open', zh: '开源' },
   onboarding: { en: 'Onboarding', zh: '接入' },
   paths: { en: 'Next', zh: '下一步' },
 };
+
+const GITHUB_URL = 'https://github.com/Open-Commerce-Protocol/OCP-Catalog';
 
 function label(text: LocalizedText, locale: 'en' | 'zh') {
   return resolveLocalizedText(text, locale);
@@ -210,9 +213,20 @@ export function HomePage() {
 
         <div className="relative mx-auto grid min-h-[78vh] w-full max-w-7xl items-center px-4 py-16 sm:px-6 lg:min-h-[calc(100vh-80px)] lg:grid-cols-[0.86fr_1.14fr] lg:px-8">
           <div className="hero-copy hero-parallax-fade max-w-3xl pt-6">
-            <div className="reveal-item mb-6 inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/72 px-3 py-1.5 text-sm font-semibold text-black/72 shadow-sm backdrop-blur">
-              <ShieldCheck className="h-4 w-4 text-[var(--ocp-green)]" />
-              {locale === 'zh' ? '让 AI Agent 读懂开放商业' : 'Commerce that AI agents can understand'}
+            <div className="reveal-item mb-6 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/72 px-3 py-1.5 text-sm font-semibold text-black/72 shadow-sm backdrop-blur">
+                <ShieldCheck className="h-4 w-4 text-[var(--ocp-green)]" />
+                {locale === 'zh' ? '让 AI Agent 读懂开放商业' : 'Commerce that AI agents can understand'}
+              </span>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-md border border-[var(--ocp-cyan)]/30 bg-[rgba(0,167,165,0.10)] px-3 py-1.5 text-sm font-semibold text-[#056967] shadow-sm backdrop-blur transition-colors hover:bg-[rgba(0,167,165,0.18)]"
+              >
+                <Unlock className="h-4 w-4" />
+                {locale === 'zh' ? '开源 · 人人免费' : 'Open source · Free for everyone'}
+              </a>
             </div>
             <h1 className="reveal-item hero-gradient-text max-w-4xl select-none text-5xl font-semibold leading-[1.02] cursor-default sm:text-6xl lg:text-7xl">
               Open Commerce Protocol
@@ -228,7 +242,7 @@ export function HomePage() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link to={localizePath('/updates')} className="inline-flex items-center justify-center rounded-md border border-black/12 bg-white/70 px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white">
-                {locale === 'zh' ? '查看项目进展' : 'View project updates'}
+                {locale === 'zh' ? '查看新闻' : 'Read the news'}
               </Link>
             </div>
             <div className="reveal-item mt-10 grid max-w-xl grid-cols-3 gap-2">
@@ -315,6 +329,57 @@ export function HomePage() {
         </div>
       </section>
 
+      <section id="open" className="home-panel site-section border-y border-black/10 bg-[var(--ocp-ink)] text-[var(--ocp-paper)]">
+        <div className="site-container grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div className="reveal-on-scroll">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--ocp-gold)]">
+              <Unlock className="h-4 w-4" />
+              {locale === 'zh' ? '开源 · 人人免费' : 'Open source · Free for everyone'}
+            </div>
+            <h2 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight">
+              {locale === 'zh'
+                ? 'OCP 是开放协议，不是封闭平台。'
+                : 'OCP is an open protocol, not a closed platform.'}
+            </h2>
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/64">
+              {locale === 'zh'
+                ? '协议、参考实现、CLI、Agent skill 和连接器全部开源、对所有人免费。任何主体都可以运行自己的注册节点与 Catalog，没有守门人。'
+                : 'The protocol, the reference implementations, the CLI, the agent skill, and the connectors are all open source and free for everyone. Anyone can run their own registration node and catalog — there is no gatekeeper.'}
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--ocp-paper)] px-5 py-3 text-sm font-semibold text-[var(--ocp-ink)] transition-transform hover:-translate-y-0.5"
+              >
+                <GitFork className="h-4 w-4" />
+                {locale === 'zh' ? '在 GitHub 上查看源码' : 'Open source on GitHub'}
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <Link
+                to={localizePath('/products')}
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-white/25 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                {locale === 'zh' ? '查看全部产品' : 'See all products'}
+              </Link>
+            </div>
+          </div>
+          <div className="reveal-on-scroll grid grid-cols-3 gap-3" style={{ '--reveal-delay': '120ms' } as CSSProperties}>
+            {[
+              { value: locale === 'zh' ? '开源' : 'Open', label: { en: 'Source on GitHub', zh: '源码在 GitHub' } },
+              { value: locale === 'zh' ? '免费' : 'Free', label: { en: 'For everyone', zh: '对所有人' } },
+              { value: locale === 'zh' ? '联邦' : 'Federated', label: { en: 'Run your own node', zh: '自建注册节点' } },
+            ].map((item) => (
+              <div key={item.value} className="rounded-md border border-white/12 bg-white/[0.06] p-4 text-center">
+                <div className="text-2xl font-semibold text-[var(--ocp-paper)]">{item.value}</div>
+                <div className="mt-2 text-xs font-semibold text-white/56">{label(item.label, locale)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="onboarding" className="home-panel site-section">
         <div className="site-container reveal-on-scroll">
           <OnboardingScenePanel locale={locale} />
@@ -360,7 +425,7 @@ export function HomePage() {
         <section className="home-panel site-section border-t border-black/10 bg-[var(--ocp-ink)] text-[var(--ocp-paper)]">
           <div className="site-container reveal-on-scroll flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase text-[var(--ocp-gold)]">{locale === 'zh' ? '项目进展' : 'Project update'}</div>
+              <div className="text-xs font-semibold uppercase text-[var(--ocp-gold)]">{locale === 'zh' ? '新闻' : 'News'}</div>
               <h2 className="mt-3 max-w-3xl text-3xl font-semibold">{label(latestUpdate.title, locale)}</h2>
               <p className="mt-3 max-w-2xl text-white/62">{label(latestUpdate.summary, locale)}</p>
             </div>

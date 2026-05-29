@@ -93,12 +93,20 @@ export const docsUiText = {
     zh: '文档',
   },
   updates: {
-    en: 'Updates',
-    zh: '最新动态',
+    en: 'News',
+    zh: '新闻',
   },
   directory: {
     en: 'Directory',
     zh: '目录',
+  },
+  products: {
+    en: 'Products',
+    zh: '产品',
+  },
+  topology: {
+    en: 'Topology',
+    zh: '拓扑',
   },
   roadmap: {
     en: 'Roadmap',

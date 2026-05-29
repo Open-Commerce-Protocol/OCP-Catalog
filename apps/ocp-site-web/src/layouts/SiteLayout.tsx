@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BookOpen, Menu, Milestone, Network, Newspaper, X } from 'lucide-react';
+import { BookOpen, LayoutGrid, Menu, Milestone, Newspaper, X } from 'lucide-react';
 import { docsUiText, useDocsLocale } from '../content/i18n';
 import { stripLocalePrefix } from '../content/routing';
 import { OcpLogo } from '../components/site/OcpLogo';
 
 const navItems = [
+  { label: { en: 'News', zh: '新闻' }, href: '/updates', icon: Newspaper },
   { label: { en: 'Docs', zh: '文档' }, href: '/docs', icon: BookOpen },
-  { label: { en: 'Directory', zh: '目录' }, href: '/directory', icon: Network },
+  { label: { en: 'Products', zh: '产品' }, href: '/products', icon: LayoutGrid },
   { label: { en: 'Roadmap', zh: '路线图' }, href: '/roadmap', icon: Milestone },
-  { label: { en: 'Updates', zh: '最新动态' }, href: '/updates', icon: Newspaper },
 ];
 
 export function SiteLayout() {
@@ -136,10 +136,10 @@ export function SiteLayout() {
             </div>
           </div>
           <div className="flex gap-3 text-sm text-white/66">
-            <Link to={localizePath('/docs')} className="hover:text-white">{text(docsUiText.docs)}</Link>
-            <Link to={localizePath('/directory')} className="hover:text-white">{text(docsUiText.directory)}</Link>
-            <Link to={localizePath('/roadmap')} className="hover:text-white">{text(docsUiText.roadmap)}</Link>
             <Link to={localizePath('/updates')} className="hover:text-white">{text(docsUiText.updates)}</Link>
+            <Link to={localizePath('/docs')} className="hover:text-white">{text(docsUiText.docs)}</Link>
+            <Link to={localizePath('/products')} className="hover:text-white">{text(docsUiText.products)}</Link>
+            <Link to={localizePath('/roadmap')} className="hover:text-white">{text(docsUiText.roadmap)}</Link>
           </div>
         </div>
       </footer>

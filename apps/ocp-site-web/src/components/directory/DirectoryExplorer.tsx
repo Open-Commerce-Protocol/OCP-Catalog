@@ -1,15 +1,12 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, Network, RefreshCw } from 'lucide-react';
-import { useDirectory, type CatalogWithSources } from '../lib/useDirectory';
-import { useDocsLocale, resolveLocalizedText } from '../content/i18n';
-import { DirectoryTopology } from '../components/directory/DirectoryTopology';
-import { RegistryCard } from '../components/directory/RegistryCard';
-import { CatalogCard } from '../components/directory/CatalogCard';
-import { CatalogDrawer } from '../components/directory/CatalogDrawer';
-import {
-  DirectoryFilters,
-  type DirectoryFilterState,
-} from '../components/directory/DirectoryFilters';
+import { useDirectory, type CatalogWithSources } from '../../lib/useDirectory';
+import { useDocsLocale, resolveLocalizedText } from '../../content/i18n';
+import { DirectoryTopology } from './DirectoryTopology';
+import { RegistryCard } from './RegistryCard';
+import { CatalogCard } from './CatalogCard';
+import { CatalogDrawer } from './CatalogDrawer';
+import { DirectoryFilters, type DirectoryFilterState } from './DirectoryFilters';
 
 function matchesFilters(catalog: CatalogWithSources, state: DirectoryFilterState): boolean {
   if (state.query.trim().length > 0) {
@@ -41,7 +38,12 @@ function matchesFilters(catalog: CatalogWithSources, state: DirectoryFilterState
   return true;
 }
 
-export function DirectoryPage() {
+type Props = {
+  /** When true, renders the section heading + intro above the topology. */
+  showHeader?: boolean;
+};
+
+export function DirectoryExplorer({ showHeader = true }: Props) {
   const { locale } = useDocsLocale();
   const snapshot = useDirectory({ pollMs: 30_000, searchLimit: 50 });
   const [filters, setFilters] = useState<DirectoryFilterState>({
@@ -81,25 +83,29 @@ export function DirectoryPage() {
     snapshot.registries.length > 0 && snapshot.registries.every((r) => r.status === 'unreachable');
 
   return (
-    <main className="bg-[var(--ocp-paper)]">
+    <>
       <section className="site-section">
         <div className="site-container">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <div className="section-kicker inline-flex items-center gap-2">
                 <Network className="h-3.5 w-3.5 text-[var(--ocp-cyan)]" />
-                {locale === 'zh' ? 'OCP 联邦目录' : 'OCP federated directory'}
+                {locale === 'zh' ? 'OCP 联邦拓扑' : 'OCP federated topology'}
               </div>
-              <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
-                {locale === 'zh'
-                  ? '注册节点与 Catalog · 实况一览'
-                  : 'Registration nodes & catalogs · live view'}
-              </h1>
-              <p className="mt-3 max-w-2xl text-base leading-7 text-black/64">
-                {locale === 'zh'
-                  ? 'OCP 是开放协议，任何主体都能运行注册节点与 Catalog。本页以站点维护的已知注册节点为入口，实时聚合它们索引的 Catalog metadata。'
-                  : 'OCP is an open protocol — anyone can run a registration node or catalog. This page seeds known registration nodes and aggregates the catalog metadata they index, live.'}
-              </p>
+              {showHeader && (
+                <>
+                  <h1 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
+                    {locale === 'zh'
+                      ? '注册节点与 Catalog · 实况一览'
+                      : 'Registration nodes & catalogs · live view'}
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-base leading-7 text-black/64">
+                    {locale === 'zh'
+                      ? 'OCP 是开放协议，任何主体都能运行注册节点与 Catalog。本页以站点维护的已知注册节点为入口，实时聚合它们索引的 Catalog metadata。'
+                      : 'OCP is an open protocol — anyone can run a registration node or catalog. This page seeds known registration nodes and aggregates the catalog metadata they index, live.'}
+                  </p>
+                </>
+              )}
             </div>
             <div className="hidden items-center gap-2 text-xs text-black/52 sm:flex">
               <RefreshCw
@@ -127,9 +133,7 @@ export function DirectoryPage() {
             <div>
               <div className="section-kicker">{locale === 'zh' ? '注册节点' : 'Registration nodes'}</div>
               <h2 className="mt-3 text-2xl font-semibold leading-tight">
-                {locale === 'zh'
-                  ? '我们已知的注册节点'
-                  : 'Known registration nodes'}
+                {locale === 'zh' ? '我们已知的注册节点' : 'Known registration nodes'}
               </h2>
             </div>
             <span className="hidden font-mono text-xs uppercase tracking-wider text-black/48 sm:inline">
@@ -155,9 +159,7 @@ export function DirectoryPage() {
           <div className="mb-5">
             <div className="section-kicker">Catalogs</div>
             <h2 className="mt-3 text-2xl font-semibold leading-tight">
-              {locale === 'zh'
-                ? '联邦发现的 Catalog'
-                : 'Catalogs across the network'}
+              {locale === 'zh' ? '联邦发现的 Catalog' : 'Catalogs across the network'}
             </h2>
           </div>
 
@@ -202,7 +204,7 @@ export function DirectoryPage() {
         locale={locale}
         onClose={() => setOpenCatalogId(null)}
       />
-    </main>
+    </>
   );
 }
 
