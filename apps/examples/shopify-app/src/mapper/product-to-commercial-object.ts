@@ -2,6 +2,7 @@
  * Mapper: Shopify Admin Product → OCP CommercialObject.
  * One OCP object per Shopify product; variant detail kept under attributes.
  */
+import { commercialObjectSchema, type CommercialObject } from '@ocp-catalog/ocp-schema';
 import { parseShopifyPrice, stripShopifyGid, type ShopifyProduct } from '../shopify/types';
 
 export interface MapperContext {
@@ -10,24 +11,7 @@ export interface MapperContext {
   storeDomain?: string;
 }
 
-export interface Descriptor {
-  pack_id: string;
-  data: Record<string, unknown>;
-}
-
-export interface CommercialObject {
-  ocp_version: '1.0';
-  kind: 'CommercialObject';
-  id: string;
-  object_id: string;
-  object_type: 'product';
-  provider_id: string;
-  title: string;
-  summary?: string;
-  status: 'active' | 'inactive' | 'draft';
-  source_url?: string;
-  descriptors: Descriptor[];
-}
+export type { CommercialObject };
 
 export function htmlToPlainText(html: string | null | undefined): string | undefined {
   if (!html) return undefined;
@@ -121,7 +105,7 @@ export function mapShopifyProductToCommercialObject(p: ShopifyProduct, ctx: Mapp
     shopify_updated_at: p.updatedAt,
   };
 
-  return {
+  return commercialObjectSchema.parse({
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.providerId}_${objectId}`,
@@ -164,12 +148,12 @@ export function mapShopifyProductToCommercialObject(p: ShopifyProduct, ctx: Mapp
         },
       },
     ],
-  };
+  });
 }
 
 export function buildTombstoneCommercialObject(productId: string, ctx: MapperContext): CommercialObject {
   const objectId = stripShopifyGid(productId);
-  return {
+  return commercialObjectSchema.parse({
     ocp_version: '1.0',
     kind: 'CommercialObject',
     id: `obj_${ctx.providerId}_${objectId}`,
@@ -183,7 +167,7 @@ export function buildTombstoneCommercialObject(productId: string, ctx: MapperCon
       { pack_id: 'ocp.commerce.price.v1', data: { currency: ctx.defaultCurrency, amount: 0, price_type: 'fixed' as const } },
       { pack_id: 'ocp.commerce.inventory.v1', data: { availability_status: 'out_of_stock' } },
     ],
-  };
+  });
 }
 
 /** Stable OCP provider_id derived from the shop domain. */

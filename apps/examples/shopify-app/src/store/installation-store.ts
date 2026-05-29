@@ -3,8 +3,9 @@
  * myshopify shop, holding the OAuth access token + sync cursor + last run.
  */
 import { schema, type Db } from '@ocp-catalog/db';
-import { eq } from 'drizzle-orm';
+import { and, eq, notInArray } from 'drizzle-orm';
 import { providerIdForShop } from '../mapper/product-to-commercial-object';
+import type { TokenVault } from './token-vault';
 
 export type InstallationRow = typeof schema.shopifyAppInstallations.$inferSelect;
 
@@ -25,6 +26,7 @@ export class InstallationStore {
     private readonly db: Db,
     private readonly catalogId: string,
     private readonly defaultApiVersion: string,
+    private readonly tokenVault: TokenVault,
   ) {}
 
   async get(shopDomain: string): Promise<InstallationRow | null> {
@@ -54,11 +56,11 @@ export class InstallationStore {
     const existing = await this.get(input.shopDomain);
     const providerId = providerIdForShop(input.shopDomain);
     const now = new Date();
+    await this.tokenVault.store(input.shopDomain, input.accessToken);
     if (existing) {
       const [row] = await this.db
         .update(schema.shopifyAppInstallations)
         .set({
-          accessToken: input.accessToken,
           scope: input.scope,
           apiVersion: input.apiVersion ?? existing.apiVersion,
           status: 'active',
@@ -76,7 +78,6 @@ export class InstallationStore {
       .values({
         id: newId(),
         shopDomain: input.shopDomain,
-        accessToken: input.accessToken,
         scope: input.scope,
         apiVersion: input.apiVersion ?? this.defaultApiVersion,
         providerId,
@@ -104,16 +105,48 @@ export class InstallationStore {
       .where(eq(schema.shopifyAppInstallations.shopDomain, shopDomain));
   }
 
+  async mergeSyncedObjectIds(shopDomain: string, objectIds: string[]): Promise<void> {
+    if (objectIds.length === 0) return;
+    const existing = await this.get(shopDomain);
+    if (!existing) return;
+    const merged = Array.from(new Set([...(existing.syncedObjectIds ?? []), ...objectIds]));
+    await this.db
+      .update(schema.shopifyAppInstallations)
+      .set({ syncedObjectIds: merged, updatedAt: new Date() })
+      .where(eq(schema.shopifyAppInstallations.shopDomain, shopDomain));
+  }
+
+  async getAccessToken(shopDomain: string): Promise<string | null> {
+    return this.tokenVault.load(shopDomain);
+  }
+
   /** On app/uninstalled or shop/redact: wipe the token, mark uninstalled. */
   async markUninstalled(shopDomain: string): Promise<void> {
     await this.db
       .update(schema.shopifyAppInstallations)
-      .set({ status: 'uninstalled', accessToken: '', uninstalledAt: new Date(), updatedAt: new Date() })
+      .set({ status: 'uninstalled', uninstalledAt: new Date(), updatedAt: new Date() })
       .where(eq(schema.shopifyAppInstallations.shopDomain, shopDomain));
+    await this.tokenVault.purge(shopDomain);
   }
 
   /** Hard-delete (shop/redact GDPR erase). */
-  async hardDelete(shopDomain: string): Promise<void> {
+  async hardDelete(shopDomain: string, preserve: { jobIds?: string[]; webhookEventIds?: string[] } = {}): Promise<void> {
+    await this.tokenVault.purge(shopDomain);
+    await this.db
+      .delete(schema.shopifyAppOAuthStates)
+      .where(eq(schema.shopifyAppOAuthStates.shopDomain, shopDomain));
+    const jobIds = preserve.jobIds?.filter(Boolean) ?? [];
+    await this.db
+      .delete(schema.shopifyAppSyncJobs)
+      .where(jobIds.length > 0
+        ? and(eq(schema.shopifyAppSyncJobs.shopDomain, shopDomain), notInArray(schema.shopifyAppSyncJobs.id, jobIds))
+        : eq(schema.shopifyAppSyncJobs.shopDomain, shopDomain));
+    const webhookEventIds = preserve.webhookEventIds?.filter(Boolean) ?? [];
+    await this.db
+      .delete(schema.shopifyAppWebhookEvents)
+      .where(webhookEventIds.length > 0
+        ? and(eq(schema.shopifyAppWebhookEvents.shopDomain, shopDomain), notInArray(schema.shopifyAppWebhookEvents.id, webhookEventIds))
+        : eq(schema.shopifyAppWebhookEvents.shopDomain, shopDomain));
     await this.db
       .delete(schema.shopifyAppInstallations)
       .where(eq(schema.shopifyAppInstallations.shopDomain, shopDomain));

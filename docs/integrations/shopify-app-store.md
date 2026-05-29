@@ -9,7 +9,7 @@ merchant who installs the app. Compare the three forms:
 | Form | App | Tenancy | Token source | Merchant install |
 |---|---|---|---|---|
 | Custom app | `shopify-provider-app` | single | `SHOPIFY_PROVIDER_ACCESS_TOKEN` env | 8 manual steps in their admin |
-| Public app | `shopify-app` (this) | multi | OAuth per shop → Postgres | one-click from App Store |
+| Public app | `shopify-app` (this) | multi | OAuth per shop → encrypted Postgres token vault | one-click from App Store |
 
 ## Architecture
 
@@ -22,13 +22,13 @@ merchant who installs the app. Compare the three forms:
   Shopify OAuth ──────▶│  GET  /auth/callback   → verify hmac+state,    │
                        │                          code→token,          │
                        │                          store install,       │
-                       │                          subscribe webhooks,  │
-                       │                          register + full sync  │
-   product edits ─────▶│  POST /webhooks/products            → sync     │
-   uninstall ─────────▶│  POST /webhooks/app/uninstalled     → purge    │
-   GDPR ──────────────▶│  POST /webhooks/compliance/*        → erase    │
+                       │                          queue register+sync  │
+   product edits ─────▶│  POST /webhooks/products            → enqueue  │
+   uninstall ─────────▶│  POST /webhooks/app/uninstalled     → enqueue  │
+   GDPR ──────────────▶│  POST /webhooks/compliance/*        → enqueue  │
                        │                                               │
-                       │  installations: Postgres shopify_app_installations
+                       │  Postgres: installations, token vault, oauth state,
+                       │            webhook event ledger, sync jobs
                        └───────────────────────┬───────────────────────┘
                                                 │ per-shop ProviderRegistration + ObjectSync
                                                 ▼
@@ -56,20 +56,25 @@ Shopify uses two different HMAC encodings; mixing them up is the classic bug.
    We verify the **query HMAC (hex)**, check the `state` nonce, then
    `POST https://{shop}/admin/oauth/access_token { client_id, client_secret, code }`
    → `{ access_token, scope }`.
-4. Persist the install (`shopify_app_installations`), subscribe webhooks,
-   register the shop as an OCP provider, run a first full sync, and 302 into
-   the embedded app UI (`GET /app`).
+4. Persist the install (`shopify_app_installations`), encrypt the offline token
+   in `shopify_app_tokens`, enqueue register + first sync work, and 302 into the
+   embedded app UI (`GET /app`). OAuth state is stored in
+   `shopify_app_oauth_states` with TTL and single-use consumption.
 
 ## Mandatory App Store requirements implemented
 
-- `app/uninstalled` webhook → purge the stored token, mark `uninstalled`. (The
-  token is already dead when this fires, so we make no API calls.)
+- `app/uninstalled` webhook → idempotently enqueue a lifecycle job that
+  tombstones known objects, deactivates the OCP provider, purges the encrypted
+  token, and marks the installation `uninstalled`.
 - The three GDPR webhooks (`customers/data_request`, `customers/redact`,
   `shop/redact`). This app stores no customer PII, so the first two are no-ops
-  that return 200; `shop/redact` hard-deletes the shop's install row.
-- All webhooks verify HMAC before acting; product webhooks return a retryable
-  `503` on downstream failure so Shopify re-delivers.
-- `shopify.app.toml` declares scopes, redirect URL, and all webhook topics.
+  that return 200; `shop/redact` queues OCP provider erase and then hard-deletes
+  app-side install/token state.
+- All webhooks verify HMAC before acting. Product and lifecycle webhooks write
+  a durable `X-Shopify-Webhook-Id` ledger entry plus job, then return 200;
+  downstream Catalog retries happen in the worker.
+- `shopify.app.toml` is the single source for scopes, redirect URL, and all
+  webhook topics.
 
 Still required before an actual App Store submission (out of scope for this
 reference backend): a full embedded **Polaris + App Bridge** React UI, the app
@@ -90,6 +95,7 @@ performance checks.
    SHOPIFY_APP_MOCK=false
    SHOPIFY_APP_API_KEY=<client id>
    SHOPIFY_APP_API_SECRET=<client secret>
+   SHOPIFY_APP_TOKEN_ENCRYPTION_KEY=base64:<32-byte key>
    SHOPIFY_APP_URL=https://your-public-url
    ```
 4. Edit `apps/examples/shopify-app/shopify.app.toml` — set `client_id`,
@@ -112,8 +118,8 @@ performance checks.
 1. Merchant searches the Shopify App Store for the app, clicks **Add app**.
 2. Shopify shows the permission/scope consent screen → merchant clicks
    **Install**.
-3. Shopify hits `/auth/callback`; the app stores the token, subscribes
-   webhooks, registers the store as an OCP provider, and runs the first sync.
+3. Shopify hits `/auth/callback`; the app stores the encrypted token, queues
+   registration + first sync, and returns the merchant to the embedded app.
 4. Merchant lands on the embedded app page showing sync status. Done — from
    here products sync automatically on every change.
 
@@ -130,7 +136,7 @@ form. One click and their catalogue is in OCP.
 ## Local verification without a public tunnel
 
 OAuth's redirect inherently needs a browser + public URL, but the entire
-post-OAuth path (token storage → register → sync → webhooks → uninstall →
+post-OAuth path (encrypted token storage → register → sync → webhooks → uninstall →
 GDPR erase) is exercisable locally by seeding a token directly:
 
 ```bash

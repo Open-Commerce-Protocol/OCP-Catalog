@@ -6,37 +6,36 @@
  *     → validate shop, mint state nonce, 302 to Shopify authorize URL
  *   GET /auth/callback?code&hmac&shop&state&timestamp
  *     → verify query HMAC + state, exchange code→token, persist install,
- *       subscribe webhooks, optionally kick a full sync, redirect to app UI
+ *       queue install sync, redirect to app UI
  */
 import { Elysia } from 'elysia';
 import type { ShopifyAppConfig } from '../config';
 import { isValidShopDomain, verifyQueryHmac } from '../oauth/hmac';
 import { buildAuthorizeUrl, exchangeCodeForToken } from '../oauth/token-exchange';
 import type { ShopifyAdminClient } from '../shopify/admin-client';
-import { subscribeWebhooks } from '../shopify/webhook-subscribe';
 import type { InstallationStore } from '../store/installation-store';
-import type { SyncService } from '../services/sync-service';
+import type { ShopifyAppJobStore } from '../store/job-store';
+import type { OAuthStateStore } from '../store/oauth-state-store';
 
 export interface OAuthDeps {
   cfg: ShopifyAppConfig;
   admin: ShopifyAdminClient;
   store: InstallationStore;
-  sync: SyncService;
-  nonces: Set<string>;
+  jobs: ShopifyAppJobStore;
+  oauthStates: OAuthStateStore;
 }
 
 export function createOAuthRoutes(deps: OAuthDeps) {
   const { cfg } = deps;
 
   return new Elysia()
-    .get('/auth', ({ query, set }) => {
+    .get('/auth', async ({ query, set }) => {
       const shop = query.shop;
       if (!isValidShopDomain(shop)) {
         set.status = 400;
         return { error: { code: 'invalid_shop', message: 'shop must be a *.myshopify.com domain' } };
       }
-      const state = crypto.randomUUID();
-      deps.nonces.add(state);
+      const state = await deps.oauthStates.create(shop);
       set.status = 302;
       set.headers['location'] = buildAuthorizeUrl(cfg, shop, state);
       return '';
@@ -51,11 +50,10 @@ export function createOAuthRoutes(deps: OAuthDeps) {
         set.status = 401;
         return { error: { code: 'invalid_hmac', message: 'OAuth callback HMAC verification failed' } };
       }
-      if (!q.state || !deps.nonces.has(q.state)) {
+      if (!q.state || !await deps.oauthStates.consume({ state: q.state, shopDomain: q.shop })) {
         set.status = 401;
         return { error: { code: 'invalid_state', message: 'state nonce missing or unknown' } };
       }
-      deps.nonces.delete(q.state);
       if (!q.code) {
         set.status = 400;
         return { error: { code: 'missing_code', message: 'authorization code missing' } };
@@ -75,37 +73,26 @@ export function createOAuthRoutes(deps: OAuthDeps) {
         shopProfile: shopProfile ? { ...shopProfile } : {},
       });
 
-      // 3. subscribe product + lifecycle webhooks
-      const webhooks = await subscribeWebhooks(cfg, deps.admin, session);
-
-      // 4. register with the OCP catalog and (optionally) run a first full sync
-      let registrationVersion: number | null = null;
-      let firstSync: unknown = null;
-      try {
-        registrationVersion = await deps.sync.register(q.shop);
-        if (cfg.SHOPIFY_APP_SYNC_ON_INSTALL) {
-          firstSync = await deps.sync.syncFull(q.shop);
-        }
-      } catch (err) {
-        await deps.store.recordRun(q.shop, {
-          type: 'install',
-          status: 'failed',
-          at: new Date().toISOString(),
-          objects_synced: 0,
-          error: err instanceof Error ? err.message : String(err),
+      // 3. enqueue registration + first full sync outside the OAuth request path.
+      let installJob: string | null = null;
+      if (cfg.SHOPIFY_APP_SYNC_ON_INSTALL) {
+        const job = await deps.jobs.enqueue({
+          id: `install_${q.shop.replace(/[^a-zA-Z0-9_]/g, '_')}_${Date.now()}`,
+          shopDomain: q.shop,
+          type: 'install_sync',
+          payload: { source: 'oauth_callback' },
         });
+        installJob = job.id;
       }
 
-      // 5. redirect into the embedded app UI
+      // 4. redirect into the embedded app UI
       set.status = 302;
       set.headers['location'] = `${cfg.SHOPIFY_APP_URL.replace(/\/$/, '')}/app?shop=${encodeURIComponent(q.shop)}&installed=1`;
       return {
         ok: true,
         shop: q.shop,
         scope: token.scope,
-        webhooks,
-        registration_version: registrationVersion,
-        first_sync: firstSync,
+        install_job_id: installJob,
       };
     });
 }

@@ -43,7 +43,7 @@ export class SyncService {
   /** Ensure the shop is registered as an OCP provider; returns version. */
   async register(shopDomain: string): Promise<number> {
     const install = await this.requireInstall(shopDomain);
-    const session = sessionOf(install);
+    const session = await sessionOfInstall(install, this.store);
     const shop = await this.admin.shopProfile(session);
     const providerId = providerIdForShop(shopDomain);
     const version = await this.resolveNextVersion(providerId, install);
@@ -110,6 +110,26 @@ export class SyncService {
     });
   }
 
+  async tombstoneKnownObjects(shopDomain: string): Promise<SyncRunSummary | null> {
+    const install = await this.store.get(shopDomain);
+    if (!install?.activeRegistrationVersion) return null;
+    const objectIds = install.syncedObjectIds ?? [];
+    if (objectIds.length === 0) return null;
+    const providerId = providerIdForShop(shopDomain);
+    const ctx = this.ctxFor(shopDomain);
+    return this.pushObjects(shopDomain, providerId, install.activeRegistrationVersion, 'webhook', objectIds.map((id) => (
+      buildTombstoneCommercialObject(id, ctx)
+    )));
+  }
+
+  async deactivateShopProvider(shopDomain: string): Promise<void> {
+    await this.catalog.deactivateProvider(providerIdForShop(shopDomain));
+  }
+
+  async eraseShopProvider(shopDomain: string): Promise<void> {
+    await this.catalog.eraseProvider(providerIdForShop(shopDomain));
+  }
+
   private mapWith(shopDomain: string, _session: ShopSession, p: Parameters<typeof mapShopifyProductToCommercialObject>[0]): CommercialObject {
     return mapShopifyProductToCommercialObject(p, this.ctxFor(shopDomain));
   }
@@ -132,7 +152,7 @@ export class SyncService {
     const registrationVersion = install.activeRegistrationVersion;
     if (!registrationVersion) throw new Error(`Shop ${shopDomain} is not registered; call register() first.`);
 
-    const session = sessionOf(install);
+    const session = await sessionOfInstall(install, this.store);
     // Mapper currency uses the shop's currency when available.
     const shop = await this.admin.shopProfile(session).catch(() => null);
     const ctxCurrency = shop?.currencyCode ?? this.cfg.SHOPIFY_APP_DEFAULT_CURRENCY;
@@ -154,6 +174,32 @@ export class SyncService {
       throw err;
     }
 
+    const result = await this.pushObjects(shopDomain, providerId, registrationVersion, type, objects);
+    if (result.status === 'succeeded' || result.status === 'partial') {
+      await this.store.mergeSyncedObjectIds(shopDomain, objects.map((object) => object.object_id));
+    }
+
+    const advanceCursorTo =
+      (type === 'sync_full' || type === 'sync_delta') && result.status === 'succeeded' ? cursorAdvancedTo : null;
+
+    await this.store.recordRun(shopDomain, {
+      type,
+      status: result.status,
+      at: new Date().toISOString(),
+      objects_synced: result.accepted_count,
+      error: result.errors.length > 0 ? result.errors.slice(0, 5).join('; ') : null,
+    }, { advanceCursorTo });
+
+    return { ...result, cursor_advanced_to: advanceCursorTo };
+  }
+
+  private async pushObjects(
+    shopDomain: string,
+    providerId: string,
+    registrationVersion: number,
+    type: SyncRunSummary['type'],
+    objects: CommercialObject[],
+  ): Promise<SyncRunSummary> {
     const chunks = chunk(objects, SYNC_BATCH_SIZE);
     let accepted = 0;
     let rejected = 0;
@@ -187,19 +233,6 @@ export class SyncService {
     const status: SyncRunSummary['status'] =
       rejected === 0 && objects.length > 0 ? 'succeeded' : accepted > 0 ? 'partial' : objects.length === 0 ? 'succeeded' : 'failed';
 
-    // Only advance the delta cursor on a clean full/delta run — never on
-    // single-product or webhook syncs (they would skip older changes).
-    const advanceCursorTo =
-      (type === 'sync_full' || type === 'sync_delta') && status === 'succeeded' ? cursorAdvancedTo : null;
-
-    await this.store.recordRun(shopDomain, {
-      type,
-      status,
-      at: new Date().toISOString(),
-      objects_synced: accepted,
-      error: errors.length > 0 ? errors.slice(0, 5).join('; ') : null,
-    }, { advanceCursorTo });
-
     return {
       shop_domain: shopDomain,
       provider_id: providerId,
@@ -211,13 +244,13 @@ export class SyncService {
       accepted_count: accepted,
       rejected_count: rejected,
       errors,
-      cursor_advanced_to: advanceCursorTo,
     };
   }
 
   private async requireInstall(shopDomain: string): Promise<InstallationRow> {
     const install = await this.store.get(shopDomain);
-    if (!install || install.status !== 'active' || !install.accessToken) {
+    const accessToken = install ? await this.store.getAccessToken(shopDomain) : null;
+    if (!install || install.status !== 'active' || !accessToken) {
       throw new Error(`No active installation for ${shopDomain}`);
     }
     return install;
@@ -234,8 +267,10 @@ export class SyncService {
   }
 }
 
-function sessionOf(install: InstallationRow): ShopSession {
-  return { shopDomain: install.shopDomain, accessToken: install.accessToken };
+async function sessionOfInstall(install: InstallationRow, store: InstallationStore): Promise<ShopSession> {
+  const accessToken = await store.getAccessToken(install.shopDomain);
+  if (!accessToken) throw new Error(`No access token for ${install.shopDomain}`);
+  return { shopDomain: install.shopDomain, accessToken };
 }
 
 function withCurrency(obj: CommercialObject, currency: string): CommercialObject {

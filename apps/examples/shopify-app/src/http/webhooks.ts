@@ -12,13 +12,12 @@
 import { Elysia } from 'elysia';
 import type { ShopifyAppConfig } from '../config';
 import { classifyProductTopic, pickWebhookHeaders, verifyWebhookHmac } from '../shopify/webhook-verify';
-import type { SyncService } from '../services/sync-service';
-import type { InstallationStore } from '../store/installation-store';
+import type { ShopifyAppJobStore, ShopifyAppJobType, ShopifyAppWebhookEventStore } from '../store/job-store';
 
 export interface WebhookDeps {
   cfg: ShopifyAppConfig;
-  sync: SyncService;
-  store: InstallationStore;
+  jobs: ShopifyAppJobStore;
+  webhookEvents: ShopifyAppWebhookEventStore;
 }
 
 async function readRawAndVerify(request: Request, secret: string, mock: boolean) {
@@ -51,14 +50,23 @@ export function createWebhookRoutes(deps: WebhookDeps) {
         : typeof payload.id === 'string' ? payload.id : undefined;
       if (topic === 'unknown') return { ok: true, ignored: true, reason: meta.topic };
       if (!productId) { set.status = 400; return { error: { code: 'missing_product_id' } }; }
+      if (!meta.webhookId) { set.status = 400; return { error: { code: 'missing_webhook_id' } }; }
 
       try {
-        const result = topic === 'products/delete'
-          ? await deps.sync.syncTombstone(shop, productId)
-          : await deps.sync.syncOne(shop, productId, 'webhook');
-        return { ok: true, topic, shop, productId, result };
+        const queued = await deps.webhookEvents.recordAndEnqueue({
+          webhookId: meta.webhookId,
+          shopDomain: shop,
+          topic,
+          payload,
+          job: {
+            id: `webhook_${meta.webhookId}`,
+            type: topic === 'products/delete' ? 'product_tombstone' : 'product_sync_one',
+            payload: { product_id: productId, topic },
+          },
+        });
+        return { ok: true, topic, shop, productId, duplicate: queued.duplicate, queued: queued.queued };
       } catch (err) {
-        // Retryable: return 5xx so Shopify re-delivers (up to 48h).
+        // Retryable: return 5xx only if the durable event/job could not be stored.
         set.status = 503;
         return { ok: false, topic, shop, productId, retryable: true, error: err instanceof Error ? err.message : String(err) };
       }
@@ -66,13 +74,18 @@ export function createWebhookRoutes(deps: WebhookDeps) {
 
     // ── App uninstalled: token is already dead, just purge + tombstone ───
     .post('/webhooks/app/uninstalled', async ({ request, set }) => {
-      const { meta, verified } = await readRawAndVerify(request, secret, mock);
+      const { meta, verified, payload } = await readRawAndVerify(request, secret, mock);
       if (!verified) { set.status = 401; return { error: { code: 'invalid_hmac' } }; }
       const shop = meta.shopDomain;
       if (!shop) { set.status = 400; return { error: { code: 'missing_shop' } }; }
-      await deps.store.markUninstalled(shop);
-      await deps.store.recordRun(shop, { type: 'uninstall', status: 'succeeded', at: new Date().toISOString(), objects_synced: 0 });
-      return { ok: true, shop, action: 'installation_token_purged' };
+      if (!meta.webhookId) { set.status = 400; return { error: { code: 'missing_webhook_id' } }; }
+      try {
+        const queued = await enqueueLifecycleJob(deps, meta.webhookId, shop, meta.topic ?? 'app/uninstalled', 'app_uninstalled', payload);
+        return { ok: true, shop, action: 'app_uninstall_queued', ...queued };
+      } catch (err) {
+        set.status = 503;
+        return { ok: false, shop, retryable: true, error: err instanceof Error ? err.message : String(err) };
+      }
     })
 
     // ── Mandatory GDPR compliance webhooks ───────────────────────────────
@@ -88,10 +101,39 @@ export function createWebhookRoutes(deps: WebhookDeps) {
       return { ok: true, shop: meta.shopDomain, note: 'no customer personal data stored by this app' };
     })
     .post('/webhooks/compliance/shop-redact', async ({ request, set }) => {
-      const { verified, meta } = await readRawAndVerify(request, secret, mock);
+      const { verified, meta, payload } = await readRawAndVerify(request, secret, mock);
       if (!verified) { set.status = 401; return { error: { code: 'invalid_hmac' } }; }
       // Fires ~48h after uninstall: hard-delete everything we hold for the shop.
-      if (meta.shopDomain) await deps.store.hardDelete(meta.shopDomain);
-      return { ok: true, shop: meta.shopDomain, action: 'shop_data_erased' };
+      if (!meta.shopDomain) { set.status = 400; return { error: { code: 'missing_shop' } }; }
+      if (!meta.webhookId) { set.status = 400; return { error: { code: 'missing_webhook_id' } }; }
+      try {
+        const queued = await enqueueLifecycleJob(deps, meta.webhookId, meta.shopDomain, meta.topic ?? 'shop/redact', 'shop_redact', payload);
+        return { ok: true, shop: meta.shopDomain, action: 'shop_redact_queued', ...queued };
+      } catch (err) {
+        set.status = 503;
+        return { ok: false, shop: meta.shopDomain, retryable: true, error: err instanceof Error ? err.message : String(err) };
+      }
     });
+}
+
+async function enqueueLifecycleJob(
+  deps: WebhookDeps,
+  webhookId: string,
+  shopDomain: string,
+  topic: string,
+  type: ShopifyAppJobType,
+  payload: Record<string, unknown>,
+) {
+  const queued = await deps.webhookEvents.recordAndEnqueue({
+    webhookId,
+    shopDomain,
+    topic,
+    payload,
+    job: {
+      id: `webhook_${webhookId}`,
+      type,
+      payload: {},
+    },
+  });
+  return { duplicate: queued.duplicate, queued: queued.queued };
 }

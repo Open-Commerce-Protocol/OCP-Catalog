@@ -28,6 +28,22 @@ export class CatalogClient {
     return this.request<Record<string, unknown>>('/ocp/objects/sync', { method: 'POST', body: request, includeApiKey: true });
   }
 
+  deactivateProvider(providerId: string) {
+    return this.request<Record<string, unknown>>(`/ocp/providers/${encodeURIComponent(providerId)}/deactivate`, {
+      method: 'POST',
+      body: {},
+      includeApiKey: true,
+    });
+  }
+
+  eraseProvider(providerId: string) {
+    return this.request<Record<string, unknown>>(`/ocp/providers/${encodeURIComponent(providerId)}/erase`, {
+      method: 'POST',
+      body: {},
+      includeApiKey: true,
+    });
+  }
+
   async getProvider(providerId: string): Promise<CatalogProviderState | null> {
     try {
       return await this.request<CatalogProviderState>(`/ocp/providers/${providerId}`, { method: 'GET' });

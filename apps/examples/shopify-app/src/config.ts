@@ -21,6 +21,12 @@ const configSchema = z.object({
     .string()
     .default('read_products,read_inventory,read_locations,read_product_listings'),
   SHOPIFY_APP_API_VERSION: z.string().min(1).default('2026-04'),
+  SHOPIFY_APP_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  SHOPIFY_APP_TOKEN_ENCRYPTION_KEY: z.string().optional(),
+  SHOPIFY_APP_ALLOW_INSECURE_DEV_TOKEN_KEY: emptyToUndefined
+    .transform((value) => (value === undefined ? undefined : value === 'true'))
+    .pipe(z.boolean().optional())
+    .transform((value) => value ?? false),
 
   // Admin key for the operator-facing /admin/* maintenance routes.
   SHOPIFY_APP_ADMIN_KEY: z.string().min(8).default('dev-shopify-app-admin-key'),
@@ -40,6 +46,10 @@ const configSchema = z.object({
     .transform((value) => (value === undefined ? undefined : value === 'true'))
     .pipe(z.boolean().optional())
     .transform((value) => value ?? true),
+  SHOPIFY_APP_WORKER_ENABLED: emptyToUndefined
+    .transform((value) => (value === undefined ? undefined : value === 'true'))
+    .pipe(z.boolean().optional())
+    .transform((value) => value ?? true),
 
   // ── OCP catalog (sync target) ──────────────────────────────────────────
   SHOPIFY_APP_CATALOG_BASE_URL: z.string().url().default('http://localhost:4000'),
@@ -56,6 +66,21 @@ export type ShopifyAppConfig = z.infer<typeof configSchema> & {
 
 export function loadShopifyAppConfig(env: NodeJS.ProcessEnv = process.env): ShopifyAppConfig {
   const parsed = configSchema.parse(env);
+  const realMode = !parsed.SHOPIFY_APP_MOCK;
+  if (parsed.SHOPIFY_APP_ENV === 'production' || realMode) {
+    const devDefaults = [
+      ['SHOPIFY_APP_API_KEY', 'dev-shopify-app-client-id'],
+      ['SHOPIFY_APP_API_SECRET', 'dev-shopify-app-client-secret'],
+      ['SHOPIFY_APP_ADMIN_KEY', 'dev-shopify-app-admin-key'],
+      ['SHOPIFY_APP_CATALOG_API_KEY', 'dev-api-key'],
+    ] as const;
+    for (const [key, value] of devDefaults) {
+      if (parsed[key] === value) throw new Error(`${key} must be set in production`);
+    }
+    if (!parsed.SHOPIFY_APP_TOKEN_ENCRYPTION_KEY && !parsed.SHOPIFY_APP_ALLOW_INSECURE_DEV_TOKEN_KEY) {
+      throw new Error('SHOPIFY_APP_TOKEN_ENCRYPTION_KEY must be set in production');
+    }
+  }
   const scopeList = parsed.SHOPIFY_APP_SCOPES.split(/[, ]+/).map((s) => s.trim()).filter(Boolean);
   const redirectUri = `${parsed.SHOPIFY_APP_URL.replace(/\/$/, '')}/auth/callback`;
   return { ...parsed, scopeList, redirectUri };

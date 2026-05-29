@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test';
+import { commercialObjectSchema } from '@ocp-catalog/ocp-schema';
 import {
+  buildTombstoneCommercialObject,
   mapShopifyProductToCommercialObject,
   providerIdForShop,
   type MapperContext,
@@ -45,5 +47,11 @@ describe('mapShopifyProductToCommercialObject', () => {
     expect(price!.data.amount).toBe(59);
     expect(price!.data.price_type).toBe('fixed');
     expect((price!.data as any).list_amount).toBeUndefined();
+  });
+  test('all mapped fixture products satisfy the OCP CommercialObject schema', () => {
+    for (const product of products) {
+      expect(() => commercialObjectSchema.parse(mapShopifyProductToCommercialObject(product, ctx))).not.toThrow();
+    }
+    expect(() => commercialObjectSchema.parse(buildTombstoneCommercialObject('gid://shopify/Product/9001', ctx))).not.toThrow();
   });
 });

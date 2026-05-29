@@ -11,15 +11,24 @@ import { CatalogClient, CatalogClientError } from './services/catalog-client';
 import { SyncService } from './services/sync-service';
 import { ShopifyAdminClient, ShopifyApiError } from './shopify/admin-client';
 import { InstallationStore } from './store/installation-store';
+import { ShopifyAppJobStore, ShopifyAppWebhookEventStore } from './store/job-store';
+import { OAuthStateStore } from './store/oauth-state-store';
+import { TokenVault } from './store/token-vault';
+import { ShopifyAppJobWorker } from './workers/shopify-app-job-worker';
 
 export async function createShopifyApp(deps: { cfg: ShopifyAppConfig }) {
   const { cfg } = deps;
   const db = createDb(cfg.DATABASE_URL);
-  const store = new InstallationStore(db, cfg.SHOPIFY_APP_CATALOG_ID, cfg.SHOPIFY_APP_API_VERSION);
+  const tokenVault = new TokenVault(db, cfg);
+  const store = new InstallationStore(db, cfg.SHOPIFY_APP_CATALOG_ID, cfg.SHOPIFY_APP_API_VERSION, tokenVault);
+  const oauthStates = new OAuthStateStore(db);
+  const jobs = new ShopifyAppJobStore(db);
+  const webhookEvents = new ShopifyAppWebhookEventStore(db);
   const admin = new ShopifyAdminClient(cfg);
   const catalog = new CatalogClient(cfg);
   const sync = new SyncService(cfg, admin, catalog, store);
-  const nonces = new Set<string>();
+  const worker = new ShopifyAppJobWorker(jobs, webhookEvents, sync, store);
+  if (cfg.SHOPIFY_APP_WORKER_ENABLED) worker.start();
 
   return new Elysia()
     .use(cors({ origin: false }))
@@ -46,8 +55,8 @@ export async function createShopifyApp(deps: { cfg: ShopifyAppConfig }) {
       mock: cfg.SHOPIFY_APP_MOCK,
       app_url: cfg.SHOPIFY_APP_URL,
     }))
-    .use(createOAuthRoutes({ cfg, admin, store, sync, nonces }))
-    .use(createWebhookRoutes({ cfg, sync, store }))
+    .use(createOAuthRoutes({ cfg, admin, store, jobs, oauthStates }))
+    .use(createWebhookRoutes({ cfg, jobs, webhookEvents }))
     .use(createEmbeddedRoutes({ cfg, store }))
     .use(createAdminRoutes({ cfg, sync, store }));
 }

@@ -15,7 +15,8 @@ export function createEmbeddedRoutes(deps: { cfg: ShopifyAppConfig; store: Insta
     const shop = typeof query.shop === 'string' ? query.shop : '';
     const install = shop ? await deps.store.get(shop) : null;
     set.headers['content-type'] = 'text/html; charset=utf-8';
-    const lastRun = install?.lastRun ? JSON.stringify(install.lastRun) : '—';
+    const safeShop = escapeHtml(shop);
+    const lastRun = install?.lastRun ? escapeHtml(JSON.stringify(install.lastRun)) : '&mdash;';
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -36,17 +37,26 @@ export function createEmbeddedRoutes(deps: { cfg: ShopifyAppConfig; store: Insta
   <div class="card">
     <h1>OCP Provider Adapter</h1>
     ${install
-      ? `<p><span class="badge">${install.status}</span> connected to <code>${shop}</code></p>
+      ? `<p><span class="badge">${escapeHtml(install.status)}</span> connected to <code>${safeShop}</code></p>
          <p>This store syncs its products into the OCP Catalog so AI shopping agents can discover them.</p>
          <ul>
-           <li>Provider id: <code>${install.providerId}</code></li>
-           <li>Registration version: <code>${install.activeRegistrationVersion ?? '—'}</code></li>
-           <li>Last synced at: <code>${install.lastSyncedAt ?? '—'}</code></li>
+           <li>Provider id: <code>${escapeHtml(install.providerId)}</code></li>
+           <li>Registration version: <code>${escapeHtml(String(install.activeRegistrationVersion ?? '—'))}</code></li>
+           <li>Last synced at: <code>${escapeHtml(String(install.lastSyncedAt ?? '—'))}</code></li>
            <li>Last run: <code>${lastRun}</code></li>
          </ul>`
-      : `<p>No installation found${shop ? ` for <code>${shop}</code>` : ''}. Install the app from the Shopify admin to begin syncing.</p>`}
+      : `<p>No installation found${shop ? ` for <code>${safeShop}</code>` : ''}. Install the app from the Shopify admin to begin syncing.</p>`}
   </div>
 </body>
 </html>`;
   });
+}
+
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

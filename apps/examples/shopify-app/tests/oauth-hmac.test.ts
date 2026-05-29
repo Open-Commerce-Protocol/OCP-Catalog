@@ -49,6 +49,10 @@ describe('buildAuthorizeUrl', () => {
   test('builds the authorize redirect with client_id, scope, redirect_uri, state', () => {
     const cfg = loadShopifyAppConfig({
       SHOPIFY_APP_API_KEY: 'ck_123',
+      SHOPIFY_APP_API_SECRET: 'secret',
+      SHOPIFY_APP_ADMIN_KEY: 'admin_key_123',
+      SHOPIFY_APP_CATALOG_API_KEY: 'catalog_key_123',
+      SHOPIFY_APP_TOKEN_ENCRYPTION_KEY: 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
       SHOPIFY_APP_SCOPES: 'read_products,read_inventory',
       SHOPIFY_APP_URL: 'https://app.example.com',
     } as NodeJS.ProcessEnv);
@@ -58,5 +62,17 @@ describe('buildAuthorizeUrl', () => {
     expect(url).toContain('scope=read_products%2Cread_inventory');
     expect(url).toContain('redirect_uri=https%3A%2F%2Fapp.example.com%2Fauth%2Fcallback');
     expect(url).toContain('state=nonce1');
+  });
+});
+
+describe('loadShopifyAppConfig production/real-mode guards', () => {
+  test('real mode requires an explicit token encryption key unless insecure dev override is set', () => {
+    expect(() => loadShopifyAppConfig({
+      SHOPIFY_APP_MOCK: 'false',
+      SHOPIFY_APP_API_KEY: 'real_client',
+      SHOPIFY_APP_API_SECRET: 'real_secret',
+      SHOPIFY_APP_ADMIN_KEY: 'real_admin_key',
+      SHOPIFY_APP_CATALOG_API_KEY: 'real_catalog_key',
+    } as NodeJS.ProcessEnv)).toThrow('SHOPIFY_APP_TOKEN_ENCRYPTION_KEY');
   });
 });
