@@ -54,7 +54,7 @@ export class ShopifyApiError extends Error {
   }
 }
 
-const PRODUCT_FIELDS = `
+export const PRODUCT_FIELDS = `
   id
   title
   handle
@@ -81,12 +81,13 @@ const PRODUCT_FIELDS = `
       availableForSale
       inventoryQuantity
       selectedOptions { name value }
-      weight
-      weightUnit
       image { url altText }
     }
   }
 `;
+// Note: ProductVariant.weight / weightUnit were removed in the 2026-04 Admin
+// GraphQL API. Weight is now exposed via inventoryItem.measurement.weight.
+// We don't currently map weight into OCP packs, so we just drop them here.
 
 const LIST_PRODUCTS_QUERY = `
   query ListProducts($cursor: String, $first: Int!, $query: String) {
