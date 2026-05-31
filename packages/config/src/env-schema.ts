@@ -44,6 +44,8 @@ export const envSchema = z.object({
   OCP_ACTIVITY_API_PORT: z.coerce.number().int().min(1).max(65535).default(4400),
   OCP_ACTIVITY_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4400'),
   OCP_ACTIVITY_API_KEY: z.string().default(''),
+  OCP_MCP_SKILL_GATEWAY_URL: z.string().url().default('http://localhost:4330'),
+  OCP_MCP_SKILL_GATEWAY_KEY: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;

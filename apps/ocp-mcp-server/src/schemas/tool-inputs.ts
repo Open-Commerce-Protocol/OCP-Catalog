@@ -51,14 +51,30 @@ export const findAndQueryCatalogInput = {
   offset: z.number().int().min(0).describe('Pagination offset for catalog entries. Omit for the first page.').optional(),
 };
 
+export const skillSearchInput = {
+  query: z.string().min(1).describe('Natural language product query, such as "wireless headphones under 200 yuan" or "5kg dog food".'),
+  page: z.number().int().min(1).describe('1-based page number across the fan-out result. Omit for the first page.').optional(),
+  page_size: z.number().int().min(1).max(50).describe('Items per catalog per request, default 10.').optional(),
+};
+
+export const skillDeeplinkInput = {
+  catalog_id: z.string().min(1).describe('Catalog id returned by skill_search items[].catalog_id.'),
+  entry_ref: z.string().min(1).describe('Opaque entry token returned by skill_search items[].entry_ref. Pass it back verbatim.'),
+  sub_id: z.string().min(1).describe('Optional sub id for attribution; defaults to the calling agent\'s api key id when omitted.').optional(),
+};
+
 export const searchCatalogsInputSchema = z.object(searchCatalogsInput);
 export const inspectCatalogInputSchema = z.object(inspectCatalogInput);
 export const queryCatalogInputSchema = z.object(queryCatalogInput);
 export const resolveCatalogEntryInputSchema = z.object(resolveCatalogEntryInput);
 export const findAndQueryCatalogInputSchema = z.object(findAndQueryCatalogInput);
+export const skillSearchInputSchema = z.object(skillSearchInput);
+export const skillDeeplinkInputSchema = z.object(skillDeeplinkInput);
 
 export type SearchCatalogsInput = z.infer<typeof searchCatalogsInputSchema>;
 export type InspectCatalogInput = z.infer<typeof inspectCatalogInputSchema>;
 export type QueryCatalogInput = z.infer<typeof queryCatalogInputSchema>;
 export type ResolveCatalogEntryInput = z.infer<typeof resolveCatalogEntryInputSchema>;
 export type FindAndQueryCatalogInput = z.infer<typeof findAndQueryCatalogInputSchema>;
+export type SkillSearchInput = z.infer<typeof skillSearchInputSchema>;
+export type SkillDeeplinkInput = z.infer<typeof skillDeeplinkInputSchema>;

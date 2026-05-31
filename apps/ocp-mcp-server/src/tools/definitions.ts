@@ -6,6 +6,8 @@ import {
   queryCatalogInput,
   resolveCatalogEntryInput,
   searchCatalogsInput,
+  skillDeeplinkInput,
+  skillSearchInput,
 } from '../schemas/tool-inputs';
 
 export type OcpToolId =
@@ -14,7 +16,9 @@ export type OcpToolId =
   | 'inspect_catalog'
   | 'query_catalog'
   | 'resolve_catalog_entry'
-  | 'find_and_query_catalog';
+  | 'find_and_query_catalog'
+  | 'skill_search'
+  | 'skill_deeplink';
 
 export type OcpToolDefinition = {
   id: OcpToolId;
@@ -105,6 +109,32 @@ export const OCP_TOOL_DEFINITIONS: readonly OcpToolDefinition[] = [
       'Find products, compare prices, check stock or inventory',
       'Search catalog items or purchasable options without choosing a catalog first',
       'Find suppliers, providers, services, channel opportunities, or domain records across OCP',
+    ],
+  },
+  {
+    id: 'skill_search',
+    title: 'Search products across all configured shopping catalogs',
+    description: 'One-shot natural-language product search across every shopping catalog the gateway is configured for (Alimama / JD Union / PDD / ...). Returns flat product fields (title, price, currency, image_url, detail_url, source, catalog_id, entry_ref). Use this when the user asks to find, buy, compare, or look up products and you do not need OCP-protocol-level catalog discovery first.',
+    inputSchema: skillSearchInput,
+    annotations: readOnlyOpenWorld,
+    selectionGuide: 'Prefer this for everyday consumer product search. Use find_and_query_catalog instead when the user is asking which catalogs / services / suppliers exist or wants OCP discovery details.',
+    userIntents: [
+      'Find a product across all shopping platforms',
+      'Compare prices for an item',
+      'Look up what is on sale for a keyword',
+    ],
+  },
+  {
+    id: 'skill_deeplink',
+    title: 'Generate a purchase deeplink for a shopping result',
+    description: 'Convert a skill_search result (catalog_id + entry_ref) into a deeplink the user can click to buy, including affiliate/coupon attribution when the underlying catalog supports it. Always call this before showing a purchase URL to the user.',
+    inputSchema: skillDeeplinkInput,
+    annotations: readOnlyOpenWorld,
+    selectionGuide: 'Use only after skill_search to mint the buyable URL for an item the user picked. The catalog_id and entry_ref must come from skill_search items[].',
+    userIntents: [
+      'Get me the link to buy this item',
+      'Open the purchase page',
+      'Generate the affiliate URL for this product',
     ],
   },
 ] as const;

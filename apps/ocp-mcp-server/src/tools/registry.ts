@@ -5,6 +5,8 @@ import type {
   QueryCatalogInput,
   ResolveCatalogEntryInput,
   SearchCatalogsInput,
+  SkillDeeplinkInput,
+  SkillSearchInput,
 } from '../schemas/tool-inputs';
 import { describeOcpCatalog } from '../ocp/self-description';
 import type { ToolDeps } from './context';
@@ -14,6 +16,8 @@ import { inspectCatalogTool } from './inspect-catalog';
 import { queryCatalogTool } from './query-catalog';
 import { resolveCatalogEntryTool } from './resolve-catalog-entry';
 import { searchCatalogsTool } from './search-catalogs';
+import { skillSearchTool } from './skill-search';
+import { skillDeeplinkTool } from './skill-deeplink';
 
 type ToolResultRunner = (run: () => Promise<unknown>) => Promise<{
   isError?: boolean;
@@ -45,6 +49,10 @@ export function registerOcpTools(server: McpServer, deps: ToolDeps, toolResult: 
             return toolResult(() => resolveCatalogEntryTool(args as ResolveCatalogEntryInput, deps));
           case 'find_and_query_catalog':
             return toolResult(() => findAndQueryCatalogTool(args as FindAndQueryCatalogInput, deps));
+          case 'skill_search':
+            return toolResult(() => skillSearchTool(args as SkillSearchInput, deps));
+          case 'skill_deeplink':
+            return toolResult(() => skillDeeplinkTool(args as SkillDeeplinkInput, deps));
         }
       },
     );
