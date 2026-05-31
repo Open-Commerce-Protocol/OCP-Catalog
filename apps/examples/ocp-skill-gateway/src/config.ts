@@ -38,13 +38,20 @@ const configSchema = z.object({
 
   /**
    * 上游数据源开关。
-   *   ocp_mcp        线上 ocp.deeplumen.io/mcp 注册中心(默认,真实数据)
+   *   ocp_mcp        线上 ocp.deeplumen.io/mcp 注册中心,走 MCP JSON-RPC(默认,真实数据)
+   *   ocp_http       线上 OCP 注册中心 + catalog 节点,走纯 HTTP REST(同样真实数据,不经过 MCP)
    *   local_catalogs 本地 SKILL_GATEWAY_CATALOGS 列表(离线 / mock 联调)
    */
-  SKILL_GATEWAY_UPSTREAM: z.enum(['ocp_mcp', 'local_catalogs']).default('ocp_mcp'),
+  SKILL_GATEWAY_UPSTREAM: z.enum(['ocp_mcp', 'ocp_http', 'local_catalogs']).default('ocp_mcp'),
 
   /** OCP 注册中心 MCP server 入口,仅当 SKILL_GATEWAY_UPSTREAM=ocp_mcp 时生效。 */
   SKILL_GATEWAY_OCP_MCP_URL: z.string().url().default('https://ocp.deeplumen.io/mcp'),
+
+  /**
+   * OCP 注册中心 REST base url,仅当 SKILL_GATEWAY_UPSTREAM=ocp_http 时生效。
+   * searchCatalogs 会在其后拼 `/ocp/catalogs/search`(见 /.well-known/ocp-registration 的 catalog_search_url)。
+   */
+  SKILL_GATEWAY_OCP_REGISTRATION_URL: z.string().url().default('https://ocp.deeplumen.io/registry'),
 
   SKILL_GATEWAY_FANOUT_TIMEOUT_MS: z.coerce.number().int().positive().default(8000),
 

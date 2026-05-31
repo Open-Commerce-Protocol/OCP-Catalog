@@ -34,9 +34,15 @@ curl http://localhost:4330/openapi.yaml
 
 | Env | 默认 | 说明 |
 |---|---|---|
-| `SKILL_GATEWAY_UPSTREAM` | `ocp_mcp` | `ocp_mcp` = 走 ocp.deeplumen.io/mcp(真实 alimama / shopify);`local_catalogs` = 走本地 mock |
+| `SKILL_GATEWAY_UPSTREAM` | `ocp_mcp` | `ocp_mcp` = 走 ocp.deeplumen.io/mcp 的 MCP JSON-RPC;`ocp_http` = 走 OCP 注册中心 + catalog 节点的纯 HTTP REST(同样真实数据,**不经过 MCP**);`local_catalogs` = 走本地 mock |
 | `SKILL_GATEWAY_OCP_MCP_URL` | `https://ocp.deeplumen.io/mcp` | 仅 `ocp_mcp` 模式生效 |
+| `SKILL_GATEWAY_OCP_REGISTRATION_URL` | `https://ocp.deeplumen.io/registry` | 仅 `ocp_http` 模式生效,searchCatalogs 会在其后拼 `/ocp/catalogs/search` |
 | `SKILL_GATEWAY_CATALOGS` | `[]` | 仅 `local_catalogs` 模式必填 |
+
+> **`ocp_http` 模式**:用 `@ocp-catalog/ocp-client`(OCP CLI / ocp-catalog skill 同款客户端)直连
+> 注册中心 search → 各 catalog 的 `/ocp/query` 与 `/ocp/resolve`,去掉 MCP JSON-RPC 那层。
+> 注意两点:① gateway 需能直接访问各 catalog 节点域名(MCP 模式只需访问注册中心一个域名);
+> ② 直连 catalog 返回的是 OCP 规范的 `action_bindings`(MCP server 返回的是 `actions`)。Coze 等平台契约零变更。
 
 ## 路由分层
 

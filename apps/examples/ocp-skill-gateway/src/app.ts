@@ -13,6 +13,7 @@ import { Elysia } from 'elysia';
 import type { SkillGatewayConfig } from './config';
 import { type BrokerClient, LocalCatalogsBrokerClient } from './broker/client';
 import { OcpMcpBrokerClient } from './broker/ocp-mcp-client';
+import { OcpHttpBrokerClient } from './broker/ocp-http-client';
 import { TelemetryRecorder } from './telemetry/recorder';
 import { apiKeyMiddleware, SkillAuthError } from './auth/api-key';
 import { createSearchRoute } from './routes/skill/search';
@@ -29,10 +30,7 @@ export interface SkillGatewayDeps {
 }
 
 export function createSkillGatewayApp(deps: SkillGatewayDeps) {
-  const broker: BrokerClient =
-    deps.cfg.SKILL_GATEWAY_UPSTREAM === 'ocp_mcp'
-      ? new OcpMcpBrokerClient(deps.cfg)
-      : new LocalCatalogsBrokerClient(deps.cfg);
+  const broker: BrokerClient = selectBroker(deps.cfg);
   const telemetry = new TelemetryRecorder(deps.cfg);
 
   return new Elysia()
@@ -54,10 +52,7 @@ export function createSkillGatewayApp(deps: SkillGatewayDeps) {
       ok: true,
       service: 'ocp-skill-gateway',
       upstream: deps.cfg.SKILL_GATEWAY_UPSTREAM,
-      upstream_url:
-        deps.cfg.SKILL_GATEWAY_UPSTREAM === 'ocp_mcp'
-          ? deps.cfg.SKILL_GATEWAY_OCP_MCP_URL
-          : `${deps.cfg.SKILL_GATEWAY_CATALOGS.length} local catalogs`,
+      upstream_url: upstreamUrl(deps.cfg),
       api_keys_loaded: deps.cfg.SKILL_GATEWAY_API_KEYS.size,
     }))
     .get('/openapi.yaml', ({ set }) => {
@@ -72,4 +67,28 @@ export function createSkillGatewayApp(deps: SkillGatewayDeps) {
     .use(createOrderRoute({ telemetry }))
     .use(createDashboardRoutes({ broker, telemetry }))
     .use(createAdminRoutes(deps.cfg));
+}
+
+/** 按 SKILL_GATEWAY_UPSTREAM 选上游 broker。routes 不感知具体实现。 */
+function selectBroker(cfg: SkillGatewayConfig): BrokerClient {
+  switch (cfg.SKILL_GATEWAY_UPSTREAM) {
+    case 'ocp_mcp':
+      return new OcpMcpBrokerClient(cfg);
+    case 'ocp_http':
+      return new OcpHttpBrokerClient(cfg);
+    case 'local_catalogs':
+      return new LocalCatalogsBrokerClient(cfg);
+  }
+}
+
+/** /health 里展示的上游地址,纯信息用途。 */
+function upstreamUrl(cfg: SkillGatewayConfig): string {
+  switch (cfg.SKILL_GATEWAY_UPSTREAM) {
+    case 'ocp_mcp':
+      return cfg.SKILL_GATEWAY_OCP_MCP_URL;
+    case 'ocp_http':
+      return cfg.SKILL_GATEWAY_OCP_REGISTRATION_URL;
+    case 'local_catalogs':
+      return `${cfg.SKILL_GATEWAY_CATALOGS.length} local catalogs`;
+  }
 }
