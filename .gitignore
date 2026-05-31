@@ -10,3 +10,6 @@ coverage
 drizzle
 .playwright-cli
 .workspace
+
+# 部署包打的 zip(build artifact,不入库)
+ocp-skill-gateway-deploy-*.zip
