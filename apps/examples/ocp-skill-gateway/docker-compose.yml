@@ -22,7 +22,11 @@ services:
       # 必填:对外公开的入口,要写进 /openapi.yaml 的 servers.url
       # 部署到正式域名后改这个,例:https://skill-gateway.deeplumen.io
       SKILL_GATEWAY_PUBLIC_BASE_URL: ${SKILL_GATEWAY_PUBLIC_BASE_URL:-http://localhost:4330}
-      # 可选:上游 OCP MCP 入口,默认就是公共注册中心
+      # 上游切到纯 HTTP OCP 模式:gateway 先查注册中心,再直连各 catalog /ocp/query 和 /ocp/resolve
+      SKILL_GATEWAY_UPSTREAM: ${SKILL_GATEWAY_UPSTREAM:-ocp_http}
+      # 仅 ocp_http 模式生效;searchCatalogs 会在其后拼 /ocp/catalogs/search
+      SKILL_GATEWAY_OCP_REGISTRATION_URL: ${SKILL_GATEWAY_OCP_REGISTRATION_URL:-https://ocp.deeplumen.io/registry}
+      # 可保留:仅 ocp_mcp 模式生效,回滚时无需再改 compose
       SKILL_GATEWAY_OCP_MCP_URL: ${SKILL_GATEWAY_OCP_MCP_URL:-https://ocp.deeplumen.io/mcp}
       # 可选:fan-out 超时(ms)
       SKILL_GATEWAY_FANOUT_TIMEOUT_MS: ${SKILL_GATEWAY_FANOUT_TIMEOUT_MS:-8000}
