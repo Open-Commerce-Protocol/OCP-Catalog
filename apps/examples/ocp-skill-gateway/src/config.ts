@@ -30,9 +30,12 @@ const csvSet = z
 
 const configSchema = z.object({
   SKILL_GATEWAY_PORT: z.coerce.number().int().positive().default(4330),
+  SKILL_GATEWAY_HOST: z.string().default('127.0.0.1'),
   SKILL_GATEWAY_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4330'),
 
-  SKILL_GATEWAY_API_KEYS: csvSet,
+  SKILL_GATEWAY_API_KEYS: csvSet.refine((keys) => keys.size > 0, {
+    message: 'SKILL_GATEWAY_API_KEYS must include at least one key',
+  }),
 
   SKILL_GATEWAY_CATALOGS: catalogsFromEnv,
 
