@@ -12,6 +12,7 @@ export const docsRouteEntries = [
   { contentId: '/resolve-actions', publicPath: '/docs/concepts/resolve-actions' },
   { contentId: '/getting-started', publicPath: '/docs/getting-started' },
   { contentId: '/cli-and-skill', publicPath: '/docs/cli-and-skill' },
+  { contentId: '/mcp-server', publicPath: '/docs/mcp-server' },
   { contentId: '/faq', publicPath: '/docs/faq' },
   { contentId: '/handshake/overview', publicPath: '/docs/protocols/handshake-v1/overview' },
   { contentId: '/handshake/catalog-manifest', publicPath: '/docs/protocols/handshake-v1/catalog-manifest' },

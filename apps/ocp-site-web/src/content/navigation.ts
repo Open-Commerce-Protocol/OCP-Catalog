@@ -10,6 +10,7 @@ export const navigation = [
       { title: { en: 'Search / Resolve / Action', zh: 'Search / Resolve / Action' }, href: '/docs/concepts/resolve-actions' },
       { title: { en: 'Getting Started', zh: '快速接入' }, href: '/docs/getting-started' },
       { title: { en: 'CLI & Skill (Coming soon)', zh: 'CLI 与 Skill（即将推出）' }, href: '/docs/cli-and-skill' },
+      { title: { en: 'MCP Server', zh: 'MCP Server' }, href: '/docs/mcp-server' },
       { title: { en: 'FAQ', zh: 'FAQ' }, href: '/docs/faq' },
     ],
   },

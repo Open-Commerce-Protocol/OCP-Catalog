@@ -4,7 +4,7 @@
  * 把 OCP 注册中心 + catalog 节点的「纯 HTTP REST」工作流包装成 BrokerClient 接口,
  * 完全不经过 MCP。底层用 `@ocp-catalog/ocp-client`(也是 OCP CLI / ocp-catalog skill 用的同一套客户端)。
  *
- * 对应 docs/skills/ocp-catalog-agent 描述的标准 agent 流程:
+ * 对应 apps/ocp-site-web/src/content/docs/cli-and-skill.md 描述的标准 agent 流程:
  *   注册中心 search → 各 catalog 直连 /ocp/query → 选中的 entry 走 /ocp/resolve
  *
  * 工具映射(与 OcpMcpBrokerClient 一一对应,只是把 MCP tools/call 换成 REST):

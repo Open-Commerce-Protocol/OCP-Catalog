@@ -83,7 +83,7 @@ export const products: Product[] = [
       zh: '一个 MCP 服务器，让兼容 MCP 的 Agent 通过它们已有的工具发现并 resolve OCP Catalog 对象。',
     },
     status: 'stable',
-    href: '/docs/examples/webmcp-demo',
+    href: '/docs/mcp-server',
     tags: ['mcp', 'integration'],
   },
   {
