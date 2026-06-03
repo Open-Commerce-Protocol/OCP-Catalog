@@ -53,6 +53,20 @@ export class CatalogClient {
     }
   }
 
+  /**
+   * Full provider record incl. catalog_quality (object_count, active/quality
+   * tiers, out_of_stock, missing_image, ...). Used by the merchant dashboard.
+   * Returns null on 404 (provider not registered yet).
+   */
+  async getProviderRecord(providerId: string): Promise<Record<string, unknown> | null> {
+    try {
+      return await this.request<Record<string, unknown>>(`/ocp/providers/${encodeURIComponent(providerId)}`, { method: 'GET' });
+    } catch (err) {
+      if (err instanceof CatalogClientError && err.status === 404) return null;
+      throw err;
+    }
+  }
+
   private async request<T>(path: string, opts: { method: 'GET' | 'POST'; body?: unknown; includeApiKey?: boolean }): Promise<T> {
     const headers: Record<string, string> = {};
     if (opts.body !== undefined) headers['content-type'] = 'application/json';

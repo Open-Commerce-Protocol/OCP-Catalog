@@ -7,7 +7,9 @@ import { createAdminRoutes } from './http/admin';
 import { createEmbeddedRoutes } from './http/embedded';
 import { createOAuthRoutes } from './http/oauth';
 import { createWebhookRoutes } from './http/webhooks';
+import { ActivityClient } from './services/activity-client';
 import { CatalogClient, CatalogClientError } from './services/catalog-client';
+import { DashboardService } from './services/dashboard-service';
 import { SyncService } from './services/sync-service';
 import { ShopifyAdminClient, ShopifyApiError } from './shopify/admin-client';
 import { InstallationStore } from './store/installation-store';
@@ -26,7 +28,9 @@ export async function createShopifyApp(deps: { cfg: ShopifyAppConfig }) {
   const webhookEvents = new ShopifyAppWebhookEventStore(db);
   const admin = new ShopifyAdminClient(cfg);
   const catalog = new CatalogClient(cfg);
+  const activity = new ActivityClient(cfg);
   const sync = new SyncService(cfg, admin, catalog, store);
+  const dashboard = new DashboardService(store, catalog, activity);
   const worker = new ShopifyAppJobWorker(jobs, webhookEvents, sync, store);
   if (cfg.SHOPIFY_APP_WORKER_ENABLED) worker.start();
 
@@ -57,6 +61,6 @@ export async function createShopifyApp(deps: { cfg: ShopifyAppConfig }) {
     }))
     .use(createOAuthRoutes({ cfg, admin, store, jobs, oauthStates }))
     .use(createWebhookRoutes({ cfg, jobs, webhookEvents }))
-    .use(createEmbeddedRoutes({ cfg, store }))
+    .use(createEmbeddedRoutes({ cfg, store, dashboard }))
     .use(createAdminRoutes({ cfg, sync, store }));
 }
