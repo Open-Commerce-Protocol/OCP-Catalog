@@ -49,6 +49,8 @@ function config(overrides: Partial<AppConfig>): AppConfig {
     CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP: false,
     API_KEY_DEV: 'dev-api-key',
     API_KEYS: '',
+    CATALOG_ADMIN_API_KEY: 'dev-admin-key',
+    CATALOG_ADMIN_API_KEYS: '',
     CATALOG_ID: 'cat_local_dev',
     CATALOG_NAME: 'Commerce Product Search Catalog',
     COMMERCE_PROVIDER_ID: 'commerce_provider_local_dev',

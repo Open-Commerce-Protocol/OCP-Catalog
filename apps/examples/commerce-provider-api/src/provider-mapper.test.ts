@@ -25,6 +25,8 @@ const config: AppConfig = {
   CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP: true,
   API_KEY_DEV: 'dev-api-key',
   API_KEYS: '',
+  CATALOG_ADMIN_API_KEY: 'dev-admin-key',
+  CATALOG_ADMIN_API_KEYS: '',
   CATALOG_ID: 'cat_local_dev',
   CATALOG_NAME: 'Local OCP Catalog',
   COMMERCE_PROVIDER_ID: 'commerce_provider_local_dev',
@@ -47,6 +49,8 @@ const config: AppConfig = {
   OCP_ACTIVITY_API_PORT: 4400,
   OCP_ACTIVITY_PUBLIC_BASE_URL: 'http://localhost:4400',
   OCP_ACTIVITY_API_KEY: '',
+  OCP_MCP_SKILL_GATEWAY_URL: 'http://localhost:4330',
+  OCP_MCP_SKILL_GATEWAY_KEY: '',
 };
 
 const product: typeof schema.providerProducts.$inferSelect = {

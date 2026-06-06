@@ -44,9 +44,8 @@ export function planCatalogQuery(
     });
   }
 
-  const queryMode = requestedDescriptor
-    ? inferQueryModeForPack(requestedDescriptor.query_modes, request.query, request.filters)
-    : inferQueryModeForUnpackedRequest(descriptors, request.query, request.filters);
+  const requestedQueryMode = requestedQueryModeFromRequest(request);
+  const queryMode = requestedQueryMode ?? inferQueryMode(request.query, request.filters);
   const selectedDescriptor = requestedDescriptor
     ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode));
 
@@ -58,8 +57,9 @@ export function planCatalogQuery(
   }
 
   if (!selectedDescriptor.query_modes.includes(queryMode)) {
-    throw new AppError('validation_error', `query_pack ${selectedDescriptor.pack_id} does not support query strategy ${queryMode}`, 400, {
+    throw new AppError('validation_error', `query_pack ${selectedDescriptor.pack_id} does not support query mode ${queryMode}`, 400, {
       query_pack: selectedDescriptor.pack_id,
+      query_mode: queryMode,
       supported_query_modes: selectedDescriptor.query_modes,
     });
   }
@@ -100,22 +100,6 @@ export function planCatalogQuery(
   };
 }
 
-function inferQueryModeForUnpackedRequest(
-  descriptors: QueryPackDescriptor[],
-  query: string,
-  filters: CatalogQueryRequest['filters'],
-) {
-  const inferred = inferQueryMode(query, filters);
-  if (descriptors.some((descriptor) => descriptor.query_modes.includes(inferred))) return inferred;
-
-  const fallbackOrder: CatalogQueryMode[] = inferred === 'hybrid'
-    ? ['keyword', 'filter', 'semantic']
-    : ['filter', 'keyword', 'hybrid', 'semantic'];
-  const fallback = fallbackOrder.find((mode) => descriptors.some((descriptor) => descriptor.query_modes.includes(mode)));
-  if (fallback) return fallback;
-  return inferred;
-}
-
 function inferQueryMode(query: string, filters: CatalogQueryRequest['filters']): CatalogQueryMode {
   const hasQuery = query.trim().length > 0;
   const hasFilters = Object.values(filters).some(Boolean);
@@ -124,23 +108,21 @@ function inferQueryMode(query: string, filters: CatalogQueryRequest['filters']):
   return 'filter';
 }
 
-function inferQueryModeForPack(
-  packModes: CatalogQueryMode[],
-  query: string,
-  filters: CatalogQueryRequest['filters'],
-) {
-  const hasQuery = query.trim().length > 0;
-  const hasFilters = Object.values(filters).some(Boolean);
-
-  if (packModes.includes('semantic')) return 'semantic';
-  if (hasQuery && hasFilters && packModes.includes('hybrid')) return 'hybrid';
-  if (!hasQuery && packModes.includes('filter')) return 'filter';
-  if (hasQuery && packModes.includes('keyword')) return 'keyword';
-  if (packModes.includes('hybrid')) return 'hybrid';
-  if (packModes.includes('filter')) return 'filter';
-  if (packModes.includes('keyword')) return 'keyword';
-  return packModes[0] ?? 'keyword';
+function requestedQueryModeFromRequest(request: CatalogQueryRequest): CatalogQueryMode | undefined {
+  const value = (request as CatalogQueryRequest & { query_mode?: unknown }).query_mode;
+  if (value === undefined) return undefined;
+  if (isCatalogQueryMode(value)) return value;
+  throw new AppError('validation_error', `Unsupported query mode: ${String(value)}`, 400, {
+    query_mode: value,
+    supported_query_modes: CATALOG_QUERY_MODES,
+  });
 }
+
+function isCatalogQueryMode(value: unknown): value is CatalogQueryMode {
+  return typeof value === 'string' && CATALOG_QUERY_MODES.includes(value as CatalogQueryMode);
+}
+
+const CATALOG_QUERY_MODES: CatalogQueryMode[] = ['keyword', 'filter', 'semantic', 'hybrid'];
 
 type QueryPackDescriptor = {
   capability_id?: string;

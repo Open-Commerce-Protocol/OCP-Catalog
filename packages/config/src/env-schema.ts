@@ -22,6 +22,8 @@ export const envSchema = z.object({
   CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP: z.coerce.boolean().default(false),
   API_KEY_DEV: z.string().default('dev-api-key'),
   API_KEYS: z.string().default(''),
+  CATALOG_ADMIN_API_KEY: z.string().default('dev-admin-key'),
+  CATALOG_ADMIN_API_KEYS: z.string().default(''),
   CATALOG_ID: z.string().default('cat_local_dev'),
   CATALOG_NAME: z.string().default('Commerce Product Search Catalog'),
   COMMERCE_PROVIDER_ID: z.string().default('commerce_provider_local_dev'),

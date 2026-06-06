@@ -138,18 +138,26 @@ export function validateCatalogQueryRequest(
     });
   }
 
-  const queryMode = requestedDescriptor
-    ? inferQueryModeForPack(requestedDescriptor.query_modes, request.query ?? '', request.filters ?? {})
-    : inferQueryModeForManifest(descriptors, request.query ?? '', request.filters ?? {});
+  const requestedQueryMode = requestedQueryModeFromRequest(request);
+  const queryMode = requestedQueryMode ?? inferBaseQueryMode(request.query ?? '', request.filters ?? {});
   const selectedDescriptor = requestedDescriptor
-    ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode))
-    ?? descriptors[0];
+    ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode));
 
   if (!selectedDescriptor) {
-    throw new OcpClientValidationError('catalog manifest does not declare any query packs', {
-      code: 'invalid_query_pack',
+    if (descriptors.length === 0) {
+      throw new OcpClientValidationError('catalog manifest does not declare any query packs', {
+        code: 'invalid_query_pack',
+        supported_query_packs: supportedQueryPacks,
+        correction: 'Inspect a different Catalog manifest before sending a query.',
+      });
+    }
+
+    throw new OcpClientValidationError(`catalog manifest does not support query mode ${queryMode}`, {
+      code: 'invalid_query_mode',
+      query_mode: queryMode,
+      supported_query_modes: unique(descriptors.flatMap((descriptor) => descriptor.query_modes)),
       supported_query_packs: supportedQueryPacks,
-      correction: 'Inspect a different Catalog manifest before sending a query.',
+      correction: 'Choose a query mode supported by the manifest or change the request shape.',
     });
   }
 
@@ -447,38 +455,6 @@ function manifestSupportedFilterFields(manifest: CatalogManifest) {
 
 type QueryMode = 'keyword' | 'filter' | 'semantic' | 'hybrid';
 
-function inferQueryModeForManifest(
-  descriptors: ReturnType<typeof manifestQueryPackDescriptors>,
-  query: string,
-  filters: Record<string, unknown>,
-): QueryMode {
-  const desired = inferBaseQueryMode(query, filters);
-  if (descriptors.some((descriptor) => descriptor.query_modes.includes(desired))) return desired;
-
-  const fallbackOrder: QueryMode[] = desired === 'hybrid'
-    ? ['keyword', 'filter', 'semantic']
-    : ['filter', 'keyword', 'hybrid', 'semantic'];
-  return fallbackOrder.find((mode) => descriptors.some((descriptor) => descriptor.query_modes.includes(mode))) ?? desired;
-}
-
-function inferQueryModeForPack(
-  queryModes: QueryMode[],
-  query: string,
-  filters: Record<string, unknown>,
-): QueryMode {
-  const hasQuery = query.trim().length > 0;
-  const hasFilters = Object.values(filters).some(Boolean);
-
-  if (hasQuery && hasFilters && queryModes.includes('hybrid')) return 'hybrid';
-  if (!hasQuery && queryModes.includes('filter')) return 'filter';
-  if (hasQuery && queryModes.includes('keyword')) return 'keyword';
-  if (queryModes.includes('semantic')) return 'semantic';
-  if (queryModes.includes('hybrid')) return 'hybrid';
-  if (queryModes.includes('filter')) return 'filter';
-  if (queryModes.includes('keyword')) return 'keyword';
-  return queryModes[0] ?? inferBaseQueryMode(query, filters);
-}
-
 function inferBaseQueryMode(query: string, filters: Record<string, unknown>): QueryMode {
   const hasQuery = query.trim().length > 0;
   const hasFilters = Object.values(filters).some(Boolean);
@@ -487,6 +463,24 @@ function inferBaseQueryMode(query: string, filters: Record<string, unknown>): Qu
   if (!hasQuery) return 'filter';
   return 'keyword';
 }
+
+function requestedQueryModeFromRequest(request: CatalogQueryRequest): QueryMode | undefined {
+  const value = (request as CatalogQueryRequest & { query_mode?: unknown }).query_mode;
+  if (value === undefined) return undefined;
+  if (isQueryMode(value)) return value;
+  throw new OcpClientValidationError(`unsupported query_mode: ${String(value)}`, {
+    code: 'invalid_query_mode',
+    query_mode: value,
+    supported_query_modes: QUERY_MODES,
+    correction: 'Use one of keyword, filter, semantic, or hybrid.',
+  });
+}
+
+function isQueryMode(value: unknown): value is QueryMode {
+  return typeof value === 'string' && QUERY_MODES.includes(value as QueryMode);
+}
+
+const QUERY_MODES: QueryMode[] = ['keyword', 'filter', 'semantic', 'hybrid'];
 
 export function createCorrelationId(prefix = 'corr') {
   return `${prefix}_${crypto.randomUUID().replaceAll('-', '')}`;

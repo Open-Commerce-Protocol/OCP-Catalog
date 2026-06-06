@@ -738,16 +738,24 @@ export class CatalogRegistryService {
 
   private routeHintFromIndexRow(row: typeof schema.catalogIndexEntries.$inferSelect): CatalogRouteHint {
     const projection = asRecord(row.searchProjection);
+    const queryUrl = stringValue(projection.query_url);
     const resolveUrl = stringValue(projection.resolve_url);
     const healthUrl = stringValue(projection.health_url);
     const federation = asRecord(projection.federation);
     const trustProfile = asRecord(projection.trust_profile);
+    if (!queryUrl) {
+      throw new AppError('internal_error', `Catalog index entry ${row.catalogId} is missing searchProjection.query_url`, 500, {
+        catalog_id: row.catalogId,
+        index_entry_id: row.id,
+      });
+    }
+
     return {
       catalog_id: row.catalogId,
       catalog_name: row.catalogName,
       ...(row.description ? { description: row.description } : {}),
       manifest_url: row.manifestUrl,
-      query_url: stringValue(projection.query_url) ?? row.manifestUrl.replace(/\/ocp\/manifest$/, '/ocp/query'),
+      query_url: queryUrl,
       ...(healthUrl ? { health_url: healthUrl } : {}),
       ...(resolveUrl ? { resolve_url: resolveUrl } : {}),
       supported_query_packs: row.supportedQueryPacks,

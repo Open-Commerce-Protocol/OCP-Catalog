@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import {
+  CatalogRegistryService,
   catalogIndexEntryStatus,
   isCatalogIndexVisible,
   nextCatalogHealthState,
@@ -45,5 +46,32 @@ describe('catalog registry health state', () => {
   test('derives search visibility from the final index entry status', () => {
     expect(isCatalogIndexVisible(catalogIndexEntryStatus('unhealthy', 2, 3))).toBe(true);
     expect(isCatalogIndexVisible(catalogIndexEntryStatus('unhealthy', 3, 3))).toBe(false);
+  });
+
+  test('route hints require projected query_url instead of deriving one from manifestUrl', () => {
+    const service = new CatalogRegistryService({} as never, { REGISTRATION_ID: 'reg_test' } as never);
+    const row = {
+      id: 'idx_missing_query_url',
+      catalogId: 'catalog_without_projection_query_url',
+      catalogName: 'Catalog Without Projection Query Url',
+      description: null,
+      manifestUrl: 'https://catalog.example.com/ocp/manifest',
+      supportedQueryPacks: [],
+      supportedQueryModes: [],
+      supportedQueryLanguages: [],
+      contentLanguages: [],
+      searchProjection: {},
+      verificationStatus: 'not_required',
+      trustTier: 'declared',
+      healthStatus: 'healthy',
+      activeSnapshotId: 'catsnap_test',
+      updatedAt: new Date('2026-05-17T00:00:00.000Z'),
+    };
+
+    expect(() => (
+      service as unknown as {
+        routeHintFromIndexRow(row: unknown): unknown;
+      }
+    ).routeHintFromIndexRow(row)).toThrow('missing searchProjection.query_url');
   });
 });

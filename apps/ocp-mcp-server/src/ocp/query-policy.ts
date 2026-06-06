@@ -48,15 +48,20 @@ export function negotiateQueryPolicy(
     });
   }
 
-  const queryMode = requestedDescriptor
-    ? inferModeForPack(requestedDescriptor.query_modes, input.query ?? '', input.filters ?? {})
-    : inferModeForManifest(descriptors, input.query ?? '', input.filters ?? {});
+  const queryMode = inferBaseMode(input.query ?? '', input.filters ?? {});
   const selected = requestedDescriptor
-    ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode))
-    ?? descriptors[0];
+    ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode));
 
   if (!selected) {
-    throw new McpToolError('invalid_query_pack', 'catalog manifest does not declare any query packs', {
+    if (descriptors.length === 0) {
+      throw new McpToolError('invalid_query_pack', 'catalog manifest does not declare any query packs', {
+        supported_query_packs: supportedPacks,
+      });
+    }
+
+    throw new McpToolError('invalid_query_pack', `catalog manifest does not support query mode ${queryMode}`, {
+      query_mode: queryMode,
+      supported_query_modes: unique(descriptors.flatMap((descriptor) => descriptor.query_modes)),
       supported_query_packs: supportedPacks,
     });
   }
@@ -64,6 +69,7 @@ export function negotiateQueryPolicy(
   if (!selected.query_modes.includes(queryMode)) {
     throw new McpToolError('invalid_query_pack', `query_pack ${selected.pack_id} does not support query mode ${queryMode}`, {
       query_pack: selected.pack_id,
+      query_mode: queryMode,
       supported_query_modes: selected.query_modes,
     });
   }
@@ -93,38 +99,6 @@ export function negotiateQueryPolicy(
   };
 }
 
-function inferModeForManifest(
-  descriptors: ReturnType<typeof manifestQueryPackDescriptors>,
-  query: string,
-  filters: Record<string, unknown>,
-) {
-  const desired = inferBaseMode(query, filters);
-  if (descriptors.some((descriptor) => descriptor.query_modes.includes(desired))) return desired;
-
-  const fallbackOrder: QueryMode[] = desired === 'hybrid'
-    ? ['keyword', 'filter', 'semantic']
-    : ['filter', 'keyword', 'hybrid', 'semantic'];
-  return fallbackOrder.find((mode) => descriptors.some((descriptor) => descriptor.query_modes.includes(mode))) ?? desired;
-}
-
-function inferModeForPack(
-  queryModes: QueryMode[],
-  query: string,
-  filters: Record<string, unknown>,
-) {
-  const hasQuery = query.trim().length > 0;
-  const hasFilters = Object.values(filters).some(Boolean);
-
-  if (queryModes.includes('semantic')) return 'semantic';
-  if (hasQuery && hasFilters && queryModes.includes('hybrid')) return 'hybrid';
-  if (!hasQuery && queryModes.includes('filter')) return 'filter';
-  if (hasQuery && queryModes.includes('keyword')) return 'keyword';
-  if (queryModes.includes('hybrid')) return 'hybrid';
-  if (queryModes.includes('filter')) return 'filter';
-  if (queryModes.includes('keyword')) return 'keyword';
-  return queryModes[0] ?? inferBaseMode(query, filters);
-}
-
 function inferBaseMode(query: string, filters: Record<string, unknown>): QueryMode {
   const hasQuery = query.trim().length > 0;
   const hasFilters = Object.values(filters).some(Boolean);
@@ -132,4 +106,8 @@ function inferBaseMode(query: string, filters: Record<string, unknown>): QueryMo
   if (hasFilters) return 'filter';
   if (!hasQuery) return 'filter';
   return 'keyword';
+}
+
+function unique<T>(values: T[]) {
+  return [...new Set(values)];
 }

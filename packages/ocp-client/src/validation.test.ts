@@ -73,6 +73,96 @@ describe('manifest-aware query validation', () => {
     });
   });
 
+  test('rejects a requested pack when the inferred query mode is unsupported', () => {
+    const request: CatalogQueryRequest = {
+      query_pack: 'ocp.query.filter.v1',
+      query: 'running shoes',
+      filters: {},
+      limit: 10,
+      offset: 0,
+      explain: true,
+    };
+
+    expect(() => validateCatalogQueryRequest(manifest, request)).toThrow(OcpClientValidationError);
+
+    try {
+      validateCatalogQueryRequest(manifest, request);
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpClientValidationError);
+      expect((error as OcpClientValidationError).details).toMatchObject({
+        code: 'invalid_query_mode',
+        query_pack: 'ocp.query.filter.v1',
+        query_mode: 'keyword',
+        supported_query_modes: ['filter', 'hybrid'],
+      });
+    }
+  });
+
+  test('rejects an explicit query mode unsupported by the requested pack', () => {
+    const request = {
+      query_pack: 'ocp.query.keyword.v1',
+      query_mode: 'semantic',
+      query: 'running shoes',
+      filters: {},
+      limit: 10,
+      offset: 0,
+      explain: true,
+    } as CatalogQueryRequest;
+
+    expect(() => validateCatalogQueryRequest(manifest, request)).toThrow(OcpClientValidationError);
+
+    try {
+      validateCatalogQueryRequest(manifest, request);
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpClientValidationError);
+      expect((error as OcpClientValidationError).details).toMatchObject({
+        code: 'invalid_query_mode',
+        query_pack: 'ocp.query.keyword.v1',
+        query_mode: 'semantic',
+        supported_query_modes: ['keyword', 'hybrid'],
+      });
+    }
+  });
+
+  test('rejects an inferred mode unsupported by every manifest query pack', () => {
+    const keywordOnlyManifest: CatalogManifest = {
+      ...manifest,
+      query_capabilities: [
+        {
+          ...manifest.query_capabilities[0],
+          query_packs: [
+            {
+              pack_id: 'ocp.query.keyword.v1',
+              query_modes: ['keyword'],
+              metadata: {},
+            },
+          ],
+        },
+      ],
+    };
+    const request: CatalogQueryRequest = {
+      query: '',
+      filters: {},
+      limit: 10,
+      offset: 0,
+      explain: true,
+    };
+
+    expect(() => validateCatalogQueryRequest(keywordOnlyManifest, request)).toThrow(OcpClientValidationError);
+
+    try {
+      validateCatalogQueryRequest(keywordOnlyManifest, request);
+    } catch (error) {
+      expect(error).toBeInstanceOf(OcpClientValidationError);
+      expect((error as OcpClientValidationError).details).toMatchObject({
+        code: 'invalid_query_mode',
+        query_mode: 'filter',
+        supported_query_modes: ['keyword'],
+        supported_query_packs: ['ocp.query.keyword.v1'],
+      });
+    }
+  });
+
   test('rejects unsupported query packs and filter fields with repair details', () => {
     const request: CatalogQueryRequest = {
       query_pack: 'ocp.query.unknown.v1',
