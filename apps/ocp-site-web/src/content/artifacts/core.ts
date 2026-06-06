@@ -132,11 +132,11 @@ export const coreArtifacts: Record<string, PageArtifactDefinition> = {
       implementationRefs: [
         {
           label: { en: 'Catalog query capability shape', zh: 'Catalog 查询能力结构' },
-          path: 'apps/examples/commerce-catalog-api/src/commerce-scenario.ts',
+          path: 'apps/commerce-catalog-api/src/commerce-scenario.ts',
         },
         {
           label: { en: 'Runtime query mode inference', zh: '运行时 query mode 推断' },
-          path: 'apps/examples/commerce-catalog-api/src/query/query-mode.ts',
+          path: 'apps/commerce-catalog-api/src/query/query-mode.ts',
         },
       ],
     },

@@ -19,7 +19,7 @@ export const envSchema = z.object({
   CATALOG_SEARCH_INDEX_WORKER_ENABLED: z.coerce.boolean().default(true),
   CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(30),
   CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
-  CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP: z.coerce.boolean().default(true),
+  CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP: z.coerce.boolean().default(false),
   API_KEY_DEV: z.string().default('dev-api-key'),
   API_KEYS: z.string().default(''),
   CATALOG_ID: z.string().default('cat_local_dev'),

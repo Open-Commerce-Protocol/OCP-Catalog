@@ -312,7 +312,7 @@ const app = new Elysia()
 
 console.log(`Commerce Catalog API listening on http://localhost:${app.server?.port}`);
 if (await catalogAdminSite('/')) {
-  console.log('Commerce Catalog Admin static site mounted from apps/examples/commerce-catalog-api/public/dist');
+  console.log('Commerce Catalog Admin static site mounted from apps/commerce-catalog-api/public/dist');
 }
 if (searchIndexScheduler) {
   console.log(`Commerce Catalog search index worker enabled every ${config.CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS}s`);

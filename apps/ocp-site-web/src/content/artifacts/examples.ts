@@ -5,15 +5,15 @@ export const examplesArtifacts: Record<string, PageArtifactDefinition> = {
       implementationRefs: [
         {
           label: { en: 'Commerce scenario definition', zh: '电商场景定义' },
-          path: 'apps/examples/commerce-catalog-api/src/commerce-scenario.ts',
+          path: 'apps/commerce-catalog-api/src/commerce-scenario.ts',
         },
         {
           label: { en: 'Catalog query service', zh: 'Catalog 查询服务' },
-          path: 'apps/examples/commerce-catalog-api/src/query/commerce-query-service.ts',
+          path: 'apps/commerce-catalog-api/src/query/commerce-query-service.ts',
         },
         {
           label: { en: 'Embedding ANN shortlist and rerank', zh: 'Embedding ANN 候选召回与重排' },
-          path: 'apps/examples/commerce-catalog-api/src/search/indexing/search-embedding-service.ts',
+          path: 'apps/commerce-catalog-api/src/search/indexing/search-embedding-service.ts',
         },
       ],
       endpointExamples: [

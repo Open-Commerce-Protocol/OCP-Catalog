@@ -9,7 +9,7 @@ docs/specs/registration/v1.md
 ocp.catalog.registration.v1/
 ```
 
-It does not ingest Provider objects. Provider object registration and sync belong to Catalog Nodes, such as `apps/examples/commerce-catalog-api`.
+It does not ingest Provider objects. Provider object registration and sync belong to Catalog Nodes, such as `apps/commerce-catalog-api`.
 
 ## Implemented Capabilities
 

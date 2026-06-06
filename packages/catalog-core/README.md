@@ -35,7 +35,7 @@ The package intentionally does not start an HTTP server. Runtime adapters such a
 - Scenario-specific query modes, query packs, search ranking, retrieval indexes, or index jobs.
 - Long-term provider identity verification.
 
-Those concerns live in runtime packages such as `apps/examples/commerce-catalog-api`, `packages/config`, and `packages/auth-core`.
+Those concerns live in runtime packages such as `apps/commerce-catalog-api`, `packages/config`, and `packages/auth-core`.
 
 ## Package Layout
 
@@ -130,7 +130,7 @@ Rejected objects produce item-level structured errors in `object_sync_item_resul
 
 Resolve accepts an `entry_id`, verifies that the entry and underlying object are active, then returns a short-lived `ResolvableReference` with visible attributes and controlled URL action bindings.
 
-Query execution is app-owned. A runtime app should implement its own query service from its declared query packs, filters, ranking policy, retrieval indexes, and embedding provider choices. `apps/examples/commerce-catalog-api` contains the commerce-specific implementation.
+Query execution is app-owned. A runtime app should implement its own query service from its declared query packs, filters, ranking policy, retrieval indexes, and embedding provider choices. `apps/commerce-catalog-api` contains the commerce-specific implementation.
 
 ## Publishing Preparation
 

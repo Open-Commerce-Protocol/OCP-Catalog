@@ -38,7 +38,7 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
       implementationRefs: [
         {
           label: { en: 'Commerce scenario manifest builder', zh: '电商场景 manifest 构建器' },
-          path: 'apps/examples/commerce-catalog-api/src/commerce-scenario.ts',
+          path: 'apps/commerce-catalog-api/src/commerce-scenario.ts',
         },
         {
           label: { en: 'Runtime manifest schema', zh: '运行时 manifest schema' },
@@ -99,7 +99,7 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
       implementationRefs: [
         {
           label: { en: 'Commerce object contracts', zh: '电商对象 contract 定义' },
-          path: 'apps/examples/commerce-catalog-api/src/commerce-scenario.ts',
+          path: 'apps/commerce-catalog-api/src/commerce-scenario.ts',
         },
       ],
       endpointExamples: [
@@ -189,7 +189,7 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
       implementationRefs: [
         {
           label: { en: 'Commerce catalog sync capability declaration', zh: '电商 catalog 同步能力声明' },
-          path: 'apps/examples/commerce-catalog-api/src/commerce-scenario.ts',
+          path: 'apps/commerce-catalog-api/src/commerce-scenario.ts',
         },
         {
           label: { en: 'Provider sync declaration builder', zh: 'Provider 同步声明构造器' },

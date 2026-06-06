@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
     base: './',
     plugins: [react(), tailwindcss()],
     build: {
-      outDir: '../commerce-catalog-api/public/dist',
+      outDir: '../../commerce-catalog-api/public/dist',
       emptyOutDir: true,
     },
     server: {

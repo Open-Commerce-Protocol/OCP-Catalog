@@ -8,7 +8,7 @@
 
 现在这套 live example 对应的是下面这些模块的真实行为：
 
-- `apps/examples/commerce-catalog-api`
+- `apps/commerce-catalog-api`
 - `apps/examples/commerce-provider-api`
 - `apps/examples/commerce-provider-admin-web`
 - `packages/catalog-core`

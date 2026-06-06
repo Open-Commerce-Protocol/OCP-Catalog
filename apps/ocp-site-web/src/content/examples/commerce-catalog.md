@@ -8,7 +8,7 @@ This repository now implements a concrete commerce product catalog that is close
 
 The current example is not a generic placeholder. It is the running behavior of:
 
-- `apps/examples/commerce-catalog-api`
+- `apps/commerce-catalog-api`
 - `apps/examples/commerce-provider-api`
 - `apps/examples/commerce-provider-admin-web`
 - `packages/catalog-core`

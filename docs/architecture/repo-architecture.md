@@ -16,7 +16,7 @@ This repository follows a layered workspace layout:
 At runtime, the workspace currently collapses into 5 service units:
 
 1. `apps/ocp-registration-api`
-2. `apps/examples/commerce-catalog-api`
+2. `apps/commerce-catalog-api`
 3. `commerce-provider`
    - `apps/examples/commerce-provider-api`
    - `apps/examples/commerce-provider-admin-web`
@@ -53,7 +53,7 @@ Scenario-specific behavior belongs in `apps`, including:
 
 Current app ownership:
 
-- `apps/examples/commerce-catalog-api`
+- `apps/commerce-catalog-api`
   - first catalog implementation for commerce products
 - `apps/examples/commerce-provider-api`
   - provider source-data API and catalog sync runtime
