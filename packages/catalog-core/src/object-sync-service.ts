@@ -36,6 +36,12 @@ export class ObjectSyncService {
         object_count: request.objects.length,
       });
     }
+    const duplicateObjectId = firstDuplicateObjectId(request.objects);
+    if (duplicateObjectId) {
+      throw new AppError('validation_error', 'Object sync batch contains duplicate object_id values', 400, {
+        object_id: duplicateObjectId,
+      });
+    }
 
     const providerState = await this.registrations.findProviderState(request.provider_id);
     if (!providerState || providerState.status !== 'active') {
@@ -48,21 +54,61 @@ export class ObjectSyncService {
     }
 
     const batchId = request.batch_id ?? newId('batch');
+    const requestHash = await hashJson({
+      catalog_id: request.catalog_id,
+      provider_id: request.provider_id,
+      registration_version: request.registration_version,
+      objects: request.objects,
+    });
+    const existingResult = await this.findExistingBatchResult({
+      catalogId: request.catalog_id,
+      providerId: request.provider_id,
+      registrationVersion: request.registration_version,
+      batchId,
+      requestHash,
+    });
+    if (existingResult) return existingResult;
+
     const batchRowId = newId('syncbatch');
     return this.db.transaction(async (tx) => {
       const syncDb = tx as unknown as Db;
-      await syncDb.insert(schema.objectSyncBatches).values({
-        id: batchRowId,
-        catalogId: request.catalog_id,
-        providerId: request.provider_id,
-        registrationVersion: request.registration_version,
-        batchId,
-        status: 'rejected',
-        requestMetadata: {
-          object_count: request.objects.length,
-          has_client_batch_id: request.batch_id !== undefined,
-        },
-      });
+      const [insertedBatch] = await syncDb
+        .insert(schema.objectSyncBatches)
+        .values({
+          id: batchRowId,
+          catalogId: request.catalog_id,
+          providerId: request.provider_id,
+          registrationVersion: request.registration_version,
+          batchId,
+          status: 'rejected',
+          requestHash,
+          requestMetadata: {
+            object_count: request.objects.length,
+            has_client_batch_id: request.batch_id !== undefined,
+            request_hash: requestHash,
+          },
+        })
+        .onConflictDoNothing({
+          target: [
+            schema.objectSyncBatches.catalogId,
+            schema.objectSyncBatches.providerId,
+            schema.objectSyncBatches.batchId,
+          ],
+        })
+        .returning({ id: schema.objectSyncBatches.id });
+      if (!insertedBatch) {
+        const replayed = await this.findExistingBatchResult({
+          catalogId: request.catalog_id,
+          providerId: request.provider_id,
+          registrationVersion: request.registration_version,
+          batchId,
+          requestHash,
+        }, syncDb);
+        if (replayed) return replayed;
+        throw new AppError('validation_error', 'batch_id already exists but could not be replayed', 409, {
+          batch_id: batchId,
+        });
+      }
 
       const items: ObjectSyncItemResult[] = [];
       for (const item of request.objects) {
@@ -76,9 +122,10 @@ export class ObjectSyncService {
       }
 
       if (items.length > 0) {
-        await syncDb.insert(schema.objectSyncItemResults).values(items.map((item) => ({
+        await syncDb.insert(schema.objectSyncItemResults).values(items.map((item, itemOrdinal) => ({
           id: newId('syncitem'),
           syncBatchId: batchRowId,
+          itemOrdinal,
           objectId: item.object_id ?? null,
           status: item.status,
           commercialObjectId: item.commercial_object_id ?? null,
@@ -158,6 +205,59 @@ export class ObjectSyncService {
 
     if (!object) throw new AppError('not_found', `Commercial object ${objectId} was not found`, 404);
     return object;
+  }
+
+  private async findExistingBatchResult(input: {
+    catalogId: string;
+    providerId: string;
+    registrationVersion: number;
+    batchId: string;
+    requestHash: string;
+  }, db: Db = this.db): Promise<ObjectSyncResult | null> {
+    const [batch] = await db
+      .select()
+      .from(schema.objectSyncBatches)
+      .where(and(
+        eq(schema.objectSyncBatches.catalogId, input.catalogId),
+        eq(schema.objectSyncBatches.providerId, input.providerId),
+        eq(schema.objectSyncBatches.batchId, input.batchId),
+      ))
+      .limit(1);
+
+    if (!batch) return null;
+    if (batch.requestHash !== input.requestHash) {
+      throw new AppError('validation_error', 'batch_id already exists with a different request hash', 409, {
+        batch_id: input.batchId,
+      });
+    }
+
+    const items = await db
+      .select()
+      .from(schema.objectSyncItemResults)
+      .where(eq(schema.objectSyncItemResults.syncBatchId, batch.id))
+      .orderBy(schema.objectSyncItemResults.itemOrdinal, schema.objectSyncItemResults.id);
+
+    return {
+      ocp_version: '1.0',
+      kind: 'ObjectSyncResult',
+      id: stringValue(batch.resultSummary.result_id) ?? newId('syncres'),
+      catalog_id: input.catalogId,
+      provider_id: input.providerId,
+      registration_version: input.registrationVersion,
+      batch_id: input.batchId,
+      status: batch.status,
+      accepted_count: batch.acceptedCount,
+      rejected_count: batch.rejectedCount,
+      error_count: batch.errorCount,
+      items: items.map((item) => ({
+        object_id: item.objectId ?? undefined,
+        status: item.status,
+        commercial_object_id: item.commercialObjectId ?? undefined,
+        catalog_entry_id: item.catalogEntryId ?? undefined,
+        errors: item.errors,
+        warnings: item.warnings,
+      })),
+    };
   }
 
   private async syncOne(db: Db, input: unknown, context: SyncContext): Promise<ObjectSyncItemResult> {
@@ -376,4 +476,23 @@ function extractObjectId(input: unknown) {
   }
 
   return undefined;
+}
+
+function firstDuplicateObjectId(inputs: unknown[]) {
+  const seen = new Set<string>();
+  for (const input of inputs) {
+    const objectId = extractObjectId(input);
+    if (!objectId) continue;
+    if (seen.has(objectId)) return objectId;
+    seen.add(objectId);
+  }
+  return null;
+}
+
+async function hashJson(value: unknown) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }

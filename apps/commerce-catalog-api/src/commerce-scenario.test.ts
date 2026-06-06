@@ -121,6 +121,31 @@ describe('commerce-scenario', () => {
     expect(inputNames).toContain('filters.has_image');
   });
 
+  test('advertises NDJSON streaming sync for large catalog intake', () => {
+    const scenario = createCommerceCatalogScenario();
+    const [capability] = scenario.providerSyncCapabilities?.() ?? [];
+    expect(capability).toBeDefined();
+
+    expect(capability).toMatchObject({
+      capability_id: 'ocp.push.batch',
+      sync_model: {
+        snapshot: true,
+        stream: true,
+      },
+      batching: {
+        enabled: true,
+        max_items: 1000,
+      },
+      streaming: {
+        enabled: true,
+      },
+      metadata: {
+        stream_endpoint_path: '/ocp/objects/sync/stream',
+        stream_content_type: 'application/x-ndjson',
+      },
+    });
+  });
+
   test('advertises practical query usage guidance in manifest metadata', () => {
     const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: true });
     const capability = scenario.queryCapabilities()[0];

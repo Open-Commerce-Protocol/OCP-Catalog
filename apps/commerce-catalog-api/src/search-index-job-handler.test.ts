@@ -38,6 +38,7 @@ describe('SearchIndexJobHandlerService', () => {
       providerId: 'provider_test',
       catalogEntryId: 'centry_test',
       commercialObjectId: 'cobj_test',
+      dedupeKey: 'embedding:sjob_test:sdoc_test',
       payload: {
         search_document_id: 'sdoc_test',
         source_job_id: 'sjob_test',
@@ -139,6 +140,7 @@ describe('SearchIndexJobHandlerService', () => {
         providerId: 'provider_test',
         catalogEntryId: 'centry_1',
         commercialObjectId: 'cobj_1',
+        dedupeKey: 'rebuild:sjob_test:document:centry_1',
         jobType: 'rebuild_document',
         payload: {
           source_job_id: 'sjob_test',
@@ -149,6 +151,7 @@ describe('SearchIndexJobHandlerService', () => {
         providerId: 'provider_test',
         catalogEntryId: 'centry_2',
         commercialObjectId: 'cobj_2',
+        dedupeKey: 'rebuild:sjob_test:document:centry_2',
         jobType: 'rebuild_document',
         payload: {
           source_job_id: 'sjob_test',
@@ -157,6 +160,7 @@ describe('SearchIndexJobHandlerService', () => {
       {
         catalogId: 'cat_test',
         providerId: 'provider_test',
+        dedupeKey: 'rebuild:sjob_test:next:centry_2',
         jobType: 'rebuild_all_for_provider',
         payload: {
           source_job_id: 'sjob_test',
@@ -220,6 +224,7 @@ function searchIndexJob(input: Partial<SearchIndexJob>): SearchIndexJob {
     providerId: 'provider_test',
     catalogEntryId: null,
     commercialObjectId: null,
+    dedupeKey: null,
     jobType: 'upsert_document',
     status: 'pending',
     attemptCount: 0,

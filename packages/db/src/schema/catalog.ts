@@ -267,6 +267,7 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   providerId: text('provider_id'),
   catalogEntryId: text('catalog_entry_id').references(() => catalogEntries.id, { onDelete: 'set null' }),
   commercialObjectId: text('commercial_object_id').references(() => commercialObjects.id, { onDelete: 'set null' }),
+  dedupeKey: text('dedupe_key'),
   jobType: catalogSearchIndexJobType('job_type').notNull(),
   status: catalogSearchIndexJobStatus('status').notNull().default('pending'),
   attemptCount: integer('attempt_count').notNull().default(0),
@@ -282,6 +283,7 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   catalogStatusScheduledIdx: index('catalog_search_index_jobs_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
   catalogTypeStatusIdx: index('catalog_search_index_jobs_catalog_type_status_idx').on(table.catalogId, table.jobType, table.status),
   providerCreatedIdx: index('catalog_search_index_jobs_catalog_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
+  dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
 }));
 
 export const resolvableReferences = pgTable('resolvable_references', {
@@ -308,6 +310,7 @@ export const objectSyncBatches = pgTable('object_sync_batches', {
   acceptedCount: integer('accepted_count').notNull().default(0),
   rejectedCount: integer('rejected_count').notNull().default(0),
   errorCount: integer('error_count').notNull().default(0),
+  requestHash: text('request_hash').notNull(),
   requestMetadata: jsonb('request_metadata').$type<Record<string, unknown>>().notNull().default({}),
   resultSummary: jsonb('result_summary').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -322,6 +325,7 @@ export const objectSyncItemResults = pgTable('object_sync_item_results', {
   syncBatchId: text('sync_batch_id')
     .notNull()
     .references(() => objectSyncBatches.id, { onDelete: 'cascade' }),
+  itemOrdinal: integer('item_ordinal').notNull().default(0),
   objectId: text('object_id'),
   status: objectSyncItemStatus('status').notNull(),
   commercialObjectId: text('commercial_object_id').references(() => commercialObjects.id, { onDelete: 'set null' }),
@@ -331,6 +335,7 @@ export const objectSyncItemResults = pgTable('object_sync_item_results', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   syncBatchIdx: index('object_sync_item_results_batch_idx').on(table.syncBatchId),
+  syncBatchObjectUnique: uniqueIndex('object_sync_item_results_batch_object_unique').on(table.syncBatchId, table.objectId),
 }));
 
 export const queryAuditRecords = pgTable('query_audit_records', {

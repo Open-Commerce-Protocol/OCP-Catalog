@@ -335,6 +335,7 @@ export const catalogManifestSchema = z.object({
     provider_registration: endpointSchema.optional(),
     contracts: endpointSchema.optional(),
     object_sync: endpointSchema.optional(),
+    object_sync_stream: endpointSchema.optional(),
   }),
   query_capabilities: z.array(catalogQueryCapabilitySchema).min(1),
   data_profile: catalogDataProfileSchema.optional(),
@@ -434,7 +435,7 @@ export const objectSyncRequestSchema = z.object({
   provider_id: z.string().min(1),
   registration_version: z.number().int().min(1),
   batch_id: z.string().min(1).optional(),
-  objects: z.array(z.unknown()).min(1).max(100),
+  objects: z.array(z.unknown()).min(1).max(1000),
 });
 
 export const objectSyncItemResultSchema = z.object({
@@ -459,6 +460,26 @@ export const objectSyncResultSchema = z.object({
   rejected_count: z.number().int().min(0),
   error_count: z.number().int().min(0),
   items: z.array(objectSyncItemResultSchema),
+});
+
+export const objectSyncStreamChunkResultSchema = z.object({
+  batch_id: z.string().min(1),
+  status: z.enum(['accepted', 'partial', 'rejected']),
+  accepted_count: z.number().int().min(0),
+  rejected_count: z.number().int().min(0),
+});
+
+export const objectSyncStreamResultSchema = z.object({
+  ocp_version: ocpVersionSchema,
+  kind: z.literal('ObjectSyncStreamResult'),
+  catalog_id: z.string().min(1),
+  provider_id: z.string().min(1),
+  registration_version: z.number().int().min(1),
+  stream_batch_id: z.string().min(1),
+  chunk_count: z.number().int().min(0),
+  accepted_count: z.number().int().min(0),
+  rejected_count: z.number().int().min(0),
+  chunks: z.array(objectSyncStreamChunkResultSchema),
 });
 
 export const catalogQueryFiltersSchema = z.object({
@@ -645,6 +666,8 @@ export type RegistrationResult = z.infer<typeof registrationResultSchema>;
 export type ObjectSyncRequest = z.infer<typeof objectSyncRequestSchema>;
 export type ObjectSyncResult = z.infer<typeof objectSyncResultSchema>;
 export type ObjectSyncItemResult = z.infer<typeof objectSyncItemResultSchema>;
+export type ObjectSyncStreamChunkResult = z.infer<typeof objectSyncStreamChunkResultSchema>;
+export type ObjectSyncStreamResult = z.infer<typeof objectSyncStreamResultSchema>;
 export type CatalogQueryRequest = z.infer<typeof catalogQueryRequestSchema>;
 export type CatalogQueryResult = z.infer<typeof catalogQueryResultSchema>;
 export type QueryPolicySummary = z.infer<typeof queryPolicySummarySchema>;

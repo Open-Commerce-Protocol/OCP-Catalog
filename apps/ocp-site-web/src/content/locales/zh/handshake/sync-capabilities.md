@@ -85,7 +85,10 @@ Catalog 随后返回：
 register
 -> selected_sync_capability = ocp.push.batch
 -> provider 发送 batched ObjectSyncRequest payload
+-> 大批量导入时，provider 可以向 object_sync_stream 发送 application/x-ndjson
 ```
+
+streaming 形态仍然是 catalog-hosted push，不要求 provider 暴露长期公网 endpoint。Provider 通过 query 参数传入 `provider_id`、`registration_version`、`batch_id` 和可选 `chunk_size`，然后每行发送一个 `CommercialObject` JSON。Catalog 会按有界 chunk 提交并记录稳定 request hash，因此传输中断后 provider 必须用同一个 `batch_id` 和相同 chunking 参数重试同一个 stream，不会重复提交已完成 chunk，也不会重复创建 index job。改变 chunk 边界属于新的写入请求，已提交 chunk 会按 hash conflict 拒绝。
 
 ## 预留能力说明
 

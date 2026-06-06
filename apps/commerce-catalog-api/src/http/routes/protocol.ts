@@ -5,12 +5,16 @@ import {
 } from '@ocp-catalog/catalog-core';
 import { schema } from '@ocp-catalog/db';
 import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
+import type { ObjectSyncStreamResult } from '@ocp-catalog/ocp-schema';
+import { AppError } from '@ocp-catalog/shared';
 import { and, count, eq, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import type { CommerceCatalogRuntimeContext } from '../../runtime/context';
 import { firstHeader } from '../request-context';
 
 const DATA_PROFILE_CACHE_TTL_MS = 60_000;
+const STREAM_SYNC_DEFAULT_CHUNK_SIZE = 500;
+const STREAM_SYNC_MAX_CHUNK_SIZE = 1_000;
 
 export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
   const {
@@ -105,6 +109,32 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
         public_visibility: 'public',
         metadata: {
           sync_status: result.status,
+          accepted_count: result.accepted_count,
+          rejected_count: result.rejected_count,
+        },
+      });
+      return result;
+    })
+    .post('/ocp/objects/sync/stream', async ({ request, query, headers }) => {
+      assertWriteAuth(headers);
+      const result = await syncObjectStream(request, query);
+      await recordActivityEvent({
+        event_type: 'catalog.object_synced',
+        source_kind: 'catalog_node',
+        client_kind: 'http',
+        endpoint_role: 'inbound',
+        protocol_family: 'catalog',
+        protocol_version: '1.0',
+        method: 'POST',
+        path_template: '/ocp/objects/sync/stream',
+        status_code: 200,
+        catalog_id: result.catalog_id,
+        provider_id: result.provider_id,
+        sync_object_count: result.accepted_count + result.rejected_count,
+        public_visibility: 'public',
+        metadata: {
+          stream_batch_id: result.stream_batch_id,
+          chunk_count: result.chunk_count,
           accepted_count: result.accepted_count,
           rejected_count: result.rejected_count,
         },
@@ -277,6 +307,7 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     catalog_id: string;
     provider_id: string;
     registration_version: number;
+    batch_id: string;
     items: Array<{
       status: string;
       object_id?: string;
@@ -292,11 +323,137 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
         providerId: result.provider_id,
         catalogEntryId: item.catalog_entry_id!,
         commercialObjectId: item.commercial_object_id!,
+        dedupeKey: `sync:${result.batch_id}:upsert_document:${item.catalog_entry_id}`,
         jobType: 'upsert_document' as const,
         payload: {
           object_id: item.object_id,
           registration_version: result.registration_version,
         },
       })));
+  }
+
+  async function syncObjectStream(
+    request: Request,
+    query: Record<string, string | undefined>,
+  ): Promise<ObjectSyncStreamResult> {
+    const providerId = requiredQueryString(query, 'provider_id');
+    const registrationVersion = requiredQueryInteger(query, 'registration_version');
+    const streamBatchId = requiredQueryString(query, 'batch_id');
+    const chunkSize = optionalQueryInteger(query, 'chunk_size') ?? STREAM_SYNC_DEFAULT_CHUNK_SIZE;
+    if (chunkSize < 1 || chunkSize > STREAM_SYNC_MAX_CHUNK_SIZE) {
+      throw new AppError('validation_error', `chunk_size must be from 1 to ${STREAM_SYNC_MAX_CHUNK_SIZE}`, 400, {
+        chunk_size: chunkSize,
+        max_chunk_size: STREAM_SYNC_MAX_CHUNK_SIZE,
+      });
+    }
+    if (!request.body) {
+      throw new AppError('validation_error', 'stream request body is required', 400);
+    }
+
+    let chunkIndex = 0;
+    let lineNumber = 0;
+    let acceptedCount = 0;
+    let rejectedCount = 0;
+    const chunks: Array<{
+      batch_id: string;
+      status: ObjectSyncStreamResult['chunks'][number]['status'];
+      accepted_count: number;
+      rejected_count: number;
+    }> = [];
+    let chunk: unknown[] = [];
+    let pending = '';
+    const decoder = new TextDecoder();
+
+    for await (const value of request.body) {
+      pending += decoder.decode(value, { stream: true });
+      const lines = pending.split(/\r?\n/);
+      pending = lines.pop() ?? '';
+      for (const line of lines) {
+        await pushStreamLine(line);
+      }
+    }
+    pending += decoder.decode();
+    if (pending.length > 0) {
+      await pushStreamLine(pending);
+    }
+    if (chunk.length > 0) {
+      await flushChunk();
+    }
+
+    return {
+      ocp_version: '1.0',
+      kind: 'ObjectSyncStreamResult',
+      catalog_id: config.CATALOG_ID,
+      provider_id: providerId,
+      registration_version: registrationVersion,
+      stream_batch_id: streamBatchId,
+      chunk_count: chunks.length,
+      accepted_count: acceptedCount,
+      rejected_count: rejectedCount,
+      chunks,
+    };
+
+    async function pushStreamLine(line: string) {
+      lineNumber += 1;
+      if (!line.trim()) return;
+      try {
+        chunk.push(JSON.parse(line));
+      } catch (error) {
+        throw new AppError('validation_error', `Invalid NDJSON at line ${lineNumber}`, 400, {
+          line_number: lineNumber,
+          committed_chunk_count: chunks.length,
+          parse_error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (chunk.length >= chunkSize) {
+        await flushChunk();
+      }
+    }
+
+    async function flushChunk() {
+      const batchId = `${streamBatchId}:${String(chunkIndex).padStart(8, '0')}`;
+      const result = await services.objects.sync({
+        ocp_version: '1.0',
+        kind: 'ObjectSyncRequest',
+        catalog_id: config.CATALOG_ID,
+        provider_id: providerId,
+        registration_version: registrationVersion,
+        batch_id: batchId,
+        objects: chunk,
+      });
+      await enqueueSearchIndexJobs(result);
+      acceptedCount += result.accepted_count;
+      rejectedCount += result.rejected_count;
+      chunks.push({
+        batch_id: result.batch_id,
+        status: result.status,
+        accepted_count: result.accepted_count,
+        rejected_count: result.rejected_count,
+      });
+      chunk = [];
+      chunkIndex += 1;
+    }
+  }
+
+  function requiredQueryString(query: Record<string, string | undefined>, key: string) {
+    const value = query[key];
+    if (!value?.trim()) throw new AppError('validation_error', `${key} is required`, 400, { field: key });
+    return value.trim();
+  }
+
+  function requiredQueryInteger(query: Record<string, string | undefined>, key: string) {
+    const value = optionalQueryInteger(query, key);
+    if (value === undefined) throw new AppError('validation_error', `${key} is required`, 400, { field: key });
+    return value;
+  }
+
+  function optionalQueryInteger(query: Record<string, string | undefined>, key: string) {
+    const value = query[key];
+    if (!value?.trim()) return undefined;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new AppError('validation_error', `${key} must be a positive integer`, 400, { field: key, value });
+    }
+    return parsed;
   }
 }

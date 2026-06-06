@@ -25,6 +25,7 @@ export type SearchIndexJob = {
   providerId: string | null;
   catalogEntryId: string | null;
   commercialObjectId: string | null;
+  dedupeKey: string | null;
   jobType: SearchIndexJobType;
   status: SearchIndexJobStatus;
   attemptCount: number;
@@ -44,6 +45,7 @@ type EnqueueJobInput = {
   providerId?: string | null;
   catalogEntryId?: string | null;
   commercialObjectId?: string | null;
+  dedupeKey?: string | null;
   payload?: SearchIndexJobPayload;
   scheduledAt?: Date;
   maxAttempts?: number;
@@ -56,9 +58,15 @@ export class SearchIndexJobService {
     const [job] = await this.db
       .insert(schema.catalogSearchIndexJobs)
       .values(toInsertValue(input))
+      .onConflictDoNothing({
+        target: [
+          schema.catalogSearchIndexJobs.catalogId,
+          schema.catalogSearchIndexJobs.dedupeKey,
+        ],
+      })
       .returning();
 
-    return toSearchIndexJob(job);
+    return job ? toSearchIndexJob(job) : null;
   }
 
   async enqueueMany(inputs: EnqueueJobInput[]) {
@@ -66,6 +74,12 @@ export class SearchIndexJobService {
     const rows = await this.db
       .insert(schema.catalogSearchIndexJobs)
       .values(inputs.map(toInsertValue))
+      .onConflictDoNothing({
+        target: [
+          schema.catalogSearchIndexJobs.catalogId,
+          schema.catalogSearchIndexJobs.dedupeKey,
+        ],
+      })
       .returning();
 
     return rows.map(toSearchIndexJob);
@@ -203,6 +217,7 @@ function toInsertValue(input: EnqueueJobInput) {
     providerId: input.providerId ?? null,
     catalogEntryId: input.catalogEntryId ?? null,
     commercialObjectId: input.commercialObjectId ?? null,
+    dedupeKey: input.dedupeKey ?? null,
     jobType: input.jobType,
     status: 'pending' as const,
     payload: input.payload ?? {},
@@ -217,6 +232,7 @@ function toSearchIndexJob(row: typeof schema.catalogSearchIndexJobs.$inferSelect
     providerId: row.providerId ?? null,
     catalogEntryId: row.catalogEntryId ?? null,
     commercialObjectId: row.commercialObjectId ?? null,
+    dedupeKey: row.dedupeKey ?? null,
     startedAt: row.startedAt ?? null,
     finishedAt: row.finishedAt ?? null,
     error: row.error ?? null,

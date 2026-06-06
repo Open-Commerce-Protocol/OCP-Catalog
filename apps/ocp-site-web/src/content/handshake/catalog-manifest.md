@@ -53,7 +53,8 @@ should omit `data_profile` when they do not persist product entries locally.
     "resolve": { "url": "https://catalog.example/ocp/resolve", "method": "POST" },
     "provider_registration": { "url": "https://catalog.example/ocp/providers/register", "method": "POST" },
     "contracts": { "url": "https://catalog.example/ocp/contracts", "method": "GET" },
-    "object_sync": { "url": "https://catalog.example/ocp/objects/sync", "method": "POST" }
+    "object_sync": { "url": "https://catalog.example/ocp/objects/sync", "method": "POST" },
+    "object_sync_stream": { "url": "https://catalog.example/ocp/objects/sync/stream", "method": "POST" }
   }
 }
 ```
@@ -61,9 +62,9 @@ should omit `data_profile` when they do not persist product entries locally.
 `endpoints.health` is optional for schema compatibility, but production catalogs should expose it. Registration nodes call it during registration and refresh before falling back to a query probe for older manifests.
 
 Only `endpoints.query` and `endpoints.resolve` are required. `provider_registration`,
-`object_sync`, `contracts`, and `provider_contract` are present only when the
-Catalog implements those surfaces. A live affiliate Catalog can omit Provider
-ingestion endpoints entirely.
+`object_sync`, `object_sync_stream`, `contracts`, and `provider_contract` are
+present only when the Catalog implements those surfaces. A live affiliate
+Catalog can omit Provider ingestion endpoints entirely.
 
 The health endpoint returns `CatalogHealth`:
 
@@ -112,17 +113,37 @@ Example:
         "sync_model": {
           "snapshot": true,
           "delta": false,
-          "stream": false
+          "stream": true
         },
         "mutation_semantics": {
           "upsert": true,
           "delete": true
+        },
+        "batching": {
+          "enabled": true,
+          "max_items": 1000
+        },
+        "streaming": {
+          "enabled": true
+        },
+        "metadata": {
+          "stream_endpoint_path": "/ocp/objects/sync/stream",
+          "stream_content_type": "application/x-ndjson"
         }
       }
     ]
   }
 }
 ```
+
+For NDJSON streaming, each non-empty line is one `CommercialObject`. The Catalog
+commits the stream in bounded chunks. Each committed chunk is recorded as a
+normal sync batch using the provider supplied `batch_id` plus a chunk ordinal.
+If the transport fails halfway through, the provider can retry the same stream
+with the same `batch_id` and chunking parameters. Previously committed chunks
+replay by `request_hash` and do not create duplicate index jobs. Changing chunk
+boundaries is a different write request and the already committed chunk fails as
+a hash conflict.
 
 ## Search Contract Shape
 

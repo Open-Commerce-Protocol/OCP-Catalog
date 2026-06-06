@@ -90,7 +90,18 @@ The example runtime path is:
 register
 -> selected_sync_capability = ocp.push.batch
 -> provider sends batched ObjectSyncRequest payloads
+-> for large imports, provider may send application/x-ndjson to object_sync_stream
 ```
+
+The streaming form is still catalog-hosted push. It does not require the
+provider to expose a long-lived public endpoint. The provider supplies
+`provider_id`, `registration_version`, `batch_id`, and optional `chunk_size` as
+query parameters, then streams one `CommercialObject` JSON object per line. The
+Catalog commits bounded chunks with stable request hashes, so a provider can
+retry the same stream with the same `batch_id` and chunking parameters after a
+transport failure without duplicating committed chunks or index jobs. Changing
+chunk boundaries makes the retry a different write request and should be
+expected to fail with a hash conflict for already committed chunks.
 
 ## Reserved Capability Guidance
 

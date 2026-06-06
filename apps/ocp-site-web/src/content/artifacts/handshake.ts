@@ -56,6 +56,7 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
             contracts_url: 'http://localhost:4000/ocp/contracts',
             provider_registration_url: 'http://localhost:4000/ocp/providers/register',
             object_sync_url: 'http://localhost:4000/ocp/objects/sync',
+            object_sync_stream_url: 'http://localhost:4000/ocp/objects/sync/stream',
             query_url: 'http://localhost:4000/ocp/query',
             resolve_url: 'http://localhost:4000/ocp/resolve',
           },

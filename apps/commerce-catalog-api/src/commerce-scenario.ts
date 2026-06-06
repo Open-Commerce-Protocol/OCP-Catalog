@@ -92,7 +92,7 @@ function buildCommerceSyncCapabilities(): SyncCapability[] {
       sync_model: {
         snapshot: true,
         delta: false,
-        stream: false,
+        stream: true,
       },
       mutation_semantics: {
         upsert: true,
@@ -100,14 +100,14 @@ function buildCommerceSyncCapabilities(): SyncCapability[] {
       },
       batching: {
         enabled: true,
-        max_items: 100,
+        max_items: 1000,
         max_bytes: 1048576,
       },
       cursoring: {
         enabled: false,
       },
       streaming: {
-        enabled: false,
+        enabled: true,
       },
       auth: {
         schemes: ['x-api-key'],
@@ -117,7 +117,12 @@ function buildCommerceSyncCapabilities(): SyncCapability[] {
         path_hint: '/ocp/objects/sync',
         required_endpoint_fields: [],
       },
-      metadata: {},
+      metadata: {
+        stream_endpoint_path: '/ocp/objects/sync/stream',
+        stream_content_type: 'application/x-ndjson',
+        stream_query_fields: ['provider_id', 'registration_version', 'batch_id', 'chunk_size'],
+        stream_retry_model: 'Each committed stream chunk is stored as batch_id:<zero-padded chunk index>. Retrying the same stream with identical chunk payloads replays committed chunks by request_hash and suppresses duplicate index jobs by dedupe_key.',
+      },
     },
   ];
 }

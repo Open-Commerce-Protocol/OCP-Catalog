@@ -100,7 +100,9 @@ describe('commerce catalog integration', () => {
       .from(schema.objectSyncBatches)
       .where(eq(schema.objectSyncBatches.batchId, `batch_${providerId}`))
       .limit(1);
-    expect(syncBatch?.requestMetadata).toEqual({
+    expect(typeof syncBatch?.requestHash).toBe('string');
+    expect(syncBatch?.requestHash).not.toBe('');
+    expect(syncBatch?.requestMetadata).toMatchObject({
       object_count: 2,
       has_client_batch_id: true,
     });
@@ -112,6 +114,85 @@ describe('commerce catalog integration', () => {
       error_count: 0,
     });
     expect(JSON.stringify(syncBatch)).not.toContain('Wireless noise cancelling headphones');
+
+    const replayedSyncResult = await services.objects.sync({
+      ocp_version: '1.0',
+      kind: 'ObjectSyncRequest',
+      catalog_id: baseConfig.CATALOG_ID,
+      provider_id: providerId,
+      registration_version: 1,
+      batch_id: `batch_${providerId}`,
+      objects: [
+        buildCommercialObject({
+          providerId,
+          objectId: 'travel-headphones-rich',
+          title: `Travel Headphones ${providerId}`,
+          summary: 'Wireless noise cancelling headphones with aluminum frame.',
+          brand: 'North Audio',
+          category: 'electronics',
+          sku: `sku-${providerId}-rich`,
+          productUrl: `https://provider.example/products/${providerId}/rich`,
+          imageUrls: [`https://provider.example/images/${providerId}-rich.jpg`],
+          currency: 'USD',
+          amount: 129.99,
+          listAmount: 159.99,
+          availabilityStatus: 'in_stock',
+          quantity: 6,
+          attributes: { color: 'black', material: 'aluminum' },
+        }),
+        buildCommercialObject({
+          providerId,
+          objectId: 'travel-headphones-basic',
+          title: `Travel Headphones ${providerId} budget`,
+          summary: undefined,
+          brand: undefined,
+          category: undefined,
+          sku: undefined,
+          productUrl: undefined,
+          imageUrls: [],
+          currency: 'USD',
+          amount: 99.99,
+          listAmount: undefined,
+          availabilityStatus: 'out_of_stock',
+          quantity: 0,
+          attributes: {},
+        }),
+      ],
+    });
+    expect(replayedSyncResult).toEqual(syncResult);
+    const duplicateBatchRows = await db
+      .select()
+      .from(schema.objectSyncBatches)
+      .where(eq(schema.objectSyncBatches.batchId, `batch_${providerId}`));
+    expect(duplicateBatchRows).toHaveLength(1);
+
+    await expect(services.objects.sync({
+      ocp_version: '1.0',
+      kind: 'ObjectSyncRequest',
+      catalog_id: baseConfig.CATALOG_ID,
+      provider_id: providerId,
+      registration_version: 1,
+      batch_id: `batch_${providerId}`,
+      objects: [
+        buildCommercialObject({
+          providerId,
+          objectId: 'travel-headphones-rich',
+          title: `Travel Headphones ${providerId} conflicting retry`,
+          summary: 'This payload must be rejected for the reused batch id.',
+          brand: 'North Audio',
+          category: 'electronics',
+          sku: `sku-${providerId}-conflict`,
+          productUrl: `https://provider.example/products/${providerId}/conflict`,
+          imageUrls: [],
+          currency: 'USD',
+          amount: 199.99,
+          listAmount: undefined,
+          availabilityStatus: 'in_stock',
+          quantity: 1,
+          attributes: {},
+        }),
+      ],
+    })).rejects.toThrow('different request hash');
 
     await services.objects.sync({
       ocp_version: '1.0',

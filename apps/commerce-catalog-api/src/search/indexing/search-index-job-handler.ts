@@ -40,6 +40,7 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
             providerId: job.providerId,
             catalogEntryId: entry.catalogEntryId,
             commercialObjectId: entry.commercialObjectId,
+            dedupeKey: `rebuild:${job.id}:document:${entry.catalogEntryId}`,
             jobType: 'rebuild_document',
             payload: {
               source_job_id: job.id,
@@ -50,6 +51,7 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
           await this.jobs.enqueue({
             catalogId: job.catalogId,
             providerId: job.providerId,
+            dedupeKey: `rebuild:${job.id}:next:${page.nextCursor.catalogEntryId}`,
             jobType: 'rebuild_all_for_provider',
             payload: {
               source_job_id: job.id,
@@ -81,6 +83,7 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
       providerId: job.providerId,
       catalogEntryId: job.catalogEntryId,
       commercialObjectId: job.commercialObjectId,
+      dedupeKey: `embedding:${job.id}:${documentId}`,
       payload: {
         search_document_id: documentId,
         source_job_id: job.id,
