@@ -60,6 +60,24 @@ function buildCommerceObjectContracts(): ObjectContract[] {
         'ocp.commerce.inventory.v1#/quantity',
       ],
       additional_fields_policy: 'allow',
+      field_usage_policy: [
+        {
+          field_ref: 'ocp.commerce.product.core.v1#/title',
+          requirement: 'required',
+          usage: ['index', 'rank', 'display', 'search_visible', 'explain'],
+        },
+        {
+          field_ref: 'ocp.commerce.product.core.v1#/summary',
+          requirement: 'optional',
+          usage: ['index', 'display', 'search_visible', 'explain'],
+        },
+        {
+          field_ref: 'ocp.commerce.product.core.v1#/image_urls',
+          requirement: 'optional',
+          usage: ['display', 'search_visible', 'resolve_visible'],
+          note: 'CatalogEntry may project the first image as image_url for result previews.',
+        },
+      ],
     },
   ];
 }
@@ -342,6 +360,7 @@ function buildSearchProjection(object: CommercialObject): SearchProjection {
   return {
     title,
     ...(summary ? { summary } : {}),
+    ...(primaryImageUrl ? { image_url: primaryImageUrl } : {}),
     ...(category ? { category } : {}),
     ...(brand ? { brand } : {}),
     ...(currency ? { currency } : {}),

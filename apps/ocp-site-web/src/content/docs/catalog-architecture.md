@@ -75,6 +75,18 @@ Provider
 
 The Provider reads discovery and manifest first to learn which object types and fields a Catalog accepts; checks the ObjectContract against what it can guarantee; submits a `ProviderRegistration`; receives a `RegistrationResult` that selects a Sync Capability (`feed` / `pull` / `push` / `streaming` / `delta` / `snapshot`). Only then do objects flow into the Catalog and become CatalogEntries. **Registration builds the contract; sync moves data.** Never both in one call.
 
+### Production storage boundary
+
+OCP does not prescribe a database, but a production product-scale Catalog should separate the object fact store, retrieval projection, and vector index.
+
+| Plane | Responsibility |
+| --- | --- |
+| Fact store, typically RDS / PostgreSQL | Durable `CommercialObject` payloads, structured filters, transactions, import audit, dedupe state, full-text search, resolve references |
+| CatalogEntry projection | Searchable summaries, optional preview `image_url`, ranking signals, visibility projection, freshness, provenance summary, `object_ref` |
+| Dedicated vector index | Semantic recall at large scale, keyed by `entry_id` / `object_ref`, with version and watermark tracked back in the fact store |
+
+Do not treat one RDS table plus pgvector as the default main path for tens of millions of product embeddings. RDS can remain the source of truth and structured/full-text retrieval plane, while vector recall runs in a specialized index and joins back through stable object references.
+
 ### Boundaries to keep in mind
 
 - **A Registration Node discovers catalogs, not products.** Its query target is Catalog metadata.

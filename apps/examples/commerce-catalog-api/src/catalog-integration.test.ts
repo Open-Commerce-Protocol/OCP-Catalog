@@ -162,6 +162,7 @@ describe('commerce catalog integration', () => {
     });
 
     expect(filteredQuery.entries).toHaveLength(1);
+    expect(filteredQuery.entries[0]?.entry.image_url).toBe(`https://provider.example/images/${providerId}-rich.jpg`);
     expect(filteredQuery.entries[0]?.entry.attributes.primary_image_url).toBe(`https://provider.example/images/${providerId}-rich.jpg`);
     expect(filteredQuery.entries[0]?.entry.attributes.list_amount).toBe(159.99);
 

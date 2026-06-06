@@ -1,5 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import { catalogManifestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
+import { catalogManifestSchema, type CatalogDataProfile, type CatalogManifest } from '@ocp-catalog/ocp-schema';
 import type { CatalogScenarioModule } from './scenario';
 import { defaultProviderFieldRules, defaultProviderSyncCapabilities } from './scenario';
 
@@ -23,7 +23,15 @@ export function buildWellKnownDiscovery(config: AppConfig) {
   };
 }
 
-export function buildCatalogManifest(config: AppConfig, scenario: CatalogScenarioModule): CatalogManifest {
+export type BuildCatalogManifestOptions = {
+  dataProfile?: CatalogDataProfile;
+};
+
+export function buildCatalogManifest(
+  config: AppConfig,
+  scenario: CatalogScenarioModule,
+  options: BuildCatalogManifestOptions = {},
+): CatalogManifest {
   const baseUrl = config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '');
   const objectContracts = scenario.objectContracts();
   const manifest: CatalogManifest = {
@@ -43,6 +51,7 @@ export function buildCatalogManifest(config: AppConfig, scenario: CatalogScenari
       object_sync: { url: `${baseUrl}/ocp/objects/sync`, method: 'POST' },
     },
     query_capabilities: scenario.queryCapabilities(),
+    ...(options.dataProfile ? { data_profile: options.dataProfile } : {}),
     provider_contract: {
       field_rules: scenario.providerFieldRules?.() ?? defaultProviderFieldRules(),
       sync_capabilities: scenario.providerSyncCapabilities?.() ?? defaultProviderSyncCapabilities(),

@@ -30,6 +30,7 @@ export async function inspectCatalogTool(input: InspectCatalogInput, deps: ToolD
     supported_filter_fields: summary.supported_filter_fields,
     supported_query_languages: summary.supported_query_languages,
     content_languages: summary.content_languages,
+    data_profile: summary.data_profile,
     supports_resolve: summary.supports_resolve,
     query_capabilities: manifest.query_capabilities,
   };

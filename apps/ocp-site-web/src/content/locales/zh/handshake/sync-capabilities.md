@@ -41,6 +41,21 @@ ProviderRegistration.object_declarations[].sync
 
 如果一个 capability 没出现在这两个 capability 列表里，说明这个 provider declaration 没有声明它参与协商。
 
+## Provider 持续性推导
+
+协议不新增独立的 `provider_lifecycle` 字段。Provider 是否需要被视为持续存在，应从已选择的 sync 和 resolve 表面推导。
+
+满足以下任一条件时，Provider 对该能力应被视为 persistent：
+
+- `direction` 是 `catalog_pull_provider`
+- `direction` 是 `provider_stream_to_catalog`
+- `sync_model.delta` 是 `true`
+- `sync_model.stream` 是 `true`
+- `endpoint_contract.hosted_by` 是 `provider`
+- 匹配的 object contract 在 `resolve_policy.strategies` 中使用 `provider_api`
+
+如果只是纯 `provider_to_catalog` snapshot push，没有 provider-hosted endpoint、没有 delta/stream，也没有 provider-backed resolve，它就是一次性导入。只要身份和来源声明满足 object contract，它仍然可以被信任；但 Catalog 不应该假设后续还能调用这个 provider。
+
 ## 示例同步路径
 
 当前 commerce provider 和 catalog 示例协商的是：

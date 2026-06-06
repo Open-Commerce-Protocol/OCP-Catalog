@@ -21,6 +21,15 @@ export type CatalogQueryCapability = {
   metadata?: Record<string, unknown>;
 };
 
+export type CatalogDataProfile = {
+  catalog_entry_count?: number;
+  object_counts?: Array<{
+    object_type?: string;
+    count?: number;
+  }>;
+  counted_at?: string;
+};
+
 export type CatalogManifest = {
   ocp_version?: string;
   kind?: string;
@@ -31,6 +40,7 @@ export type CatalogManifest = {
   registry_visibility?: string;
   endpoints?: Record<string, CatalogManifestEndpoint>;
   query_capabilities?: CatalogQueryCapability[];
+  data_profile?: CatalogDataProfile;
   object_contracts?: unknown[];
   auth_requirements?: Record<string, unknown>;
   [key: string]: unknown;

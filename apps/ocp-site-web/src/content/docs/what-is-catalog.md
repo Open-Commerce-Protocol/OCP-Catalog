@@ -39,7 +39,7 @@ A Catalog is described by several interlocking objects:
 - **CatalogManifest** — the full capability declaration: protocol version, endpoints, Query Packs, resolve capability, Provider integration requirements, sync capabilities, auth, rate limits, trust, freshness, and optional metadata hints. This is the primary entry point for other roles to understand a Catalog.
 - **CatalogRouteHint** — a cacheable, TTL-bounded routing summary returned by Registration Nodes.
 - **ObjectContract / Descriptor Contract** — field-level requirements for objects entering the Catalog (required fields, substitutable field groups, additional-fields policy, field usage, sensitivity).
-- **CatalogEntry** — the index projection of a `CommercialObject` inside a Catalog. It carries retrieval, ranking, deduplication, aggregation, visibility filtering, freshness, and resolve references.
+- **CatalogEntry** — the index projection of a `CommercialObject` inside a Catalog. It carries retrieval, ranking, deduplication, aggregation, visibility filtering, freshness, optional preview `image_url`, and resolve references.
 - **Query Pack / QueryPackBinding** — declared query modes (`keyword` / `filter` / `semantic` / `geo` / `availability` / `talent_match` / `rfq_match` / …) with their input / output schemas, filterable / sortable fields, explain support, and so on.
 
 A Catalog has two main flows:

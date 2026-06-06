@@ -64,6 +64,7 @@ describe('commerce-scenario', () => {
     expect(projection.amount).toBe(129.99);
     expect(projection.list_amount).toBe(159.99);
     expect(projection.discount_present).toBe(true);
+    expect(projection.image_url).toBe('https://provider.example/images/sku-1.jpg');
     expect(projection.primary_image_url).toBe('https://provider.example/images/sku-1.jpg');
     expect(projection.has_image).toBe(true);
     expect(projection.quality_tier).toBe('rich');

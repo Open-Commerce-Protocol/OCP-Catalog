@@ -23,6 +23,40 @@
       "type": "string",
       "enum": ["allow", "ignore", "reject"],
       "default": "allow"
+    },
+    "field_usage_policy": {
+      "type": "array",
+      "items": {
+        "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/FieldRule"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "identity_policy": {
+      "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/IdentityPolicy"
+    },
+    "resolve_policy": {
+      "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/ResolvePolicy"
+    },
+    "provenance_requirements": {
+      "type": "object",
+      "properties": {
+        "accepted_authority_types": {
+          "type": "array",
+          "items": {
+            "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/AuthorityType"
+          },
+          "uniqueItems": true
+        },
+        "requires_verification": {
+          "type": "boolean",
+          "default": false
+        },
+        "minimum_trust_tier": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/TrustTier"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

@@ -37,6 +37,27 @@ export const catalogHealthResponseSchema = z.object({
 
 export const catalogQueryModeSchema = z.enum(['keyword', 'filter', 'semantic', 'hybrid']);
 export const trustTierSchema = z.enum(['unknown', 'unverified', 'verified', 'trusted']);
+export const authorityTypeSchema = z.enum([
+  'provider_authoritative',
+  'external_source',
+  'imported_snapshot',
+  'source_proxy',
+]);
+export const verificationStatusSchema = z.enum([
+  'unknown',
+  'unverified',
+  'pending',
+  'verified',
+  'failed',
+  'not_required',
+]);
+export const identityKeyTypeSchema = z.enum([
+  'provider_object_id',
+  'provider_sku',
+  'external_source_key',
+  'canonical_url',
+  'content_hash',
+]);
 export const syncCapabilityDirectionSchema = z.enum([
   'provider_to_catalog',
   'catalog_pull_provider',
@@ -49,7 +70,19 @@ export const fieldRuleSchema = z.object({
   field_ref: z.string().min(1),
   requirement: requirementLevelSchema,
   usage: z
-    .array(z.enum(['identity', 'index', 'filter', 'rank', 'display', 'resolve', 'reference']))
+    .array(z.enum([
+      'identity',
+      'index',
+      'filter',
+      'rank',
+      'display',
+      'resolve',
+      'reference',
+      'explain',
+      'search_visible',
+      'resolve_visible',
+      'never_expose',
+    ]))
     .default([]),
   accepted_aliases: z.array(z.string().min(1)).optional(),
   note: z.string().optional(),
@@ -64,6 +97,24 @@ export const objectContractSchema = z.object({
   required_fields: z.array(fieldRequirementSchema).min(1),
   optional_fields: z.array(fieldRefSchema).default([]),
   additional_fields_policy: z.enum(['allow', 'ignore', 'reject']).default('allow'),
+  field_usage_policy: z.array(fieldRuleSchema).optional(),
+  identity_policy: z.object({
+    accepted_identity_keys: z.array(identityKeyTypeSchema).min(1),
+    dedupe_scope: z.enum(['provider', 'source', 'catalog']).default('provider'),
+    provider_sku_trust: z.enum(['not_accepted', 'accepted_as_claim', 'requires_verified_provider']).default('accepted_as_claim'),
+    requires_authority_verification: z.boolean().default(false),
+  }).strict().optional(),
+  resolve_policy: z.object({
+    strategies: z.array(z.enum(['provider_api', 'source_url', 'catalog_cached', 'unavailable'])).min(1),
+    requires_live_check: z.boolean().default(false),
+    provider_endpoint_required: z.boolean().default(false),
+    minimum_trust_tier: trustTierSchema.optional(),
+  }).strict().optional(),
+  provenance_requirements: z.object({
+    accepted_authority_types: z.array(authorityTypeSchema).default([]),
+    requires_verification: z.boolean().default(false),
+    minimum_trust_tier: trustTierSchema.optional(),
+  }).strict().optional(),
 });
 
 export const syncModelSchema = z.object({
@@ -108,7 +159,7 @@ export const syncCapabilitySchema = z.object({
     required_endpoint_fields: z.array(z.string().min(1)).default([]),
   }).optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
-});
+}).strict();
 
 export const selectedSyncCapabilitySchema = z.object({
   capability_id: z.string().min(1),
@@ -138,6 +189,15 @@ export const catalogQueryCapabilitySchema = z.object({
   supports_resolve: z.boolean().default(true),
   metadata: queryCapabilityMetadataSchema,
 });
+
+export const catalogDataProfileSchema = z.object({
+  catalog_entry_count: z.number().int().min(0),
+  object_counts: z.array(z.object({
+    object_type: z.string().min(1),
+    count: z.number().int().min(0),
+  }).strict()).default([]),
+  counted_at: z.string().datetime().optional(),
+}).strict();
 
 export const federationProfileSchema = z.object({
   mode: z.enum(['disabled', 'profile_only', 'summary_exchange', 'remote_routing']).default('disabled'),
@@ -277,6 +337,7 @@ export const catalogManifestSchema = z.object({
     object_sync: endpointSchema.optional(),
   }),
   query_capabilities: z.array(catalogQueryCapabilitySchema).min(1),
+  data_profile: catalogDataProfileSchema.optional(),
   provider_contract: z.object({
     field_rules: z.array(fieldRuleSchema),
     sync_capabilities: z.array(syncCapabilitySchema).default([]),
@@ -329,6 +390,20 @@ export const commercialObjectSchema = z.object({
   summary: z.string().optional(),
   status: z.enum(['active', 'inactive', 'draft']).default('active'),
   source_url: z.string().url().optional(),
+  provenance: z.object({
+    authority_type: authorityTypeSchema,
+    provider_id: z.string().min(1).optional(),
+    source: z.string().min(1).optional(),
+    source_site: z.string().min(1).optional(),
+    source_uri: z.string().url().optional(),
+    source_object_id: z.string().min(1).optional(),
+    source_variant_id: z.string().min(1).optional(),
+    collected_at: z.string().datetime().optional(),
+    verified_at: z.string().datetime().optional(),
+    verification_status: verificationStatusSchema.optional(),
+    trust_tier: trustTierSchema.optional(),
+    evidence: z.record(z.string(), z.unknown()).optional(),
+  }).strict().optional(),
   descriptors: z.array(z.object({
     pack_id: z.string().min(1),
     schema_uri: z.string().url().optional(),
@@ -421,6 +496,7 @@ export const catalogEntrySchema = z.object({
   commercial_object_id: z.string().min(1).optional(),
   title: z.string().min(1),
   summary: z.string().optional(),
+  image_url: z.string().url().optional(),
   attributes: z.record(z.string(), z.unknown()),
 });
 
@@ -552,8 +628,13 @@ export const inventoryPackSchema = z.object({
 }).strict();
 
 export type CatalogManifest = z.infer<typeof catalogManifestSchema>;
+export type CatalogDataProfile = z.infer<typeof catalogDataProfileSchema>;
 export type CatalogHealthResponse = z.infer<typeof catalogHealthResponseSchema>;
 export type CatalogHealthStatus = z.infer<typeof catalogHealthStatusSchema>;
+export type AuthorityType = z.infer<typeof authorityTypeSchema>;
+export type VerificationStatus = z.infer<typeof verificationStatusSchema>;
+export type TrustTier = z.infer<typeof trustTierSchema>;
+export type IdentityKeyType = z.infer<typeof identityKeyTypeSchema>;
 export type FederationProfile = z.infer<typeof federationProfileSchema>;
 export type ObjectContract = z.infer<typeof objectContractSchema>;
 export type SyncCapability = z.infer<typeof syncCapabilitySchema>;

@@ -10,12 +10,38 @@ It tells a provider or agent:
 - which endpoints are public
 - which object contracts it accepts
 - which query capabilities it exposes
+- optionally, how many active catalog entries it physically stores
 - optionally, which provider fields it requires
 - optionally, which sync capabilities it is willing to negotiate with providers
 
 A Catalog Node is not required to accept Provider ingestion. Source catalogs such
 as affiliate networks, federated routing nodes, or live API directories may only
 expose query and resolve surfaces.
+
+## Data Profile Shape
+
+`data_profile` is optional. It is for catalogs that physically store entries and
+can declare the size of that active stored data plane.
+
+```json
+{
+  "data_profile": {
+    "catalog_entry_count": 10000000,
+    "object_counts": [
+      { "object_type": "product", "count": 10000000 }
+    ],
+    "counted_at": "2026-06-06T00:00:00.000Z"
+  }
+}
+```
+
+`catalog_entry_count` is the number of active catalog entries physically stored
+by the catalog. For a commerce catalog this can be read as actual ingested
+products. It is not a claim that the search index is fully caught up, nor a claim
+about how many products a remote platform could theoretically expose.
+
+Live forwarding catalogs, such as affiliate-network or Shopify bridge catalogs,
+should omit `data_profile` when they do not persist product entries locally.
 
 ## Endpoint Shape
 
@@ -137,3 +163,9 @@ The commerce catalog example publishes one provider-facing sync capability:
 - `ocp.push.batch`
 
 Reserved capabilities such as `ocp.feed.url` belong in the runtime manifest only when the corresponding transport path is implemented.
+
+Provider persistence is not declared through a separate `provider_lifecycle`
+field. It is inferred from `sync_capabilities`, provider-hosted endpoints, and
+object-level `resolve_policy`. Snapshot-only provider push is an import path;
+pull, stream, delta, provider-hosted endpoints, or provider-backed resolve imply
+a persistent provider relationship for that capability.

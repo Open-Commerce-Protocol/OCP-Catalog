@@ -109,6 +109,9 @@ export class CommerceQueryService {
             commercial_object_id: row.commercialObjectId,
             title: row.title || stringValue(projection.title) || row.objectId,
             ...(row.summary || stringValue(projection.summary) ? { summary: row.summary ?? stringValue(projection.summary) } : {}),
+            ...(stringValue(projection.image_url) || stringValue(projection.primary_image_url)
+              ? { image_url: stringValue(projection.image_url) ?? stringValue(projection.primary_image_url) }
+              : {}),
             attributes: projection,
           } satisfies CatalogEntry,
           score,

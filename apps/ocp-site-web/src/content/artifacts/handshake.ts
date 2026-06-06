@@ -19,6 +19,13 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
           }),
         },
         {
+          title: { en: 'Data Profile Shape', zh: '数据画像结构' },
+          sourcePath: 'ocp.catalog.handshake.v1/catalog-manifest.schema.json',
+          select: (schema) => ({
+            data_profile: schema.properties?.data_profile,
+          }),
+        },
+        {
           title: { en: 'Provider Sync Capability Shape', zh: 'Provider 同步能力结构' },
           sourcePath: 'ocp.catalog.handshake.v1/catalog-manifest.schema.json',
           select: (schema) => ({
@@ -61,6 +68,11 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
             kind: 'CatalogManifest',
             catalog_id: 'commerce_catalog_local_dev',
             catalog_name: 'Commerce Product Search Catalog',
+            data_profile: {
+              catalog_entry_count: 5,
+              object_counts: [{ object_type: 'product', count: 5 }],
+              counted_at: '2026-06-06T00:00:00.000Z',
+            },
           },
         },
       ],
@@ -76,6 +88,10 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
               required_fields: schema.properties?.required_fields,
               optional_fields: schema.properties?.optional_fields,
               additional_fields_policy: schema.properties?.additional_fields_policy,
+              field_usage_policy: schema.properties?.field_usage_policy,
+              identity_policy: schema.properties?.identity_policy,
+              provenance_requirements: schema.properties?.provenance_requirements,
+              resolve_policy: schema.properties?.resolve_policy,
             },
           }),
         },
@@ -112,6 +128,34 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
                   'ocp.commerce.inventory.v1#/quantity',
                 ],
                 additional_fields_policy: 'allow',
+                field_usage_policy: [
+                  {
+                    field_ref: 'ocp.commerce.product.core.v1#/title',
+                    requirement: 'required',
+                    usage: ['index', 'rank', 'display', 'search_visible', 'explain'],
+                  },
+                  {
+                    field_ref: 'ocp.commerce.product.core.v1#/sku',
+                    requirement: 'optional',
+                    usage: ['identity', 'filter', 'never_expose'],
+                  },
+                ],
+                identity_policy: {
+                  accepted_identity_keys: ['provider_object_id', 'provider_sku'],
+                  dedupe_scope: 'provider',
+                  provider_sku_trust: 'requires_verified_provider',
+                  requires_authority_verification: true,
+                },
+                provenance_requirements: {
+                  accepted_authority_types: ['provider_authoritative', 'imported_snapshot'],
+                  requires_verification: true,
+                  minimum_trust_tier: 'verified',
+                },
+                resolve_policy: {
+                  strategies: ['provider_api', 'catalog_cached'],
+                  provider_endpoint_required: true,
+                  minimum_trust_tier: 'verified',
+                },
               },
             ],
           },
@@ -246,6 +290,7 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
               object_id: schema.properties?.object_id,
               object_type: schema.properties?.object_type,
               provider_id: schema.properties?.provider_id,
+              provenance: schema.properties?.provenance,
               descriptors: schema.properties?.descriptors,
             },
           }),
@@ -280,6 +325,12 @@ export const handshakeArtifacts: Record<string, PageArtifactDefinition> = {
                 provider_id: 'commerce_provider_local_dev',
                 title: 'Noise Cancelling Headphones',
                 summary: 'Wireless over-ear headphones with travel case.',
+                provenance: {
+                  authority_type: 'provider_authoritative',
+                  provider_id: 'commerce_provider_local_dev',
+                  verification_status: 'verified',
+                  trust_tier: 'verified',
+                },
                 descriptors: [
                   {
                     pack_id: 'ocp.commerce.product.core.v1',

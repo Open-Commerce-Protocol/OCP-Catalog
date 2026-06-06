@@ -41,6 +41,26 @@ The declaration surface is intentionally small:
 
 If a capability is absent from both capability lists, it is not declared usable by that provider declaration.
 
+## Provider Continuity
+
+The protocol does not add a separate `provider_lifecycle` field. A provider's
+continuity is inferred from the selected sync and resolve surfaces.
+
+A provider should be treated as persistent for a capability when any of these are
+true:
+
+- `direction` is `catalog_pull_provider`
+- `direction` is `provider_stream_to_catalog`
+- `sync_model.delta` is `true`
+- `sync_model.stream` is `true`
+- `endpoint_contract.hosted_by` is `provider`
+- the matching object contract uses `resolve_policy.strategies` with `provider_api`
+
+A pure `provider_to_catalog` snapshot push with no provider-hosted endpoint, no
+delta/stream model, and no provider-backed resolve is a one-shot import. It can
+still be trusted if its identity and provenance claims satisfy the object
+contract, but the catalog should not assume a live provider remains callable.
+
 ## Example Sync Path
 
 The current commerce provider and catalog examples negotiate:

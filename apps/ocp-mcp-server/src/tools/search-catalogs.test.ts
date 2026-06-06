@@ -28,6 +28,10 @@ describe('search and inspect tools', () => {
     expect(result.catalog_id).toBe('cat_local_dev');
     expect(result.supported_query_packs).toContain('ocp.query.keyword.v1');
     expect(result.supported_filter_fields).toContain('category');
+    expect(result.data_profile).toMatchObject({
+      catalog_entry_count: 5,
+      object_counts: [{ object_type: 'product', count: 5 }],
+    });
   });
 
   test('search_catalogs falls back to catalog listing when keyword search returns no results', async () => {

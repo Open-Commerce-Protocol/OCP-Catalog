@@ -155,6 +155,41 @@
         "additionalProperties": false
       }
     },
+    "data_profile": {
+      "type": "object",
+      "required": ["catalog_entry_count"],
+      "properties": {
+        "catalog_entry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of active catalog entries physically stored by this catalog. Omit data_profile when the catalog only forwards live requests or cannot declare an authoritative stored count."
+        },
+        "object_counts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["object_type", "count"],
+            "properties": {
+              "object_type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "counted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
     "provider_contract": {
       "type": "object",
       "required": ["field_rules", "sync_capabilities"],

@@ -38,6 +38,7 @@ export function summarizeManifest(manifest: CatalogManifest) {
     supported_filter_fields: unique(supportedFilterFields),
     supported_query_languages: unique(queryHints.flatMap((hint) => stringArray(hint.supported_query_languages))),
     content_languages: unique(queryHints.flatMap((hint) => stringArray(hint.content_languages))),
+    data_profile: manifest.data_profile ?? null,
     supports_explain: manifest.query_capabilities.some((capability) => capability.supports_explain),
     supports_resolve: manifest.query_capabilities.some((capability) => capability.supports_resolve),
   };

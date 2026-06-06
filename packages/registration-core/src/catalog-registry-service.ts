@@ -758,6 +758,9 @@ export class CatalogRegistryService {
           supported_query_languages: row.supportedQueryLanguages,
           content_languages: row.contentLanguages,
         },
+        ...(asRecord(projection.metadata).data_profile
+          ? { data_profile: asRecord(projection.metadata).data_profile }
+          : {}),
       },
       verification_status: row.verificationStatus,
       trust_tier: row.trustTier,

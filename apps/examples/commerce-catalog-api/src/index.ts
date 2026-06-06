@@ -43,6 +43,11 @@ const searchIndexWorker = new SearchIndexWorker(
 );
 const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 const searchIndexScheduler = startSearchIndexWorkerScheduler();
+const DATA_PROFILE_CACHE_TTL_MS = 60_000;
+let catalogDataProfileCache: {
+  expiresAt: number;
+  value: Awaited<ReturnType<typeof loadCatalogDataProfile>>;
+} | null = null;
 
 console.log(JSON.stringify({
   ts: new Date().toISOString(),
@@ -114,7 +119,10 @@ const app = new Elysia()
   }))
   .get('/ocp/health', async () => getCatalogHealth())
   .get('/.well-known/ocp-catalog', () => buildWellKnownDiscovery(config))
-  .get('/ocp/manifest', () => buildCatalogManifest(config, commerceCatalogScenario))
+  .get('/ocp/manifest', async () => {
+    const dataProfile = await getOptionalCatalogDataProfile();
+    return buildCatalogManifest(config, commerceCatalogScenario, dataProfile ? { dataProfile } : {});
+  })
   .get('/ocp/contracts', () => {
     const contracts = buildCatalogManifest(config, commerceCatalogScenario).object_contracts;
 
@@ -615,6 +623,59 @@ async function getCatalogHealth() {
       ],
     };
   }
+}
+
+async function getOptionalCatalogDataProfile() {
+  try {
+    return await getCatalogDataProfile();
+  } catch (error) {
+    console.warn(JSON.stringify({
+      ts: new Date().toISOString(),
+      level: 'warn',
+      event: 'catalog_data_profile_unavailable',
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    return catalogDataProfileCache?.value;
+  }
+}
+
+async function getCatalogDataProfile() {
+  const now = Date.now();
+  if (catalogDataProfileCache && catalogDataProfileCache.expiresAt > now) {
+    return catalogDataProfileCache.value;
+  }
+
+  const value = await loadCatalogDataProfile();
+  catalogDataProfileCache = {
+    expiresAt: now + DATA_PROFILE_CACHE_TTL_MS,
+    value,
+  };
+  return value;
+}
+
+async function loadCatalogDataProfile() {
+  const objectCounts = await db
+    .select({
+      objectType: schema.catalogEntries.objectType,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(schema.catalogEntries)
+    .where(and(
+      eq(schema.catalogEntries.catalogId, config.CATALOG_ID),
+      eq(schema.catalogEntries.entryStatus, 'active'),
+    ))
+    .groupBy(schema.catalogEntries.objectType);
+
+  return {
+    catalog_entry_count: objectCounts.reduce((sum, row) => sum + row.count, 0),
+    object_counts: objectCounts
+      .map((row) => ({
+        object_type: row.objectType,
+        count: row.count,
+      }))
+      .sort((left, right) => left.object_type.localeCompare(right.object_type)),
+    counted_at: new Date().toISOString(),
+  };
 }
 
 async function countRows<T extends Parameters<typeof db.select>[0]>(

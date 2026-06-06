@@ -48,6 +48,11 @@ export const manifest: CatalogManifest = {
     contracts: { url: 'http://localhost:4000/ocp/contracts', method: 'GET' },
     object_sync: { url: 'http://localhost:4000/ocp/objects/sync', method: 'POST' },
   },
+  data_profile: {
+    catalog_entry_count: 5,
+    object_counts: [{ object_type: 'product', count: 5 }],
+    counted_at: '2026-04-28T00:00:00.000Z',
+  },
   query_capabilities: [
     {
       capability_id: 'ocp.commerce.product.search.v1',

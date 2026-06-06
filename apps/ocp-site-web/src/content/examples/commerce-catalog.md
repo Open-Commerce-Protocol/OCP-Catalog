@@ -15,6 +15,11 @@ The current example is not a generic placeholder. It is the running behavior of:
 
 The live catalog accepts commerce product objects, projects them into searchable entries, computes quality tiers, optionally writes embeddings, and returns resolvable product candidates.
 
+Its manifest also publishes a `data_profile` with the current
+`catalog_entry_count`. That count is the number of active entries actually
+stored in this catalog database; it is not a search-index freshness claim or a
+claim about products available from remote live-forwarding catalogs.
+
 ## Current Object Contract
 
 The current catalog requires a provider declaration that can guarantee:

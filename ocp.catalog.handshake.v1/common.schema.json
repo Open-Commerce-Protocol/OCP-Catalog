@@ -40,7 +40,19 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["identity", "index", "filter", "rank", "display", "resolve", "reference"]
+            "enum": [
+              "identity",
+              "index",
+              "filter",
+              "rank",
+              "display",
+              "resolve",
+              "reference",
+              "explain",
+              "search_visible",
+              "resolve_visible",
+              "never_expose"
+            ]
           },
           "uniqueItems": true,
           "default": []
@@ -112,6 +124,127 @@
         },
         "description": {
           "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "AuthorityType": {
+      "type": "string",
+      "enum": ["provider_authoritative", "external_source", "imported_snapshot", "source_proxy"]
+    },
+    "VerificationStatus": {
+      "type": "string",
+      "enum": ["unknown", "unverified", "pending", "verified", "failed", "not_required"]
+    },
+    "TrustTier": {
+      "type": "string",
+      "enum": ["unknown", "unverified", "verified", "trusted"]
+    },
+    "IdentityKeyType": {
+      "type": "string",
+      "enum": ["provider_object_id", "provider_sku", "external_source_key", "canonical_url", "content_hash"]
+    },
+    "IdentityPolicy": {
+      "type": "object",
+      "required": ["accepted_identity_keys"],
+      "properties": {
+        "accepted_identity_keys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/IdentityKeyType"
+          },
+          "uniqueItems": true
+        },
+        "dedupe_scope": {
+          "type": "string",
+          "enum": ["provider", "source", "catalog"],
+          "default": "provider"
+        },
+        "provider_sku_trust": {
+          "type": "string",
+          "enum": ["not_accepted", "accepted_as_claim", "requires_verified_provider"],
+          "default": "accepted_as_claim"
+        },
+        "requires_authority_verification": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "ResolvePolicy": {
+      "type": "object",
+      "required": ["strategies"],
+      "properties": {
+        "strategies": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["provider_api", "source_url", "catalog_cached", "unavailable"]
+          },
+          "uniqueItems": true
+        },
+        "requires_live_check": {
+          "type": "boolean",
+          "default": false
+        },
+        "provider_endpoint_required": {
+          "type": "boolean",
+          "default": false
+        },
+        "minimum_trust_tier": {
+          "$ref": "#/$defs/TrustTier"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ProvenanceRecord": {
+      "type": "object",
+      "required": ["authority_type"],
+      "properties": {
+        "authority_type": {
+          "$ref": "#/$defs/AuthorityType"
+        },
+        "provider_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_site": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_uri": {
+          "$ref": "#/$defs/URL"
+        },
+        "source_object_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_variant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collected_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "verified_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "verification_status": {
+          "$ref": "#/$defs/VerificationStatus"
+        },
+        "trust_tier": {
+          "$ref": "#/$defs/TrustTier"
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": true
         }
       },
       "additionalProperties": false

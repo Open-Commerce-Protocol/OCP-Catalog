@@ -446,12 +446,23 @@ CatalogEntry 应支持：
 | `object_ref` | 指向 CommercialObject 或远端对象 |
 | `object_type` | 对象类型 |
 | `summary` | 搜索结果摘要 |
+| `image_url` | 可选预览图 URL，用于搜索结果卡片或 agent 结果预览 |
 | `match_features` | 匹配特征摘要 |
 | `ranking_signals` | 可解释的排序信号 |
 | `visibility_projection` | 当前查询上下文可见字段 |
 | `freshness` | 索引更新时间和过期状态 |
 | `provenance` | 来源摘要 |
 | `resolvable` | 是否可 resolve |
+
+生产级 Catalog 的存储实现建议遵循“事实库 + 检索投影 + 专用向量索引”三层：
+
+1. RDS / PostgreSQL 承担对象事实库、结构化过滤、事务一致性、导入审计、去重状态、全文检索和 resolve 引用管理。
+2. CatalogEntry 是从 CommercialObject 和 Provider/source 状态投影出来的检索记录，不要求保存完整商品详情。
+3. 向量召回应使用独立专用索引服务或独立检索集群承载，并通过 `entry_id` / `object_ref` 回表到 RDS 事实库。
+4. RDS 中可保存 embedding job 状态、向量索引版本、最近投影时间和一致性水位，但不应假设单个 RDS + pgvector 就承担千万级向量召回主路径。
+5. Resolve 返回详情、实时校验或 ActionBinding；这些详情可以来自 Provider API、外部 source 或 catalog cached projection。
+
+因此，Catalog 的协议对象契约应优先声明字段用途、身份、来源、信任和 resolve 策略，而不是把 provider 的完整商品详情模型固定为 CatalogEntry schema。
 
 ### 8.10 Query Pack
 

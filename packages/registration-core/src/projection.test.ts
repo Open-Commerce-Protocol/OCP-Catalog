@@ -33,6 +33,24 @@ describe('registration projection', () => {
     expect(projection).not.toHaveProperty('trust_profile');
   });
 
+  test('data profile is preserved in projection metadata when declared', () => {
+    const projection = buildCatalogSearchProjection(baseRegistration, {
+      ...baseManifest,
+      data_profile: {
+        catalog_entry_count: 30_000_000,
+        object_counts: [{ object_type: 'product', count: 30_000_000 }],
+        counted_at: '2026-06-06T00:00:00.000Z',
+      },
+    }, 'not_required', 'declared', 'healthy');
+
+    expect(projection.metadata).toMatchObject({
+      data_profile: {
+        catalog_entry_count: 30_000_000,
+        object_counts: [{ object_type: 'product', count: 30_000_000 }],
+      },
+    });
+  });
+
   test('federation projection summarizes manifest federation and trust strategy', () => {
     const projection = buildCatalogSearchProjection({
       ...baseRegistration,

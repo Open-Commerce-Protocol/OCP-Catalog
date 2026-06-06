@@ -75,6 +75,18 @@ Provider
 
 Provider 先读 discovery document 和 Manifest，理解目标 Catalog 接受哪些对象类型与字段；按 ObjectContract 检视自身能保证的字段后提交 ProviderRegistration；Catalog 返回 RegistrationResult，明确选定的 SyncCapability（feed / pull / push / streaming / delta / snapshot）；之后对象通过同步通道源源进入 Catalog，被投影成 CatalogEntry。**注册只建契约，同步才搬数据**——两件事不混在一次调用里。
 
+### 生产级存储边界
+
+OCP 不规定具体数据库，但商品规模的生产 Catalog 应拆开对象事实库、检索投影和向量索引。
+
+| 平面 | 职责 |
+| --- | --- |
+| 事实库，通常是 RDS / PostgreSQL | 持久化 `CommercialObject` payload、结构化过滤、事务、导入审计、去重状态、全文检索、resolve 引用 |
+| CatalogEntry 投影 | 可搜索摘要、可选预览 `image_url`、排序信号、可见性投影、新鲜度、来源摘要、`object_ref` |
+| 专用向量索引 | 大规模语义召回，以 `entry_id` / `object_ref` 为 key，并把索引版本和水位记录回事实库 |
+
+不要把单个 RDS 表加 pgvector 当作千万级商品 embedding 召回的默认主路径。RDS 可以继续作为事实库和结构化/全文检索平面；向量召回应放在专用索引里，再通过稳定对象引用回表。
+
 ### 必须再次强调的边界
 
 - **Registration Node 只发现 Catalog，不搜索商品**。它的查询对象是 Catalog metadata，不是任何商业对象本体。

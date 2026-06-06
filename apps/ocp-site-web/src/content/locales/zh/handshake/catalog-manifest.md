@@ -10,10 +10,31 @@
 - 哪些 endpoint 是公开的
 - 它接受哪些 object contract
 - 它暴露哪些 query capability
+- 可选：它实际入库了多少 active catalog entry
 - 可选：它要求 provider 具备哪些字段
 - 可选：它愿意和 provider 协商哪些 sync capability
 
 Catalog Node 不一定要接受 Provider 写入。联盟分佣网络、联邦路由节点、实时 API 目录这类 source catalog，可以只暴露 query 和 resolve 表面。
+
+## Data Profile 形状
+
+`data_profile` 是可选字段，只用于实际持久化 entries 的 Catalog 声明 active 入库数据面规模。
+
+```json
+{
+  "data_profile": {
+    "catalog_entry_count": 10000000,
+    "object_counts": [
+      { "object_type": "product", "count": 10000000 }
+    ],
+    "counted_at": "2026-06-06T00:00:00.000Z"
+  }
+}
+```
+
+`catalog_entry_count` 表示实际入库且处于 active 状态的 catalog entry 数量。对 commerce catalog 来说，可以理解为实际入库商品数；它不代表 search index 已完全追平，也不代表远端平台理论可访问商品数。
+
+Shopify bridge、淘宝推广等实时转发型 Catalog 如果不在本地持久化商品 entry，应直接省略 `data_profile`。
 
 ## Endpoint 形状
 
@@ -130,3 +151,5 @@ commerce catalog 示例的 live manifest 发布一个 provider-facing sync capab
 - `ocp.push.batch`
 
 像 `ocp.feed.url` 这样的保留能力，应在对应传输路径实现后再出现在运行时 manifest 中。
+
+Provider 持续性不通过单独的 `provider_lifecycle` 字段声明，而是从 `sync_capabilities`、provider-hosted endpoint 和 object-level `resolve_policy` 推导。纯 snapshot push 是一次性导入路径；pull、stream、delta、provider-hosted endpoint 或 provider-backed resolve 才表示该能力下存在持续 provider 关系。

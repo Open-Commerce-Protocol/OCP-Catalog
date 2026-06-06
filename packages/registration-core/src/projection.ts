@@ -110,6 +110,7 @@ export function buildCatalogSearchProjection(
         supported_query_languages: queryLanguages,
         content_languages: contentLangs,
       },
+      ...(manifest.data_profile ? { data_profile: manifest.data_profile } : {}),
     },
     verification_status: verificationStatus,
     trust_tier: trustTier,
