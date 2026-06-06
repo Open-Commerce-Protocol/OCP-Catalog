@@ -1,12 +1,24 @@
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
 
 export type SearchDocumentUpsertResult = {
   catalogEntryId: string;
   documentId: string;
   documentStatus: SearchDocumentStatus;
+};
+
+export type ProviderCatalogEntryPage = {
+  entries: Array<{
+    catalogEntryId: string;
+    commercialObjectId: string;
+    updatedAt: Date;
+  }>;
+  nextCursor: {
+    updatedAt: Date;
+    catalogEntryId: string;
+  } | null;
 };
 
 type SearchDocumentStatus = 'pending' | 'active' | 'inactive' | 'stale' | 'failed';
@@ -115,6 +127,54 @@ export class SearchDocumentUpsertService {
     }
 
     return results;
+  }
+
+  async listProviderCatalogEntryPage(input: {
+    catalogId: string;
+    providerId: string;
+    limit: number;
+    cursor?: {
+      updatedAt: Date;
+      catalogEntryId: string;
+    } | null;
+  }): Promise<ProviderCatalogEntryPage> {
+    const conditions = [
+      eq(schema.catalogEntries.catalogId, input.catalogId),
+      eq(schema.catalogEntries.providerId, input.providerId),
+    ];
+    if (input.cursor) {
+      conditions.push(or(
+        lt(schema.catalogEntries.updatedAt, input.cursor.updatedAt),
+        and(
+          eq(schema.catalogEntries.updatedAt, input.cursor.updatedAt),
+          lt(schema.catalogEntries.id, input.cursor.catalogEntryId),
+        ),
+      )!);
+    }
+
+    const rows = await this.db
+      .select({
+        catalogEntryId: schema.catalogEntries.id,
+        commercialObjectId: schema.catalogEntries.commercialObjectId,
+        updatedAt: schema.catalogEntries.updatedAt,
+      })
+      .from(schema.catalogEntries)
+      .where(and(...conditions))
+      .orderBy(desc(schema.catalogEntries.updatedAt), desc(schema.catalogEntries.id))
+      .limit(input.limit + 1);
+
+    const entries = rows.slice(0, input.limit);
+    const last = entries.at(-1);
+
+    return {
+      entries,
+      nextCursor: rows.length > input.limit && last
+        ? {
+            updatedAt: last.updatedAt,
+            catalogEntryId: last.catalogEntryId,
+          }
+        : null,
+    };
   }
 
   async deleteForCatalogEntry(catalogEntryId: string) {

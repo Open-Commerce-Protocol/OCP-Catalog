@@ -73,6 +73,12 @@ export type CatalogAdminProvider = {
   } | null;
 };
 
+export type CatalogAdminPage = {
+  limit: number;
+  has_more: boolean;
+  next_cursor: string | null;
+};
+
 export type CatalogAdminEntry = {
   entry_id: string;
   commercial_object_id: string;
@@ -232,7 +238,7 @@ export async function fetchCatalogAdminOverview(apiKey: string) {
 }
 
 export async function fetchCatalogAdminProviders(apiKey: string) {
-  const payload = await request<{ catalog_id: string; providers: CatalogAdminProvider[] }>(`${adminPrefix}/providers`, {
+  const payload = await request<{ catalog_id: string; providers: CatalogAdminProvider[]; page: CatalogAdminPage }>(`${adminPrefix}/providers`, {
     method: 'GET',
     apiKey,
   });
@@ -251,7 +257,7 @@ export async function fetchCatalogAdminEntries(apiKey: string, filters?: {
   if (filters?.qualityTier) params.set('quality_tier', filters.qualityTier);
   if (filters?.search) params.set('search', filters.search);
   const suffix = params.size > 0 ? `?${params.toString()}` : '';
-  const payload = await request<{ catalog_id: string; entries: CatalogAdminEntry[] }>(`${adminPrefix}/entries${suffix}`, {
+  const payload = await request<{ catalog_id: string; entries: CatalogAdminEntry[]; page: CatalogAdminPage }>(`${adminPrefix}/entries${suffix}`, {
     method: 'GET',
     apiKey,
   });

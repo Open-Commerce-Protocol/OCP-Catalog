@@ -55,21 +55,20 @@ export class SearchIndexJobService {
   async enqueue(input: EnqueueJobInput) {
     const [job] = await this.db
       .insert(schema.catalogSearchIndexJobs)
-      .values({
-        id: newId('sjob'),
-        catalogId: input.catalogId,
-        providerId: input.providerId ?? null,
-        catalogEntryId: input.catalogEntryId ?? null,
-        commercialObjectId: input.commercialObjectId ?? null,
-        jobType: input.jobType,
-        status: 'pending',
-        payload: input.payload ?? {},
-        scheduledAt: input.scheduledAt ?? new Date(),
-        maxAttempts: input.maxAttempts ?? 5,
-      })
+      .values(toInsertValue(input))
       .returning();
 
     return toSearchIndexJob(job);
+  }
+
+  async enqueueMany(inputs: EnqueueJobInput[]) {
+    if (inputs.length === 0) return [];
+    const rows = await this.db
+      .insert(schema.catalogSearchIndexJobs)
+      .values(inputs.map(toInsertValue))
+      .returning();
+
+    return rows.map(toSearchIndexJob);
   }
 
   async enqueueDocumentUpsert(input: Omit<EnqueueJobInput, 'jobType'>) {
@@ -195,6 +194,21 @@ export class SearchIndexJobService {
       })
       .where(eq(schema.catalogSearchIndexJobs.id, job.id));
   }
+}
+
+function toInsertValue(input: EnqueueJobInput) {
+  return {
+    id: newId('sjob'),
+    catalogId: input.catalogId,
+    providerId: input.providerId ?? null,
+    catalogEntryId: input.catalogEntryId ?? null,
+    commercialObjectId: input.commercialObjectId ?? null,
+    jobType: input.jobType,
+    status: 'pending' as const,
+    payload: input.payload ?? {},
+    scheduledAt: input.scheduledAt ?? new Date(),
+    maxAttempts: input.maxAttempts ?? 5,
+  };
 }
 
 function toSearchIndexJob(row: typeof schema.catalogSearchIndexJobs.$inferSelect): SearchIndexJob {

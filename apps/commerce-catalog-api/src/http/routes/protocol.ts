@@ -285,18 +285,18 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       warnings: string[];
     }>;
   }) {
-    for (const item of result.items) {
-      if (item.status !== 'accepted' || !item.catalog_entry_id || !item.commercial_object_id) continue;
-      await searchIndexJobs.enqueueDocumentUpsert({
+    await searchIndexJobs.enqueueMany(result.items
+      .filter((item) => item.status === 'accepted' && item.catalog_entry_id && item.commercial_object_id)
+      .map((item) => ({
         catalogId: result.catalog_id,
         providerId: result.provider_id,
-        catalogEntryId: item.catalog_entry_id,
-        commercialObjectId: item.commercial_object_id,
+        catalogEntryId: item.catalog_entry_id!,
+        commercialObjectId: item.commercial_object_id!,
+        jobType: 'upsert_document' as const,
         payload: {
           object_id: item.object_id,
           registration_version: result.registration_version,
         },
-      });
-    }
+      })));
   }
 }

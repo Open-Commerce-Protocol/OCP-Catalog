@@ -29,6 +29,13 @@
       "when": 1780034192792,
       "tag": "0003_shocking_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780765264246,
+      "tag": "0004_sync_batch_metadata",
+      "breakpoints": true
     }
   ]
 }

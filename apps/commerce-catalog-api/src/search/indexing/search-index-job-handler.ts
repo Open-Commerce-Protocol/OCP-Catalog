@@ -3,6 +3,9 @@ import type { SearchIndexJobHandler } from './index-worker';
 import { SearchDocumentUpsertService } from './document-upsert-service';
 import type { SearchEmbeddingService } from './search-embedding-service';
 
+const REBUILD_PROVIDER_DEFAULT_PAGE_SIZE = 500;
+const REBUILD_PROVIDER_MAX_PAGE_SIZE = 1_000;
+
 export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
   constructor(
     private readonly documents: SearchDocumentUpsertService,
@@ -24,23 +27,37 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
         await this.documents.deleteForCatalogEntry(requireCatalogEntryId(job));
         return;
       case 'rebuild_all_for_provider': {
-        const results = await this.documents.upsertForProvider({
+        if (!this.jobs) throw new Error('rebuild_all_for_provider requires SearchIndexJobService');
+        const page = await this.documents.listProviderCatalogEntryPage({
           catalogId: job.catalogId,
           providerId: requireProviderId(job),
+          limit: resolveRebuildPageSize(job),
+          cursor: resolveRebuildCursor(job),
         });
-        if (this.embeddings && this.jobs) {
-          for (const result of results) {
-            if (result.documentStatus !== 'active') continue;
-            await this.jobs.enqueueEmbeddingRefresh({
-              catalogId: job.catalogId,
-              providerId: job.providerId,
-              catalogEntryId: result.catalogEntryId,
-              payload: {
-                search_document_id: result.documentId,
-                source_job_id: job.id,
-              },
-            });
-          }
+        for (const entry of page.entries) {
+          await this.jobs.enqueue({
+            catalogId: job.catalogId,
+            providerId: job.providerId,
+            catalogEntryId: entry.catalogEntryId,
+            commercialObjectId: entry.commercialObjectId,
+            jobType: 'rebuild_document',
+            payload: {
+              source_job_id: job.id,
+            },
+          });
+        }
+        if (page.nextCursor) {
+          await this.jobs.enqueue({
+            catalogId: job.catalogId,
+            providerId: job.providerId,
+            jobType: 'rebuild_all_for_provider',
+            payload: {
+              source_job_id: job.id,
+              page_size: resolveRebuildPageSize(job),
+              cursor_updated_at: page.nextCursor.updatedAt.toISOString(),
+              cursor_entry_id: page.nextCursor.catalogEntryId,
+            },
+          });
         }
         return;
       }
@@ -86,6 +103,32 @@ function resolveSearchDocumentId(job: SearchIndexJob) {
   const value = job.payload.search_document_id;
   if (typeof value === 'string' && value.trim()) return value;
   throw new Error(`refresh_embedding job ${job.id} requires payload.search_document_id`);
+}
+
+function resolveRebuildPageSize(job: SearchIndexJob) {
+  const value = job.payload.page_size;
+  if (value === undefined) return REBUILD_PROVIDER_DEFAULT_PAGE_SIZE;
+  if (!Number.isInteger(value) || typeof value !== 'number' || value < 1 || value > REBUILD_PROVIDER_MAX_PAGE_SIZE) {
+    throw new Error(`rebuild_all_for_provider job ${job.id} has invalid payload.page_size`);
+  }
+  return value;
+}
+
+function resolveRebuildCursor(job: SearchIndexJob) {
+  const updatedAt = job.payload.cursor_updated_at;
+  const entryId = job.payload.cursor_entry_id;
+  if (updatedAt === undefined && entryId === undefined) return null;
+  if (typeof updatedAt !== 'string' || typeof entryId !== 'string' || !entryId.trim()) {
+    throw new Error(`rebuild_all_for_provider job ${job.id} has invalid cursor payload`);
+  }
+  const parsedUpdatedAt = new Date(updatedAt);
+  if (Number.isNaN(parsedUpdatedAt.getTime())) {
+    throw new Error(`rebuild_all_for_provider job ${job.id} has invalid cursor_updated_at`);
+  }
+  return {
+    updatedAt: parsedUpdatedAt,
+    catalogEntryId: entryId,
+  };
 }
 
 function assertNever(value: never): never {

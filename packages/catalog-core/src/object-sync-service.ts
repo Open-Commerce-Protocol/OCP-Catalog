@@ -15,6 +15,7 @@ import type { CatalogScenarioModule, SearchProjection } from './scenario';
 import type { RegistrationService } from './registration-service';
 
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
+const MAX_OBJECT_SYNC_BATCH_SIZE = 1_000;
 
 export class ObjectSyncService {
   constructor(
@@ -29,6 +30,12 @@ export class ObjectSyncService {
     if (request.catalog_id !== this.config.CATALOG_ID) {
       throw new AppError('validation_error', `catalog_id must be ${this.config.CATALOG_ID}`, 400);
     }
+    if (request.objects.length > MAX_OBJECT_SYNC_BATCH_SIZE) {
+      throw new AppError('validation_error', `Object sync batch exceeds ${MAX_OBJECT_SYNC_BATCH_SIZE} objects`, 413, {
+        max_object_count: MAX_OBJECT_SYNC_BATCH_SIZE,
+        object_count: request.objects.length,
+      });
+    }
 
     const providerState = await this.registrations.findProviderState(request.provider_id);
     if (!providerState || providerState.status !== 'active') {
@@ -42,69 +49,83 @@ export class ObjectSyncService {
 
     const batchId = request.batch_id ?? newId('batch');
     const batchRowId = newId('syncbatch');
-    await this.db.insert(schema.objectSyncBatches).values({
-      id: batchRowId,
-      catalogId: request.catalog_id,
-      providerId: request.provider_id,
-      registrationVersion: request.registration_version,
-      batchId,
-      status: 'rejected',
-      requestPayload: request as unknown as Record<string, unknown>,
-    });
-
-    const items: ObjectSyncItemResult[] = [];
-    for (const item of request.objects) {
-      const result = await this.syncOne(item, {
+    return this.db.transaction(async (tx) => {
+      const syncDb = tx as unknown as Db;
+      await syncDb.insert(schema.objectSyncBatches).values({
+        id: batchRowId,
         catalogId: request.catalog_id,
         providerId: request.provider_id,
         registrationVersion: request.registration_version,
-        scenario: this.scenario,
+        batchId,
+        status: 'rejected',
+        requestMetadata: {
+          object_count: request.objects.length,
+          has_client_batch_id: request.batch_id !== undefined,
+        },
       });
-      items.push(result);
 
-      await this.db.insert(schema.objectSyncItemResults).values({
-        id: newId('syncitem'),
-        syncBatchId: batchRowId,
-        objectId: result.object_id ?? null,
-        status: result.status,
-        commercialObjectId: result.commercial_object_id ?? null,
-        catalogEntryId: result.catalog_entry_id ?? null,
-        errors: result.errors,
-        warnings: result.warnings,
-      });
-    }
+      const items: ObjectSyncItemResult[] = [];
+      for (const item of request.objects) {
+        const result = await this.syncOne(syncDb, item, {
+          catalogId: request.catalog_id,
+          providerId: request.provider_id,
+          registrationVersion: request.registration_version,
+          scenario: this.scenario,
+        });
+        items.push(result);
+      }
 
-    const acceptedCount = items.filter((item) => item.status === 'accepted').length;
-    const rejectedCount = items.length - acceptedCount;
-    const status = acceptedCount === 0 ? 'rejected' : rejectedCount > 0 ? 'partial' : 'accepted';
-    const result: ObjectSyncResult = {
-      ocp_version: '1.0',
-      kind: 'ObjectSyncResult',
-      id: newId('syncres'),
-      catalog_id: request.catalog_id,
-      provider_id: request.provider_id,
-      registration_version: request.registration_version,
-      batch_id: batchId,
-      status,
-      accepted_count: acceptedCount,
-      rejected_count: rejectedCount,
-      error_count: rejectedCount,
-      items,
-    };
+      if (items.length > 0) {
+        await syncDb.insert(schema.objectSyncItemResults).values(items.map((item) => ({
+          id: newId('syncitem'),
+          syncBatchId: batchRowId,
+          objectId: item.object_id ?? null,
+          status: item.status,
+          commercialObjectId: item.commercial_object_id ?? null,
+          catalogEntryId: item.catalog_entry_id ?? null,
+          errors: item.errors,
+          warnings: item.warnings,
+        })));
+      }
 
-    await this.db
-      .update(schema.objectSyncBatches)
-      .set({
+      const acceptedCount = items.filter((item) => item.status === 'accepted').length;
+      const rejectedCount = items.length - acceptedCount;
+      const status = acceptedCount === 0 ? 'rejected' : rejectedCount > 0 ? 'partial' : 'accepted';
+      const result: ObjectSyncResult = {
+        ocp_version: '1.0',
+        kind: 'ObjectSyncResult',
+        id: newId('syncres'),
+        catalog_id: request.catalog_id,
+        provider_id: request.provider_id,
+        registration_version: request.registration_version,
+        batch_id: batchId,
         status,
-        acceptedCount,
-        rejectedCount,
-        errorCount: rejectedCount,
-        resultPayload: result as unknown as Record<string, unknown>,
-        finishedAt: new Date(),
-      })
-      .where(eq(schema.objectSyncBatches.id, batchRowId));
+        accepted_count: acceptedCount,
+        rejected_count: rejectedCount,
+        error_count: rejectedCount,
+        items,
+      };
 
-    return result;
+      await syncDb
+        .update(schema.objectSyncBatches)
+        .set({
+          status,
+          acceptedCount,
+          rejectedCount,
+          errorCount: rejectedCount,
+          resultSummary: {
+            result_id: result.id,
+            item_count: items.length,
+            accepted_count: acceptedCount,
+            rejected_count: rejectedCount,
+            error_count: rejectedCount,
+          },
+          finishedAt: new Date(),
+        })
+        .where(eq(schema.objectSyncBatches.id, batchRowId));
+
+      return result;
+    });
   }
 
   async listProviderObjects(providerId: string) {
@@ -139,7 +160,7 @@ export class ObjectSyncService {
     return object;
   }
 
-  private async syncOne(input: unknown, context: SyncContext): Promise<ObjectSyncItemResult> {
+  private async syncOne(db: Db, input: unknown, context: SyncContext): Promise<ObjectSyncItemResult> {
     const parsed = commercialObjectSchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -163,7 +184,7 @@ export class ObjectSyncService {
 
     const projection = this.scenario.buildSearchProjection(object);
     const explainProjection = this.scenario.buildExplainProjection?.(object, projection) ?? buildDefaultExplainProjection(object, projection);
-    const [commercialObject] = await this.db
+    const [commercialObject] = await db
       .insert(schema.commercialObjects)
       .values({
         id: newId('cobj'),
@@ -204,12 +225,12 @@ export class ObjectSyncService {
       };
     }
 
-    await this.db
+    await db
       .delete(schema.descriptorInstances)
       .where(eq(schema.descriptorInstances.commercialObjectId, commercialObject.id));
 
     if (object.descriptors.length > 0) {
-      await this.db.insert(schema.descriptorInstances).values(object.descriptors.map((descriptor) => ({
+      await db.insert(schema.descriptorInstances).values(object.descriptors.map((descriptor) => ({
         id: newId('desc'),
         commercialObjectId: commercialObject.id,
         packId: descriptor.pack_id,
@@ -218,7 +239,7 @@ export class ObjectSyncService {
       })));
     }
 
-    const [entry] = await this.db
+    const [entry] = await db
       .insert(schema.catalogEntries)
       .values({
         id: newId('centry'),

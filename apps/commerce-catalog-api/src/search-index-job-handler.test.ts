@@ -93,6 +93,81 @@ describe('SearchIndexJobHandlerService', () => {
     }))).rejects.toThrow('provider rejected model');
   });
 
+  test('fans provider rebuild out into paged rebuild document jobs', async () => {
+    const enqueued: unknown[] = [];
+    const handler = new SearchIndexJobHandlerService(
+      {
+        async listProviderCatalogEntryPage() {
+          return {
+            entries: [
+              {
+                catalogEntryId: 'centry_1',
+                commercialObjectId: 'cobj_1',
+                updatedAt: new Date('2026-01-02T00:00:00.000Z'),
+              },
+              {
+                catalogEntryId: 'centry_2',
+                commercialObjectId: 'cobj_2',
+                updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              },
+            ],
+            nextCursor: {
+              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              catalogEntryId: 'centry_2',
+            },
+          };
+        },
+      } as unknown as SearchDocumentUpsertService,
+      {
+        async enqueue(input: unknown) {
+          enqueued.push(input);
+          return {};
+        },
+      } as unknown as SearchIndexJobService,
+    );
+
+    await handler.handle(searchIndexJob({
+      jobType: 'rebuild_all_for_provider',
+      payload: {
+        page_size: 2,
+      },
+    }));
+
+    expect(enqueued).toEqual([
+      {
+        catalogId: 'cat_test',
+        providerId: 'provider_test',
+        catalogEntryId: 'centry_1',
+        commercialObjectId: 'cobj_1',
+        jobType: 'rebuild_document',
+        payload: {
+          source_job_id: 'sjob_test',
+        },
+      },
+      {
+        catalogId: 'cat_test',
+        providerId: 'provider_test',
+        catalogEntryId: 'centry_2',
+        commercialObjectId: 'cobj_2',
+        jobType: 'rebuild_document',
+        payload: {
+          source_job_id: 'sjob_test',
+        },
+      },
+      {
+        catalogId: 'cat_test',
+        providerId: 'provider_test',
+        jobType: 'rebuild_all_for_provider',
+        payload: {
+          source_job_id: 'sjob_test',
+          page_size: 2,
+          cursor_updated_at: '2026-01-01T00:00:00.000Z',
+          cursor_entry_id: 'centry_2',
+        },
+      },
+    ]);
+  });
+
   test('worker processes queued jobs sequentially', async () => {
     const events: string[] = [];
     const jobs = [

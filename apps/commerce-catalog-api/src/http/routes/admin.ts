@@ -2,7 +2,7 @@ import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildCatalogManifest } from '@ocp-catalog/catalog-core';
 import { schema } from '@ocp-catalog/db';
 import { AppError } from '@ocp-catalog/shared';
-import { and, count, desc, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, lt, or, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import type { CommerceCatalogRuntimeContext } from '../../runtime/context';
 import { firstHeader } from '../request-context';
@@ -12,6 +12,8 @@ type QueryTable = Parameters<ReturnType<Db['select']>['from']>[0];
 
 const SEARCH_INDEX_RUN_DEFAULT_LIMIT = 25;
 const SEARCH_INDEX_RUN_DEFAULT_RETRY_DELAY_MS = 30_000;
+const ADMIN_DEFAULT_PAGE_LIMIT = 50;
+const ADMIN_MAX_PAGE_LIMIT = 100;
 
 export function catalogAdminApiRoutes(context: CommerceCatalogRuntimeContext) {
   return new Elysia()
@@ -19,9 +21,9 @@ export function catalogAdminApiRoutes(context: CommerceCatalogRuntimeContext) {
       assertAdminAuth(context, headers);
       return getCatalogAdminOverview(context);
     })
-    .get('/api/catalog-admin/providers', async ({ headers }) => {
+    .get('/api/catalog-admin/providers', async ({ headers, query }) => {
       assertAdminAuth(context, headers);
-      return getCatalogAdminProviders(context);
+      return getCatalogAdminProviders(context, query);
     })
     .get('/api/catalog-admin/entries', async ({ headers, query }) => {
       assertAdminAuth(context, headers);
@@ -275,26 +277,51 @@ async function getLatestSyncBatch(context: CommerceCatalogRuntimeContext) {
   return row ?? null;
 }
 
-async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext) {
-  const [states, registrations, batches] = await Promise.all([
-    context.db.select().from(schema.providerContractStates),
-    context.db.select().from(schema.providerRegistrations),
-    context.db.select().from(schema.objectSyncBatches),
-  ]);
+async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, query: Record<string, string | undefined>) {
+  const page = parseKeysetPage(query);
+  const conditions: SQL[] = [eq(schema.providerContractStates.catalogId, context.config.CATALOG_ID)];
+  if (page.cursor) {
+    conditions.push(or(
+      lt(schema.providerContractStates.updatedAt, page.cursor.at),
+      and(
+        eq(schema.providerContractStates.updatedAt, page.cursor.at),
+        lt(schema.providerContractStates.id, page.cursor.id),
+      ),
+    )!);
+  }
 
-  const catalogStates = states
-    .filter((row) => row.catalogId === context.config.CATALOG_ID)
-    .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime());
+  const rows = await context.db
+    .select()
+    .from(schema.providerContractStates)
+    .where(and(...conditions))
+    .orderBy(desc(schema.providerContractStates.updatedAt), desc(schema.providerContractStates.id))
+    .limit(page.limit + 1);
+  const catalogStates = rows.slice(0, page.limit);
 
   const providers = await Promise.all(catalogStates.map(async (state) => {
-    const provider = await context.services.registrations.getProvider(state.providerId);
-    const latestRegistration = registrations
-      .filter((row) => row.catalogId === context.config.CATALOG_ID && row.providerId === state.providerId)
-      .sort((left, right) => right.registrationVersion - left.registrationVersion)[0] ?? null;
-
-    const latestBatch = batches
-      .filter((row) => row.catalogId === context.config.CATALOG_ID && row.providerId === state.providerId)
-      .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())[0] ?? null;
+    const [provider, latestRegistrationRows, latestBatchRows] = await Promise.all([
+      context.services.registrations.getProvider(state.providerId),
+      context.db
+        .select()
+        .from(schema.providerRegistrations)
+        .where(and(
+          eq(schema.providerRegistrations.catalogId, context.config.CATALOG_ID),
+          eq(schema.providerRegistrations.providerId, state.providerId),
+        ))
+        .orderBy(desc(schema.providerRegistrations.registrationVersion))
+        .limit(1),
+      context.db
+        .select()
+        .from(schema.objectSyncBatches)
+        .where(and(
+          eq(schema.objectSyncBatches.catalogId, context.config.CATALOG_ID),
+          eq(schema.objectSyncBatches.providerId, state.providerId),
+        ))
+        .orderBy(desc(schema.objectSyncBatches.createdAt), desc(schema.objectSyncBatches.id))
+        .limit(1),
+    ]);
+    const latestRegistration = latestRegistrationRows[0] ?? null;
+    const latestBatch = latestBatchRows[0] ?? null;
 
     return {
       provider_id: provider.provider_id,
@@ -325,66 +352,85 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext) 
   return {
     catalog_id: context.config.CATALOG_ID,
     providers,
+    page: buildPage(page.limit, catalogStates, rows.length > page.limit, (row) => ({
+      at: row.updatedAt,
+      id: row.id,
+    })),
   };
 }
 
 async function getCatalogAdminEntries(context: CommerceCatalogRuntimeContext, query: Record<string, string | undefined>) {
-  const [entries, objects] = await Promise.all([
-    context.db.select().from(schema.catalogEntries),
-    context.db.select().from(schema.commercialObjects),
-  ]);
+  const page = parseKeysetPage(query);
+  const conditions: SQL[] = [eq(schema.catalogEntries.catalogId, context.config.CATALOG_ID)];
+  if (query.provider_id) conditions.push(eq(schema.catalogEntries.providerId, query.provider_id));
+  if (query.entry_status) conditions.push(eq(schema.catalogEntries.entryStatus, query.entry_status as 'active' | 'inactive' | 'rejected' | 'pending_verification'));
+  if (query.quality_tier) {
+    conditions.push(query.quality_tier === 'basic'
+      ? sql`coalesce(${schema.catalogEntries.searchProjection}->>'quality_tier', 'basic') not in ('rich', 'standard')`
+      : sql`${schema.catalogEntries.searchProjection}->>'quality_tier' = ${query.quality_tier}`);
+  }
+  if (query.search?.trim()) {
+    const pattern = `%${query.search.trim().toLowerCase()}%`;
+    conditions.push(sql`lower(concat_ws(' ',
+      ${schema.catalogEntries.title},
+      ${schema.catalogEntries.objectId},
+      ${schema.catalogEntries.providerId},
+      ${schema.catalogEntries.brand},
+      ${schema.catalogEntries.category}
+    )) like ${pattern}`);
+  }
+  if (page.cursor) {
+    conditions.push(or(
+      lt(schema.catalogEntries.updatedAt, page.cursor.at),
+      and(
+        eq(schema.catalogEntries.updatedAt, page.cursor.at),
+        lt(schema.catalogEntries.id, page.cursor.id),
+      ),
+    )!);
+  }
 
-  const objectByCommercialId = new Map(
-    objects
-      .filter((row) => row.catalogId === context.config.CATALOG_ID)
-      .map((row) => [row.id, row] as const),
-  );
+  const rows = await context.db
+    .select({
+      entry: schema.catalogEntries,
+      object: schema.commercialObjects,
+    })
+    .from(schema.catalogEntries)
+    .leftJoin(schema.commercialObjects, eq(schema.commercialObjects.id, schema.catalogEntries.commercialObjectId))
+    .where(and(...conditions))
+    .orderBy(desc(schema.catalogEntries.updatedAt), desc(schema.catalogEntries.id))
+    .limit(page.limit + 1);
 
-  const items = entries
-    .filter((row) => row.catalogId === context.config.CATALOG_ID)
-    .map((entry) => {
-      const object = objectByCommercialId.get(entry.commercialObjectId);
-      return {
-        entry_id: entry.id,
-        commercial_object_id: entry.commercialObjectId,
-        provider_id: entry.providerId,
-        object_id: entry.objectId,
-        object_type: entry.objectType,
-        entry_status: entry.entryStatus,
-        contract_match_status: entry.contractMatchStatus,
-        title: entry.title,
-        summary: entry.summary,
-        brand: entry.brand,
-        category: entry.category,
-        currency: entry.currency,
-        availability_status: entry.availabilityStatus,
-        search_projection: entry.searchProjection,
-        explain_projection: entry.explainProjection,
-        updated_at: entry.updatedAt.toISOString(),
-        raw_object: object?.rawObject ?? null,
-        object_status: object?.status ?? null,
-        object_source_url: object?.sourceUrl ?? null,
-        object_updated_at: object?.updatedAt.toISOString() ?? null,
-      };
-    })
-    .filter((entry) => {
-      if (query.provider_id && entry.provider_id !== query.provider_id) return false;
-      if (query.entry_status && entry.entry_status !== query.entry_status) return false;
-      if (query.quality_tier) {
-        const qualityTier = typeof entry.search_projection.quality_tier === 'string' ? entry.search_projection.quality_tier : 'basic';
-        if (qualityTier !== query.quality_tier) return false;
-      }
-      if (query.search) {
-        const haystack = `${entry.title} ${entry.object_id} ${entry.provider_id} ${entry.brand ?? ''} ${entry.category ?? ''}`.toLowerCase();
-        if (!haystack.includes(query.search.toLowerCase())) return false;
-      }
-      return true;
-    })
-    .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
+  const pageRows = rows.slice(0, page.limit);
+  const items = pageRows.map(({ entry, object }) => ({
+    entry_id: entry.id,
+    commercial_object_id: entry.commercialObjectId,
+    provider_id: entry.providerId,
+    object_id: entry.objectId,
+    object_type: entry.objectType,
+    entry_status: entry.entryStatus,
+    contract_match_status: entry.contractMatchStatus,
+    title: entry.title,
+    summary: entry.summary,
+    brand: entry.brand,
+    category: entry.category,
+    currency: entry.currency,
+    availability_status: entry.availabilityStatus,
+    search_projection: entry.searchProjection,
+    explain_projection: entry.explainProjection,
+    updated_at: entry.updatedAt.toISOString(),
+    raw_object: object?.rawObject ?? null,
+    object_status: object?.status ?? null,
+    object_source_url: object?.sourceUrl ?? null,
+    object_updated_at: object?.updatedAt.toISOString() ?? null,
+  }));
 
   return {
     catalog_id: context.config.CATALOG_ID,
     entries: items,
+    page: buildPage(page.limit, pageRows, rows.length > page.limit, (row) => ({
+      at: row.entry.updatedAt,
+      id: row.entry.id,
+    })),
   };
 }
 
@@ -504,4 +550,57 @@ function getOptionalBodyNumber(body: unknown, key: string) {
   if (typeof value !== 'string' || !value.trim()) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+type KeysetCursor = {
+  at: Date;
+  id: string;
+};
+
+function parseKeysetPage(query: Record<string, string | undefined>) {
+  return {
+    limit: parseAdminLimit(query.limit),
+    cursor: query.cursor ? decodeKeysetCursor(query.cursor) : null,
+  };
+}
+
+function parseAdminLimit(value: string | undefined) {
+  if (!value) return ADMIN_DEFAULT_PAGE_LIMIT;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > ADMIN_MAX_PAGE_LIMIT) {
+    throw new AppError('validation_error', `limit must be an integer from 1 to ${ADMIN_MAX_PAGE_LIMIT}`, 400, {
+      limit: value,
+      max_limit: ADMIN_MAX_PAGE_LIMIT,
+    });
+  }
+  return parsed;
+}
+
+function buildPage<T>(limit: number, rows: T[], hasMore: boolean, cursorFromRow: (row: T) => KeysetCursor) {
+  const last = rows.at(-1);
+  return {
+    limit,
+    has_more: hasMore,
+    next_cursor: hasMore && last ? encodeKeysetCursor(cursorFromRow(last)) : null,
+  };
+}
+
+function encodeKeysetCursor(cursor: KeysetCursor) {
+  return `${cursor.at.toISOString()}|${cursor.id}`;
+}
+
+function decodeKeysetCursor(value: string): KeysetCursor {
+  const [timestamp, id, ...extra] = value.split('|');
+  if (!timestamp || !id || extra.length > 0) {
+    throw invalidCursor(value);
+  }
+  const at = new Date(timestamp);
+  if (Number.isNaN(at.getTime())) {
+    throw invalidCursor(value);
+  }
+  return { at, id };
+}
+
+function invalidCursor(cursor: string) {
+  return new AppError('validation_error', 'cursor is invalid', 400, { cursor });
 }

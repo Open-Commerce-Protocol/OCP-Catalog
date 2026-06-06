@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import postgres from 'postgres';
 import { loadConfig, type AppConfig } from '@ocp-catalog/config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
-import { createDb } from '@ocp-catalog/db';
+import { createDb, schema } from '@ocp-catalog/db';
+import { and, eq } from 'drizzle-orm';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 import { CommerceQueryService } from './query/commerce-query-service';
 import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
@@ -93,6 +94,73 @@ describe('commerce catalog integration', () => {
 
     expect(syncResult.status).toBe('accepted');
     expect(syncResult.accepted_count).toBe(2);
+
+    const [syncBatch] = await db
+      .select()
+      .from(schema.objectSyncBatches)
+      .where(eq(schema.objectSyncBatches.batchId, `batch_${providerId}`))
+      .limit(1);
+    expect(syncBatch?.requestMetadata).toEqual({
+      object_count: 2,
+      has_client_batch_id: true,
+    });
+    expect(syncBatch?.resultSummary).toMatchObject({
+      result_id: syncResult.id,
+      item_count: 2,
+      accepted_count: 2,
+      rejected_count: 0,
+      error_count: 0,
+    });
+    expect(JSON.stringify(syncBatch)).not.toContain('Wireless noise cancelling headphones');
+
+    await services.objects.sync({
+      ocp_version: '1.0',
+      kind: 'ObjectSyncRequest',
+      catalog_id: baseConfig.CATALOG_ID,
+      provider_id: providerId,
+      registration_version: 1,
+      batch_id: `batch_${providerId}_replacement`,
+      objects: [
+        buildCommercialObject({
+          providerId,
+          objectId: 'travel-headphones-rich',
+          title: `Travel Headphones ${providerId} refreshed`,
+          summary: 'Updated descriptor payload.',
+          brand: 'North Audio',
+          category: 'audio',
+          sku: `sku-${providerId}-rich-updated`,
+          productUrl: `https://provider.example/products/${providerId}/rich-updated`,
+          imageUrls: [`https://provider.example/images/${providerId}-rich-updated.jpg`],
+          currency: 'USD',
+          amount: 119.99,
+          listAmount: 149.99,
+          availabilityStatus: 'in_stock',
+          quantity: 4,
+          attributes: { color: 'silver' },
+        }),
+      ],
+    });
+
+    const [updatedObject] = await db
+      .select()
+      .from(schema.commercialObjects)
+      .where(and(
+        eq(schema.commercialObjects.providerId, providerId),
+        eq(schema.commercialObjects.objectId, 'travel-headphones-rich'),
+      ))
+      .limit(1);
+    expect(updatedObject?.title).toBe(`Travel Headphones ${providerId} refreshed`);
+
+    const descriptors = await db
+      .select()
+      .from(schema.descriptorInstances)
+      .where(eq(schema.descriptorInstances.commercialObjectId, updatedObject!.id));
+    expect(descriptors).toHaveLength(3);
+    expect(descriptors.find((descriptor) => descriptor.packId === 'ocp.commerce.product.core.v1')?.payload).toMatchObject({
+      sku: `sku-${providerId}-rich-updated`,
+      attributes: { color: 'silver' },
+    });
+
     expect(await searchDocumentUpsertService.upsertForProvider({
       catalogId: baseConfig.CATALOG_ID,
       providerId,

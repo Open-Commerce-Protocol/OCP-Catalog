@@ -308,8 +308,8 @@ export const objectSyncBatches = pgTable('object_sync_batches', {
   acceptedCount: integer('accepted_count').notNull().default(0),
   rejectedCount: integer('rejected_count').notNull().default(0),
   errorCount: integer('error_count').notNull().default(0),
-  requestPayload: jsonb('request_payload').$type<Record<string, unknown>>().notNull(),
-  resultPayload: jsonb('result_payload').$type<Record<string, unknown>>(),
+  requestMetadata: jsonb('request_metadata').$type<Record<string, unknown>>().notNull().default({}),
+  resultSummary: jsonb('result_summary').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   finishedAt: timestamp('finished_at', { withTimezone: true }),
 }, (table) => ({
