@@ -6,16 +6,37 @@ import {
   objectSyncRequestSchema,
   type CommercialObject,
   type ObjectSyncItemResult,
+  type ObjectSyncRequest,
   type ObjectSyncResult,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { isPresent, readDescriptorField } from './field-ref';
 import type { CatalogScenarioModule, SearchProjection } from './scenario';
 import type { RegistrationService } from './registration-service';
 
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
 const MAX_OBJECT_SYNC_BATCH_SIZE = 1_000;
+
+export type ObjectSyncOptions = {
+  syncRun?: {
+    syncRunId?: string;
+    runMode: 'batch' | 'stream';
+    streamBatchId?: string;
+    chunkOrdinal?: number;
+    complete?: boolean;
+    requestMetadata?: Record<string, unknown>;
+  };
+  sideEffects?: {
+    searchIndexJobs?: boolean;
+    activityEvent?: {
+      method: string;
+      pathTemplate: string;
+      statusCode: number;
+      metadata?: Record<string, unknown>;
+    };
+  };
+};
 
 export class ObjectSyncService {
   constructor(
@@ -25,7 +46,7 @@ export class ObjectSyncService {
     private readonly scenario: CatalogScenarioModule,
   ) {}
 
-  async sync(input: unknown): Promise<ObjectSyncResult> {
+  async sync(input: unknown, options: ObjectSyncOptions = {}): Promise<ObjectSyncResult> {
     const request = objectSyncRequestSchema.parse(input);
     if (request.catalog_id !== this.config.CATALOG_ID) {
       throw new AppError('validation_error', `catalog_id must be ${this.config.CATALOG_ID}`, 400);
@@ -72,6 +93,7 @@ export class ObjectSyncService {
     const batchRowId = newId('syncbatch');
     return this.db.transaction(async (tx) => {
       const syncDb = tx as unknown as Db;
+      const syncRun = await this.ensureSyncRun(syncDb, request, batchId, options);
       const [insertedBatch] = await syncDb
         .insert(schema.objectSyncBatches)
         .values({
@@ -79,6 +101,8 @@ export class ObjectSyncService {
           catalogId: request.catalog_id,
           providerId: request.provider_id,
           registrationVersion: request.registration_version,
+          syncRunRowId: syncRun?.id ?? null,
+          chunkOrdinal: options.syncRun?.chunkOrdinal ?? null,
           batchId,
           status: 'rejected',
           requestHash,
@@ -171,6 +195,12 @@ export class ObjectSyncService {
         })
         .where(eq(schema.objectSyncBatches.id, batchRowId));
 
+      if (syncRun) {
+        await this.updateSyncRunAfterBatch(syncDb, syncRun.id, result, options);
+      }
+
+      await this.insertOutboxEvents(syncDb, result, options);
+
       return result;
     });
   }
@@ -205,6 +235,61 @@ export class ObjectSyncService {
 
     if (!object) throw new AppError('not_found', `Commercial object ${objectId} was not found`, 404);
     return object;
+  }
+
+  async getSyncRun(syncRunId: string, providerId?: string) {
+    const [run] = await this.db
+      .select()
+      .from(schema.objectSyncRuns)
+      .where(and(
+        eq(schema.objectSyncRuns.catalogId, this.config.CATALOG_ID),
+        eq(schema.objectSyncRuns.syncRunId, syncRunId),
+        ...(providerId ? [eq(schema.objectSyncRuns.providerId, providerId)] : []),
+      ))
+      .limit(1);
+
+    if (!run) throw new AppError('not_found', `Object sync run ${syncRunId} was not found`, 404);
+    return this.buildSyncRunResult(run);
+  }
+
+  async completeSyncRun(syncRunId: string, providerId?: string) {
+    const [run] = await this.db
+      .select()
+      .from(schema.objectSyncRuns)
+      .where(and(
+        eq(schema.objectSyncRuns.catalogId, this.config.CATALOG_ID),
+        eq(schema.objectSyncRuns.syncRunId, syncRunId),
+        ...(providerId ? [eq(schema.objectSyncRuns.providerId, providerId)] : []),
+      ))
+      .limit(1);
+
+    if (!run) throw new AppError('not_found', `Object sync run ${syncRunId} was not found`, 404);
+    if (run.status !== 'running') return this.buildSyncRunResult(run);
+
+    const summary = await this.aggregateSyncRun(this.db, run.id);
+    const status = syncRunStatusFromCounts(summary.acceptedCount, summary.rejectedCount);
+    const [updated] = await this.db
+      .update(schema.objectSyncRuns)
+      .set({
+        status,
+        batchCount: summary.batchCount,
+        acceptedCount: summary.acceptedCount,
+        rejectedCount: summary.rejectedCount,
+        errorCount: summary.errorCount,
+        checkpoint: summary.checkpoint,
+        resultSummary: {
+          batch_count: summary.batchCount,
+          accepted_count: summary.acceptedCount,
+          rejected_count: summary.rejectedCount,
+          error_count: summary.errorCount,
+        },
+        updatedAt: new Date(),
+        finishedAt: new Date(),
+      })
+      .where(eq(schema.objectSyncRuns.id, run.id))
+      .returning();
+
+    return this.buildSyncRunResult(updated ?? run);
   }
 
   private async findExistingBatchResult(input: {
@@ -258,6 +343,253 @@ export class ObjectSyncService {
         warnings: item.warnings,
       })),
     };
+  }
+
+  private async ensureSyncRun(db: Db, request: ObjectSyncRequest, batchId: string, options: ObjectSyncOptions) {
+    if (!options.syncRun) return null;
+    const syncRunId = options.syncRun.syncRunId ?? batchId;
+    const runRowId = newId('syncrun');
+    await db
+      .insert(schema.objectSyncRuns)
+      .values({
+        id: runRowId,
+        catalogId: request.catalog_id,
+        providerId: request.provider_id,
+        registrationVersion: request.registration_version,
+        syncRunId,
+        runMode: options.syncRun.runMode,
+        streamBatchId: options.syncRun.streamBatchId ?? null,
+        requestMetadata: {
+          ...options.syncRun.requestMetadata,
+          sync_run_id: syncRunId,
+          run_mode: options.syncRun.runMode,
+        },
+      })
+      .onConflictDoNothing({
+        target: [
+          schema.objectSyncRuns.catalogId,
+          schema.objectSyncRuns.providerId,
+          schema.objectSyncRuns.syncRunId,
+        ],
+      });
+
+    const [run] = await db
+      .select()
+      .from(schema.objectSyncRuns)
+      .where(and(
+        eq(schema.objectSyncRuns.catalogId, request.catalog_id),
+        eq(schema.objectSyncRuns.providerId, request.provider_id),
+        eq(schema.objectSyncRuns.syncRunId, syncRunId),
+      ))
+      .limit(1);
+
+    if (!run) {
+      throw new AppError('internal_error', `Failed to create object sync run ${syncRunId}`, 500);
+    }
+    if (run.registrationVersion !== request.registration_version) {
+      throw new AppError('validation_error', 'sync_run_id already exists with a different registration_version', 409, {
+        sync_run_id: syncRunId,
+      });
+    }
+    if (run.runMode !== options.syncRun.runMode) {
+      throw new AppError('validation_error', 'sync_run_id already exists with a different run mode', 409, {
+        sync_run_id: syncRunId,
+      });
+    }
+    if (run.status !== 'running') {
+      throw new AppError('validation_error', 'sync_run_id is already terminal', 409, {
+        sync_run_id: syncRunId,
+        status: run.status,
+      });
+    }
+    return run;
+  }
+
+  private async updateSyncRunAfterBatch(
+    db: Db,
+    syncRunRowId: string,
+    result: ObjectSyncResult,
+    options: ObjectSyncOptions,
+  ) {
+    const summary = await this.aggregateSyncRun(db, syncRunRowId);
+    const completed = options.syncRun?.complete === true;
+    await db
+      .update(schema.objectSyncRuns)
+      .set({
+        status: completed ? syncRunStatusFromCounts(summary.acceptedCount, summary.rejectedCount) : 'running',
+        batchCount: summary.batchCount,
+        acceptedCount: summary.acceptedCount,
+        rejectedCount: summary.rejectedCount,
+        errorCount: summary.errorCount,
+        lastBatchId: result.batch_id,
+        lastChunkOrdinal: options.syncRun?.chunkOrdinal ?? null,
+        checkpoint: summary.checkpoint,
+        resultSummary: {
+          batch_count: summary.batchCount,
+          accepted_count: summary.acceptedCount,
+          rejected_count: summary.rejectedCount,
+          error_count: summary.errorCount,
+          last_batch_id: result.batch_id,
+          last_chunk_ordinal: options.syncRun?.chunkOrdinal ?? null,
+        },
+        updatedAt: new Date(),
+        finishedAt: completed ? new Date() : null,
+      })
+      .where(eq(schema.objectSyncRuns.id, syncRunRowId));
+  }
+
+  private async aggregateSyncRun(db: Db, syncRunRowId: string) {
+    const [aggregate] = await db
+      .select({
+        batchCount: sql<number>`count(*)::int`,
+        acceptedCount: sql<number>`coalesce(sum(${schema.objectSyncBatches.acceptedCount}), 0)::int`,
+        rejectedCount: sql<number>`coalesce(sum(${schema.objectSyncBatches.rejectedCount}), 0)::int`,
+        errorCount: sql<number>`coalesce(sum(${schema.objectSyncBatches.errorCount}), 0)::int`,
+        lastChunkOrdinal: sql<number | null>`max(${schema.objectSyncBatches.chunkOrdinal})::int`,
+      })
+      .from(schema.objectSyncBatches)
+      .where(eq(schema.objectSyncBatches.syncRunRowId, syncRunRowId));
+
+    const batches = await db
+      .select({
+        batch_id: schema.objectSyncBatches.batchId,
+        chunk_ordinal: schema.objectSyncBatches.chunkOrdinal,
+        status: schema.objectSyncBatches.status,
+        accepted_count: schema.objectSyncBatches.acceptedCount,
+        rejected_count: schema.objectSyncBatches.rejectedCount,
+        error_count: schema.objectSyncBatches.errorCount,
+        request_hash: schema.objectSyncBatches.requestHash,
+        finished_at: schema.objectSyncBatches.finishedAt,
+      })
+      .from(schema.objectSyncBatches)
+      .where(eq(schema.objectSyncBatches.syncRunRowId, syncRunRowId))
+      .orderBy(asc(schema.objectSyncBatches.chunkOrdinal), asc(schema.objectSyncBatches.createdAt));
+
+    return {
+      batchCount: aggregate?.batchCount ?? 0,
+      acceptedCount: aggregate?.acceptedCount ?? 0,
+      rejectedCount: aggregate?.rejectedCount ?? 0,
+      errorCount: aggregate?.errorCount ?? 0,
+      checkpoint: {
+        committed_chunk_count: batches.length,
+        last_committed_chunk_ordinal: aggregate?.lastChunkOrdinal ?? null,
+        chunks: batches.map((batch) => ({
+          batch_id: batch.batch_id,
+          chunk_ordinal: batch.chunk_ordinal,
+          status: batch.status,
+          accepted_count: batch.accepted_count,
+          rejected_count: batch.rejected_count,
+          error_count: batch.error_count,
+          request_hash: batch.request_hash,
+          finished_at: batch.finished_at?.toISOString() ?? null,
+        })),
+      },
+    };
+  }
+
+  private async buildSyncRunResult(run: typeof schema.objectSyncRuns.$inferSelect) {
+    const summary = await this.aggregateSyncRun(this.db, run.id);
+    return {
+      ocp_version: '1.0',
+      kind: 'ObjectSyncRun',
+      catalog_id: run.catalogId,
+      provider_id: run.providerId,
+      registration_version: run.registrationVersion,
+      sync_run_id: run.syncRunId,
+      run_mode: run.runMode,
+      status: run.status,
+      stream_batch_id: run.streamBatchId ?? undefined,
+      batch_count: summary.batchCount,
+      accepted_count: summary.acceptedCount,
+      rejected_count: summary.rejectedCount,
+      error_count: summary.errorCount,
+      checkpoint: summary.checkpoint,
+      result_summary: run.resultSummary,
+      error: run.error ?? undefined,
+      created_at: run.createdAt.toISOString(),
+      updated_at: run.updatedAt.toISOString(),
+      finished_at: run.finishedAt?.toISOString(),
+    };
+  }
+
+  private async insertOutboxEvents(db: Db, result: ObjectSyncResult, options: ObjectSyncOptions) {
+    const events: Array<typeof schema.catalogOutboxEvents.$inferInsert> = [];
+    if (options.sideEffects?.searchIndexJobs) {
+      for (const item of result.items) {
+        if (item.status !== 'accepted' || !item.catalog_entry_id || !item.commercial_object_id) continue;
+        events.push({
+          id: newId('outbox'),
+          catalogId: result.catalog_id,
+          providerId: result.provider_id,
+          eventType: 'search_index.enqueue_job',
+          aggregateType: 'object_sync_batch',
+          aggregateId: result.batch_id,
+          dedupeKey: `search_index:sync:${result.batch_id}:upsert_document:${item.catalog_entry_id}`,
+          payload: {
+            job: {
+              catalogId: result.catalog_id,
+              providerId: result.provider_id,
+              catalogEntryId: item.catalog_entry_id,
+              commercialObjectId: item.commercial_object_id,
+              dedupeKey: `sync:${result.batch_id}:upsert_document:${item.catalog_entry_id}`,
+              jobType: 'upsert_document',
+              payload: {
+                object_id: item.object_id,
+                registration_version: result.registration_version,
+              },
+            },
+          },
+        });
+      }
+    }
+
+    const activityEvent = options.sideEffects?.activityEvent;
+    if (activityEvent) {
+      events.push({
+        id: newId('outbox'),
+        catalogId: result.catalog_id,
+        providerId: result.provider_id,
+        eventType: 'activity.ingest',
+        aggregateType: 'object_sync_batch',
+        aggregateId: result.batch_id,
+        dedupeKey: `activity:object_sync:${result.batch_id}:${activityEvent.pathTemplate}`,
+        payload: {
+          event: {
+            idempotency_key: `object_sync:${result.catalog_id}:${result.provider_id}:${result.batch_id}:${activityEvent.pathTemplate}`,
+            event_type: 'catalog.object_synced',
+            source_kind: 'catalog_node',
+            client_kind: 'http',
+            endpoint_role: 'inbound',
+            protocol_family: 'catalog',
+            protocol_version: '1.0',
+            method: activityEvent.method,
+            path_template: activityEvent.pathTemplate,
+            status_code: activityEvent.statusCode,
+            catalog_id: result.catalog_id,
+            provider_id: result.provider_id,
+            sync_object_count: result.items.length,
+            public_visibility: 'public',
+            metadata: {
+              sync_status: result.status,
+              accepted_count: result.accepted_count,
+              rejected_count: result.rejected_count,
+              ...activityEvent.metadata,
+            },
+          },
+        },
+      });
+    }
+
+    if (events.length === 0) return;
+    await db
+      .insert(schema.catalogOutboxEvents)
+      .values(events)
+      .onConflictDoNothing({
+        target: [
+          schema.catalogOutboxEvents.catalogId,
+          schema.catalogOutboxEvents.dedupeKey,
+        ],
+      });
   }
 
   private async syncOne(db: Db, input: unknown, context: SyncContext): Promise<ObjectSyncItemResult> {
@@ -495,4 +827,9 @@ async function hashJson(value: unknown) {
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+}
+
+function syncRunStatusFromCounts(acceptedCount: number, rejectedCount: number) {
+  if (acceptedCount === 0) return 'rejected';
+  return rejectedCount > 0 ? 'partial' : 'accepted';
 }

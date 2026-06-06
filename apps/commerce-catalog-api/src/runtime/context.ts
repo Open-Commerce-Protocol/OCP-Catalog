@@ -17,6 +17,7 @@ import { SearchEmbeddingService } from '../search/indexing/search-embedding-serv
 import { SearchIndexJobHandlerService } from '../search/indexing/search-index-job-handler';
 import { CatalogSemanticRetrievalService } from '../search/retrieval/catalog-semantic-retrieval-service';
 import { PostgresLocalVectorIndexAdapter } from '../search/retrieval/postgres-local-vector-index-adapter';
+import { CatalogOutboxService } from './catalog-outbox-service';
 
 export function createCommerceCatalogRuntimeContext() {
   const config = loadConfig();
@@ -37,6 +38,7 @@ export function createCommerceCatalogRuntimeContext() {
   const searchRetrievalService = new CatalogSemanticRetrievalService(embeddingProvider, localVectorIndex);
   const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
   const searchIndexJobs = new SearchIndexJobService(db);
+  const catalogOutbox = new CatalogOutboxService(db, searchIndexJobs, activityEvents);
   const searchDocumentService = new SearchDocumentUpsertService(db);
   const searchEmbeddingService = new SearchEmbeddingService(db, embeddingProvider);
   const searchIndexWorker = new SearchIndexWorker(
@@ -55,6 +57,7 @@ export function createCommerceCatalogRuntimeContext() {
     searchRetrievalService,
     commerceQueryService,
     searchIndexJobs,
+    catalogOutbox,
     searchDocumentService,
     searchEmbeddingService,
     searchIndexWorker,

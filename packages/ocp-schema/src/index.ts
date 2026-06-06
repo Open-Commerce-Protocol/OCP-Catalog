@@ -336,6 +336,8 @@ export const catalogManifestSchema = z.object({
     contracts: endpointSchema.optional(),
     object_sync: endpointSchema.optional(),
     object_sync_stream: endpointSchema.optional(),
+    object_sync_run: endpointSchema.optional(),
+    object_sync_run_complete: endpointSchema.optional(),
   }),
   query_capabilities: z.array(catalogQueryCapabilitySchema).min(1),
   data_profile: catalogDataProfileSchema.optional(),
@@ -464,9 +466,27 @@ export const objectSyncResultSchema = z.object({
 
 export const objectSyncStreamChunkResultSchema = z.object({
   batch_id: z.string().min(1),
+  chunk_ordinal: z.number().int().min(0).nullable().optional(),
   status: z.enum(['accepted', 'partial', 'rejected']),
   accepted_count: z.number().int().min(0),
   rejected_count: z.number().int().min(0),
+});
+
+export const objectSyncRunStatusSchema = z.enum(['running', 'accepted', 'partial', 'rejected', 'failed']);
+
+export const objectSyncRunCheckpointSchema = z.object({
+  committed_chunk_count: z.number().int().min(0),
+  last_committed_chunk_ordinal: z.number().int().min(0).nullable(),
+  chunks: z.array(z.object({
+    batch_id: z.string().min(1),
+    chunk_ordinal: z.number().int().min(0).nullable(),
+    status: z.enum(['accepted', 'partial', 'rejected']),
+    accepted_count: z.number().int().min(0),
+    rejected_count: z.number().int().min(0),
+    error_count: z.number().int().min(0),
+    request_hash: z.string().min(1),
+    finished_at: z.string().nullable(),
+  })),
 });
 
 export const objectSyncStreamResultSchema = z.object({
@@ -475,11 +495,36 @@ export const objectSyncStreamResultSchema = z.object({
   catalog_id: z.string().min(1),
   provider_id: z.string().min(1),
   registration_version: z.number().int().min(1),
+  sync_run_id: z.string().min(1),
   stream_batch_id: z.string().min(1),
+  status: objectSyncRunStatusSchema,
   chunk_count: z.number().int().min(0),
   accepted_count: z.number().int().min(0),
   rejected_count: z.number().int().min(0),
+  checkpoint: objectSyncRunCheckpointSchema,
   chunks: z.array(objectSyncStreamChunkResultSchema),
+});
+
+export const objectSyncRunSchema = z.object({
+  ocp_version: ocpVersionSchema,
+  kind: z.literal('ObjectSyncRun'),
+  catalog_id: z.string().min(1),
+  provider_id: z.string().min(1),
+  registration_version: z.number().int().min(1),
+  sync_run_id: z.string().min(1),
+  run_mode: z.enum(['batch', 'stream']),
+  status: objectSyncRunStatusSchema,
+  stream_batch_id: z.string().optional(),
+  batch_count: z.number().int().min(0),
+  accepted_count: z.number().int().min(0),
+  rejected_count: z.number().int().min(0),
+  error_count: z.number().int().min(0),
+  checkpoint: objectSyncRunCheckpointSchema,
+  result_summary: z.record(z.string(), z.unknown()),
+  error: z.string().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  finished_at: z.string().optional(),
 });
 
 export const catalogQueryFiltersSchema = z.object({
@@ -668,6 +713,8 @@ export type ObjectSyncResult = z.infer<typeof objectSyncResultSchema>;
 export type ObjectSyncItemResult = z.infer<typeof objectSyncItemResultSchema>;
 export type ObjectSyncStreamChunkResult = z.infer<typeof objectSyncStreamChunkResultSchema>;
 export type ObjectSyncStreamResult = z.infer<typeof objectSyncStreamResultSchema>;
+export type ObjectSyncRun = z.infer<typeof objectSyncRunSchema>;
+export type ObjectSyncRunCheckpoint = z.infer<typeof objectSyncRunCheckpointSchema>;
 export type CatalogQueryRequest = z.infer<typeof catalogQueryRequestSchema>;
 export type CatalogQueryResult = z.infer<typeof catalogQueryResultSchema>;
 export type QueryPolicySummary = z.infer<typeof queryPolicySummarySchema>;

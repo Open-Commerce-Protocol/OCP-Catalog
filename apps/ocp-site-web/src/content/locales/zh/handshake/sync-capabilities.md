@@ -90,6 +90,8 @@ register
 
 streaming 形态仍然是 catalog-hosted push，不要求 provider 暴露长期公网 endpoint。Provider 通过 query 参数传入 `provider_id`、`registration_version`、`batch_id` 和可选 `chunk_size`，然后每行发送一个 `CommercialObject` JSON。Catalog 会按有界 chunk 提交并记录稳定 request hash，因此传输中断后 provider 必须用同一个 `batch_id` 和相同 chunking 参数重试同一个 stream，不会重复提交已完成 chunk，也不会重复创建 index job。改变 chunk 边界属于新的写入请求，已提交 chunk 会按 hash conflict 拒绝。
 
+对于 stream sync，provider 提供的 `batch_id` 同时也是 `sync_run_id`。生产级 Catalog 应暴露 `object_sync_run` endpoint，让 provider 在重试前可以查看已提交 checkpoint。Provider 必须传入 `provider_id`，因为 run identity 按 provider 作用域唯一。已接受 chunk 还必须在同一事务中写入 search indexing、activity event 等 durable side-effect intent；worker 崩溃后，stale claimed outbox work 必须可以重新 claim。
+
 ## 预留能力说明
 
 ### `ocp.feed.url`

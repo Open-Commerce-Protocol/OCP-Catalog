@@ -46,6 +46,21 @@ describe('commerce catalog integration', () => {
     const registrationResult = await services.registrations.register(registration);
     expect(registrationResult.status).toBe('accepted_full');
     expect(registrationResult.matched_object_contract_count).toBe(1);
+    const syncOptions = {
+      syncRun: {
+        syncRunId: `batch_${providerId}`,
+        runMode: 'batch' as const,
+        complete: true,
+      },
+      sideEffects: {
+        searchIndexJobs: true,
+        activityEvent: {
+          method: 'POST',
+          pathTemplate: '/ocp/objects/sync',
+          statusCode: 200,
+        },
+      },
+    };
 
     const syncResult = await services.objects.sync({
       ocp_version: '1.0',
@@ -90,7 +105,7 @@ describe('commerce catalog integration', () => {
           attributes: {},
         }),
       ],
-    });
+    }, syncOptions);
 
     expect(syncResult.status).toBe('accepted');
     expect(syncResult.accepted_count).toBe(2);
@@ -158,13 +173,46 @@ describe('commerce catalog integration', () => {
           attributes: {},
         }),
       ],
-    });
+    }, syncOptions);
     expect(replayedSyncResult).toEqual(syncResult);
     const duplicateBatchRows = await db
       .select()
       .from(schema.objectSyncBatches)
       .where(eq(schema.objectSyncBatches.batchId, `batch_${providerId}`));
     expect(duplicateBatchRows).toHaveLength(1);
+    const [syncRun] = await db
+      .select()
+      .from(schema.objectSyncRuns)
+      .where(eq(schema.objectSyncRuns.syncRunId, `batch_${providerId}`))
+      .limit(1);
+    expect(syncRun).toMatchObject({
+      status: 'accepted',
+      batchCount: 1,
+      acceptedCount: 2,
+      rejectedCount: 0,
+    });
+    expect(syncRun?.checkpoint).toMatchObject({
+      committed_chunk_count: 1,
+      chunks: [
+        {
+          batch_id: `batch_${providerId}`,
+          accepted_count: 2,
+        },
+      ],
+    });
+    const outboxRows = await db
+      .select()
+      .from(schema.catalogOutboxEvents)
+      .where(and(
+        eq(schema.catalogOutboxEvents.catalogId, baseConfig.CATALOG_ID),
+        eq(schema.catalogOutboxEvents.aggregateId, `batch_${providerId}`),
+      ));
+    expect(outboxRows).toHaveLength(3);
+    expect(outboxRows.map((row) => row.eventType).sort()).toEqual([
+      'activity.ingest',
+      'search_index.enqueue_job',
+      'search_index.enqueue_job',
+    ]);
 
     await expect(services.objects.sync({
       ocp_version: '1.0',
@@ -357,7 +405,9 @@ describe('commerce catalog integration', () => {
 
 async function cleanupProviderData(providerId: string, queryText: string) {
   await sql`delete from query_audit_records where request_payload->>'query' = ${queryText}`;
+  await sql`delete from catalog_outbox_events where provider_id = ${providerId}`;
   await sql`delete from object_sync_batches where provider_id = ${providerId}`;
+  await sql`delete from object_sync_runs where provider_id = ${providerId}`;
   await sql`delete from provider_contract_states where provider_id = ${providerId}`;
   await sql`delete from provider_registrations where provider_id = ${providerId}`;
   await sql`delete from commercial_objects where provider_id = ${providerId}`;

@@ -103,6 +103,14 @@ transport failure without duplicating committed chunks or index jobs. Changing
 chunk boundaries makes the retry a different write request and should be
 expected to fail with a hash conflict for already committed chunks.
 
+For stream sync, the provider supplied `batch_id` is the `sync_run_id`.
+Production catalogs should expose an `object_sync_run` endpoint so providers can
+inspect committed checkpoint state before retrying. Providers must pass
+`provider_id` because run identity is provider-scoped. Accepted chunks must also
+write durable side-effect intents, such as search indexing and activity events,
+inside the same commit as object facts; stale claimed outbox work must be
+reclaimable after worker crashes.
+
 ## Reserved Capability Guidance
 
 ### `ocp.feed.url`

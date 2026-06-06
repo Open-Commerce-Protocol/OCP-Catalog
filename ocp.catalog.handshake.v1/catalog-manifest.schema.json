@@ -62,6 +62,12 @@
         },
         "object_sync_stream": {
           "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
+        "object_sync_run": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
+        },
+        "object_sync_run_complete": {
+          "$ref": "https://ocp.dev/schema/ocp.catalog.handshake.v1/common.schema.json#/$defs/Endpoint"
         }
       },
       "additionalProperties": false

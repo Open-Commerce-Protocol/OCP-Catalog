@@ -86,7 +86,9 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
     embeddingMetrics,
     activeDocumentsMissingEmbeddingCount,
     searchJobMetrics,
+    outboxMetrics,
     queryAuditCount,
+    latestRun,
     latestBatch,
   ] = await Promise.all([
     countRows(context, schema.providerContractStates, eq(schema.providerContractStates.catalogId, context.config.CATALOG_ID)),
@@ -96,7 +98,9 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
     getEmbeddingMetrics(context),
     getActiveDocumentsMissingEmbeddingCount(context),
     getSearchJobMetrics(context),
+    getOutboxMetrics(context),
     countRows(context, schema.queryAuditRecords, eq(schema.queryAuditRecords.catalogId, context.config.CATALOG_ID)),
+    getLatestSyncRun(context),
     getLatestSyncBatch(context),
   ]);
 
@@ -121,6 +125,9 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
       pending_index_job_count: searchJobMetrics.pendingJobCount,
       running_index_job_count: searchJobMetrics.runningJobCount,
       failed_index_job_count: searchJobMetrics.failedJobCount,
+      pending_outbox_count: outboxMetrics.pendingOutboxCount,
+      running_outbox_count: outboxMetrics.runningOutboxCount,
+      failed_outbox_count: outboxMetrics.failedOutboxCount,
       query_audit_count: queryAuditCount,
       rich_entry_count: entryMetrics.richEntryCount,
       standard_entry_count: entryMetrics.standardEntryCount,
@@ -141,6 +148,26 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
       failed_job_count: searchJobMetrics.failedJobCount,
       oldest_pending_job_created_at: searchJobMetrics.oldestPendingJobCreatedAt?.toISOString() ?? null,
     },
+    outbox: {
+      pending_count: outboxMetrics.pendingOutboxCount,
+      running_count: outboxMetrics.runningOutboxCount,
+      failed_count: outboxMetrics.failedOutboxCount,
+      oldest_pending_created_at: outboxMetrics.oldestPendingOutboxCreatedAt?.toISOString() ?? null,
+    },
+    latest_sync_run: latestRun
+      ? {
+          provider_id: latestRun.providerId,
+          sync_run_id: latestRun.syncRunId,
+          run_mode: latestRun.runMode,
+          status: latestRun.status,
+          batch_count: latestRun.batchCount,
+          accepted_count: latestRun.acceptedCount,
+          rejected_count: latestRun.rejectedCount,
+          error_count: latestRun.errorCount,
+          created_at: latestRun.createdAt.toISOString(),
+          finished_at: latestRun.finishedAt?.toISOString() ?? null,
+        }
+      : null,
     latest_sync_batch: latestBatch
       ? {
           provider_id: latestBatch.providerId,
@@ -266,6 +293,41 @@ async function getSearchJobMetrics(context: CommerceCatalogRuntimeContext) {
   };
 }
 
+async function getOutboxMetrics(context: CommerceCatalogRuntimeContext) {
+  const [metrics] = await context.db
+    .select({
+      pendingOutboxCount: sql<number>`count(*) filter (where ${schema.catalogOutboxEvents.status} = 'pending')::int`,
+      runningOutboxCount: sql<number>`count(*) filter (where ${schema.catalogOutboxEvents.status} = 'running')::int`,
+      failedOutboxCount: sql<number>`count(*) filter (where ${schema.catalogOutboxEvents.status} = 'failed')::int`,
+    })
+    .from(schema.catalogOutboxEvents)
+    .where(eq(schema.catalogOutboxEvents.catalogId, context.config.CATALOG_ID));
+  const [oldestPending] = await context.db
+    .select({ createdAt: schema.catalogOutboxEvents.createdAt })
+    .from(schema.catalogOutboxEvents)
+    .where(and(eq(schema.catalogOutboxEvents.catalogId, context.config.CATALOG_ID), eq(schema.catalogOutboxEvents.status, 'pending')))
+    .orderBy(schema.catalogOutboxEvents.createdAt)
+    .limit(1);
+
+  return {
+    pendingOutboxCount: metrics?.pendingOutboxCount ?? 0,
+    runningOutboxCount: metrics?.runningOutboxCount ?? 0,
+    failedOutboxCount: metrics?.failedOutboxCount ?? 0,
+    oldestPendingOutboxCreatedAt: oldestPending?.createdAt ?? null,
+  };
+}
+
+async function getLatestSyncRun(context: CommerceCatalogRuntimeContext) {
+  const [row] = await context.db
+    .select()
+    .from(schema.objectSyncRuns)
+    .where(eq(schema.objectSyncRuns.catalogId, context.config.CATALOG_ID))
+    .orderBy(desc(schema.objectSyncRuns.createdAt))
+    .limit(1);
+
+  return row ?? null;
+}
+
 async function getLatestSyncBatch(context: CommerceCatalogRuntimeContext) {
   const [row] = await context.db
     .select()
@@ -299,7 +361,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
   const catalogStates = rows.slice(0, page.limit);
 
   const providers = await Promise.all(catalogStates.map(async (state) => {
-    const [provider, latestRegistrationRows, latestBatchRows] = await Promise.all([
+    const [provider, latestRegistrationRows, latestRunRows, latestBatchRows] = await Promise.all([
       context.services.registrations.getProvider(state.providerId),
       context.db
         .select()
@@ -312,6 +374,15 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
         .limit(1),
       context.db
         .select()
+        .from(schema.objectSyncRuns)
+        .where(and(
+          eq(schema.objectSyncRuns.catalogId, context.config.CATALOG_ID),
+          eq(schema.objectSyncRuns.providerId, state.providerId),
+        ))
+        .orderBy(desc(schema.objectSyncRuns.createdAt), desc(schema.objectSyncRuns.id))
+        .limit(1),
+      context.db
+        .select()
         .from(schema.objectSyncBatches)
         .where(and(
           eq(schema.objectSyncBatches.catalogId, context.config.CATALOG_ID),
@@ -321,6 +392,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
         .limit(1),
     ]);
     const latestRegistration = latestRegistrationRows[0] ?? null;
+    const latestRun = latestRunRows[0] ?? null;
     const latestBatch = latestBatchRows[0] ?? null;
 
     return {
@@ -336,6 +408,19 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
             registration_version: latestRegistration.registrationVersion,
             status: latestRegistration.status,
             updated_at: latestRegistration.updatedAt.toISOString(),
+          }
+        : null,
+      latest_sync_run: latestRun
+        ? {
+            sync_run_id: latestRun.syncRunId,
+            run_mode: latestRun.runMode,
+            status: latestRun.status,
+            batch_count: latestRun.batchCount,
+            accepted_count: latestRun.acceptedCount,
+            rejected_count: latestRun.rejectedCount,
+            error_count: latestRun.errorCount,
+            created_at: latestRun.createdAt.toISOString(),
+            finished_at: latestRun.finishedAt?.toISOString() ?? null,
           }
         : null,
       latest_sync_batch: latestBatch

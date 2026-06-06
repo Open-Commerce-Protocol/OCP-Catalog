@@ -43,6 +43,14 @@ export const objectSyncBatchStatus = pgEnum('object_sync_batch_status', ['accept
 
 export const objectSyncItemStatus = pgEnum('object_sync_item_status', ['accepted', 'rejected']);
 
+export const objectSyncRunMode = pgEnum('object_sync_run_mode', ['batch', 'stream']);
+
+export const objectSyncRunStatus = pgEnum('object_sync_run_status', ['running', 'accepted', 'partial', 'rejected', 'failed']);
+
+export const catalogOutboxStatus = pgEnum('catalog_outbox_status', ['pending', 'running', 'completed', 'failed']);
+
+export const catalogReconcileStatus = pgEnum('catalog_reconcile_status', ['running', 'completed', 'failed']);
+
 export const catalogSearchDocumentStatus = pgEnum('catalog_search_document_status', ['pending', 'active', 'inactive', 'stale', 'failed']);
 
 export const catalogSearchIndexJobStatus = pgEnum('catalog_search_index_job_status', ['pending', 'running', 'completed', 'failed', 'cancelled']);
@@ -286,6 +294,25 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
 }));
 
+export const catalogSearchReconcileCheckpoints = pgTable('catalog_search_reconcile_checkpoints', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  reconcileKind: text('reconcile_kind').notNull(),
+  status: catalogReconcileStatus('status').notNull().default('running'),
+  cursorPayload: jsonb('cursor_payload').$type<Record<string, unknown>>().notNull().default({}),
+  scannedEntryCount: integer('scanned_entry_count').notNull().default(0),
+  upsertedDocumentCount: integer('upserted_document_count').notNull().default(0),
+  enqueuedEmbeddingJobs: integer('enqueued_embedding_jobs').notNull().default(0),
+  error: text('error'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  catalogKindUnique: uniqueIndex('catalog_search_reconcile_checkpoints_catalog_kind_unique').on(table.catalogId, table.reconcileKind),
+  statusUpdatedIdx: index('catalog_search_reconcile_checkpoints_status_updated_idx').on(table.catalogId, table.status, table.updatedAt),
+}));
+
 export const resolvableReferences = pgTable('resolvable_references', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
@@ -300,11 +327,41 @@ export const resolvableReferences = pgTable('resolvable_references', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const objectSyncRuns = pgTable('object_sync_runs', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  registrationVersion: integer('registration_version').notNull(),
+  syncRunId: text('sync_run_id').notNull(),
+  runMode: objectSyncRunMode('run_mode').notNull(),
+  status: objectSyncRunStatus('status').notNull().default('running'),
+  streamBatchId: text('stream_batch_id'),
+  batchCount: integer('batch_count').notNull().default(0),
+  acceptedCount: integer('accepted_count').notNull().default(0),
+  rejectedCount: integer('rejected_count').notNull().default(0),
+  errorCount: integer('error_count').notNull().default(0),
+  lastBatchId: text('last_batch_id'),
+  lastChunkOrdinal: integer('last_chunk_ordinal'),
+  checkpoint: jsonb('checkpoint').$type<Record<string, unknown>>().notNull().default({}),
+  requestMetadata: jsonb('request_metadata').$type<Record<string, unknown>>().notNull().default({}),
+  resultSummary: jsonb('result_summary').$type<Record<string, unknown>>().notNull().default({}),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+}, (table) => ({
+  runUnique: uniqueIndex('object_sync_runs_provider_run_unique').on(table.catalogId, table.providerId, table.syncRunId),
+  providerCreatedIdx: index('object_sync_runs_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
+  statusScheduledIdx: index('object_sync_runs_catalog_status_updated_idx').on(table.catalogId, table.status, table.updatedAt),
+}));
+
 export const objectSyncBatches = pgTable('object_sync_batches', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
   providerId: text('provider_id').notNull(),
   registrationVersion: integer('registration_version').notNull(),
+  syncRunRowId: text('sync_run_row_id').references(() => objectSyncRuns.id, { onDelete: 'set null' }),
+  chunkOrdinal: integer('chunk_ordinal'),
   batchId: text('batch_id').notNull(),
   status: objectSyncBatchStatus('status').notNull().default('rejected'),
   acceptedCount: integer('accepted_count').notNull().default(0),
@@ -318,6 +375,8 @@ export const objectSyncBatches = pgTable('object_sync_batches', {
 }, (table) => ({
   providerBatchUnique: uniqueIndex('object_sync_batches_provider_batch_unique').on(table.catalogId, table.providerId, table.batchId),
   providerCreatedIdx: index('object_sync_batches_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
+  runChunkUnique: uniqueIndex('object_sync_batches_run_chunk_unique').on(table.syncRunRowId, table.chunkOrdinal),
+  runIdx: index('object_sync_batches_run_idx').on(table.syncRunRowId),
 }));
 
 export const objectSyncItemResults = pgTable('object_sync_item_results', {
@@ -348,4 +407,28 @@ export const queryAuditRecords = pgTable('query_audit_records', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   catalogQueryCreatedIdx: index('query_audit_records_catalog_created_idx').on(table.catalogId, table.createdAt),
+}));
+
+export const catalogOutboxEvents = pgTable('catalog_outbox_events', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  providerId: text('provider_id'),
+  eventType: text('event_type').notNull(),
+  aggregateType: text('aggregate_type').notNull(),
+  aggregateId: text('aggregate_id').notNull(),
+  dedupeKey: text('dedupe_key').notNull(),
+  status: catalogOutboxStatus('status').notNull().default('pending'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(10),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull().defaultNow(),
+  lockedAt: timestamp('locked_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  error: text('error'),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  dedupeUnique: uniqueIndex('catalog_outbox_events_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
+  statusScheduledIdx: index('catalog_outbox_events_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
+  aggregateIdx: index('catalog_outbox_events_catalog_aggregate_idx').on(table.catalogId, table.aggregateType, table.aggregateId),
 }));

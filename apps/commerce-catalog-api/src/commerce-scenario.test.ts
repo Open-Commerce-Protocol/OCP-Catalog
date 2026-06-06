@@ -141,6 +141,8 @@ describe('commerce-scenario', () => {
       },
       metadata: {
         stream_endpoint_path: '/ocp/objects/sync/stream',
+        run_status_endpoint_path: '/ocp/object-sync-runs/{sync_run_id}?provider_id={provider_id}',
+        run_complete_endpoint_path: '/ocp/object-sync-runs/{sync_run_id}/complete?provider_id={provider_id}',
         stream_content_type: 'application/x-ndjson',
       },
     });

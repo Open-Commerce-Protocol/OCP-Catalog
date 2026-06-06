@@ -119,9 +119,11 @@ function buildCommerceSyncCapabilities(): SyncCapability[] {
       },
       metadata: {
         stream_endpoint_path: '/ocp/objects/sync/stream',
+        run_status_endpoint_path: '/ocp/object-sync-runs/{sync_run_id}?provider_id={provider_id}',
+        run_complete_endpoint_path: '/ocp/object-sync-runs/{sync_run_id}/complete?provider_id={provider_id}',
         stream_content_type: 'application/x-ndjson',
         stream_query_fields: ['provider_id', 'registration_version', 'batch_id', 'chunk_size'],
-        stream_retry_model: 'Each committed stream chunk is stored as batch_id:<zero-padded chunk index>. Retrying the same stream with identical chunk payloads replays committed chunks by request_hash and suppresses duplicate index jobs by dedupe_key.',
+        stream_retry_model: 'The stream batch_id is the sync_run_id. Each committed stream chunk is stored as batch_id:<zero-padded chunk index>. Retrying the same stream with identical chunk payloads replays committed chunks by request_hash and suppresses duplicate index jobs by dedupe_key. Providers can query the run status endpoint for committed checkpoint state before retrying.',
       },
     },
   ];

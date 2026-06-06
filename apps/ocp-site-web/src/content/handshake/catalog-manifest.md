@@ -54,7 +54,9 @@ should omit `data_profile` when they do not persist product entries locally.
     "provider_registration": { "url": "https://catalog.example/ocp/providers/register", "method": "POST" },
     "contracts": { "url": "https://catalog.example/ocp/contracts", "method": "GET" },
     "object_sync": { "url": "https://catalog.example/ocp/objects/sync", "method": "POST" },
-    "object_sync_stream": { "url": "https://catalog.example/ocp/objects/sync/stream", "method": "POST" }
+    "object_sync_stream": { "url": "https://catalog.example/ocp/objects/sync/stream", "method": "POST" },
+    "object_sync_run": { "url": "https://catalog.example/ocp/object-sync-runs/{sync_run_id}?provider_id={provider_id}", "method": "GET" },
+    "object_sync_run_complete": { "url": "https://catalog.example/ocp/object-sync-runs/{sync_run_id}/complete?provider_id={provider_id}", "method": "POST" }
   }
 }
 ```
@@ -62,9 +64,10 @@ should omit `data_profile` when they do not persist product entries locally.
 `endpoints.health` is optional for schema compatibility, but production catalogs should expose it. Registration nodes call it during registration and refresh before falling back to a query probe for older manifests.
 
 Only `endpoints.query` and `endpoints.resolve` are required. `provider_registration`,
-`object_sync`, `object_sync_stream`, `contracts`, and `provider_contract` are
-present only when the Catalog implements those surfaces. A live affiliate
-Catalog can omit Provider ingestion endpoints entirely.
+`object_sync`, `object_sync_stream`, `object_sync_run`,
+`object_sync_run_complete`, `contracts`, and `provider_contract` are present
+only when the Catalog implements those surfaces. A live affiliate Catalog can
+omit Provider ingestion endpoints entirely.
 
 The health endpoint returns `CatalogHealth`:
 
@@ -128,6 +131,8 @@ Example:
         },
         "metadata": {
           "stream_endpoint_path": "/ocp/objects/sync/stream",
+          "run_status_endpoint_path": "/ocp/object-sync-runs/{sync_run_id}?provider_id={provider_id}",
+          "run_complete_endpoint_path": "/ocp/object-sync-runs/{sync_run_id}/complete?provider_id={provider_id}",
           "stream_content_type": "application/x-ndjson"
         }
       }
@@ -144,6 +149,13 @@ with the same `batch_id` and chunking parameters. Previously committed chunks
 replay by `request_hash` and do not create duplicate index jobs. Changing chunk
 boundaries is a different write request and the already committed chunk fails as
 a hash conflict.
+
+The stream `batch_id` is also the `sync_run_id`. Providers must pass
+`provider_id` when calling `object_sync_run`, because `sync_run_id` is scoped by
+provider. They can inspect committed checkpoint state before retrying. A normal
+end-of-stream completes the run. Catalogs persist index and activity side
+effects through a durable outbox before returning sync success, so recovery can
+repair missing downstream work without duplicating object facts.
 
 ## Search Contract Shape
 

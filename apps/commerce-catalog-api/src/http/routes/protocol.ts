@@ -24,7 +24,7 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     commerceCatalogScenario,
     services,
     commerceQueryService,
-    searchIndexJobs,
+    catalogOutbox,
   } = context;
 
   let catalogDataProfileCache: {
@@ -91,55 +91,38 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     }))
     .post('/ocp/objects/sync', async ({ body, headers }) => {
       assertWriteAuth(headers);
-      const result = await services.objects.sync(body);
-      await enqueueSearchIndexJobs(result);
-      await recordActivityEvent({
-        event_type: 'catalog.object_synced',
-        source_kind: 'catalog_node',
-        client_kind: 'http',
-        endpoint_role: 'inbound',
-        protocol_family: 'catalog',
-        protocol_version: '1.0',
-        method: 'POST',
-        path_template: '/ocp/objects/sync',
-        status_code: 200,
-        catalog_id: result.catalog_id,
-        provider_id: result.provider_id,
-        sync_object_count: result.items.length,
-        public_visibility: 'public',
-        metadata: {
-          sync_status: result.status,
-          accepted_count: result.accepted_count,
-          rejected_count: result.rejected_count,
+      const result = await services.objects.sync(body, {
+        syncRun: {
+          runMode: 'batch',
+          complete: true,
+          requestMetadata: {
+            endpoint: '/ocp/objects/sync',
+          },
+        },
+        sideEffects: {
+          searchIndexJobs: true,
+          activityEvent: {
+            method: 'POST',
+            pathTemplate: '/ocp/objects/sync',
+            statusCode: 200,
+          },
         },
       });
+      triggerOutboxDrain('object_sync');
       return result;
     })
     .post('/ocp/objects/sync/stream', async ({ request, query, headers }) => {
       assertWriteAuth(headers);
       const result = await syncObjectStream(request, query);
-      await recordActivityEvent({
-        event_type: 'catalog.object_synced',
-        source_kind: 'catalog_node',
-        client_kind: 'http',
-        endpoint_role: 'inbound',
-        protocol_family: 'catalog',
-        protocol_version: '1.0',
-        method: 'POST',
-        path_template: '/ocp/objects/sync/stream',
-        status_code: 200,
-        catalog_id: result.catalog_id,
-        provider_id: result.provider_id,
-        sync_object_count: result.accepted_count + result.rejected_count,
-        public_visibility: 'public',
-        metadata: {
-          stream_batch_id: result.stream_batch_id,
-          chunk_count: result.chunk_count,
-          accepted_count: result.accepted_count,
-          rejected_count: result.rejected_count,
-        },
-      });
+      triggerOutboxDrain('object_sync_stream');
       return result;
+    })
+    .get('/ocp/object-sync-runs/:syncRunId', async ({ params, query }) => (
+      services.objects.getSyncRun(params.syncRunId, requiredQueryString(query, 'provider_id'))
+    ))
+    .post('/ocp/object-sync-runs/:syncRunId/complete', async ({ params, query, headers }) => {
+      assertWriteAuth(headers);
+      return services.objects.completeSyncRun(params.syncRunId, requiredQueryString(query, 'provider_id'));
     })
     .get('/ocp/providers/:providerId/objects', async ({ params }) => ({
       catalog_id: config.CATALOG_ID,
@@ -303,33 +286,20 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     return typeof value === 'string' && value.trim() ? value.trim() : undefined;
   }
 
-  async function enqueueSearchIndexJobs(result: {
-    catalog_id: string;
-    provider_id: string;
-    registration_version: number;
-    batch_id: string;
-    items: Array<{
-      status: string;
-      object_id?: string;
-      commercial_object_id?: string;
-      catalog_entry_id?: string;
-      warnings: string[];
-    }>;
-  }) {
-    await searchIndexJobs.enqueueMany(result.items
-      .filter((item) => item.status === 'accepted' && item.catalog_entry_id && item.commercial_object_id)
-      .map((item) => ({
-        catalogId: result.catalog_id,
-        providerId: result.provider_id,
-        catalogEntryId: item.catalog_entry_id!,
-        commercialObjectId: item.commercial_object_id!,
-        dedupeKey: `sync:${result.batch_id}:upsert_document:${item.catalog_entry_id}`,
-        jobType: 'upsert_document' as const,
-        payload: {
-          object_id: item.object_id,
-          registration_version: result.registration_version,
-        },
-      })));
+  function triggerOutboxDrain(reason: string) {
+    void catalogOutbox.drain({
+      catalogId: config.CATALOG_ID,
+      limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
+      retryDelayMs: 30_000,
+    }).catch((error) => {
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'error',
+        event: 'catalog_outbox_drain_error',
+        reason,
+        error: error instanceof Error ? error.message : String(error),
+      }));
+    });
   }
 
   async function syncObjectStream(
@@ -379,6 +349,10 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     if (chunk.length > 0) {
       await flushChunk();
     }
+    if (chunks.length === 0) {
+      throw new AppError('validation_error', 'stream request body must contain at least one object', 400);
+    }
+    const run = await services.objects.completeSyncRun(streamBatchId, providerId);
 
     return {
       ocp_version: '1.0',
@@ -386,10 +360,13 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       catalog_id: config.CATALOG_ID,
       provider_id: providerId,
       registration_version: registrationVersion,
+      sync_run_id: streamBatchId,
       stream_batch_id: streamBatchId,
+      status: run.status,
       chunk_count: chunks.length,
       accepted_count: acceptedCount,
       rejected_count: rejectedCount,
+      checkpoint: run.checkpoint,
       chunks,
     };
 
@@ -420,8 +397,30 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
         registration_version: registrationVersion,
         batch_id: batchId,
         objects: chunk,
+      }, {
+        syncRun: {
+          syncRunId: streamBatchId,
+          runMode: 'stream',
+          streamBatchId,
+          chunkOrdinal: chunkIndex,
+          requestMetadata: {
+            endpoint: '/ocp/objects/sync/stream',
+            chunk_size: chunkSize,
+          },
+        },
+        sideEffects: {
+          searchIndexJobs: true,
+          activityEvent: {
+            method: 'POST',
+            pathTemplate: '/ocp/objects/sync/stream',
+            statusCode: 200,
+            metadata: {
+              stream_batch_id: streamBatchId,
+              chunk_ordinal: chunkIndex,
+            },
+          },
+        },
       });
-      await enqueueSearchIndexJobs(result);
       acceptedCount += result.accepted_count;
       rejectedCount += result.rejected_count;
       chunks.push({
