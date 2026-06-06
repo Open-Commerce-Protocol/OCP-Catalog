@@ -86,6 +86,56 @@ export class SearchIndexJobService {
     });
   }
 
+  async claimPending(input: {
+    catalogId?: string;
+    limit?: number;
+    now?: Date;
+  } = {}) {
+    const startedAt = new Date();
+    const catalogFilter = input.catalogId
+      ? sql`and catalog_id = ${input.catalogId}`
+      : sql``;
+
+    const rows = await this.db.execute(sql`
+      with claimed_jobs as (
+        select id
+        from catalog_search_index_jobs
+        where status = 'pending'
+          and scheduled_at <= ${input.now ?? startedAt}
+          ${catalogFilter}
+        order by scheduled_at asc, catalog_id asc, created_at asc, id asc
+        for update skip locked
+        limit ${input.limit ?? 25}
+      )
+      update catalog_search_index_jobs as jobs
+      set
+        status = 'running',
+        started_at = ${startedAt},
+        updated_at = ${startedAt}
+      from claimed_jobs
+      where jobs.id = claimed_jobs.id
+      returning
+        jobs.id,
+        jobs.catalog_id as "catalogId",
+        jobs.provider_id as "providerId",
+        jobs.catalog_entry_id as "catalogEntryId",
+        jobs.commercial_object_id as "commercialObjectId",
+        jobs.job_type as "jobType",
+        jobs.status,
+        jobs.attempt_count as "attemptCount",
+        jobs.max_attempts as "maxAttempts",
+        jobs.scheduled_at as "scheduledAt",
+        jobs.started_at as "startedAt",
+        jobs.finished_at as "finishedAt",
+        jobs.error,
+        jobs.payload,
+        jobs.created_at as "createdAt",
+        jobs.updated_at as "updatedAt"
+    `);
+
+    return (rows as unknown as Array<typeof schema.catalogSearchIndexJobs.$inferSelect>).map(toSearchIndexJob);
+  }
+
   async listPending(input: {
     catalogId?: string;
     limit?: number;
@@ -116,17 +166,6 @@ export class SearchIndexJobService {
       .limit(input.limit ?? 25);
 
     return rows.map(toSearchIndexJob);
-  }
-
-  async markRunning(jobId: string) {
-    await this.db
-      .update(schema.catalogSearchIndexJobs)
-      .set({
-        status: 'running',
-        startedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.catalogSearchIndexJobs.id, jobId));
   }
 
   async markCompleted(jobId: string) {

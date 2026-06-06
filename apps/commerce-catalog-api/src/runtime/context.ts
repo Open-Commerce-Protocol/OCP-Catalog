@@ -15,7 +15,8 @@ import { SearchIndexJobService } from '../search/indexing/index-job-service';
 import { SearchIndexWorker } from '../search/indexing/index-worker';
 import { SearchEmbeddingService } from '../search/indexing/search-embedding-service';
 import { SearchIndexJobHandlerService } from '../search/indexing/search-index-job-handler';
-import { SearchRetrievalService } from '../search/retrieval/search-retrieval-service';
+import { CatalogSemanticRetrievalService } from '../search/retrieval/catalog-semantic-retrieval-service';
+import { PostgresLocalVectorIndexAdapter } from '../search/retrieval/postgres-local-vector-index-adapter';
 
 export function createCommerceCatalogRuntimeContext() {
   const config = loadConfig();
@@ -26,7 +27,14 @@ export function createCommerceCatalogRuntimeContext() {
     semanticSearchEnabled: true,
   });
   const services = createCatalogServices(db, config, commerceCatalogScenario);
-  const searchRetrievalService = new SearchRetrievalService(db, embeddingProvider);
+  const localVectorIndex = new PostgresLocalVectorIndexAdapter(db, {
+    vectorProviderId: 'postgres-local-pgvector',
+    indexName: 'catalog_search_embeddings',
+    embeddingProviderId: embeddingProvider.providerId,
+    embeddingModel: embeddingProvider.model,
+    embeddingDimension: embeddingProvider.dimension,
+  });
+  const searchRetrievalService = new CatalogSemanticRetrievalService(embeddingProvider, localVectorIndex);
   const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
   const searchIndexJobs = new SearchIndexJobService(db);
   const searchDocumentService = new SearchDocumentUpsertService(db);

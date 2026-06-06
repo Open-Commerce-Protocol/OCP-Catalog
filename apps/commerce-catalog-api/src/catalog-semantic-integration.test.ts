@@ -8,7 +8,8 @@ import { createCommerceCatalogScenario } from './commerce-scenario';
 import { CommerceQueryService } from './query/commerce-query-service';
 import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 import { SearchEmbeddingService, type EmbeddingProvider, type EmbeddingResult } from './search/indexing/search-embedding-service';
-import { SearchRetrievalService } from './search/retrieval/search-retrieval-service';
+import { CatalogSemanticRetrievalService, type CatalogSemanticRetriever } from './search/retrieval/catalog-semantic-retrieval-service';
+import { PostgresLocalVectorIndexAdapter } from './search/retrieval/postgres-local-vector-index-adapter';
 import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
 const baseConfig = loadConfig();
@@ -187,7 +188,7 @@ describe('commerce catalog semantic integration', () => {
       async nearestNeighbors() {
         return new Map<string, number>();
       },
-    } as unknown as SearchRetrievalService).query({
+    } satisfies CatalogSemanticRetriever).query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
@@ -313,6 +314,13 @@ function normalize(vector: number[]) {
 }
 
 const embeddingProvider = new LocalHashEmbeddingProvider('local-hash-v1', 64);
+const localVectorIndex = new PostgresLocalVectorIndexAdapter(db, {
+  vectorProviderId: 'postgres-local-pgvector',
+  indexName: 'catalog_search_embeddings',
+  embeddingProviderId: embeddingProvider.providerId,
+  embeddingModel: embeddingProvider.model,
+  embeddingDimension: embeddingProvider.dimension,
+});
 const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
 const searchEmbeddingService = new SearchEmbeddingService(db, embeddingProvider);
 const services = createCatalogServices(db, baseConfig, scenario);
@@ -320,5 +328,5 @@ const commerceQueryService = new CommerceQueryService(
   db,
   baseConfig,
   scenario,
-  new SearchRetrievalService(db, embeddingProvider),
+  new CatalogSemanticRetrievalService(embeddingProvider, localVectorIndex),
 );

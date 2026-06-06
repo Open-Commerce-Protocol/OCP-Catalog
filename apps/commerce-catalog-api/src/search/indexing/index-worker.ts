@@ -21,7 +21,7 @@ export class SearchIndexWorker {
     limit?: number;
     retryDelayMs?: number;
   } = {}): Promise<SearchIndexWorkerRunResult> {
-    const jobs = await this.jobs.listPending({
+    const jobs = await this.jobs.claimPending({
       catalogId: input.catalogId,
       limit: input.limit,
     });
@@ -30,7 +30,6 @@ export class SearchIndexWorker {
     let failedCount = 0;
 
     for (const job of jobs) {
-      await this.jobs.markRunning(job.id);
       try {
         await this.handler.handle(job);
         await this.jobs.markCompleted(job.id);

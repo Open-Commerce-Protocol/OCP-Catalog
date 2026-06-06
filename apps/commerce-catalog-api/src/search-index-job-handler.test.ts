@@ -101,11 +101,8 @@ describe('SearchIndexJobHandlerService', () => {
     ];
     const worker = new SearchIndexWorker(
       {
-        async listPending() {
+        async claimPending() {
           return jobs;
-        },
-        async markRunning(jobId: string) {
-          events.push(`running:${jobId}`);
         },
         async markCompleted(jobId: string) {
           events.push(`completed:${jobId}`);
@@ -131,11 +128,9 @@ describe('SearchIndexJobHandlerService', () => {
       failedCount: 0,
     });
     expect(events).toEqual([
-      'running:sjob_1',
       'handle:start:sjob_1',
       'handle:end:sjob_1',
       'completed:sjob_1',
-      'running:sjob_2',
       'handle:start:sjob_2',
       'handle:end:sjob_2',
       'completed:sjob_2',

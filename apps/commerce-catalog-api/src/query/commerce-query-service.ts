@@ -12,7 +12,7 @@ import {
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
-import type { SearchRetrievalService } from '../search/retrieval/search-retrieval-service';
+import type { CatalogSemanticRetriever } from '../search/retrieval/catalog-semantic-retrieval-service';
 import { planCommerceQuery } from './commerce-query-planner';
 
 export type CommerceQueryMeta = {
@@ -24,7 +24,7 @@ export class CommerceQueryService {
     private readonly db: Db,
     private readonly config: AppConfig,
     private readonly scenario: CatalogScenarioModule,
-    private readonly retrieval?: SearchRetrievalService,
+    private readonly retrieval?: CatalogSemanticRetriever,
   ) {}
 
   async query(input: unknown, meta: CommerceQueryMeta = {}): Promise<CatalogQueryResult> {
