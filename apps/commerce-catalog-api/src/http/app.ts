@@ -9,14 +9,15 @@ import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import { AppError } from '@ocp-catalog/shared';
 import { and, count, desc, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
-import { ZodError } from 'zod';
 import {
   createCommerceCatalogRuntimeContext,
   logEmbeddingProviderConfig,
-} from './runtime/context';
-import { startSearchIndexWorkerScheduler } from './runtime/search-index-scheduler';
+} from '../runtime/context';
+import { handleHttpError } from './errors';
+import { firstHeader, logRequest, statusCode } from './request-context';
+import { staticAdminRoutes } from './routes/static-admin';
 
-const runtime = createCommerceCatalogRuntimeContext();
+export const runtime = createCommerceCatalogRuntimeContext();
 const {
   config,
   db,
@@ -28,7 +29,6 @@ const {
   searchIndexWorker,
   catalogAdminSite,
 } = runtime;
-const searchIndexScheduler = startSearchIndexWorkerScheduler(runtime);
 const DATA_PROFILE_CACHE_TTL_MS = 60_000;
 let catalogDataProfileCache: {
   expiresAt: number;
@@ -37,7 +37,7 @@ let catalogDataProfileCache: {
 
 logEmbeddingProviderConfig(runtime);
 
-const app = new Elysia()
+export const app = new Elysia()
   .use(cors())
   .derive(({ request }) => ({
     requestStartedAt: performance.now(),
@@ -51,46 +51,13 @@ const app = new Elysia()
       durationMs: performance.now() - requestStartedAt,
     });
   })
-  .onError(({ error, request, requestStartedAt, requestPathname, set }) => {
-    if (error instanceof AppError) {
-      set.status = error.status;
-      logRequest({
-        request,
-        pathname: requestPathname,
-        status: error.status,
-        durationMs: requestStartedAt ? performance.now() - requestStartedAt : undefined,
-        error,
-      });
-      return { error: { code: error.code, message: error.message, details: error.details } };
-    }
-
-    if (error instanceof ZodError) {
-      set.status = 400;
-      logRequest({
-        request,
-        pathname: requestPathname,
-        status: 400,
-        durationMs: requestStartedAt ? performance.now() - requestStartedAt : undefined,
-        error,
-      });
-      return { error: { code: 'validation_error', message: 'Invalid request body', details: error.issues } };
-    }
-
-    set.status = 500;
-    logRequest({
-      request,
-      pathname: requestPathname,
-      status: 500,
-      durationMs: requestStartedAt ? performance.now() - requestStartedAt : undefined,
-      error,
-    });
-    return {
-      error: {
-        code: 'internal_error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-    };
-  })
+  .onError(({ error, request, requestStartedAt, requestPathname, set }) => handleHttpError({
+    error,
+    request,
+    requestStartedAt,
+    requestPathname,
+    set,
+  }))
   .get('/health', () => ({
     ok: true,
     service: 'commerce-catalog-api',
@@ -273,29 +240,7 @@ const app = new Elysia()
     });
     return result;
   })
-  .get('/', () => serveCatalogAdmin('/'))
-  .get('/*', async ({ request }) => {
-    const pathname = new URL(request.url).pathname;
-    if (
-      pathname === '/health'
-      || pathname.startsWith('/api/catalog-admin/')
-      || pathname.startsWith('/ocp/')
-      || pathname === '/.well-known/ocp-catalog'
-    ) {
-      return new Response('Not Found', { status: 404 });
-    }
-
-    return serveCatalogAdmin(pathname);
-  })
-  .listen(config.CATALOG_API_PORT);
-
-console.log(`Commerce Catalog API listening on http://localhost:${app.server?.port}`);
-if (await catalogAdminSite('/')) {
-  console.log('Commerce Catalog Admin static site mounted from apps/commerce-catalog-api/public/dist');
-}
-if (searchIndexScheduler) {
-  console.log(`Commerce Catalog search index worker enabled every ${config.CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS}s`);
-}
+  .use(staticAdminRoutes(runtime));
 
 function assertWriteAuth(headers: Record<string, string | undefined>) {
   requireApiKey(firstHeader(headers['x-api-key']), config.API_KEY_DEV, config.API_KEYS);
@@ -307,10 +252,6 @@ function assertAdminAuth(headers: Record<string, string | undefined>) {
     config.API_KEY_DEV,
     config.API_KEYS,
   );
-}
-
-function firstHeader(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
 }
 
 async function recordActivityEvent(input: OcpActivityEventInput) {
@@ -325,11 +266,6 @@ async function recordActivityEvent(input: OcpActivityEventInput) {
       error: error instanceof Error ? error.message : String(error),
     }));
   }
-}
-
-async function serveCatalogAdmin(pathname: string) {
-  const response = await catalogAdminSite(pathname);
-  return response ?? new Response('Not Found', { status: 404 });
 }
 
 async function getCatalogAdminOverview() {
@@ -641,34 +577,6 @@ async function getLatestSyncBatch() {
     .limit(1);
 
   return row ?? null;
-}
-
-function logRequest(input: {
-  request: Request;
-  pathname?: string;
-  status: number;
-  durationMs?: number;
-  error?: unknown;
-}) {
-  const level = input.status >= 500 ? 'error' : input.status >= 400 ? 'warn' : 'info';
-  const logLine = {
-    ts: new Date().toISOString(),
-    level,
-    event: 'http_request',
-    method: input.request.method,
-    path: input.pathname ?? new URL(input.request.url).pathname,
-    status: input.status,
-    duration_ms: input.durationMs !== undefined ? Number(input.durationMs.toFixed(2)) : undefined,
-    user_agent: input.request.headers.get('user-agent') ?? undefined,
-    error: input.error instanceof Error ? input.error.message : undefined,
-  };
-
-  const writer = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
-  writer(JSON.stringify(logLine));
-}
-
-function statusCode(value: unknown) {
-  return typeof value === 'number' ? value : 200;
 }
 
 function summarizeSearchIndex(
