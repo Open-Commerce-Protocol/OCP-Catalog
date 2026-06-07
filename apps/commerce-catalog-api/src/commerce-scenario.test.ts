@@ -148,6 +148,26 @@ describe('commerce-scenario', () => {
     });
   });
 
+  test('advertises provider upload guidance and async indexing behavior', () => {
+    const scenario = createCommerceCatalogScenario();
+    const [capability] = scenario.providerSyncCapabilities?.() ?? [];
+    const metadata = capability?.metadata as Record<string, unknown>;
+    const uploadGuide = metadata.upload_guide as Record<string, unknown>;
+    const indexingBehavior = uploadGuide.indexing_behavior as Record<string, unknown>;
+    const batchEndpoint = uploadGuide.batch_endpoint as Record<string, unknown>;
+    const streamEndpoint = uploadGuide.stream_endpoint as Record<string, unknown>;
+    const objectRequirements = uploadGuide.object_requirements as Record<string, unknown>;
+    const auth = uploadGuide.auth as Record<string, unknown>;
+
+    expect(uploadGuide.summary).toContain('register first');
+    expect(auth.registration_result_field).toBe('provider_api_key');
+    expect(batchEndpoint.path).toBe('/ocp/objects/sync');
+    expect(streamEndpoint.path).toBe('/ocp/objects/sync/stream');
+    expect(indexingBehavior.mode).toBe('async');
+    expect(indexingBehavior.note).toContain('semantic embeddings are ready');
+    expect(objectRequirements.minimum_required_fields).toContain('descriptors[ocp.commerce.price.v1].amount');
+  });
+
   test('advertises practical query usage guidance in manifest metadata', () => {
     const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: true });
     const capability = scenario.queryCapabilities()[0];

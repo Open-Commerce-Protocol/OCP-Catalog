@@ -28,7 +28,7 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogRuntimeC
       const outbox = await context.catalogOutbox.drain({
         catalogId: config.CATALOG_ID,
         limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
-        retryDelayMs: 30_000,
+        retryDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
       });
       if (outbox.claimed_count > 0) {
         console.log(JSON.stringify({
@@ -43,7 +43,10 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogRuntimeC
       const result = await searchIndexWorker.runBatch({
         catalogId: config.CATALOG_ID,
         limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
-        retryDelayMs: 30_000,
+        retryDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
+        retryMaxDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_MAX_DELAY_MS,
+        retryJitterRatio: config.CATALOG_SEARCH_INDEX_RETRY_JITTER_RATIO,
+        jobDelayMs: config.CATALOG_SEARCH_INDEX_WORKER_JOB_DELAY_MS,
       });
       if (result.claimedCount > 0) {
         console.log(JSON.stringify({

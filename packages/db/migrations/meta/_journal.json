@@ -64,6 +64,13 @@
       "when": 1780799372250,
       "tag": "0008_rename_object_sync_chunks",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1780810535000,
+      "tag": "0009_provider_api_keys",
+      "breakpoints": true
     }
   ]
 }

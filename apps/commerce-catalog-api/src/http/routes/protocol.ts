@@ -77,11 +77,11 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     })
     .get('/ocp/providers/:providerId', async ({ params }) => services.registrations.getProvider(params.providerId))
     .post('/ocp/providers/:providerId/deactivate', async ({ params, headers }) => {
-      assertWriteAuth(headers);
+      await assertProviderWriteAuth(headers, params.providerId);
       return services.providerLifecycle.deactivateProvider(params.providerId);
     })
     .post('/ocp/providers/:providerId/erase', async ({ params, headers }) => {
-      assertWriteAuth(headers);
+      await assertProviderWriteAuth(headers, params.providerId);
       return services.providerLifecycle.eraseProvider(params.providerId);
     })
     .get('/ocp/providers/:providerId/registrations', async ({ params }) => ({
@@ -90,7 +90,7 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       registrations: await services.registrations.listRegistrations(params.providerId),
     }))
     .post('/ocp/objects/sync', async ({ body, headers }) => {
-      assertWriteAuth(headers);
+      await assertProviderWriteAuth(headers, bodyProviderId(body));
       const result = await services.objects.sync(body, {
         syncRun: {
           runMode: 'batch',
@@ -112,7 +112,7 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       return result;
     })
     .post('/ocp/objects/sync/stream', async ({ request, query, headers }) => {
-      assertWriteAuth(headers);
+      await assertProviderWriteAuth(headers, requiredQueryString(query, 'provider_id'));
       const result = await syncObjectStream(request, query);
       triggerOutboxDrain('object_sync_stream');
       return result;
@@ -121,8 +121,9 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       services.objects.getSyncRun(params.syncRunId, requiredQueryString(query, 'provider_id'))
     ))
     .post('/ocp/object-sync-runs/:syncRunId/complete', async ({ params, query, headers }) => {
-      assertWriteAuth(headers);
-      return services.objects.completeSyncRun(params.syncRunId, requiredQueryString(query, 'provider_id'));
+      const providerId = requiredQueryString(query, 'provider_id');
+      await assertProviderWriteAuth(headers, providerId);
+      return services.objects.completeSyncRun(params.syncRunId, providerId);
     })
     .get('/ocp/providers/:providerId/objects', async ({ params }) => ({
       catalog_id: config.CATALOG_ID,
@@ -170,8 +171,22 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       return result;
     });
 
-  function assertWriteAuth(headers: Record<string, string | undefined>) {
-    requireApiKey(firstHeader(headers['x-api-key']), config.API_KEY_DEV, config.API_KEYS);
+  async function assertProviderWriteAuth(headers: Record<string, string | undefined>, providerId: string) {
+    const key = firstHeader(headers['x-api-key']);
+    try {
+      requireApiKey(key, config.API_KEY_DEV, config.API_KEYS);
+      return;
+    } catch (error) {
+      if (!(error instanceof AppError) || error.code !== 'unauthorized') throw error;
+    }
+    if (await services.registrations.authenticateProviderApiKey(key, providerId)) return;
+    throw new AppError('unauthorized', 'Missing or invalid provider API key', 401, {
+      provider_id: providerId,
+      auth: {
+        scheme: 'x-api-key',
+        source: 'provider registration result',
+      },
+    });
   }
 
   async function recordActivityEvent(input: OcpActivityEventInput) {
@@ -432,6 +447,17 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
       chunk = [];
       chunkIndex += 1;
     }
+  }
+
+  function bodyProviderId(body: unknown) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      throw new AppError('validation_error', 'provider_id is required', 400, { field: 'provider_id' });
+    }
+    const value = (body as Record<string, unknown>).provider_id;
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new AppError('validation_error', 'provider_id is required', 400, { field: 'provider_id' });
+    }
+    return value.trim();
   }
 
   function requiredQueryString(query: Record<string, string | undefined>, key: string) {

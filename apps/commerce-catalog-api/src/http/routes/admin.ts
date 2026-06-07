@@ -29,23 +29,25 @@ export function catalogAdminApiRoutes(context: CommerceCatalogRuntimeContext) {
       assertAdminAuth(context, headers);
       return getCatalogAdminEntries(context, query);
     })
-    .post('/api/catalog-admin/registration/register', async ({ headers }) => {
+    .post('/api/catalog-admin/registration/register', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
-      return registerCatalogInRegistration(context);
+      return runRegistrationTargets(context, body, (target) => registerCatalogInRegistration(context, target));
     })
-    .post('/api/catalog-admin/registration/verify', async ({ headers }) => {
+    .post('/api/catalog-admin/registration/verify', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
-      return postRegistrationJson(context, `/ocp/catalogs/${context.config.CATALOG_ID}/verify`, {});
+      return runRegistrationTargets(context, body, (target) => postRegistrationJson(target, `/ocp/catalogs/${context.config.CATALOG_ID}/verify`, {}));
     })
     .post('/api/catalog-admin/registration/refresh', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
-      const token = getOptionalBodyString(body, 'catalog_token');
-      return postRegistrationJson(context, `/ocp/catalogs/${context.config.CATALOG_ID}/refresh`, {}, token);
+      return runRegistrationTargets(context, body, (target) => (
+        postRegistrationJson(target, `/ocp/catalogs/${context.config.CATALOG_ID}/refresh`, {}, getCatalogTokenForTarget(body, target))
+      ));
     })
     .post('/api/catalog-admin/registration/token/rotate', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
-      const token = getOptionalBodyString(body, 'catalog_token');
-      return postRegistrationJson(context, `/ocp/catalogs/${context.config.CATALOG_ID}/token/rotate`, {}, token);
+      return runRegistrationTargets(context, body, (target) => (
+        postRegistrationJson(target, `/ocp/catalogs/${context.config.CATALOG_ID}/token/rotate`, {}, getCatalogTokenForTarget(body, target))
+      ));
     })
     .post('/api/catalog-admin/search-index/run', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
@@ -519,14 +521,74 @@ async function getCatalogAdminEntries(context: CommerceCatalogRuntimeContext, qu
   };
 }
 
-async function registerCatalogInRegistration(context: CommerceCatalogRuntimeContext) {
+type RegistrationTarget = {
+  baseUrl: string;
+};
+
+async function runRegistrationTargets(
+  context: CommerceCatalogRuntimeContext,
+  body: unknown,
+  action: (target: RegistrationTarget) => Promise<Record<string, unknown>>,
+) {
+  const targets = getRegistrationTargets(context, body);
+  const results = await Promise.allSettled(targets.map(async (target) => ({
+    registration_url: target.baseUrl,
+    result: await action(target),
+  })));
+  const mapped = results.map((result, index) => {
+    const target = targets[index];
+    if (result.status === 'fulfilled') return { status: 'fulfilled' as const, ...result.value };
+    return {
+      status: 'rejected' as const,
+      registration_url: target.baseUrl,
+      error: serializeRegistrationActionError(result.reason),
+    };
+  });
+
+  const failed = mapped.filter((result) => result.status === 'rejected');
+  const onlyResult = mapped[0];
+  if (onlyResult && onlyResult.status === 'fulfilled' && mapped.length === 1) return onlyResult.result;
+  return {
+    registration_target_count: targets.length,
+    fulfilled_count: mapped.length - failed.length,
+    failed_count: failed.length,
+    results: mapped,
+  };
+}
+
+function getRegistrationTargets(context: CommerceCatalogRuntimeContext, body: unknown): RegistrationTarget[] {
+  const values = getOptionalBodyStringArray(body, 'registration_urls');
+  const urls = values.length > 0 ? values : [context.config.REGISTRATION_PUBLIC_BASE_URL];
+  const unique = [...new Set(urls.map((url) => normalizeRegistrationUrl(url)))];
+  return unique.map((baseUrl) => ({ baseUrl }));
+}
+
+function normalizeRegistrationUrl(value: string) {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new AppError('validation_error', 'registration_urls must contain valid URLs', 400, { value });
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new AppError('validation_error', 'registration_urls only supports http or https URLs', 400, { value });
+  }
+  url.hash = '';
+  url.search = '';
+  return url.toString().replace(/\/$/, '');
+}
+
+async function registerCatalogInRegistration(context: CommerceCatalogRuntimeContext, target: RegistrationTarget) {
   const hostname = new URL(context.config.CATALOG_PUBLIC_BASE_URL).hostname;
-  const registrationVersion = await nextCatalogRegistrationVersion(context);
-  return postRegistrationJson(context, '/ocp/catalogs/register', {
+  const [registrationVersion, registrationId] = await Promise.all([
+    nextCatalogRegistrationVersion(context, target),
+    getTargetRegistrationId(context, target),
+  ]);
+  return postRegistrationJson(target, '/ocp/catalogs/register', {
     ocp_version: '1.0',
     kind: 'CatalogRegistration',
     id: `catreg_${crypto.randomUUID().replaceAll('-', '')}`,
-    registration_id: context.config.REGISTRATION_ID,
+    registration_id: registrationId,
     catalog_id: context.config.CATALOG_ID,
     registration_version: registrationVersion,
     updated_at: new Date().toISOString(),
@@ -538,9 +600,9 @@ async function registerCatalogInRegistration(context: CommerceCatalogRuntimeCont
   });
 }
 
-async function nextCatalogRegistrationVersion(context: CommerceCatalogRuntimeContext) {
+async function nextCatalogRegistrationVersion(context: CommerceCatalogRuntimeContext, target: RegistrationTarget) {
   const pathname = `/ocp/catalogs/${context.config.CATALOG_ID}`;
-  const response = await fetch(`${context.config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '')}${pathname}`);
+  const response = await fetch(`${target.baseUrl}${pathname}`);
   if (response.status === 404) return 1;
   const payload = await readRegistrationJson(response, pathname);
   if (!response.ok) {
@@ -550,13 +612,33 @@ async function nextCatalogRegistrationVersion(context: CommerceCatalogRuntimeCon
   return getRequiredPayloadNumber(payload, 'activeRegistrationVersion') + 1;
 }
 
+async function getTargetRegistrationId(context: CommerceCatalogRuntimeContext, target: RegistrationTarget) {
+  const manifest = await fetchRegistrationMetadata(target, '/ocp/registration/manifest');
+  const manifestId = readPayloadString(manifest, 'registration_id');
+  if (manifestId) return manifestId;
+
+  const discovery = await fetchRegistrationMetadata(target, '/.well-known/ocp-registration');
+  const discoveryId = readPayloadString(discovery, 'registration_id');
+  return discoveryId ?? context.config.REGISTRATION_ID;
+}
+
+async function fetchRegistrationMetadata(target: RegistrationTarget, pathname: string) {
+  try {
+    const response = await fetch(`${target.baseUrl}${pathname}`);
+    if (!response.ok) return null;
+    return readRegistrationJson(response, pathname);
+  } catch {
+    return null;
+  }
+}
+
 async function postRegistrationJson(
-  context: CommerceCatalogRuntimeContext,
+  target: RegistrationTarget,
   pathname: string,
   body: Record<string, unknown>,
   catalogToken?: string | null,
 ) {
-  const response = await fetch(`${context.config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '')}${pathname}`, {
+  const response = await fetch(`${target.baseUrl}${pathname}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -612,12 +694,57 @@ function getOptionalBodyString(body: unknown, key: string) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function getOptionalBodyStringArray(body: unknown, key: string) {
+  if (!body || typeof body !== 'object') return [];
+  const value = (body as Record<string, unknown>)[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => item.trim());
+}
+
+function getCatalogTokenForTarget(body: unknown, target: RegistrationTarget) {
+  const scoped = getOptionalBodyStringRecord(body, 'catalog_tokens');
+  return scoped[normalizeRegistrationUrl(target.baseUrl)] ?? scoped[target.baseUrl] ?? getOptionalBodyString(body, 'catalog_token');
+}
+
+function getOptionalBodyStringRecord(body: unknown, key: string) {
+  if (!body || typeof body !== 'object') return {};
+  const value = (body as Record<string, unknown>)[key];
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).flatMap(([entryKey, entryValue]) => (
+      typeof entryValue === 'string' && entryValue.trim()
+        ? [[normalizeRegistrationUrl(entryKey), entryValue.trim()]]
+        : []
+    )),
+  );
+}
+
 function getRequiredBodyString(body: unknown, key: string) {
   const value = getOptionalBodyString(body, key);
   if (!value) {
     throw new AppError('validation_error', `${key} is required`, 400, { field: key });
   }
   return value;
+}
+
+function readPayloadString(payload: Record<string, unknown> | null, key: string) {
+  const value = payload?.[key];
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function serializeRegistrationActionError(error: unknown) {
+  if (error instanceof AppError) {
+    return {
+      code: error.code,
+      message: error.message,
+      status: error.status,
+      details: error.details,
+    };
+  }
+  return {
+    code: 'internal_error',
+    message: error instanceof Error ? error.message : String(error),
+  };
 }
 
 function getRequiredPayloadNumber(payload: Record<string, unknown>, key: string) {

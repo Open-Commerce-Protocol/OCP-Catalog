@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { LayoutDashboard, Users, Database, Network, FileJson, Activity, Search, RefreshCw, Layers, ShieldCheck, FileSearch, KeyRound } from 'lucide-react';
 import {
+  defaultRegistrationBaseUrl,
   fetchCatalogAdminEntries,
   fetchCatalogAdminOverview,
   fetchCatalogAdminProviders,
@@ -735,20 +736,43 @@ function RegistrationOpsPage({
   onRefresh: () => Promise<void>;
 }) {
   const [catalogToken, setCatalogToken] = useState(() => window.localStorage.getItem('catalog-registration-token') || '');
+  const [registrationTargetsText, setRegistrationTargetsText] = useState(() => (
+    window.localStorage.getItem('catalog-registration-targets') || defaultRegistrationBaseUrl()
+  ));
+  const [catalogTokens, setCatalogTokens] = useState<Record<string, string>>(() => (
+    readStoredCatalogTokens(window.localStorage.getItem('catalog-registration-tokens'))
+  ));
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [lastActionResult, setLastActionResult] = useState<Record<string, unknown> | null>(null);
+  const registrationTargets = useMemo(
+    () => registrationTargetsText.split(/\r?\n|,/).map((target) => target.trim()).filter(Boolean),
+    [registrationTargetsText],
+  );
 
   useEffect(() => {
     window.localStorage.setItem('catalog-registration-token', catalogToken);
   }, [catalogToken]);
+
+  useEffect(() => {
+    window.localStorage.setItem('catalog-registration-targets', registrationTargetsText);
+  }, [registrationTargetsText]);
+
+  useEffect(() => {
+    window.localStorage.setItem('catalog-registration-tokens', JSON.stringify(catalogTokens));
+  }, [catalogTokens]);
 
   async function runAction(action: string, fn: () => Promise<Record<string, unknown>>) {
     try {
       setBusyAction(action);
       const result = await fn();
       setLastActionResult(result);
-      if (typeof result.catalog_access_token === 'string') {
-        setCatalogToken(result.catalog_access_token);
+      const issuedTokens = findCatalogAccessTokens(result);
+      if (issuedTokens.length > 0) {
+        setCatalogTokens((current) => ({
+          ...current,
+          ...Object.fromEntries(issuedTokens.map(({ registrationUrl, token }) => [registrationUrl, token])),
+        }));
+        setCatalogToken(issuedTokens[0].token);
       }
       await onRefresh();
       onSuccess(`${action} completed`);
@@ -776,7 +800,17 @@ function RegistrationOpsPage({
           </div>
           <div className="mb-4 space-y-3">
             <label className="block space-y-2 text-sm">
-              <span className="text-xs uppercase tracking-wider text-operator-muted">Catalog token</span>
+              <span className="text-xs uppercase tracking-wider text-operator-muted">Registration targets</span>
+              <textarea
+                value={registrationTargetsText}
+                onChange={(event) => setRegistrationTargetsText(event.target.value)}
+                rows={4}
+                className="w-full resize-y rounded-sm border border-operator-border bg-operator-bg px-3 py-2 font-mono text-xs leading-5"
+                placeholder="One registration base URL per line"
+              />
+            </label>
+            <label className="block space-y-2 text-sm">
+              <span className="text-xs uppercase tracking-wider text-operator-muted">Fallback catalog token</span>
               <input
                 type="password"
                 value={catalogToken}
@@ -785,17 +819,36 @@ function RegistrationOpsPage({
                 placeholder="Token required for refresh and rotate"
               />
             </label>
+            <div className="space-y-2">
+              <div className="text-xs uppercase tracking-wider text-operator-muted">Target tokens</div>
+              {registrationTargets.length === 0 ? (
+                <div className="rounded-sm border border-operator-border bg-operator-bg p-3 text-xs text-operator-muted">Add at least one registration target.</div>
+              ) : (
+                registrationTargets.map((target) => (
+                  <label key={target} className="block space-y-1 text-sm">
+                    <span className="block truncate font-mono text-[11px] text-operator-muted">{target}</span>
+                    <input
+                      type="password"
+                      value={catalogTokens[target] ?? ''}
+                      onChange={(event) => setCatalogTokens((current) => ({ ...current, [target]: event.target.value }))}
+                      className="w-full rounded-sm border border-operator-border bg-operator-bg px-3 py-2"
+                      placeholder="Issued token for this registration target"
+                    />
+                  </label>
+                ))
+              )}
+            </div>
             <div className="grid gap-2 md:grid-cols-2">
-              <button onClick={() => void runAction('registration register', () => registerCatalogToRegistration(apiKey))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+              <button onClick={() => void runAction('registration register', () => registerCatalogToRegistration(apiKey, registrationTargets))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
                 {busyAction === 'registration register' ? 'Registering...' : 'Register to Registration'}
               </button>
-              <button onClick={() => void runAction('registration verify', () => verifyCatalogInRegistration(apiKey))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+              <button onClick={() => void runAction('registration verify', () => verifyCatalogInRegistration(apiKey, registrationTargets))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
                 {busyAction === 'registration verify' ? 'Verifying...' : 'Verify'}
               </button>
-              <button onClick={() => void runAction('registration refresh', () => refreshCatalogInRegistration(apiKey, catalogToken))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+              <button onClick={() => void runAction('registration refresh', () => refreshCatalogInRegistration(apiKey, catalogToken, registrationTargets, catalogTokens))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
                 {busyAction === 'registration refresh' ? 'Refreshing...' : 'Refresh'}
               </button>
-              <button onClick={() => void runAction('registration rotate token', () => rotateCatalogRegistrationToken(apiKey, catalogToken))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
+              <button onClick={() => void runAction('registration rotate token', () => rotateCatalogRegistrationToken(apiKey, catalogToken, registrationTargets, catalogTokens))} disabled={Boolean(busyAction)} className="rounded-sm border border-operator-border px-3 py-2 text-sm hover:bg-operator-bg disabled:opacity-50">
                 {busyAction === 'registration rotate token' ? 'Rotating...' : 'Rotate Token'}
               </button>
             </div>
@@ -895,6 +948,43 @@ function RegistrationOpsPage({
       </div>
     </div>
   );
+}
+
+function readStoredCatalogTokens(value: string | null): Record<string, string> {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, string] => (
+        typeof entry[0] === 'string' && typeof entry[1] === 'string'
+      )),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function findCatalogAccessTokens(value: unknown, inheritedUrl?: string): Array<{ registrationUrl: string; token: string }> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  const record = value as Record<string, unknown>;
+  const registrationUrl = typeof record.registration_url === 'string' && record.registration_url.trim()
+    ? record.registration_url.trim()
+    : inheritedUrl;
+  const tokens: Array<{ registrationUrl: string; token: string }> = [];
+  if (typeof record.catalog_access_token === 'string' && record.catalog_access_token.trim()) {
+    tokens.push({ registrationUrl: registrationUrl ?? 'default', token: record.catalog_access_token.trim() });
+  }
+  if (Array.isArray(record.results)) {
+    for (const item of record.results) {
+      tokens.push(...findCatalogAccessTokens(item, registrationUrl));
+    }
+  }
+  const nestedResult = record.result;
+  if (nestedResult && nestedResult !== value) {
+    tokens.push(...findCatalogAccessTokens(nestedResult, registrationUrl));
+  }
+  return tokens;
 }
 
 function ManifestPage({

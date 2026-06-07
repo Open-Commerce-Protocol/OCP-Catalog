@@ -25,6 +25,15 @@ export type VectorIndexQueryResult = {
   matches: VectorIndexMatch[];
 };
 
+export type VectorIndexDocument = {
+  documentId: string;
+  catalogId: string;
+  providerId: string;
+  objectType: string;
+  embeddingVector: number[];
+  embeddingTextHash: string;
+};
+
 export type VectorIndexHealth = {
   profile: VectorIndexProfile;
   available: boolean;
@@ -34,4 +43,10 @@ export interface VectorIndexAdapter {
   readonly profile: VectorIndexProfile;
   query(input: VectorIndexQueryInput): Promise<VectorIndexQueryResult>;
   health(): Promise<VectorIndexHealth>;
+}
+
+export interface WritableVectorIndexAdapter extends VectorIndexAdapter {
+  ensureIndex(): Promise<void>;
+  upsert(input: VectorIndexDocument): Promise<void>;
+  delete(documentId: string): Promise<void>;
 }

@@ -16,6 +16,8 @@ export function createCommerceEmbeddingProvider(config: AppConfig): EmbeddingPro
     baseUrl: config.OPENAI_BASE_URL,
     model,
     dimension: config.EMBEDDING_DIMENSION,
+    timeoutMs: config.OPENAI_TIMEOUT_MS,
+    maxInputChars: config.OPENAI_EMBEDDING_MAX_INPUT_CHARS,
   });
 }
 
@@ -52,54 +54,72 @@ class OpenAIEmbeddingProvider implements EmbeddingProvider {
   readonly dimension: number;
   private readonly apiKey: string;
   private readonly baseUrl: string;
+  private readonly timeoutMs: number;
+  private readonly maxInputChars: number;
 
   constructor(options: {
     apiKey: string;
     baseUrl: string;
     model: string;
     dimension: number;
+    timeoutMs: number;
+    maxInputChars: number;
   }) {
     this.apiKey = options.apiKey;
     this.baseUrl = options.baseUrl.replace(/\/$/, '');
     this.model = options.model;
     this.dimension = options.dimension;
+    this.timeoutMs = options.timeoutMs;
+    this.maxInputChars = options.maxInputChars;
   }
 
   async embed(input: string): Promise<EmbeddingResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
     const body: Record<string, unknown> = {
       model: this.model,
-      input,
+      input: truncateInput(input, this.maxInputChars),
     };
     if (this.model.startsWith('text-embedding-3-') && Number.isInteger(this.dimension) && this.dimension > 0) {
       body.dimensions = this.dimension;
     }
 
-    const response = await fetch(`${this.baseUrl}/embeddings`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${this.apiKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    try {
+      const response = await fetch(`${this.baseUrl}/embeddings`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${this.apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
 
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(`Embedding request failed: ${response.status} ${response.statusText} ${message}`);
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`Embedding request failed: ${response.status} ${response.statusText} ${message}`);
+      }
+
+      const payload = await response.json();
+      const vector = payload?.data?.[0]?.embedding;
+      if (!Array.isArray(vector) || !vector.every((value) => typeof value === 'number')) {
+        throw new Error('Embedding response did not include a numeric vector');
+      }
+
+      return {
+        vector,
+        model: this.model,
+        dimension: vector.length,
+      };
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const payload = await response.json();
-    const vector = payload?.data?.[0]?.embedding;
-    if (!Array.isArray(vector) || !vector.every((value) => typeof value === 'number')) {
-      throw new Error('Embedding response did not include a numeric vector');
-    }
-
-    return {
-      vector,
-      model: this.model,
-      dimension: vector.length,
-    };
   }
+}
+
+function truncateInput(input: string, maxInputChars: number) {
+  if (input.length <= maxInputChars) return input;
+  return input.slice(0, maxInputChars);
 }
 
 function tokenize(input: string) {

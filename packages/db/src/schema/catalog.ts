@@ -128,6 +128,22 @@ export const providerContractStates = pgTable('provider_contract_states', {
   activeRegistrationIdx: index('provider_contract_states_active_registration_idx').on(table.activeRegistrationId),
 }));
 
+export const providerApiKeys = pgTable('provider_api_keys', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  keyHash: text('key_hash').notNull(),
+  status: text('status').notNull().default('active'),
+  issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  providerUnique: uniqueIndex('provider_api_keys_provider_unique').on(table.catalogId, table.providerId),
+  keyHashUnique: uniqueIndex('provider_api_keys_key_hash_unique').on(table.keyHash),
+  providerStatusIdx: index('provider_api_keys_provider_status_idx').on(table.catalogId, table.providerId, table.status),
+}));
+
 export const commercialObjects = pgTable('commercial_objects', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),

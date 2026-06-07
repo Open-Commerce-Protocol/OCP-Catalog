@@ -2,8 +2,9 @@ export function firstHeader(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-export function statusCode(value: unknown) {
-  return typeof value === 'number' ? value : 200;
+export function statusCode(response: unknown, fallback?: unknown) {
+  if (response instanceof Response) return response.status;
+  return typeof fallback === 'number' ? fallback : 200;
 }
 
 export function logRequest(input: {

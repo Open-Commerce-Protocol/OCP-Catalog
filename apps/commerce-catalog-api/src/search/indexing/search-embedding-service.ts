@@ -3,6 +3,7 @@ import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
 import { and, eq } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
+import type { WritableVectorIndexAdapter } from '../retrieval/vector-index-adapter';
 
 export type EmbeddingResult = {
   vector: number[];
@@ -35,6 +36,7 @@ export class SearchEmbeddingService {
   constructor(
     private readonly db: Db,
     private readonly provider: EmbeddingProvider,
+    private readonly writableVectorIndex?: WritableVectorIndexAdapter,
   ) {}
 
   async refreshForSearchDocument(documentId: string): Promise<SearchEmbeddingRefreshResult | null> {
@@ -66,6 +68,8 @@ export class SearchEmbeddingService {
         id: existing?.id ?? newId('semb'),
         catalogId: document.catalogId,
         catalogSearchDocumentId: document.id,
+        providerId: document.providerId,
+        objectType: document.objectType,
         embeddingText,
         embeddingTextHash,
         embeddingDimension: embedding.dimension,
@@ -86,6 +90,8 @@ export class SearchEmbeddingService {
         id: existing?.id ?? newId('semb'),
         catalogId: document.catalogId,
         catalogSearchDocumentId: document.id,
+        providerId: document.providerId,
+        objectType: document.objectType,
         embeddingText,
         embeddingTextHash,
         embeddingDimension: this.provider.dimension,
@@ -143,6 +149,8 @@ export class SearchEmbeddingService {
     id: string;
     catalogId: string;
     catalogSearchDocumentId: string;
+    providerId: string;
+    objectType: string;
     embeddingText: string;
     embeddingTextHash: string;
     embeddingDimension: number;
@@ -186,6 +194,17 @@ export class SearchEmbeddingService {
       .returning({
         id: schema.catalogSearchEmbeddings.id,
       });
+
+    if (input.status === 'ready' && this.writableVectorIndex) {
+      await this.writableVectorIndex.upsert({
+        documentId: input.catalogSearchDocumentId,
+        catalogId: input.catalogId,
+        providerId: input.providerId,
+        objectType: input.objectType,
+        embeddingVector: input.embeddingVector,
+        embeddingTextHash: input.embeddingTextHash,
+      });
+    }
 
     return row?.id ?? input.id;
   }

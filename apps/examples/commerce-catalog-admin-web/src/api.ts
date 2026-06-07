@@ -363,40 +363,60 @@ export async function fetchRegistrationManifestSnapshot(catalogId: string) {
   return mapRegistrationManifestSnapshot(payload);
 }
 
-export async function registerCatalogToRegistration(apiKey: string) {
+export function defaultRegistrationBaseUrl() {
+  return registrationBaseUrl;
+}
+
+export async function registerCatalogToRegistration(apiKey: string, registrationUrls?: string[]) {
   return request<RegistrationActionResult>(`${adminPrefix}/registration/register`, {
     method: 'POST',
     apiKey,
-    body: {},
+    body: registrationActionBody(registrationUrls),
   });
 }
 
-export async function verifyCatalogInRegistration(apiKey: string) {
+export async function verifyCatalogInRegistration(apiKey: string, registrationUrls?: string[]) {
   return request<RegistrationActionResult>(`${adminPrefix}/registration/verify`, {
     method: 'POST',
     apiKey,
-    body: {},
+    body: registrationActionBody(registrationUrls),
   });
 }
 
-export async function refreshCatalogInRegistration(apiKey: string, catalogToken?: string) {
+export async function refreshCatalogInRegistration(apiKey: string, catalogToken?: string, registrationUrls?: string[], catalogTokens?: Record<string, string>) {
   return request<RegistrationActionResult>(`${adminPrefix}/registration/refresh`, {
     method: 'POST',
     apiKey,
     body: {
+      ...registrationActionBody(registrationUrls),
+      ...registrationTokensBody(catalogTokens),
       ...(catalogToken ? { catalog_token: catalogToken } : {}),
     },
   });
 }
 
-export async function rotateCatalogRegistrationToken(apiKey: string, catalogToken?: string) {
+export async function rotateCatalogRegistrationToken(apiKey: string, catalogToken?: string, registrationUrls?: string[], catalogTokens?: Record<string, string>) {
   return request<RegistrationActionResult>(`${adminPrefix}/registration/token/rotate`, {
     method: 'POST',
     apiKey,
     body: {
+      ...registrationActionBody(registrationUrls),
+      ...registrationTokensBody(catalogTokens),
       ...(catalogToken ? { catalog_token: catalogToken } : {}),
     },
   });
+}
+
+function registrationActionBody(registrationUrls?: string[]) {
+  const cleaned = (registrationUrls ?? []).map((url) => url.trim()).filter(Boolean);
+  return cleaned.length > 0 ? { registration_urls: cleaned } : {};
+}
+
+function registrationTokensBody(catalogTokens?: Record<string, string>) {
+  const cleaned = Object.fromEntries(
+    Object.entries(catalogTokens ?? {}).filter(([, token]) => token.trim()).map(([url, token]) => [url, token.trim()]),
+  );
+  return Object.keys(cleaned).length > 0 ? { catalog_tokens: cleaned } : {};
 }
 
 type RequestOptions = {

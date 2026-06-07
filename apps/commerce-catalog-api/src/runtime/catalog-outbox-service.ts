@@ -73,18 +73,20 @@ export class CatalogOutboxService {
   }) {
     const now = input.now ?? new Date();
     const staleLockedBefore = new Date(now.getTime() - input.lockTimeoutMs);
+    const nowIso = now.toISOString();
+    const staleLockedBeforeIso = staleLockedBefore.toISOString();
     const rows = await this.db.execute(sql`
       with claimed_events as (
         select id
         from catalog_outbox_events
         where catalog_id = ${input.catalogId}
-          and scheduled_at <= ${now}
+          and scheduled_at <= ${nowIso}::timestamptz
           and (
             status = 'pending'
             or (
               status = 'running'
               and locked_at is not null
-              and locked_at <= ${staleLockedBefore}
+              and locked_at <= ${staleLockedBeforeIso}::timestamptz
             )
           )
         order by scheduled_at asc, created_at asc, id asc
@@ -94,8 +96,8 @@ export class CatalogOutboxService {
       update catalog_outbox_events as events
       set
         status = 'running',
-        locked_at = ${now},
-        updated_at = ${now}
+        locked_at = ${nowIso}::timestamptz,
+        updated_at = ${nowIso}::timestamptz
       from claimed_events
       where events.id = claimed_events.id
       returning

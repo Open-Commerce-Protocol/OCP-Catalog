@@ -13,6 +13,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogScenarioModule } from './scenario';
 import { asProjection } from './projection';
+import { createHash, randomBytes } from 'node:crypto';
 
 export type RequestMeta = {
   sourceIp?: string | null;
@@ -97,6 +98,7 @@ export class RegistrationService {
 
     if (!stored) throw new AppError('internal_error', 'Failed to persist provider registration', 500);
 
+    let providerApiKey: string | null = null;
     if (this.shouldActivate(evaluation, activeState?.activeRegistrationVersion, registration.registration_version)) {
       const matches = validDeclarationMatches(
         registration,
@@ -129,9 +131,46 @@ export class RegistrationService {
             updatedAt: new Date(),
           },
         });
+
+      providerApiKey = await this.issueProviderApiKey(registration.provider.provider_id);
     }
 
-    return evaluation;
+    return {
+      ...evaluation,
+      ...(providerApiKey
+        ? {
+          provider_api_key: providerApiKey,
+          provider_api_key_issued_at: new Date().toISOString(),
+          auth: {
+            scheme: 'x-api-key',
+            header: 'x-api-key',
+            provider_scoped: true,
+            note: 'Store this key now. It is returned only once and is required for object sync writes.',
+          },
+        }
+        : {}),
+    };
+  }
+
+  async authenticateProviderApiKey(apiKey: string | null | undefined, providerId: string) {
+    if (!apiKey?.trim()) return false;
+    const keyHash = hashProviderApiKey(apiKey.trim());
+    const [row] = await this.db
+      .select()
+      .from(schema.providerApiKeys)
+      .where(and(
+        eq(schema.providerApiKeys.catalogId, this.config.CATALOG_ID),
+        eq(schema.providerApiKeys.providerId, providerId),
+        eq(schema.providerApiKeys.keyHash, keyHash),
+        eq(schema.providerApiKeys.status, 'active'),
+      ))
+      .limit(1);
+    if (!row) return false;
+    await this.db
+      .update(schema.providerApiKeys)
+      .set({ lastUsedAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.providerApiKeys.id, row.id));
+    return true;
   }
 
   async getProvider(providerId: string) {
@@ -285,6 +324,35 @@ export class RegistrationService {
     if (result.matched_object_contract_count === 0) return false;
     return activeVersion === undefined || newVersion > activeVersion;
   }
+
+  private async issueProviderApiKey(providerId: string) {
+    const key = `ocp_pk_${randomBytes(32).toString('base64url')}`;
+    await this.db
+      .insert(schema.providerApiKeys)
+      .values({
+        id: newId('pkey'),
+        catalogId: this.config.CATALOG_ID,
+        providerId,
+        keyHash: hashProviderApiKey(key),
+        status: 'active',
+        issuedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [schema.providerApiKeys.catalogId, schema.providerApiKeys.providerId],
+        set: {
+          keyHash: hashProviderApiKey(key),
+          status: 'active',
+          issuedAt: new Date(),
+          lastUsedAt: null,
+          updatedAt: new Date(),
+        },
+      });
+    return key;
+  }
+}
+
+function hashProviderApiKey(key: string) {
+  return createHash('sha256').update(key).digest('hex');
 }
 
 function evaluateDeclaration(

@@ -20,6 +20,9 @@ export class SearchIndexWorker {
     catalogId?: string;
     limit?: number;
     retryDelayMs?: number;
+    retryMaxDelayMs?: number;
+    retryJitterRatio?: number;
+    jobDelayMs?: number;
   } = {}): Promise<SearchIndexWorkerRunResult> {
     const jobs = await this.jobs.claimPending({
       catalogId: input.catalogId,
@@ -36,8 +39,15 @@ export class SearchIndexWorker {
         completedCount += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        await this.jobs.failJob(job, message, input.retryDelayMs);
+        await this.jobs.failJob(job, message, {
+          baseDelayMs: input.retryDelayMs,
+          maxDelayMs: input.retryMaxDelayMs,
+          jitterRatio: input.retryJitterRatio,
+        });
         failedCount += 1;
+      }
+      if (input.jobDelayMs && input.jobDelayMs > 0) {
+        await sleep(input.jobDelayMs);
       }
     }
 
@@ -47,4 +57,8 @@ export class SearchIndexWorker {
       failedCount,
     };
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

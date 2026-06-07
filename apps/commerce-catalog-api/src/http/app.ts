@@ -20,11 +20,11 @@ export const app = new Elysia()
     requestStartedAt: performance.now(),
     requestPathname: new URL(request.url).pathname,
   }))
-  .onAfterHandle(({ request, requestStartedAt, requestPathname, set }) => {
+  .onAfterHandle(({ request, requestStartedAt, requestPathname, response, set }) => {
     logRequest({
       request,
       pathname: requestPathname,
-      status: statusCode(set.status),
+      status: statusCode(response, set.status),
       durationMs: performance.now() - requestStartedAt,
     });
   })

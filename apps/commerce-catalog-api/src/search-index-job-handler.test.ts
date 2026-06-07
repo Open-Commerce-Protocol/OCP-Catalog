@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 import type { SearchEmbeddingService } from './search/indexing/search-embedding-service';
 import { SearchIndexJobHandlerService } from './search/indexing/search-index-job-handler';
-import type { SearchIndexJob, SearchIndexJobService } from './search/indexing/index-job-service';
+import { retryDelayWithBackoff, type SearchIndexJob, type SearchIndexJobService } from './search/indexing/index-job-service';
 import { SearchIndexWorker } from './search/indexing/index-worker';
 
 describe('SearchIndexJobHandlerService', () => {
@@ -214,6 +214,57 @@ describe('SearchIndexJobHandlerService', () => {
       'handle:end:sjob_2',
       'completed:sjob_2',
     ]);
+  });
+
+  test('worker applies retry backoff options after handler failure', async () => {
+    const failed: unknown[] = [];
+    const worker = new SearchIndexWorker(
+      {
+        async claimPending() {
+          return [searchIndexJob({ id: 'sjob_fail', jobType: 'refresh_embedding', payload: { search_document_id: 'sdoc_1' } })];
+        },
+        async markCompleted() {
+          throw new Error('unexpected completion');
+        },
+        async failJob(job: SearchIndexJob, error: string, retry: unknown) {
+          failed.push({ jobId: job.id, error, retry });
+        },
+      } as unknown as SearchIndexJobService,
+      {
+        async handle() {
+          throw new Error('temporary provider failure');
+        },
+      },
+    );
+
+    const result = await worker.runBatch({
+      retryDelayMs: 30_000,
+      retryMaxDelayMs: 900_000,
+      retryJitterRatio: 0,
+    });
+
+    expect(result).toEqual({
+      claimedCount: 1,
+      completedCount: 0,
+      failedCount: 1,
+    });
+    expect(failed).toEqual([{
+      jobId: 'sjob_fail',
+      error: 'temporary provider failure',
+      retry: {
+        baseDelayMs: 30_000,
+        maxDelayMs: 900_000,
+        jitterRatio: 0,
+      },
+    }]);
+  });
+});
+
+describe('retryDelayWithBackoff', () => {
+  test('doubles delay per attempt and caps at max', () => {
+    expect(retryDelayWithBackoff(30_000, 900_000, 1, 0)).toBe(30_000);
+    expect(retryDelayWithBackoff(30_000, 900_000, 2, 0)).toBe(60_000);
+    expect(retryDelayWithBackoff(30_000, 900_000, 10, 0)).toBe(900_000);
   });
 });
 

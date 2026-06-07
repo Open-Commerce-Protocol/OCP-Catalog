@@ -2,6 +2,7 @@ import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
+import type { WritableVectorIndexAdapter } from '../retrieval/vector-index-adapter';
 
 export type SearchDocumentUpsertResult = {
   catalogEntryId: string;
@@ -24,7 +25,10 @@ export type ProviderCatalogEntryPage = {
 type SearchDocumentStatus = 'pending' | 'active' | 'inactive' | 'stale' | 'failed';
 
 export class SearchDocumentUpsertService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly writableVectorIndex?: WritableVectorIndexAdapter,
+  ) {}
 
   async upsertForCatalogEntry(catalogEntryId: string): Promise<SearchDocumentUpsertResult | null> {
     const row = await this.loadEntry(catalogEntryId);
@@ -178,9 +182,21 @@ export class SearchDocumentUpsertService {
   }
 
   async deleteForCatalogEntry(catalogEntryId: string) {
+    const [document] = await this.db
+      .select({
+        id: schema.catalogSearchDocuments.id,
+      })
+      .from(schema.catalogSearchDocuments)
+      .where(eq(schema.catalogSearchDocuments.catalogEntryId, catalogEntryId))
+      .limit(1);
+
     await this.db
       .delete(schema.catalogSearchDocuments)
       .where(eq(schema.catalogSearchDocuments.catalogEntryId, catalogEntryId));
+
+    if (document && this.writableVectorIndex) {
+      await this.writableVectorIndex.delete(document.id);
+    }
   }
 
   private async loadEntry(catalogEntryId: string): Promise<LoadedSearchEntry | null> {

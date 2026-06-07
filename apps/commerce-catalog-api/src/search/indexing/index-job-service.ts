@@ -52,12 +52,15 @@ type EnqueueJobInput = {
 };
 
 export class SearchIndexJobService {
-  constructor(private readonly db: Db) {}
+  constructor(
+    private readonly db: Db,
+    private readonly defaultMaxAttempts = 5,
+  ) {}
 
   async enqueue(input: EnqueueJobInput) {
     const [job] = await this.db
       .insert(schema.catalogSearchIndexJobs)
-      .values(toInsertValue(input))
+      .values(toInsertValue(input, this.defaultMaxAttempts))
       .onConflictDoNothing({
         target: [
           schema.catalogSearchIndexJobs.catalogId,
@@ -73,7 +76,7 @@ export class SearchIndexJobService {
     if (inputs.length === 0) return [];
     const rows = await this.db
       .insert(schema.catalogSearchIndexJobs)
-      .values(inputs.map(toInsertValue))
+      .values(inputs.map((input) => toInsertValue(input, this.defaultMaxAttempts)))
       .onConflictDoNothing({
         target: [
           schema.catalogSearchIndexJobs.catalogId,
@@ -105,6 +108,8 @@ export class SearchIndexJobService {
     now?: Date;
   } = {}) {
     const startedAt = new Date();
+    const startedAtIso = startedAt.toISOString();
+    const nowIso = (input.now ?? startedAt).toISOString();
     const catalogFilter = input.catalogId
       ? sql`and catalog_id = ${input.catalogId}`
       : sql``;
@@ -114,7 +119,7 @@ export class SearchIndexJobService {
         select id
         from catalog_search_index_jobs
         where status = 'pending'
-          and scheduled_at <= ${input.now ?? startedAt}
+          and scheduled_at <= ${nowIso}::timestamptz
           ${catalogFilter}
         order by scheduled_at asc, catalog_id asc, created_at asc, id asc
         for update skip locked
@@ -123,8 +128,8 @@ export class SearchIndexJobService {
       update catalog_search_index_jobs as jobs
       set
         status = 'running',
-        started_at = ${startedAt},
-        updated_at = ${startedAt}
+        started_at = ${startedAtIso}::timestamptz,
+        updated_at = ${startedAtIso}::timestamptz
       from claimed_jobs
       where jobs.id = claimed_jobs.id
       returning
@@ -192,9 +197,18 @@ export class SearchIndexJobService {
       .where(eq(schema.catalogSearchIndexJobs.id, jobId));
   }
 
-  async failJob(job: SearchIndexJob, error: string, retryDelayMs?: number) {
+  async failJob(job: SearchIndexJob, error: string, retry?: {
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+    jitterRatio?: number;
+  }) {
     const nextAttemptCount = job.attemptCount + 1;
-    const shouldRetry = typeof retryDelayMs === 'number' && retryDelayMs > 0 && nextAttemptCount < job.maxAttempts;
+    const baseDelayMs = retry?.baseDelayMs ?? 30_000;
+    const maxDelayMs = retry?.maxDelayMs ?? 900_000;
+    const shouldRetry = baseDelayMs > 0 && nextAttemptCount < job.maxAttempts;
+    const retryDelayMs = shouldRetry
+      ? retryDelayWithBackoff(baseDelayMs, maxDelayMs, nextAttemptCount, retry?.jitterRatio ?? 0.2)
+      : 0;
 
     await this.db
       .update(schema.catalogSearchIndexJobs)
@@ -210,7 +224,7 @@ export class SearchIndexJobService {
   }
 }
 
-function toInsertValue(input: EnqueueJobInput) {
+function toInsertValue(input: EnqueueJobInput, defaultMaxAttempts: number) {
   return {
     id: newId('sjob'),
     catalogId: input.catalogId,
@@ -222,8 +236,17 @@ function toInsertValue(input: EnqueueJobInput) {
     status: 'pending' as const,
     payload: input.payload ?? {},
     scheduledAt: input.scheduledAt ?? new Date(),
-    maxAttempts: input.maxAttempts ?? 5,
+    maxAttempts: input.maxAttempts ?? defaultMaxAttempts,
   };
+}
+
+export function retryDelayWithBackoff(baseDelayMs: number, maxDelayMs: number, attemptCount: number, jitterRatio: number) {
+  const exponential = Math.min(maxDelayMs, baseDelayMs * 2 ** Math.max(attemptCount - 1, 0));
+  if (jitterRatio <= 0) return exponential;
+  const jitter = exponential * jitterRatio;
+  const min = Math.max(0, exponential - jitter);
+  const max = exponential + jitter;
+  return Math.round(min + Math.random() * (max - min));
 }
 
 function toSearchIndexJob(row: typeof schema.catalogSearchIndexJobs.$inferSelect): SearchIndexJob {
