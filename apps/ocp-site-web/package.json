@@ -9,7 +9,8 @@
     "typecheck": "tsc -b",
     "build": "tsc -b && bunx vite build",
     "lint": "eslint .",
-    "preview": "bunx vite preview"
+    "preview": "bunx vite preview",
+    "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
     "@ocp-catalog/config": "workspace:*",
