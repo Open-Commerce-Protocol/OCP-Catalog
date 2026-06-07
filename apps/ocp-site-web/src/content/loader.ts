@@ -1,13 +1,10 @@
 import { docsPublicPathToContentModule } from './routing';
+import { stripFrontmatter } from './markdown-frontmatter';
 
 const modules = import.meta.glob('./**/*.md', {
   query: '?raw',
   import: 'default',
 });
-
-function stripFrontmatter(markdown: string): string {
-  return markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '');
-}
 
 function normalizePath(path: string): string {
   return docsPublicPathToContentModule(path);
