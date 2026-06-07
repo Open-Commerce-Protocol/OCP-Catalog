@@ -603,7 +603,7 @@ export class ObjectSyncService {
       };
     }
 
-    const object = parsed.data;
+    const object = sanitizeCommercialObjectStrings(parsed.data);
     const errors = validateCommercialObject(object, context);
     if (errors.length > 0) {
       return {
@@ -616,85 +616,68 @@ export class ObjectSyncService {
 
     const projection = this.scenario.buildSearchProjection(object);
     const explainProjection = this.scenario.buildExplainProjection?.(object, projection) ?? buildDefaultExplainProjection(object, projection);
-    const [commercialObject] = await db
-      .insert(schema.commercialObjects)
-      .values({
-        id: newId('cobj'),
-        catalogId: context.catalogId,
-        providerId: context.providerId,
-        objectId: object.object_id,
-        objectType: object.object_type,
-        title: projection.title,
-        summary: projection.summary ?? object.summary ?? null,
-        status: object.status,
-        sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
-        rawObject: object as unknown as Record<string, unknown>,
-      })
-      .onConflictDoUpdate({
-        target: [
-          schema.commercialObjects.catalogId,
-          schema.commercialObjects.providerId,
-          schema.commercialObjects.objectId,
-        ],
-        set: {
+    try {
+      const [commercialObject] = await db
+        .insert(schema.commercialObjects)
+        .values({
+          id: newId('cobj'),
+          catalogId: context.catalogId,
+          providerId: context.providerId,
+          objectId: object.object_id,
           objectType: object.object_type,
           title: projection.title,
           summary: projection.summary ?? object.summary ?? null,
           status: object.status,
           sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
           rawObject: object as unknown as Record<string, unknown>,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.commercialObjects.catalogId,
+            schema.commercialObjects.providerId,
+            schema.commercialObjects.objectId,
+          ],
+          set: {
+            objectType: object.object_type,
+            title: projection.title,
+            summary: projection.summary ?? object.summary ?? null,
+            status: object.status,
+            sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
+            rawObject: object as unknown as Record<string, unknown>,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
 
-    if (!commercialObject) {
-      return {
-        object_id: object.object_id,
-        status: 'rejected',
-        errors: ['Failed to upsert commercial object'],
-        warnings: [],
-      };
-    }
+      if (!commercialObject) {
+        return {
+          object_id: object.object_id,
+          status: 'rejected',
+          errors: ['Failed to upsert commercial object'],
+          warnings: [],
+        };
+      }
 
-    await db
-      .delete(schema.descriptorInstances)
-      .where(eq(schema.descriptorInstances.commercialObjectId, commercialObject.id));
+      await db
+        .delete(schema.descriptorInstances)
+        .where(eq(schema.descriptorInstances.commercialObjectId, commercialObject.id));
 
-    if (object.descriptors.length > 0) {
-      await db.insert(schema.descriptorInstances).values(object.descriptors.map((descriptor) => ({
-        id: newId('desc'),
-        commercialObjectId: commercialObject.id,
-        packId: descriptor.pack_id,
-        schemaUri: descriptor.schema_uri ?? null,
-        payload: descriptor.data,
-      })));
-    }
+      if (object.descriptors.length > 0) {
+        await db.insert(schema.descriptorInstances).values(object.descriptors.map((descriptor) => ({
+          id: newId('desc'),
+          commercialObjectId: commercialObject.id,
+          packId: descriptor.pack_id,
+          schemaUri: descriptor.schema_uri ?? null,
+          payload: descriptor.data,
+        })));
+      }
 
-    const [entry] = await db
-      .insert(schema.catalogEntries)
-      .values({
-        id: newId('centry'),
-        catalogId: context.catalogId,
-        commercialObjectId: commercialObject.id,
-        objectType: object.object_type,
-        providerId: context.providerId,
-        objectId: object.object_id,
-        entryStatus: object.status === 'active' ? 'active' : 'inactive',
-        contractMatchStatus: 'matched',
-        title: projection.title,
-        summary: stringValue(projection.summary) ?? object.summary ?? null,
-        brand: stringValue(projection.brand) ?? null,
-        category: stringValue(projection.category) ?? null,
-        currency: stringValue(projection.currency) ?? null,
-        availabilityStatus: stringValue(projection.availability_status) ?? null,
-        searchText: buildSearchText(projection),
-        searchProjection: projection as unknown as Record<string, unknown>,
-        explainProjection,
-      })
-      .onConflictDoUpdate({
-        target: [schema.catalogEntries.commercialObjectId],
-        set: {
+      const [entry] = await db
+        .insert(schema.catalogEntries)
+        .values({
+          id: newId('centry'),
+          catalogId: context.catalogId,
+          commercialObjectId: commercialObject.id,
           objectType: object.object_type,
           providerId: context.providerId,
           objectId: object.object_id,
@@ -709,29 +692,55 @@ export class ObjectSyncService {
           searchText: buildSearchText(projection),
           searchProjection: projection as unknown as Record<string, unknown>,
           explainProjection,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
+        })
+        .onConflictDoUpdate({
+          target: [schema.catalogEntries.commercialObjectId],
+          set: {
+            objectType: object.object_type,
+            providerId: context.providerId,
+            objectId: object.object_id,
+            entryStatus: object.status === 'active' ? 'active' : 'inactive',
+            contractMatchStatus: 'matched',
+            title: projection.title,
+            summary: stringValue(projection.summary) ?? object.summary ?? null,
+            brand: stringValue(projection.brand) ?? null,
+            category: stringValue(projection.category) ?? null,
+            currency: stringValue(projection.currency) ?? null,
+            availabilityStatus: stringValue(projection.availability_status) ?? null,
+            searchText: buildSearchText(projection),
+            searchProjection: projection as unknown as Record<string, unknown>,
+            explainProjection,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
 
-    if (!entry) {
+      if (!entry) {
+        return {
+          object_id: object.object_id,
+          status: 'rejected',
+          commercial_object_id: commercialObject.id,
+          errors: ['Failed to upsert catalog entry'],
+          warnings: [],
+        };
+      }
+
+      return {
+        object_id: object.object_id,
+        status: 'accepted',
+        commercial_object_id: commercialObject.id,
+        catalog_entry_id: entry.id,
+        errors: [],
+        warnings: [],
+      };
+    } catch (error) {
       return {
         object_id: object.object_id,
         status: 'rejected',
-        commercial_object_id: commercialObject.id,
-        errors: ['Failed to upsert catalog entry'],
+        errors: [`Failed to persist commercial object: ${publicErrorMessage(error)}`],
         warnings: [],
       };
     }
-
-    return {
-      object_id: object.object_id,
-      status: 'accepted',
-      commercial_object_id: commercialObject.id,
-      catalog_entry_id: entry.id,
-      errors: [],
-      warnings: [],
-    };
   }
 }
 
@@ -819,6 +828,35 @@ function firstDuplicateObjectId(inputs: unknown[]) {
     seen.add(objectId);
   }
   return null;
+}
+
+function sanitizeCommercialObjectStrings(object: CommercialObject): CommercialObject {
+  return sanitizeJsonStrings(object) as CommercialObject;
+}
+
+function sanitizeJsonStrings(value: unknown): unknown {
+  if (typeof value === 'string') return removeLoneSurrogates(value);
+  if (Array.isArray(value)) return value.map(sanitizeJsonStrings);
+  if (value && typeof value === 'object') {
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      sanitized[key] = sanitizeJsonStrings(child);
+    }
+    return sanitized;
+  }
+  return value;
+}
+
+function removeLoneSurrogates(value: string) {
+  return value
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
+}
+
+function publicErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return 'unknown persistence error';
+  const message = error.message.replace(/\s+/g, ' ').trim();
+  return message.length > 240 ? `${message.slice(0, 237)}...` : message;
 }
 
 async function hashJson(value: unknown) {
