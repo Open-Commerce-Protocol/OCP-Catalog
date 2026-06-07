@@ -1,10 +1,18 @@
 import {
   catalogManifestSchema,
   catalogQueryResultSchema,
+  objectSyncRequestSchema,
+  objectSyncResultSchema,
+  providerRegistrationSchema,
+  registrationResultSchema,
   resolvableReferenceSchema,
   type CatalogManifest,
   type CatalogQueryRequest,
   type CatalogQueryResult,
+  type ObjectSyncRequest,
+  type ObjectSyncResult,
+  type ProviderRegistration,
+  type RegistrationResult,
   type ResolveRequest,
   type ResolvableReference,
 } from '@ocp-catalog/ocp-schema';
@@ -262,6 +270,38 @@ export class OcpClient {
       protocolFamily: 'catalog',
     });
     return catalogManifestSchema.parse(payload);
+  }
+
+  async registerProvider(registerUrl: string, body: ProviderRegistration): Promise<RegistrationResult> {
+    const request = providerRegistrationSchema.parse(body);
+    const payload = await this.fetchJson(registerUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+    }, {
+      protocolFamily: 'catalog',
+      pathTemplate: '/ocp/providers/register',
+      catalogId: request.catalog_id,
+    });
+    return registrationResultSchema.parse(payload);
+  }
+
+  async syncObjects(syncUrl: string, body: ObjectSyncRequest): Promise<ObjectSyncResult> {
+    const request = objectSyncRequestSchema.parse(body);
+    const payload = await this.fetchJson(syncUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+    }, {
+      protocolFamily: 'catalog',
+      pathTemplate: '/ocp/objects/sync',
+      catalogId: request.catalog_id,
+      metadata: {
+        provider_id: request.provider_id,
+        object_count: request.objects.length,
+      },
+    });
+    return objectSyncResultSchema.parse(payload);
   }
 
   async queryCatalog(queryUrl: string, body: CatalogQueryRequest): Promise<CatalogQueryResult> {

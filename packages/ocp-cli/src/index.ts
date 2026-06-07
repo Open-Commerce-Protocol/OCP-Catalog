@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import {
   OcpClient,
@@ -8,9 +8,17 @@ import {
   createCorrelationId,
   validateCatalogQueryRequest,
 } from '@ocp-catalog/ocp-client';
-import { catalogManifestSchema, catalogQueryRequestSchema, resolveRequestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
+import {
+  catalogManifestSchema,
+  catalogQueryRequestSchema,
+  objectSyncRequestSchema,
+  providerRegistrationSchema,
+  resolveRequestSchema,
+  type CatalogManifest,
+} from '@ocp-catalog/ocp-schema';
 import { doctorOcpSkill, installOcpSkill, uninstallOcpSkill, type SkillTarget } from './skill-installer';
 import { CLI_HELP, FULL_CLI_HELP, findCommandHelp, findDomainHelp } from './help';
+import { redactSavedProviderApiKey } from './provider-output';
 
 const args = process.argv.slice(2);
 
@@ -114,12 +122,31 @@ async function run(argv: string[]) {
     return client.inspectCatalog(manifestUrl);
   }
 
+  if (domain === 'provider' && command === 'register') {
+    const request = providerRegistrationSchema.parse(await loadJsonFile(requiredFlag(flags, 'input')));
+    const result = await client.registerProvider(requiredFlag(flags, 'register-url'), request);
+    const saveApiKeyPath = stringFlag(flags, 'save-api-key');
+    if (saveApiKeyPath && result.provider_api_key) {
+      await writeFile(saveApiKeyPath, `${result.provider_api_key}\n`, { mode: 0o600 });
+      return redactSavedProviderApiKey(result, saveApiKeyPath);
+    }
+    return result;
+  }
+
+  if (domain === 'provider' && command === 'sync') {
+    requiredFlag(flags, 'api-key');
+    const request = objectSyncRequestSchema.parse(await loadJsonFile(requiredFlag(flags, 'input')));
+    return client.syncObjects(requiredFlag(flags, 'sync-url'), request);
+  }
+
   if (domain === 'catalog' && command === 'query') {
     const queryPack = stringFlag(flags, 'query-pack');
+    const queryMode = stringFlag(flags, 'query-mode');
     let request = catalogQueryRequestSchema.parse({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       ...(queryPack ? { query_pack: queryPack } : {}),
+      ...(queryMode ? { query_mode: queryMode } : {}),
       query: stringFlag(flags, 'query') ?? '',
       filters: jsonFlag(flags, 'filters', {}),
       limit: numberFlag(flags, 'limit', 20),
@@ -161,10 +188,12 @@ async function run(argv: string[]) {
     const manifestTarget = requiredFlag(flags, 'manifest');
     const manifest = catalogManifestSchema.parse(await loadManifestTarget(client, manifestTarget));
     const queryPack = stringFlag(flags, 'query-pack');
+    const queryMode = stringFlag(flags, 'query-mode');
     const request = catalogQueryRequestSchema.parse({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       ...(queryPack ? { query_pack: queryPack } : {}),
+      ...(queryMode ? { query_mode: queryMode } : {}),
       query: stringFlag(flags, 'query') ?? '',
       filters: jsonFlag(flags, 'filters', {}),
       limit: numberFlag(flags, 'limit', 20),
@@ -220,6 +249,10 @@ async function loadManifestTarget(client: OcpClient, target: string): Promise<Ca
   return target.startsWith('http://') || target.startsWith('https://')
     ? client.inspectCatalog(target)
     : JSON.parse(await readFile(target, 'utf8'));
+}
+
+async function loadJsonFile(path: string): Promise<unknown> {
+  return JSON.parse(await readFile(path, 'utf8'));
 }
 
 function skillTargetFromFlags(flags: ParsedFlags): SkillTarget {

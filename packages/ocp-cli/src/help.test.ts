@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { redactSavedProviderApiKey } from './provider-output';
 
 const cliPath = path.resolve(import.meta.dir, 'index.ts');
 const tmpRoot = path.join(tmpdir(), 'ocp-cli-help-test');
@@ -84,6 +85,7 @@ describe('CLI help', () => {
       'Discover a Registration node',
       'Search or resolve a Catalog route',
       'Inspect the Catalog manifest',
+      'Register as a Provider when publishing objects',
       'Query with a manifest-declared query pack',
       'Resolve a selected entry when details or actions are needed',
     ]);
@@ -105,7 +107,7 @@ describe('CLI help', () => {
           ]),
         }),
         expect.objectContaining({
-          command: 'ocp catalog query --query-url <url> [--query-pack <id>] [--query <text>]',
+          command: 'ocp catalog query --query-url <url> [--query-pack <id>] [--query-mode <mode>] [--query <text>]',
           summary: expect.stringContaining('Search'),
           description: expect.stringContaining('manifest-declared query pack'),
           options: expect.arrayContaining([
@@ -114,6 +116,22 @@ describe('CLI help', () => {
               description: expect.stringContaining('JSON object'),
             }),
           ]),
+        }),
+        expect.objectContaining({
+          command: 'ocp provider register --register-url <url> --input <provider-registration.json> [--save-api-key <file>]',
+          summary: expect.stringContaining('Provider'),
+          description: expect.stringContaining('provider_api_key'),
+          options: expect.arrayContaining([
+            expect.objectContaining({
+              name: '--save-api-key',
+              description: expect.stringContaining('provider_api_key'),
+            }),
+          ]),
+        }),
+        expect.objectContaining({
+          command: 'ocp provider sync --sync-url <url> --input <object-sync-request.json> --api-key <provider-api-key>',
+          summary: expect.stringContaining('sync'),
+          description: expect.stringContaining('ObjectSyncRequest'),
         }),
         expect.objectContaining({
           command: 'ocp skill doctor [--target auto|codex|agents|both|<skills-dir>]',
@@ -149,7 +167,7 @@ describe('CLI help', () => {
 
     const catalogQuery = runCli('catalog', 'query', '--help');
 
-    expect(catalogQuery.command).toBe('ocp catalog query --query-url <url> [--query-pack <id>] [--query <text>]');
+    expect(catalogQuery.command).toBe('ocp catalog query --query-url <url> [--query-pack <id>] [--query-mode <mode>] [--query <text>]');
     expect(catalogQuery.description).toContain('manifest-declared query pack');
     expect(catalogQuery.options).toEqual(
       expect.arrayContaining([
@@ -157,8 +175,21 @@ describe('CLI help', () => {
           name: '--query-pack',
           description: expect.stringContaining('Optional'),
         }),
+        expect.objectContaining({
+          name: '--query-mode',
+          description: expect.stringContaining('keyword'),
+        }),
       ]),
     );
+
+    const provider = runCli('provider', '--help');
+
+    expect(provider.domain).toBe('provider');
+    expect(provider.description).toContain('provider API key');
+    expect(provider.commands.map((command: { action?: string }) => command.action)).toEqual([
+      'register',
+      'sync',
+    ]);
   });
 
   test('validates a query against a manifest before sending it', () => {
@@ -171,6 +202,8 @@ describe('CLI help', () => {
       manifestPath,
       '--query',
       'running shoes',
+      '--query-mode',
+      'hybrid',
       '--filters',
       '{"category":"shoes"}',
     );
@@ -180,9 +213,11 @@ describe('CLI help', () => {
       ok: true,
       request: {
         query_pack: 'ocp.query.keyword.v1',
+        query_mode: 'hybrid',
       },
       policy_summary: {
         selected_query_pack: 'ocp.query.keyword.v1',
+        query_mode: 'hybrid',
         accepted_filters: ['category'],
       },
     });
@@ -235,6 +270,40 @@ describe('CLI help', () => {
         details: {
           code: 'invalid_query_pack',
           supported_query_packs: ['ocp.query.keyword.v1'],
+        },
+      },
+    });
+    expect(JSON.stringify(failure.stderr)).not.toContain('Failed to fetch');
+  });
+
+  test('catalog query validates explicit query mode before network send', () => {
+    const manifestPath = writeManifestFile();
+
+    const failure = runCliRaw(
+      'catalog',
+      'query',
+      '--manifest',
+      manifestPath,
+      '--query-url',
+      'https://catalog.example.test/ocp/query',
+      '--query-pack',
+      'ocp.query.keyword.v1',
+      '--query-mode',
+      'semantic',
+      '--query',
+      'running shoes',
+    );
+
+    expect(failure.status).toBe(1);
+    expect(failure.stderr).toMatchObject({
+      error: {
+        code: 'validation_error',
+        message: expect.stringContaining('does not support query mode semantic'),
+        details: {
+          code: 'invalid_query_mode',
+          query_pack: 'ocp.query.keyword.v1',
+          query_mode: 'semantic',
+          supported_query_modes: ['keyword', 'hybrid'],
         },
       },
     });
@@ -325,5 +394,99 @@ describe('CLI help', () => {
         },
       },
     });
+  });
+
+  test('provider sync validates ObjectSyncRequest before network send', () => {
+    mkdirSync(tmpRoot, { recursive: true });
+    const syncPath = path.join(tmpRoot, 'bad-sync.json');
+    writeFileSync(syncPath, JSON.stringify({
+      ocp_version: '1.0',
+      kind: 'ObjectSyncRequest',
+      catalog_id: 'cat_test',
+      provider_id: 'provider_test',
+      registration_version: 1,
+      objects: [],
+    }));
+
+    const failure = runCliRaw(
+      'provider',
+      'sync',
+      '--sync-url',
+      'https://catalog.example.test/ocp/objects/sync',
+      '--input',
+      syncPath,
+      '--api-key',
+      'ocp_pk_test',
+    );
+
+    expect(failure.status).toBe(1);
+    expect(failure.stderr).toMatchObject({
+      error: {
+        code: 'validation_error',
+        details: {
+          code: 'protocol_schema_error',
+          issues: expect.arrayContaining([
+            expect.objectContaining({
+              path: 'objects',
+            }),
+          ]),
+        },
+      },
+    });
+    expect(JSON.stringify(failure.stderr)).not.toContain('Failed to fetch');
+  });
+
+  test('provider sync requires api key before sending object payloads', () => {
+    mkdirSync(tmpRoot, { recursive: true });
+    const syncPath = path.join(tmpRoot, 'sync.json');
+    writeFileSync(syncPath, JSON.stringify({
+      ocp_version: '1.0',
+      kind: 'ObjectSyncRequest',
+      catalog_id: 'cat_test',
+      provider_id: 'provider_test',
+      registration_version: 1,
+      batch_id: 'batch_1',
+      objects: [{ object_id: 'product_1' }],
+    }));
+
+    const failure = runCliRaw(
+      'provider',
+      'sync',
+      '--sync-url',
+      'https://catalog.example.test/ocp/objects/sync',
+      '--input',
+      syncPath,
+    );
+
+    expect(failure.status).toBe(1);
+    expect(failure.stderr).toMatchObject({
+      error: {
+        code: 'cli_error',
+        message: 'Missing required --api-key',
+      },
+    });
+    expect(JSON.stringify(failure.stderr)).not.toContain('Failed to fetch');
+  });
+
+  test('redacts provider api key from register output after saving it', () => {
+    const output = redactSavedProviderApiKey({
+      ocp_version: '1.0',
+      kind: 'RegistrationResult',
+      id: 'reg_result_1',
+      catalog_id: 'cat_test',
+      provider_id: 'provider_test',
+      status: 'accepted_full',
+      matched_object_contract_count: 1,
+      missing_required_fields: [],
+      warnings: [],
+      provider_api_key: 'ocp_pk_secret',
+      provider_api_key_issued_at: '2026-06-07T00:00:00.000Z',
+    }, '.provider-api-key');
+
+    expect(output).toMatchObject({
+      provider_api_key_saved_to: '.provider-api-key',
+      provider_api_key_issued_at: '2026-06-07T00:00:00.000Z',
+    });
+    expect(JSON.stringify(output)).not.toContain('ocp_pk_secret');
   });
 });

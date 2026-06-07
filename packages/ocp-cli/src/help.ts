@@ -79,6 +79,7 @@ export const CLI_HELP: CliHelp = {
     'Discover a Registration node',
     'Search or resolve a Catalog route',
     'Inspect the Catalog manifest',
+    'Register as a Provider when publishing objects',
     'Query with a manifest-declared query pack',
     'Resolve a selected entry when details or actions are needed',
   ],
@@ -237,6 +238,53 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
+      command: 'ocp provider register --register-url <url> --input <provider-registration.json> [--save-api-key <file>]',
+      domain: 'provider',
+      action: 'register',
+      summary: 'Register a Provider with one Catalog.',
+      description: 'Posts a ProviderRegistration payload to a Catalog registration endpoint. Accepted registrations may return a one-time provider_api_key; store it immediately for provider-scoped write calls.',
+      options: [
+        {
+          name: '--register-url',
+          description: 'Catalog provider registration endpoint, usually /ocp/providers/register.',
+        },
+        {
+          name: '--input',
+          description: 'Local ProviderRegistration JSON file to validate and submit.',
+        },
+        {
+          name: '--save-api-key',
+          description: 'Optional file path where a returned provider_api_key should be written with restricted file permissions when supported by the platform. When set, stdout redacts the key.',
+        },
+        ...clientOptions,
+      ],
+      examples: [
+        'ocp provider register --register-url http://localhost:4000/ocp/providers/register --input ./provider-registration.json',
+        'ocp provider register --register-url https://catalog.example/ocp/providers/register --input ./provider-registration.json --save-api-key ./.provider-api-key',
+      ],
+    },
+    {
+      command: 'ocp provider sync --sync-url <url> --input <object-sync-request.json> --api-key <provider-api-key>',
+      domain: 'provider',
+      action: 'sync',
+      summary: 'Push one JSON object sync batch to a Catalog.',
+      description: 'Validates an ObjectSyncRequest JSON file and posts it to the Catalog object sync endpoint. Use the provider_api_key returned by provider registration as --api-key.',
+      options: [
+        {
+          name: '--sync-url',
+          description: 'Catalog object sync endpoint, usually /ocp/objects/sync.',
+        },
+        {
+          name: '--input',
+          description: 'Local ObjectSyncRequest JSON file containing catalog_id, provider_id, registration_version, optional batch_id, and objects.',
+        },
+        ...clientOptions,
+      ],
+      examples: [
+        'ocp provider sync --sync-url http://localhost:4000/ocp/objects/sync --input ./object-sync-request.json --api-key "$PROVIDER_API_KEY"',
+      ],
+    },
+    {
       command: 'ocp catalog inspect <manifest-url>',
       domain: 'catalog',
       action: 'inspect',
@@ -248,7 +296,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp catalog query --query-url <url> [--query-pack <id>] [--query <text>]',
+      command: 'ocp catalog query --query-url <url> [--query-pack <id>] [--query-mode <mode>] [--query <text>]',
       domain: 'catalog',
       action: 'query',
       summary: 'Search commercial objects in a Catalog.',
@@ -265,6 +313,10 @@ export const CLI_HELP: CliHelp = {
         {
           name: '--query-pack',
           description: 'Exact query pack id declared by the Catalog manifest, such as ocp.query.keyword.v1. Optional when the Catalog can select a default pack.',
+        },
+        {
+          name: '--query-mode',
+          description: 'Optional query execution mode: keyword, filter, semantic, or hybrid. Omit it to let the client infer the mode from query text and filters.',
         },
         {
           name: '--query',
@@ -289,7 +341,7 @@ export const CLI_HELP: CliHelp = {
         ...clientOptions,
       ],
       examples: [
-        'ocp catalog query --query-url http://localhost:4000/ocp/query --query-pack ocp.query.keyword.v1 --query "running shoes"',
+        'ocp catalog query --query-url http://localhost:4000/ocp/query --query-pack ocp.query.keyword.v1 --query-mode keyword --query "running shoes"',
         'ocp catalog query --query-url http://localhost:4000/ocp/query --query-pack ocp.query.filter.v1 --filters "{\\"category\\":\\"shoes\\"}"',
       ],
     },
@@ -337,7 +389,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp validate query --manifest <file-or-url> [--query-pack <id>] [--query <text>] [--filters <json>]',
+      command: 'ocp validate query --manifest <file-or-url> [--query-pack <id>] [--query-mode <mode>] [--query <text>] [--filters <json>]',
       domain: 'validate',
       action: 'query',
       summary: 'Validate a Catalog query before sending it.',
@@ -350,6 +402,10 @@ export const CLI_HELP: CliHelp = {
         {
           name: '--query-pack',
           description: 'Optional exact query pack id declared by the manifest.',
+        },
+        {
+          name: '--query-mode',
+          description: 'Optional query execution mode to validate: keyword, filter, semantic, or hybrid.',
         },
         {
           name: '--query',
@@ -408,6 +464,11 @@ export const CLI_DOMAINS: Omit<CliDomainHelp, 'commands'>[] = [
     domain: 'registration',
     summary: 'Find and route to Catalogs.',
     description: 'Registration commands operate on Catalog metadata and routing. They do not search products or other commercial objects.',
+  },
+  {
+    domain: 'provider',
+    summary: 'Register providers and publish objects.',
+    description: 'Provider commands submit provider-owned payloads to a Catalog. Registration can return a one-time provider API key that must be stored before object sync writes.',
   },
   {
     domain: 'catalog',
