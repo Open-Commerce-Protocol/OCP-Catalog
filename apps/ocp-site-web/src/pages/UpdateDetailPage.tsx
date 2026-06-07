@@ -5,6 +5,7 @@ import { breakingChangeLabel, getUpdateBySlug, updateCategoryLabels } from '../c
 import { resolveLocalizedText, useDocsLocale } from '../content/i18n';
 import { loadUpdateContent } from '../content/updates-loader';
 import { MarkdownArticle } from '../components/site/MarkdownArticle';
+import { resolvePublicImageSrc } from '../lib/markdown-render';
 
 export function UpdateDetailPage() {
   const { slug } = useParams();
@@ -43,7 +44,7 @@ export function UpdateDetailPage() {
     );
   }
 
-  const coverSrc = update.cover?.startsWith('images/') ? `/${update.cover}` : update.cover;
+  const coverSrc = resolvePublicImageSrc(update.cover);
 
   return (
     <main className="site-band">

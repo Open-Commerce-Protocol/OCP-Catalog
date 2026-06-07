@@ -51,8 +51,8 @@ export function useCatalogScale(): CatalogScale {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlKey]);
 
-  // Derive the full probe set during render: a discovered URL with no resolved
-  // entry yet counts as pending. No setState in the effect body.
+  // Probes are derived here rather than kept in a second state slice: a
+  // discovered URL with no resolved entry yet counts as pending.
   const probes: ManifestProbe[] = manifestUrls.map(
     (url) => resolved.get(url) ?? { status: 'pending', dataProfileCount: null },
   );

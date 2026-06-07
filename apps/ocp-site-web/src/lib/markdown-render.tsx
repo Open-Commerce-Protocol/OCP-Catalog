@@ -67,8 +67,13 @@ export function renderTableCellContent(value: string): ReactNode {
     });
 }
 
+/** Resolve a relative `images/...` path to a site-absolute `/images/...` URL. */
+export function resolvePublicImageSrc(src: string | undefined): string | undefined {
+  return src?.startsWith('images/') ? `/${src}` : src;
+}
+
 /** Resolve markdown image src under public/images and render with site styling. */
 export function renderMarkdownImage(src: string | undefined, alt: string | undefined) {
-  const imageSrc = src?.startsWith('images/') ? `/${src}` : src;
+  const imageSrc = resolvePublicImageSrc(src);
   return <img src={imageSrc} alt={alt ?? ''} className="rounded-lg border border-black/10" />;
 }

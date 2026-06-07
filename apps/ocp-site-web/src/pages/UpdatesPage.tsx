@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, CircleAlert, Newspaper } from 'lucide-react';
 import { resolveLocalizedText, useDocsLocale } from '../content/i18n';
 import { breakingChangeLabel, updateCategoryLabels, updates } from '../content/updates';
+import { resolvePublicImageSrc } from '../lib/markdown-render';
 
 export function UpdatesPage() {
   const { locale, localizePath } = useDocsLocale();
@@ -46,7 +47,7 @@ export function UpdatesPage() {
                 <div>
                   {update.cover && (
                     <img
-                      src={update.cover.startsWith('images/') ? `/${update.cover}` : update.cover}
+                      src={resolvePublicImageSrc(update.cover)}
                       alt=""
                       className="mb-3 aspect-[16/7] w-full rounded-md border border-black/10 object-cover"
                     />

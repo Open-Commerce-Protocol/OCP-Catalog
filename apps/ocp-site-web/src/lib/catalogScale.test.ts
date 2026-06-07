@@ -13,6 +13,15 @@ describe('aggregateCatalogScale', () => {
     expect(result.streamedCatalogCount).toBe(0);
   });
 
+  test('treats a zero entry count as a valid stored catalog, not missing', () => {
+    const result = aggregateCatalogScale([
+      { status: 'ready', dataProfileCount: 0 },
+    ]);
+    expect(result.storedTotal).toBe(0);
+    expect(result.storedCatalogCount).toBe(1);
+    expect(result.streamedCatalogCount).toBe(0);
+  });
+
   test('counts manifests without a data profile as streamed', () => {
     const probes: ManifestProbe[] = [
       { status: 'ready', dataProfileCount: 2000 },
