@@ -44,6 +44,13 @@ export function UpdatesPage() {
                   </div>
                 </div>
                 <div>
+                  {update.cover && (
+                    <img
+                      src={update.cover.startsWith('images/') ? `/${update.cover}` : update.cover}
+                      alt=""
+                      className="mb-3 aspect-[16/7] w-full rounded-md border border-black/10 object-cover"
+                    />
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     {update.breaking && (
                       <span className="inline-flex items-center gap-1 rounded-md bg-[rgba(217,84,54,0.12)] px-2 py-1 text-xs font-semibold text-[var(--ocp-vermilion)]">
