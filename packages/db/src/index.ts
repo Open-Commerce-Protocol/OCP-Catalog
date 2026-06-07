@@ -15,3 +15,8 @@ export function createDb(databaseUrl = loadConfig().DATABASE_URL, options: DbOpt
 }
 
 export { schema };
+export {
+  PostgresAdvisoryLockService,
+  type AdvisoryLockResult,
+  type AdvisoryLockService,
+} from './advisory-lock';

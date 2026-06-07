@@ -116,9 +116,16 @@ src/
   checkpointed.
 - Search index jobs must be claimed atomically in the database before multiple
   workers run in parallel.
+- Global maintenance tasks such as startup reconcile must acquire a PostgreSQL
+  advisory lock before running, so multiple worker replicas do not reset or scan
+  the same reconcile checkpoint concurrently.
 - Search indexing should prioritize document delete/upsert/rebuild work ahead
   of embedding refresh so an embedding backlog cannot starve query-visible
   document changes.
+- Redis is not required for the durable catalog data plane. RDS/PostgreSQL owns
+  facts, sync checkpoints, outbox rows, and search-index jobs. Add Redis only
+  for explicitly bounded concerns such as distributed rate limits or short TTL
+  caches.
 - Offset pagination is acceptable for shallow admin views only. Production query
   pagination should use cursor/keyset semantics.
 - Search results return `CatalogEntry` projections. Full product details belong

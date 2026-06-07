@@ -4,7 +4,7 @@ import {
   createCatalogServices,
 } from '@ocp-catalog/catalog-core';
 import { loadConfig } from '@ocp-catalog/config';
-import { createDb } from '@ocp-catalog/db';
+import { createDb, PostgresAdvisoryLockService } from '@ocp-catalog/db';
 import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { createCommerceCatalogScenario } from '../commerce-scenario';
@@ -88,6 +88,7 @@ export function createCommerceCatalogApiRuntimeContext(options: CommerceCatalogR
 
 export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatalogRuntimeContextOptions = {}) {
   const base = createBaseRuntimeContext(options);
+  const coordination = new PostgresAdvisoryLockService(base.config.DATABASE_URL);
   const catalogOutbox = new CatalogOutboxService(base.db, base.searchIndexJobs, base.activityEvents);
   const searchDocumentService = new SearchDocumentUpsertService(base.db, base.writableVectorIndex);
   const searchEmbeddingService = new SearchEmbeddingService(base.db, base.embeddingProvider, base.writableVectorIndex);
@@ -98,6 +99,7 @@ export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatal
 
   return {
     ...base,
+    coordination,
     catalogOutbox,
     searchDocumentService,
     searchEmbeddingService,

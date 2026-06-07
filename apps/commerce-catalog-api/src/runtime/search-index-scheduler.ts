@@ -13,15 +13,28 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
     const startedAt = performance.now();
     try {
       if (reason === 'startup' && config.CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP) {
-        const reconciled = await reconcileSearchIndexQueue(context);
-        if (reconciled.upserted_document_count > 0 || reconciled.enqueued_embedding_jobs > 0) {
+        const lockName = `ocp:catalog:${config.CATALOG_ID}:search-index-reconcile`;
+        const reconcileResult = await context.coordination.withLock(lockName, () => reconcileSearchIndexQueue(context));
+        if (!reconcileResult.acquired) {
           console.log(JSON.stringify({
             ts: new Date().toISOString(),
             level: 'info',
-            event: 'search_index_reconcile',
+            event: 'search_index_reconcile_skipped',
             reason,
-            ...reconciled,
+            lock_name: lockName,
           }));
+        } else {
+          const reconciled = reconcileResult.value;
+          if (reconciled.upserted_document_count > 0 || reconciled.enqueued_embedding_jobs > 0) {
+            console.log(JSON.stringify({
+              ts: new Date().toISOString(),
+              level: 'info',
+              event: 'search_index_reconcile',
+              reason,
+              lock_name: lockName,
+              ...reconciled,
+            }));
+          }
         }
       }
 

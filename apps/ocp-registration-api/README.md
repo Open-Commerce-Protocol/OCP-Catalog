@@ -93,6 +93,9 @@ REGISTRATION_HEALTH_FAILURE_STALE_THRESHOLD=3
 ```
 
 The refresh scheduler scans indexed Catalogs and refreshes their discovery, manifest, health status, snapshot, and index entry.
+Multiple Registration API replicas may run the scheduler; refresh execution is
+guarded by a PostgreSQL advisory lock so only one replica performs a refresh
+cycle at a time.
 
 ## Endpoints
 

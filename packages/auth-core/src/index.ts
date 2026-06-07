@@ -1,12 +1,5 @@
 import { AppError } from '@ocp-catalog/shared';
 
-type Bucket = {
-  count: number;
-  resetAt: number;
-};
-
-const buckets = new Map<string, Bucket>();
-
 export function requireApiKey(received: string | null | undefined, expected: string, additionalKeys = '') {
   const allowed = [expected, ...additionalKeys.split(',').map((key) => key.trim())].filter(Boolean);
   if (!received || !allowed.some((key) => safeEqual(received, key))) {
@@ -24,22 +17,4 @@ function safeEqual(left: string, right: string) {
     diff |= leftBytes[index]! ^ rightBytes[index]!;
   }
   return diff === 0;
-}
-
-export function checkFixedWindowLimit(key: string, limit: number, windowMs: number) {
-  const now = Date.now();
-  const existing = buckets.get(key);
-
-  if (!existing || existing.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
-    return;
-  }
-
-  if (existing.count >= limit) {
-    throw new AppError('domain_rate_limited', `Rate limit exceeded for ${key}`, 429, {
-      resetAt: new Date(existing.resetAt).toISOString(),
-    });
-  }
-
-  existing.count += 1;
 }

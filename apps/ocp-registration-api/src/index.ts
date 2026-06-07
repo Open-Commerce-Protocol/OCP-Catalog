@@ -3,7 +3,7 @@ import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildRegistrationDiscovery, buildRegistrationManifest, createRegistrationServices, startCatalogRefreshScheduler } from '@ocp-catalog/registration-core';
 import { loadConfig } from '@ocp-catalog/config';
-import { createDb, schema } from '@ocp-catalog/db';
+import { createDb, PostgresAdvisoryLockService, schema } from '@ocp-catalog/db';
 import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
@@ -14,7 +14,8 @@ const config = loadConfig();
 const db = createDb(config.DATABASE_URL);
 const services = createRegistrationServices(db, config);
 const activityEvents = new ActivityEventService(db);
-const refreshScheduler = startCatalogRefreshScheduler(services.catalogs, config);
+const coordination = new PostgresAdvisoryLockService(config.DATABASE_URL);
+const refreshScheduler = startCatalogRefreshScheduler(services.catalogs, config, coordination);
 const registrationAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
 const app = new Elysia()

@@ -294,6 +294,7 @@ bun run user:demo:api
 ```
 
 `commerce:catalog:api` 只负责前台查询和协议 HTTP 面；`commerce:catalog:worker` 是独立后台数据面进程，负责 outbox、search document、embedding 和 vector index 写入。
+Catalog API 和 worker 都可以按副本扩展：业务状态、队列 claim 和全局维护锁都落在 PostgreSQL/RDS。Redis 不是当前核心链路的必需组件，只应作为后续分布式限流或短 TTL cache 的可选组件。
 
 如果要打开两个前端：
 
