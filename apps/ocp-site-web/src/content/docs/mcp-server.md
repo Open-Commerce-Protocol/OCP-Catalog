@@ -41,6 +41,7 @@ Start a Registration node and a demo Catalog in separate terminals:
 ```bash
 bun run registration:api
 bun run commerce:catalog:api
+bun run commerce:catalog:worker
 ```
 
 Start the MCP server:

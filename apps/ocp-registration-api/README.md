@@ -61,6 +61,7 @@ Start a Catalog Node:
 
 ```bash
 bun run commerce:catalog:api
+bun run commerce:catalog:worker
 ```
 
 Start the OCP Catalog Registration:
@@ -215,6 +216,7 @@ Start both runtimes:
 
 ```bash
 bun run commerce:catalog:api
+bun run commerce:catalog:worker
 bun run registration:api
 ```
 

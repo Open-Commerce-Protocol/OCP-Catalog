@@ -41,6 +41,7 @@ Agent -> MCP client -> ocp-mcp-server -> Registration node -> selected Catalog
 ```bash
 bun run registration:api
 bun run commerce:catalog:api
+bun run commerce:catalog:worker
 ```
 
 启动 MCP server：

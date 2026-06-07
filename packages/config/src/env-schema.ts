@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const envSchema = z.object({
   DATABASE_URL: z.string().default('postgres://ocp:ocp@localhost:5432/ocp_catalog'),
+  DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
+  CATALOG_WORKER_DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(4),
   CATALOG_API_PORT: z.coerce.number().default(4000),
   CATALOG_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4000'),
   PROVIDER_API_PORT: z.coerce.number().default(4200),

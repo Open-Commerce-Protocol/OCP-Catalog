@@ -144,7 +144,7 @@ await main().catch((error) => {
   console.error(JSON.stringify({
     ok: false,
     message: error instanceof Error ? error.message : 'Unknown validate:mcp failure',
-    hint: 'Start bun run registration:api and bun run commerce:catalog:api, then register/seed catalog data before retrying.',
+    hint: 'Start bun run registration:api, bun run commerce:catalog:api, and bun run commerce:catalog:worker, then register/seed catalog data before retrying.',
   }, null, 2));
   process.exit(1);
 });

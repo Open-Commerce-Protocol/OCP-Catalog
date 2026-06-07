@@ -24,7 +24,6 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     commerceCatalogScenario,
     services,
     commerceQueryService,
-    catalogOutbox,
   } = context;
 
   let catalogDataProfileCache: {
@@ -108,13 +107,11 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
           },
         },
       });
-      triggerOutboxDrain('object_sync');
       return result;
     })
     .post('/ocp/objects/sync/stream', async ({ request, query, headers }) => {
       await assertProviderWriteAuth(headers, requiredQueryString(query, 'provider_id'));
       const result = await syncObjectStream(request, query);
-      triggerOutboxDrain('object_sync_stream');
       return result;
     })
     .get('/ocp/object-sync-runs/:syncRunId', async ({ params, query }) => (
@@ -299,22 +296,6 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     if (!payload || typeof payload !== 'object') return undefined;
     const value = (payload as Record<string, unknown>)[key];
     return typeof value === 'string' && value.trim() ? value.trim() : undefined;
-  }
-
-  function triggerOutboxDrain(reason: string) {
-    void catalogOutbox.drain({
-      catalogId: config.CATALOG_ID,
-      limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
-      retryDelayMs: 30_000,
-    }).catch((error) => {
-      console.error(JSON.stringify({
-        ts: new Date().toISOString(),
-        level: 'error',
-        event: 'catalog_outbox_drain_error',
-        reason,
-        error: error instanceof Error ? error.message : String(error),
-      }));
-    });
   }
 
   async function syncObjectStream(

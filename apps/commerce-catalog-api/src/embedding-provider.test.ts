@@ -29,6 +29,8 @@ describe('createCommerceEmbeddingProvider', () => {
 function config(overrides: Partial<AppConfig>): AppConfig {
   return {
     DATABASE_URL: 'postgres://ocp:ocp@localhost:5432/ocp_catalog',
+    DATABASE_POOL_MAX: 10,
+    CATALOG_WORKER_DATABASE_POOL_MAX: 4,
     CATALOG_API_PORT: 4000,
     CATALOG_PUBLIC_BASE_URL: 'http://localhost:4000',
     PROVIDER_API_PORT: 4200,

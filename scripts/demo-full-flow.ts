@@ -13,6 +13,7 @@
  * Run after booting:
  *   docker compose up -d postgres
  *   bun run commerce:catalog:api
+ *   bun run commerce:catalog:worker
  *   bun run shopify:provider:app     (port 4400)
  *   bun run wc:provider:app          (port 4410)
  *

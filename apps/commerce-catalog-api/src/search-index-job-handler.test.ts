@@ -2,7 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import type { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 import type { SearchEmbeddingService } from './search/indexing/search-embedding-service';
 import { SearchIndexJobHandlerService } from './search/indexing/search-index-job-handler';
-import { retryDelayWithBackoff, type SearchIndexJob, type SearchIndexJobService } from './search/indexing/index-job-service';
+import {
+  retryDelayWithBackoff,
+  searchIndexJobPriority,
+  type SearchIndexJob,
+  type SearchIndexJobService,
+} from './search/indexing/index-job-service';
 import { SearchIndexWorker } from './search/indexing/index-worker';
 
 describe('SearchIndexJobHandlerService', () => {
@@ -265,6 +270,27 @@ describe('retryDelayWithBackoff', () => {
     expect(retryDelayWithBackoff(30_000, 900_000, 1, 0)).toBe(30_000);
     expect(retryDelayWithBackoff(30_000, 900_000, 2, 0)).toBe(60_000);
     expect(retryDelayWithBackoff(30_000, 900_000, 10, 0)).toBe(900_000);
+  });
+});
+
+describe('searchIndexJobPriority', () => {
+  test('keeps query-visible document work ahead of embedding refresh backlog', () => {
+    expect([
+      'refresh_embedding',
+      'rebuild_all_for_provider',
+      'rebuild_document',
+      'upsert_document',
+      'delete_document',
+    ].sort((left, right) => (
+      searchIndexJobPriority(left as Parameters<typeof searchIndexJobPriority>[0])
+      - searchIndexJobPriority(right as Parameters<typeof searchIndexJobPriority>[0])
+    ))).toEqual([
+      'delete_document',
+      'rebuild_document',
+      'upsert_document',
+      'rebuild_all_for_provider',
+      'refresh_embedding',
+    ]);
   });
 });
 

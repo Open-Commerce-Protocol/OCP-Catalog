@@ -5,6 +5,7 @@
 // Prereqs (in separate terminals):
 //   bun run --cwd packages/db migrate
 //   bun run commerce:catalog:api       # http://localhost:4000
+//   bun run commerce:catalog:worker    # outbox/search/embedding indexing
 //   bun run shopify:provider:app       # http://localhost:4400 (mock mode default)
 
 const providerBaseUrl = (process.env.SHOPIFY_PROVIDER_PUBLIC_BASE_URL ?? 'http://localhost:4400').replace(/\/$/, '');

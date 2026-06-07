@@ -10,8 +10,6 @@ import { firstHeader } from '../request-context';
 type Db = CommerceCatalogRuntimeContext['db'];
 type QueryTable = Parameters<ReturnType<Db['select']>['from']>[0];
 
-const SEARCH_INDEX_RUN_DEFAULT_LIMIT = 25;
-const SEARCH_INDEX_RUN_DEFAULT_RETRY_DELAY_MS = 30_000;
 const ADMIN_DEFAULT_PAGE_LIMIT = 50;
 const ADMIN_MAX_PAGE_LIMIT = 100;
 
@@ -48,14 +46,6 @@ export function catalogAdminApiRoutes(context: CommerceCatalogRuntimeContext) {
       return runRegistrationTargets(context, body, (target) => (
         postRegistrationJson(target, `/ocp/catalogs/${context.config.CATALOG_ID}/token/rotate`, {}, getCatalogTokenForTarget(body, target))
       ));
-    })
-    .post('/api/catalog-admin/search-index/run', async ({ headers, body }) => {
-      assertAdminAuth(context, headers);
-      return context.searchIndexWorker.runBatch({
-        catalogId: context.config.CATALOG_ID,
-        limit: getOptionalBodyNumber(body, 'limit') ?? SEARCH_INDEX_RUN_DEFAULT_LIMIT,
-        retryDelayMs: getOptionalBodyNumber(body, 'retry_delay_ms') ?? SEARCH_INDEX_RUN_DEFAULT_RETRY_DELAY_MS,
-      });
     })
     .post('/api/catalog-admin/search-index/rebuild-provider', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
@@ -753,15 +743,6 @@ function getRequiredPayloadNumber(payload: Record<string, unknown>, key: string)
     throw new AppError('internal_error', `Registration response is missing numeric ${key}`, 502, { field: key, payload });
   }
   return value;
-}
-
-function getOptionalBodyNumber(body: unknown, key: string) {
-  if (!body || typeof body !== 'object') return undefined;
-  const value = (body as Record<string, unknown>)[key];
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value !== 'string' || !value.trim()) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 type KeysetCursor = {

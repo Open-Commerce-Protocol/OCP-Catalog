@@ -5,8 +5,12 @@ import * as schema from './schema/index';
 
 export type Db = ReturnType<typeof createDb>;
 
-export function createDb(databaseUrl = loadConfig().DATABASE_URL) {
-  const client = postgres(databaseUrl, { max: 10 });
+export type DbOptions = {
+  maxConnections?: number;
+};
+
+export function createDb(databaseUrl = loadConfig().DATABASE_URL, options: DbOptions = {}) {
+  const client = postgres(databaseUrl, { max: options.maxConnections ?? 10 });
   return drizzle(client, { schema });
 }
 

@@ -39,6 +39,22 @@ export type SearchIndexJob = {
   updatedAt: Date;
 };
 
+export function searchIndexJobPriority(jobType: SearchIndexJobType) {
+  switch (jobType) {
+    case 'delete_document':
+      return 0;
+    case 'upsert_document':
+    case 'rebuild_document':
+      return 1;
+    case 'rebuild_all_for_provider':
+      return 2;
+    case 'refresh_embedding':
+      return 3;
+    default:
+      assertNever(jobType);
+  }
+}
+
 type EnqueueJobInput = {
   catalogId: string;
   jobType: SearchIndexJobType;
@@ -121,7 +137,19 @@ export class SearchIndexJobService {
         where status = 'pending'
           and scheduled_at <= ${nowIso}::timestamptz
           ${catalogFilter}
-        order by scheduled_at asc, catalog_id asc, created_at asc, id asc
+        order by
+          case job_type
+            when 'delete_document' then 0
+            when 'upsert_document' then 1
+            when 'rebuild_document' then 1
+            when 'rebuild_all_for_provider' then 2
+            when 'refresh_embedding' then 3
+            else 4
+          end,
+          scheduled_at asc,
+          catalog_id asc,
+          created_at asc,
+          id asc
         for update skip locked
         limit ${input.limit ?? 25}
       )
@@ -138,6 +166,7 @@ export class SearchIndexJobService {
         jobs.provider_id as "providerId",
         jobs.catalog_entry_id as "catalogEntryId",
         jobs.commercial_object_id as "commercialObjectId",
+        jobs.dedupe_key as "dedupeKey",
         jobs.job_type as "jobType",
         jobs.status,
         jobs.attempt_count as "attemptCount",
@@ -171,11 +200,11 @@ export class SearchIndexJobService {
       .where(and(...conditions))
       .orderBy(
         sql`case ${schema.catalogSearchIndexJobs.jobType}
-          when 'refresh_embedding' then 0
+          when 'delete_document' then 0
           when 'upsert_document' then 1
           when 'rebuild_document' then 1
           when 'rebuild_all_for_provider' then 2
-          when 'delete_document' then 3
+          when 'refresh_embedding' then 3
           else 4
         end`,
         asc(schema.catalogSearchIndexJobs.scheduledAt),
@@ -261,4 +290,8 @@ function toSearchIndexJob(row: typeof schema.catalogSearchIndexJobs.$inferSelect
     error: row.error ?? null,
     payload: row.payload,
   };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unsupported search index job type: ${String(value)}`);
 }

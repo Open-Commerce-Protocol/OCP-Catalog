@@ -10,6 +10,7 @@
 //
 // Prereqs:
 //   bun run commerce:catalog:api     # http://localhost:4000
+//   bun run commerce:catalog:worker  # outbox/search/embedding indexing
 //   bun run shopify:app              # http://localhost:4420
 
 const appBase = (process.env.SHOPIFY_APP_URL ?? 'http://localhost:4420').replace(/\/$/, '');

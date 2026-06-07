@@ -21,6 +21,16 @@ module.exports = {
       },
     },
     {
+      name: 'commerce-catalog-worker',
+      cwd: '.',
+      script: 'bun',
+      args: 'run commerce:catalog:worker',
+      interpreter: 'none',
+      env: {
+        NODE_ENV: 'production',
+      },
+    },
+    {
       name: 'commerce-provider-api',
       cwd: '.',
       script: 'bun',

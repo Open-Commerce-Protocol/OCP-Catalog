@@ -1,7 +1,7 @@
-import type { CommerceCatalogRuntimeContext } from './context';
+import type { CommerceCatalogWorkerRuntimeContext } from './context';
 import { reconcileSearchIndexQueue } from '../search/indexing/reconcile-service';
 
-export function startSearchIndexWorkerScheduler(context: CommerceCatalogRuntimeContext) {
+export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRuntimeContext) {
   const { config, searchIndexWorker } = context;
   if (!config.CATALOG_SEARCH_INDEX_WORKER_ENABLED) return null;
 
@@ -62,11 +62,14 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogRuntimeC
       console.error(JSON.stringify({
         ts: new Date().toISOString(),
         level: 'error',
-        event: 'search_index_worker_error',
+        event: 'search_index_worker_fatal_error',
         reason,
         duration_ms: Number((performance.now() - startedAt).toFixed(2)),
         error: error instanceof Error ? error.message : String(error),
       }));
+      setImmediate(() => {
+        throw error;
+      });
     } finally {
       running = false;
     }

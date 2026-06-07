@@ -1,7 +1,7 @@
 import { and, asc, eq, gt, inArray, or, sql } from 'drizzle-orm';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
-import type { CommerceCatalogRuntimeContext } from '../../runtime/context';
+import type { CommerceCatalogWorkerRuntimeContext } from '../../runtime/context';
 
 type ReconcileCursor = {
   updatedAt: string;
@@ -20,7 +20,7 @@ type ReconcileTotals = {
 const RECONCILE_KIND = 'catalog_search_index';
 
 export async function reconcileSearchIndexQueue(
-  context: CommerceCatalogRuntimeContext,
+  context: CommerceCatalogWorkerRuntimeContext,
   input: {
     pageSize?: number;
   } = {},
@@ -65,7 +65,7 @@ export async function reconcileSearchIndexQueue(
 }
 
 async function reconcilePage(
-  context: CommerceCatalogRuntimeContext,
+  context: CommerceCatalogWorkerRuntimeContext,
   input: {
     cursor: ReconcileCursor | null;
     pageSize: number;
@@ -201,7 +201,7 @@ async function reconcilePage(
   };
 }
 
-async function startCheckpoint(context: CommerceCatalogRuntimeContext) {
+async function startCheckpoint(context: CommerceCatalogWorkerRuntimeContext) {
   const now = new Date();
   await context.db
     .insert(schema.catalogSearchReconcileCheckpoints)
@@ -237,7 +237,7 @@ async function startCheckpoint(context: CommerceCatalogRuntimeContext) {
 }
 
 async function updateCheckpoint(
-  context: CommerceCatalogRuntimeContext,
+  context: CommerceCatalogWorkerRuntimeContext,
   input: {
     status: 'running' | 'completed';
     cursor: ReconcileCursor | null;
@@ -262,7 +262,7 @@ async function updateCheckpoint(
 }
 
 async function failCheckpoint(
-  context: CommerceCatalogRuntimeContext,
+  context: CommerceCatalogWorkerRuntimeContext,
   error: string,
   totals: ReconcileTotals,
   cursor: ReconcileCursor | null,

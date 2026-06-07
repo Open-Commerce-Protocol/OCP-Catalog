@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "cd ../.. && bun --watch apps/commerce-catalog-api/src/index.ts",
     "start": "cd ../.. && bun apps/commerce-catalog-api/src/index.ts",
+    "worker:dev": "cd ../.. && bun --watch apps/commerce-catalog-api/src/worker.ts",
+    "worker": "cd ../.. && bun apps/commerce-catalog-api/src/worker.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun build src/index.ts src/worker.ts --outdir dist --target bun",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "bun test --pass-with-no-tests --path-ignore-patterns='**/*-integration.test.ts'",
     "test:integration": "bun test --timeout=10000 src/*-integration.test.ts"

@@ -141,6 +141,7 @@ GDPR erase) is exercisable locally by seeding a token directly:
 
 ```bash
 bun run commerce:catalog:api        # catalog on :4000
+bun run commerce:catalog:worker     # async search/embedding indexing
 bun run shopify:app                 # app on :4420 (SHOPIFY_APP_MOCK=true for fixtures)
 bun run validate:shopify-app-e2e    # seed → register → full sync → query → delta → uninstall
 ```

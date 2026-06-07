@@ -20,6 +20,7 @@
     "lint": "turbo lint",
     "site:check": "bun scripts/check-docs-integrity.ts",
     "commerce:catalog:api": "bun run --cwd apps/commerce-catalog-api start",
+    "commerce:catalog:worker": "bun run --cwd apps/commerce-catalog-api worker",
     "commerce:catalog:admin": "bun run --cwd apps/examples/commerce-catalog-admin-web start",
     "registration:api": "bun run --cwd apps/ocp-registration-api start",
     "registration:admin": "bun run --cwd apps/ocp-registration-admin-web start",

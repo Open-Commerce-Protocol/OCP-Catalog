@@ -288,9 +288,12 @@ bun run db:reset
 ```bash
 bun run registration:api
 bun run commerce:catalog:api
+bun run commerce:catalog:worker
 bun run commerce:provider:api
 bun run user:demo:api
 ```
+
+`commerce:catalog:api` 只负责前台查询和协议 HTTP 面；`commerce:catalog:worker` 是独立后台数据面进程，负责 outbox、search document、embedding 和 vector index 写入。
 
 如果要打开两个前端：
 
@@ -328,6 +331,7 @@ bun run site:dev
 ```bash
 bun run registration:api
 bun run commerce:catalog:api
+bun run commerce:catalog:worker
 ```
 
 适合验证 `Catalog -> Registration node` 注册与发现链路。

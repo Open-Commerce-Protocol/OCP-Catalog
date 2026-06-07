@@ -34,7 +34,8 @@ Provider / Import Feed
   -> CatalogEntry projection
   -> search document and full-text indexes
   -> embedding/index jobs
-  -> dedicated vector index adapter
+  -> dedicated worker process writes vector index
+  -> API query process reads RDS and vector index
   -> query planner merges keyword/filter/vector candidates
   -> resolve returns catalog_cached, provider_api, or source_url detail
 ```
@@ -45,9 +46,12 @@ Current structure:
 
 ```text
 src/
-  index.ts                         HTTP app and route wiring
+  index.ts                         HTTP API process entrypoint
+  worker.ts                        search indexing worker process entrypoint
+  http/
+    app.ts                         Elysia app factory
   runtime/
-    context.ts                     dependency construction
+    context.ts                     separate API and worker dependency factories
     search-index-scheduler.ts      worker scheduling and startup reconcile hook
   commerce-scenario.ts             object contract, projection, resolve policy
   embedding-provider.ts            local/OpenAI-compatible embedding provider
@@ -101,10 +105,20 @@ src/
 
 ## Production Rules
 
+- The HTTP API process must not run background embedding/indexing loops.
+  Start `commerce:catalog:api` and `commerce:catalog:worker` as separate
+  processes with separate connection-pool budgets.
+- `DATABASE_POOL_MAX` controls the foreground API pool.
+  `CATALOG_WORKER_DATABASE_POOL_MAX` controls the background indexing worker
+  pool. Do not size the worker pool so high that it can exhaust RDS capacity
+  needed by query traffic.
 - Startup must not scan all catalog entries. Reconcile jobs must be paged and
   checkpointed.
 - Search index jobs must be claimed atomically in the database before multiple
   workers run in parallel.
+- Search indexing should prioritize document delete/upsert/rebuild work ahead
+  of embedding refresh so an embedding backlog cannot starve query-visible
+  document changes.
 - Offset pagination is acceptable for shallow admin views only. Production query
   pagination should use cursor/keyset semantics.
 - Search results return `CatalogEntry` projections. Full product details belong
@@ -120,11 +134,10 @@ src/
 
 ## Next Implementation Steps
 
-1. Split `index.ts` into `http/app.ts`, route modules, and `runtime/start.ts`.
-2. Replace search job `listPending` + `markRunning` with an atomic claim API.
-3. Replace startup reconcile with `search/indexing/reconcile-service.ts` using
+1. Add separate foreground/background embedding rate limits or credentials so
+   query embedding is not throttled by product embedding backlog.
+2. Replace startup reconcile with `search/indexing/reconcile-service.ts` using
    keyset pagination and checkpoint state.
-4. Add cursor pagination to catalog query protocol and keep offset as shallow
+3. Add cursor pagination to catalog query protocol and keep offset as shallow
    compatibility only if explicitly required.
-5. Add a vector index adapter interface before binding any managed vector
-   service.
+4. Add OpenSearch bulk upsert and ingest-pressure metrics for large rebuilds.

@@ -21,9 +21,15 @@ import { PostgresLocalVectorIndexAdapter } from '../search/retrieval/postgres-lo
 import type { WritableVectorIndexAdapter } from '../search/retrieval/vector-index-adapter';
 import { CatalogOutboxService } from './catalog-outbox-service';
 
-export function createCommerceCatalogRuntimeContext() {
+export type CommerceCatalogRuntimeContextOptions = {
+  databasePoolMax?: number;
+};
+
+function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions = {}) {
   const config = loadConfig();
-  const db = createDb(config.DATABASE_URL);
+  const db = createDb(config.DATABASE_URL, {
+    maxConnections: options.databasePoolMax ?? config.DATABASE_POOL_MAX,
+  });
   const activityEvents = new ActivityEventService(db);
   const embeddingProvider = createCommerceEmbeddingProvider(config);
   const commerceCatalogScenario = createCommerceCatalogScenario({
@@ -50,13 +56,6 @@ export function createCommerceCatalogRuntimeContext() {
   const searchRetrievalService = new CatalogSemanticRetrievalService(embeddingProvider, vectorIndex);
   const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
   const searchIndexJobs = new SearchIndexJobService(db, config.CATALOG_SEARCH_INDEX_JOB_MAX_ATTEMPTS);
-  const catalogOutbox = new CatalogOutboxService(db, searchIndexJobs, activityEvents);
-  const searchDocumentService = new SearchDocumentUpsertService(db, writableVectorIndex);
-  const searchEmbeddingService = new SearchEmbeddingService(db, embeddingProvider, writableVectorIndex);
-  const searchIndexWorker = new SearchIndexWorker(
-    searchIndexJobs,
-    new SearchIndexJobHandlerService(searchDocumentService, searchIndexJobs, searchEmbeddingService),
-  );
   const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../../public/dist', import.meta.url)));
 
   return {
@@ -67,20 +66,50 @@ export function createCommerceCatalogRuntimeContext() {
     commerceCatalogScenario,
     services,
     searchRetrievalService,
+    vectorIndexProfile,
     vectorIndex,
+    writableVectorIndex,
     commerceQueryService,
     searchIndexJobs,
-    catalogOutbox,
-    searchDocumentService,
-    searchEmbeddingService,
-    searchIndexWorker,
     catalogAdminSite,
   };
 }
 
-export type CommerceCatalogRuntimeContext = ReturnType<typeof createCommerceCatalogRuntimeContext>;
+export function createCommerceCatalogApiRuntimeContext(options: CommerceCatalogRuntimeContextOptions = {}) {
+  const base = createBaseRuntimeContext(options);
+  const {
+    vectorIndex: _vectorIndex,
+    writableVectorIndex: _writableVectorIndex,
+    ...apiContext
+  } = base;
 
-export function logEmbeddingProviderConfig(context: CommerceCatalogRuntimeContext) {
+  return apiContext;
+}
+
+export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatalogRuntimeContextOptions = {}) {
+  const base = createBaseRuntimeContext(options);
+  const catalogOutbox = new CatalogOutboxService(base.db, base.searchIndexJobs, base.activityEvents);
+  const searchDocumentService = new SearchDocumentUpsertService(base.db, base.writableVectorIndex);
+  const searchEmbeddingService = new SearchEmbeddingService(base.db, base.embeddingProvider, base.writableVectorIndex);
+  const searchIndexWorker = new SearchIndexWorker(
+    base.searchIndexJobs,
+    new SearchIndexJobHandlerService(searchDocumentService, base.searchIndexJobs, searchEmbeddingService),
+  );
+
+  return {
+    ...base,
+    catalogOutbox,
+    searchDocumentService,
+    searchEmbeddingService,
+    searchIndexWorker,
+  };
+}
+
+export type CommerceCatalogApiRuntimeContext = ReturnType<typeof createCommerceCatalogApiRuntimeContext>;
+export type CommerceCatalogWorkerRuntimeContext = ReturnType<typeof createCommerceCatalogWorkerRuntimeContext>;
+export type CommerceCatalogRuntimeContext = CommerceCatalogApiRuntimeContext;
+
+export function logEmbeddingProviderConfig(context: CommerceCatalogApiRuntimeContext | CommerceCatalogWorkerRuntimeContext) {
   console.log(JSON.stringify({
     ts: new Date().toISOString(),
     level: 'info',
@@ -88,8 +117,8 @@ export function logEmbeddingProviderConfig(context: CommerceCatalogRuntimeContex
     provider: context.embeddingProvider.providerId,
     model: context.embeddingProvider.model,
     dimension: context.embeddingProvider.dimension,
-    vector_index_provider: context.vectorIndex.profile.vectorProviderId,
-    vector_index_name: context.vectorIndex.profile.indexName,
+    vector_index_provider: context.vectorIndexProfile.vectorProviderId,
+    vector_index_name: context.vectorIndexProfile.indexName,
   }));
 }
 
@@ -103,6 +132,6 @@ function isWritableVectorIndex(value: unknown): value is WritableVectorIndexAdap
   );
 }
 
-export function buildCurrentCatalogManifest(context: CommerceCatalogRuntimeContext) {
+export function buildCurrentCatalogManifest(context: CommerceCatalogApiRuntimeContext) {
   return buildCatalogManifest(context.config, context.commerceCatalogScenario);
 }
