@@ -48,14 +48,14 @@ export type CatalogManifest = {
 
 export type CatalogManifestStatus = 'idle' | 'loading' | 'ready' | 'error';
 
-type FetchEntry =
+export type ManifestFetchEntry =
   | { status: 'ready'; manifest: CatalogManifest }
   | { status: 'error'; error: string };
 
-const cache = new Map<string, FetchEntry>();
-const inflight = new Map<string, Promise<FetchEntry>>();
+const cache = new Map<string, ManifestFetchEntry>();
+const inflight = new Map<string, Promise<ManifestFetchEntry>>();
 
-function fetchOnce(url: string): Promise<FetchEntry> {
+export function fetchManifestOnce(url: string): Promise<ManifestFetchEntry> {
   const cached = cache.get(url);
   if (cached) return Promise.resolve(cached);
   const existing = inflight.get(url);
@@ -65,12 +65,12 @@ function fetchOnce(url: string): Promise<FetchEntry> {
     .then(async (response) => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const json = (await response.json()) as CatalogManifest;
-      const entry: FetchEntry = { status: 'ready', manifest: json };
+      const entry: ManifestFetchEntry = { status: 'ready', manifest: json };
       cache.set(url, entry);
       return entry;
     })
-    .catch((err): FetchEntry => {
-      const entry: FetchEntry = {
+    .catch((err): ManifestFetchEntry => {
+      const entry: ManifestFetchEntry = {
         status: 'error',
         error: err instanceof Error ? err.message : 'fetch failed',
       };
@@ -99,7 +99,7 @@ export function useCatalogManifest(manifestUrl: string | null | undefined): UseC
     if (!manifestUrl) return;
     if (cache.has(manifestUrl)) return;
     let cancelled = false;
-    void fetchOnce(manifestUrl).then(() => {
+    void fetchManifestOnce(manifestUrl).then(() => {
       if (!cancelled) bump((n) => n + 1);
     });
     return () => {
