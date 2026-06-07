@@ -1,4 +1,4 @@
-import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import type { Components } from 'react-markdown';
@@ -9,6 +9,12 @@ import { docsContentIdToPublicPath } from '../content/routing';
 import type { TocHeading } from '../components/docs/DocsLayout';
 import { PageArtifacts } from '../components/docs/PageArtifacts';
 import { scrollToElementById } from '../lib/scroll';
+import {
+  extractTextFromNode,
+  parsePipeTable,
+  renderTableCellContent,
+  renderMarkdownImage,
+} from '../lib/markdown-render';
 
 type LayoutContext = {
   setHeadings: (headings: TocHeading[]) => void;
@@ -48,26 +54,6 @@ function createHeadingId(text: string, line?: number): string {
   return line ? `${baseId}-${line}` : baseId;
 }
 
-function extractTextFromNode(node: ReactNode): string {
-  if (node == null || typeof node === 'boolean') {
-    return '';
-  }
-
-  if (typeof node === 'string' || typeof node === 'number') {
-    return String(node);
-  }
-
-  if (Array.isArray(node)) {
-    return node.map((child) => extractTextFromNode(child)).join('');
-  }
-
-  if (isValidElement<{ children?: ReactNode }>(node)) {
-    return extractTextFromNode(node.props.children);
-  }
-
-  return Children.toArray(node).map((child) => extractTextFromNode(child)).join('');
-}
-
 function extractHeadings(markdown: string): TocHeading[] {
   return markdown
     .split('\n')
@@ -86,61 +72,6 @@ function extractHeadings(markdown: string): TocHeading[] {
         level,
         text,
       }];
-    });
-}
-
-function splitTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, '')
-    .replace(/\|$/, '')
-    .split('|')
-    .map((cell) => cell.trim());
-}
-
-function isTableSeparator(line: string): boolean {
-  const cells = splitTableRow(line);
-  return cells.length > 1 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
-}
-
-function parsePipeTable(value: string): string[][] | null {
-  const lines = value
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  if (lines.length < 3 || !lines.every((line) => line.startsWith('|') && line.endsWith('|'))) {
-    return null;
-  }
-
-  if (!isTableSeparator(lines[1])) {
-    return null;
-  }
-
-  const rows = lines.filter((_, index) => index !== 1).map(splitTableRow);
-  const columnCount = rows[0]?.length ?? 0;
-
-  if (columnCount < 2 || rows.some((row) => row.length !== columnCount)) {
-    return null;
-  }
-
-  return rows;
-}
-
-function renderTableCellContent(value: string): ReactNode {
-  return value
-    .split(/(`[^`]+`|\*\*[^*]+\*\*)/g)
-    .filter(Boolean)
-    .map((part, index) => {
-      if (part.startsWith('`') && part.endsWith('`')) {
-        return <code key={index}>{part.slice(1, -1)}</code>;
-      }
-
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={index}>{part.slice(2, -2)}</strong>;
-      }
-
-      return part;
     });
 }
 
@@ -240,10 +171,7 @@ function createHeadingComponents(
         </pre>
       </div>
     ),
-    img: ({ src, alt }) => {
-      const imageSrc = src?.startsWith('images/') ? `/${src}` : src;
-      return <img src={imageSrc} alt={alt ?? ''} className="rounded-lg border border-black/10" />;
-    },
+    img: ({ src, alt }) => renderMarkdownImage(src, alt),
   };
 }
 
