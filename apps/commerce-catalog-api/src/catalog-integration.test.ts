@@ -110,25 +110,25 @@ describe('commerce catalog integration', () => {
     expect(syncResult.status).toBe('accepted');
     expect(syncResult.accepted_count).toBe(2);
 
-    const [syncBatch] = await db
+    const [syncChunk] = await db
       .select()
-      .from(schema.objectSyncBatches)
-      .where(eq(schema.objectSyncBatches.batchId, `batch_${providerId}`))
+      .from(schema.objectSyncChunks)
+      .where(eq(schema.objectSyncChunks.batchId, `batch_${providerId}`))
       .limit(1);
-    expect(typeof syncBatch?.requestHash).toBe('string');
-    expect(syncBatch?.requestHash).not.toBe('');
-    expect(syncBatch?.requestMetadata).toMatchObject({
+    expect(typeof syncChunk?.requestHash).toBe('string');
+    expect(syncChunk?.requestHash).not.toBe('');
+    expect(syncChunk?.requestMetadata).toMatchObject({
       object_count: 2,
       has_client_batch_id: true,
     });
-    expect(syncBatch?.resultSummary).toMatchObject({
+    expect(syncChunk?.resultSummary).toMatchObject({
       result_id: syncResult.id,
       item_count: 2,
       accepted_count: 2,
       rejected_count: 0,
       error_count: 0,
     });
-    expect(JSON.stringify(syncBatch)).not.toContain('Wireless noise cancelling headphones');
+    expect(JSON.stringify(syncChunk)).not.toContain('Wireless noise cancelling headphones');
 
     const replayedSyncResult = await services.objects.sync({
       ocp_version: '1.0',
@@ -177,8 +177,8 @@ describe('commerce catalog integration', () => {
     expect(replayedSyncResult).toEqual(syncResult);
     const duplicateBatchRows = await db
       .select()
-      .from(schema.objectSyncBatches)
-      .where(eq(schema.objectSyncBatches.batchId, `batch_${providerId}`));
+      .from(schema.objectSyncChunks)
+      .where(eq(schema.objectSyncChunks.batchId, `batch_${providerId}`));
     expect(duplicateBatchRows).toHaveLength(1);
     const [syncRun] = await db
       .select()
@@ -406,7 +406,7 @@ describe('commerce catalog integration', () => {
 async function cleanupProviderData(providerId: string, queryText: string) {
   await sql`delete from query_audit_records where request_payload->>'query' = ${queryText}`;
   await sql`delete from catalog_outbox_events where provider_id = ${providerId}`;
-  await sql`delete from object_sync_batches where provider_id = ${providerId}`;
+  await sql`delete from object_sync_chunks where provider_id = ${providerId}`;
   await sql`delete from object_sync_runs where provider_id = ${providerId}`;
   await sql`delete from provider_contract_states where provider_id = ${providerId}`;
   await sql`delete from provider_registrations where provider_id = ${providerId}`;

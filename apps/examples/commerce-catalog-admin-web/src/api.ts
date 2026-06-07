@@ -33,7 +33,7 @@ export type CatalogAdminOverview = {
     failed_job_count: number;
     oldest_pending_job_created_at: string | null;
   };
-  latest_sync_batch: {
+  latest_sync_chunk: {
     provider_id: string;
     status: string;
     accepted_count: number;
@@ -65,7 +65,7 @@ export type CatalogAdminProvider = {
     status: string;
     updated_at: string;
   } | null;
-  latest_sync_batch: {
+  latest_sync_chunk: {
     status: string;
     accepted_count: number;
     rejected_count: number;

@@ -95,7 +95,7 @@ export class ObjectSyncService {
       const syncDb = tx as unknown as Db;
       const syncRun = await this.ensureSyncRun(syncDb, request, batchId, options);
       const [insertedBatch] = await syncDb
-        .insert(schema.objectSyncBatches)
+        .insert(schema.objectSyncChunks)
         .values({
           id: batchRowId,
           catalogId: request.catalog_id,
@@ -114,12 +114,12 @@ export class ObjectSyncService {
         })
         .onConflictDoNothing({
           target: [
-            schema.objectSyncBatches.catalogId,
-            schema.objectSyncBatches.providerId,
-            schema.objectSyncBatches.batchId,
+            schema.objectSyncChunks.catalogId,
+            schema.objectSyncChunks.providerId,
+            schema.objectSyncChunks.batchId,
           ],
         })
-        .returning({ id: schema.objectSyncBatches.id });
+        .returning({ id: schema.objectSyncChunks.id });
       if (!insertedBatch) {
         const replayed = await this.findExistingBatchResult({
           catalogId: request.catalog_id,
@@ -148,7 +148,7 @@ export class ObjectSyncService {
       if (items.length > 0) {
         await syncDb.insert(schema.objectSyncItemResults).values(items.map((item, itemOrdinal) => ({
           id: newId('syncitem'),
-          syncBatchId: batchRowId,
+          syncChunkId: batchRowId,
           itemOrdinal,
           objectId: item.object_id ?? null,
           status: item.status,
@@ -178,7 +178,7 @@ export class ObjectSyncService {
       };
 
       await syncDb
-        .update(schema.objectSyncBatches)
+        .update(schema.objectSyncChunks)
         .set({
           status,
           acceptedCount,
@@ -193,7 +193,7 @@ export class ObjectSyncService {
           },
           finishedAt: new Date(),
         })
-        .where(eq(schema.objectSyncBatches.id, batchRowId));
+        .where(eq(schema.objectSyncChunks.id, batchRowId));
 
       if (syncRun) {
         await this.updateSyncRunAfterBatch(syncDb, syncRun.id, result, options);
@@ -301,11 +301,11 @@ export class ObjectSyncService {
   }, db: Db = this.db): Promise<ObjectSyncResult | null> {
     const [batch] = await db
       .select()
-      .from(schema.objectSyncBatches)
+      .from(schema.objectSyncChunks)
       .where(and(
-        eq(schema.objectSyncBatches.catalogId, input.catalogId),
-        eq(schema.objectSyncBatches.providerId, input.providerId),
-        eq(schema.objectSyncBatches.batchId, input.batchId),
+        eq(schema.objectSyncChunks.catalogId, input.catalogId),
+        eq(schema.objectSyncChunks.providerId, input.providerId),
+        eq(schema.objectSyncChunks.batchId, input.batchId),
       ))
       .limit(1);
 
@@ -319,7 +319,7 @@ export class ObjectSyncService {
     const items = await db
       .select()
       .from(schema.objectSyncItemResults)
-      .where(eq(schema.objectSyncItemResults.syncBatchId, batch.id))
+      .where(eq(schema.objectSyncItemResults.syncChunkId, batch.id))
       .orderBy(schema.objectSyncItemResults.itemOrdinal, schema.objectSyncItemResults.id);
 
     return {
@@ -442,28 +442,28 @@ export class ObjectSyncService {
     const [aggregate] = await db
       .select({
         batchCount: sql<number>`count(*)::int`,
-        acceptedCount: sql<number>`coalesce(sum(${schema.objectSyncBatches.acceptedCount}), 0)::int`,
-        rejectedCount: sql<number>`coalesce(sum(${schema.objectSyncBatches.rejectedCount}), 0)::int`,
-        errorCount: sql<number>`coalesce(sum(${schema.objectSyncBatches.errorCount}), 0)::int`,
-        lastChunkOrdinal: sql<number | null>`max(${schema.objectSyncBatches.chunkOrdinal})::int`,
+        acceptedCount: sql<number>`coalesce(sum(${schema.objectSyncChunks.acceptedCount}), 0)::int`,
+        rejectedCount: sql<number>`coalesce(sum(${schema.objectSyncChunks.rejectedCount}), 0)::int`,
+        errorCount: sql<number>`coalesce(sum(${schema.objectSyncChunks.errorCount}), 0)::int`,
+        lastChunkOrdinal: sql<number | null>`max(${schema.objectSyncChunks.chunkOrdinal})::int`,
       })
-      .from(schema.objectSyncBatches)
-      .where(eq(schema.objectSyncBatches.syncRunRowId, syncRunRowId));
+      .from(schema.objectSyncChunks)
+      .where(eq(schema.objectSyncChunks.syncRunRowId, syncRunRowId));
 
     const batches = await db
       .select({
-        batch_id: schema.objectSyncBatches.batchId,
-        chunk_ordinal: schema.objectSyncBatches.chunkOrdinal,
-        status: schema.objectSyncBatches.status,
-        accepted_count: schema.objectSyncBatches.acceptedCount,
-        rejected_count: schema.objectSyncBatches.rejectedCount,
-        error_count: schema.objectSyncBatches.errorCount,
-        request_hash: schema.objectSyncBatches.requestHash,
-        finished_at: schema.objectSyncBatches.finishedAt,
+        batch_id: schema.objectSyncChunks.batchId,
+        chunk_ordinal: schema.objectSyncChunks.chunkOrdinal,
+        status: schema.objectSyncChunks.status,
+        accepted_count: schema.objectSyncChunks.acceptedCount,
+        rejected_count: schema.objectSyncChunks.rejectedCount,
+        error_count: schema.objectSyncChunks.errorCount,
+        request_hash: schema.objectSyncChunks.requestHash,
+        finished_at: schema.objectSyncChunks.finishedAt,
       })
-      .from(schema.objectSyncBatches)
-      .where(eq(schema.objectSyncBatches.syncRunRowId, syncRunRowId))
-      .orderBy(asc(schema.objectSyncBatches.chunkOrdinal), asc(schema.objectSyncBatches.createdAt));
+      .from(schema.objectSyncChunks)
+      .where(eq(schema.objectSyncChunks.syncRunRowId, syncRunRowId))
+      .orderBy(asc(schema.objectSyncChunks.chunkOrdinal), asc(schema.objectSyncChunks.createdAt));
 
     return {
       batchCount: aggregate?.batchCount ?? 0,
@@ -522,7 +522,7 @@ export class ObjectSyncService {
           catalogId: result.catalog_id,
           providerId: result.provider_id,
           eventType: 'search_index.enqueue_job',
-          aggregateType: 'object_sync_batch',
+          aggregateType: 'object_sync_chunk',
           aggregateId: result.batch_id,
           dedupeKey: `search_index:sync:${result.batch_id}:upsert_document:${item.catalog_entry_id}`,
           payload: {
@@ -550,7 +550,7 @@ export class ObjectSyncService {
         catalogId: result.catalog_id,
         providerId: result.provider_id,
         eventType: 'activity.ingest',
-        aggregateType: 'object_sync_batch',
+        aggregateType: 'object_sync_chunk',
         aggregateId: result.batch_id,
         dedupeKey: `activity:object_sync:${result.batch_id}:${activityEvent.pathTemplate}`,
         payload: {

@@ -209,7 +209,7 @@ async function cleanupProviderData(providerId: string, queries: string[]) {
   for (const query of queries) {
     await sql`delete from query_audit_records where request_payload->>'query' = ${query}`;
   }
-  await sql`delete from object_sync_batches where provider_id = ${providerId}`;
+  await sql`delete from object_sync_chunks where provider_id = ${providerId}`;
   await sql`delete from provider_contract_states where provider_id = ${providerId}`;
   await sql`delete from provider_registrations where provider_id = ${providerId}`;
   await sql`delete from commercial_objects where provider_id = ${providerId}`;

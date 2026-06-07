@@ -222,7 +222,7 @@ function Overview({
              <div className="relative z-10 flex justify-between items-center">
                 <div className="w-1/3 text-right pr-6">
                   <div className="text-xs bg-operator-bg border border-accent-brass px-2 py-1 inline-block rounded-sm operator-mono text-accent-brass">
-                    {overview.latest_sync_batch ? `Latest ${overview.latest_sync_batch.status}` : 'No sync batch yet'}
+                    {overview.latest_sync_chunk ? `Latest ${overview.latest_sync_chunk.status}` : 'No sync chunk yet'}
                   </div>
                 </div>
                 <div className="w-4 h-4 rounded-full border-2 border-accent-brass bg-operator-surface"></div>
@@ -324,7 +324,7 @@ function ProvidersPage({ providers }: { providers: CatalogAdminProvider[] }) {
       </header>
 
       {providers.length === 0 ? (
-        <EmptyState title="No providers connected yet." body="Once providers register and push object sync batches into this catalog, they will appear here." />
+        <EmptyState title="No providers connected yet." body="Once providers register and push object sync chunks into this catalog, they will appear here." />
       ) : (
         <div className="space-y-4">
           {providers.map((provider) => (
@@ -340,7 +340,7 @@ function ProvidersPage({ providers }: { providers: CatalogAdminProvider[] }) {
                 <dl className="grid gap-3 text-sm md:grid-cols-2">
                   <InfoPair label="Active registration" value={provider.active_registration_version?.toString() ?? 'none'} />
                   <InfoPair label="Latest registration" value={provider.latest_registration?.status ?? 'none'} />
-                  <InfoPair label="Latest batch" value={provider.latest_sync_batch?.status ?? 'none'} />
+                  <InfoPair label="Latest chunk" value={provider.latest_sync_chunk?.status ?? 'none'} />
                   <InfoPair label="Updated" value={formatTimestamp(provider.updated_at)} />
                 </dl>
                 <div className="rounded-sm border border-operator-border bg-operator-bg p-3">

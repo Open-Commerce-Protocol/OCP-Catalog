@@ -39,7 +39,7 @@ export const entryStatus = pgEnum('entry_status', ['active', 'inactive', 'reject
 
 export const providerContractStateStatus = pgEnum('provider_contract_state_status', ['active', 'inactive', 'rejected']);
 
-export const objectSyncBatchStatus = pgEnum('object_sync_batch_status', ['accepted', 'partial', 'rejected']);
+export const objectSyncChunkStatus = pgEnum('object_sync_chunk_status', ['accepted', 'partial', 'rejected']);
 
 export const objectSyncItemStatus = pgEnum('object_sync_item_status', ['accepted', 'rejected']);
 
@@ -355,7 +355,7 @@ export const objectSyncRuns = pgTable('object_sync_runs', {
   statusScheduledIdx: index('object_sync_runs_catalog_status_updated_idx').on(table.catalogId, table.status, table.updatedAt),
 }));
 
-export const objectSyncBatches = pgTable('object_sync_batches', {
+export const objectSyncChunks = pgTable('object_sync_chunks', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
   providerId: text('provider_id').notNull(),
@@ -363,7 +363,7 @@ export const objectSyncBatches = pgTable('object_sync_batches', {
   syncRunRowId: text('sync_run_row_id').references(() => objectSyncRuns.id, { onDelete: 'set null' }),
   chunkOrdinal: integer('chunk_ordinal'),
   batchId: text('batch_id').notNull(),
-  status: objectSyncBatchStatus('status').notNull().default('rejected'),
+  status: objectSyncChunkStatus('status').notNull().default('rejected'),
   acceptedCount: integer('accepted_count').notNull().default(0),
   rejectedCount: integer('rejected_count').notNull().default(0),
   errorCount: integer('error_count').notNull().default(0),
@@ -373,17 +373,17 @@ export const objectSyncBatches = pgTable('object_sync_batches', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   finishedAt: timestamp('finished_at', { withTimezone: true }),
 }, (table) => ({
-  providerBatchUnique: uniqueIndex('object_sync_batches_provider_batch_unique').on(table.catalogId, table.providerId, table.batchId),
-  providerCreatedIdx: index('object_sync_batches_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
-  runChunkUnique: uniqueIndex('object_sync_batches_run_chunk_unique').on(table.syncRunRowId, table.chunkOrdinal),
-  runIdx: index('object_sync_batches_run_idx').on(table.syncRunRowId),
+  providerBatchUnique: uniqueIndex('object_sync_chunks_provider_batch_unique').on(table.catalogId, table.providerId, table.batchId),
+  providerCreatedIdx: index('object_sync_chunks_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
+  runChunkUnique: uniqueIndex('object_sync_chunks_run_chunk_unique').on(table.syncRunRowId, table.chunkOrdinal),
+  runIdx: index('object_sync_chunks_run_idx').on(table.syncRunRowId),
 }));
 
 export const objectSyncItemResults = pgTable('object_sync_item_results', {
   id: text('id').primaryKey(),
-  syncBatchId: text('sync_batch_id')
+  syncChunkId: text('sync_chunk_id')
     .notNull()
-    .references(() => objectSyncBatches.id, { onDelete: 'cascade' }),
+    .references(() => objectSyncChunks.id, { onDelete: 'cascade' }),
   itemOrdinal: integer('item_ordinal').notNull().default(0),
   objectId: text('object_id'),
   status: objectSyncItemStatus('status').notNull(),
@@ -393,8 +393,8 @@ export const objectSyncItemResults = pgTable('object_sync_item_results', {
   warnings: jsonb('warnings').$type<string[]>().notNull().default([]),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
-  syncBatchIdx: index('object_sync_item_results_batch_idx').on(table.syncBatchId),
-  syncBatchObjectUnique: uniqueIndex('object_sync_item_results_batch_object_unique').on(table.syncBatchId, table.objectId),
+  syncChunkIdx: index('object_sync_item_results_chunk_idx').on(table.syncChunkId),
+  syncChunkObjectUnique: uniqueIndex('object_sync_item_results_chunk_object_unique').on(table.syncChunkId, table.objectId),
 }));
 
 export const queryAuditRecords = pgTable('query_audit_records', {

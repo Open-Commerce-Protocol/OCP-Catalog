@@ -111,6 +111,10 @@ src/
   in Resolve or Provider/source systems.
 - `CatalogEntry.image_url` is a preview projection. Full image lists remain in
   descriptor packs or resolve details.
+- Object sync persistence is chunk-oriented. `batch_id` remains the provider
+  idempotency key, while the catalog stores committed receipts as sync chunks;
+  lifecycle erase responses report the deleted receipt count as
+  `sync_chunk_count`.
 - Do not put provider source tables in this app. Provider examples remain
   separate ingestion clients.
 

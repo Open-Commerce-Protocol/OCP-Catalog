@@ -57,6 +57,13 @@
       "when": 1780768767842,
       "tag": "0007_early_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780799372250,
+      "tag": "0008_rename_object_sync_chunks",
+      "breakpoints": true
     }
   ]
 }

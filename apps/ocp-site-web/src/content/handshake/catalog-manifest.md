@@ -143,7 +143,7 @@ Example:
 
 For NDJSON streaming, each non-empty line is one `CommercialObject`. The Catalog
 commits the stream in bounded chunks. Each committed chunk is recorded as a
-normal sync batch using the provider supplied `batch_id` plus a chunk ordinal.
+sync chunk receipt using the provider supplied `batch_id` plus a chunk ordinal.
 If the transport fails halfway through, the provider can retry the same stream
 with the same `batch_id` and chunking parameters. Previously committed chunks
 replay by `request_hash` and do not create duplicate index jobs. Changing chunk

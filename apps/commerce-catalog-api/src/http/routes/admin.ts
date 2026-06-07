@@ -89,7 +89,7 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
     outboxMetrics,
     queryAuditCount,
     latestRun,
-    latestBatch,
+    latestChunk,
   ] = await Promise.all([
     countRows(context, schema.providerContractStates, eq(schema.providerContractStates.catalogId, context.config.CATALOG_ID)),
     countRows(context, schema.commercialObjects, eq(schema.commercialObjects.catalogId, context.config.CATALOG_ID)),
@@ -101,7 +101,7 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
     getOutboxMetrics(context),
     countRows(context, schema.queryAuditRecords, eq(schema.queryAuditRecords.catalogId, context.config.CATALOG_ID)),
     getLatestSyncRun(context),
-    getLatestSyncBatch(context),
+    getLatestSyncChunk(context),
   ]);
 
   const embeddingReadinessRatio = searchDocumentMetrics.activeDocumentCount > 0
@@ -168,14 +168,14 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
           finished_at: latestRun.finishedAt?.toISOString() ?? null,
         }
       : null,
-    latest_sync_batch: latestBatch
+    latest_sync_chunk: latestChunk
       ? {
-          provider_id: latestBatch.providerId,
-          status: latestBatch.status,
-          accepted_count: latestBatch.acceptedCount,
-          rejected_count: latestBatch.rejectedCount,
-          created_at: latestBatch.createdAt.toISOString(),
-          finished_at: latestBatch.finishedAt?.toISOString() ?? null,
+          provider_id: latestChunk.providerId,
+          status: latestChunk.status,
+          accepted_count: latestChunk.acceptedCount,
+          rejected_count: latestChunk.rejectedCount,
+          created_at: latestChunk.createdAt.toISOString(),
+          finished_at: latestChunk.finishedAt?.toISOString() ?? null,
         }
       : null,
   };
@@ -328,12 +328,12 @@ async function getLatestSyncRun(context: CommerceCatalogRuntimeContext) {
   return row ?? null;
 }
 
-async function getLatestSyncBatch(context: CommerceCatalogRuntimeContext) {
+async function getLatestSyncChunk(context: CommerceCatalogRuntimeContext) {
   const [row] = await context.db
     .select()
-    .from(schema.objectSyncBatches)
-    .where(eq(schema.objectSyncBatches.catalogId, context.config.CATALOG_ID))
-    .orderBy(desc(schema.objectSyncBatches.createdAt))
+    .from(schema.objectSyncChunks)
+    .where(eq(schema.objectSyncChunks.catalogId, context.config.CATALOG_ID))
+    .orderBy(desc(schema.objectSyncChunks.createdAt))
     .limit(1);
 
   return row ?? null;
@@ -361,7 +361,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
   const catalogStates = rows.slice(0, page.limit);
 
   const providers = await Promise.all(catalogStates.map(async (state) => {
-    const [provider, latestRegistrationRows, latestRunRows, latestBatchRows] = await Promise.all([
+    const [provider, latestRegistrationRows, latestRunRows, latestChunkRows] = await Promise.all([
       context.services.registrations.getProvider(state.providerId),
       context.db
         .select()
@@ -383,17 +383,17 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
         .limit(1),
       context.db
         .select()
-        .from(schema.objectSyncBatches)
+        .from(schema.objectSyncChunks)
         .where(and(
-          eq(schema.objectSyncBatches.catalogId, context.config.CATALOG_ID),
-          eq(schema.objectSyncBatches.providerId, state.providerId),
+          eq(schema.objectSyncChunks.catalogId, context.config.CATALOG_ID),
+          eq(schema.objectSyncChunks.providerId, state.providerId),
         ))
-        .orderBy(desc(schema.objectSyncBatches.createdAt), desc(schema.objectSyncBatches.id))
+        .orderBy(desc(schema.objectSyncChunks.createdAt), desc(schema.objectSyncChunks.id))
         .limit(1),
     ]);
     const latestRegistration = latestRegistrationRows[0] ?? null;
     const latestRun = latestRunRows[0] ?? null;
-    const latestBatch = latestBatchRows[0] ?? null;
+    const latestChunk = latestChunkRows[0] ?? null;
 
     return {
       provider_id: provider.provider_id,
@@ -423,12 +423,12 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
             finished_at: latestRun.finishedAt?.toISOString() ?? null,
           }
         : null,
-      latest_sync_batch: latestBatch
+      latest_sync_chunk: latestChunk
         ? {
-            status: latestBatch.status,
-            accepted_count: latestBatch.acceptedCount,
-            rejected_count: latestBatch.rejectedCount,
-            created_at: latestBatch.createdAt.toISOString(),
+            status: latestChunk.status,
+            accepted_count: latestChunk.acceptedCount,
+            rejected_count: latestChunk.rejectedCount,
+            created_at: latestChunk.createdAt.toISOString(),
           }
         : null,
     };

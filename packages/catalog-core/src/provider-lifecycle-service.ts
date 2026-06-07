@@ -67,10 +67,10 @@ export class ProviderLifecycleService {
     const [state] = await this.db.select().from(schema.providerContractStates).where(providerWhere).limit(1);
     if (!state) throw new AppError('not_found', `Provider ${providerId} is not registered`, 404);
 
-    const batches = await this.db
-      .delete(schema.objectSyncBatches)
-      .where(and(eq(schema.objectSyncBatches.catalogId, this.config.CATALOG_ID), eq(schema.objectSyncBatches.providerId, providerId)))
-      .returning({ id: schema.objectSyncBatches.id });
+    const chunks = await this.db
+      .delete(schema.objectSyncChunks)
+      .where(and(eq(schema.objectSyncChunks.catalogId, this.config.CATALOG_ID), eq(schema.objectSyncChunks.providerId, providerId)))
+      .returning({ id: schema.objectSyncChunks.id });
     const jobs = await this.db
       .delete(schema.catalogSearchIndexJobs)
       .where(and(eq(schema.catalogSearchIndexJobs.catalogId, this.config.CATALOG_ID), eq(schema.catalogSearchIndexJobs.providerId, providerId)))
@@ -95,7 +95,7 @@ export class ProviderLifecycleService {
       object_count: objects.length,
       provider_state_count: states.length,
       registration_count: registrations.length,
-      sync_batch_count: batches.length,
+      sync_chunk_count: chunks.length,
       search_job_count: jobs.length,
     };
   }
