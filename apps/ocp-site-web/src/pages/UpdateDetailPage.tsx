@@ -1,12 +1,33 @@
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CircleAlert } from 'lucide-react';
 import { breakingChangeLabel, getUpdateBySlug, updateCategoryLabels } from '../content/updates';
 import { resolveLocalizedText, useDocsLocale } from '../content/i18n';
+import { loadUpdateContent } from '../content/updates-loader';
+import { MarkdownArticle } from '../components/site/MarkdownArticle';
 
 export function UpdateDetailPage() {
   const { slug } = useParams();
   const update = getUpdateBySlug(slug);
   const { locale, localizePath } = useDocsLocale();
+  const [content, setContent] = useState<string>('# Loading...');
+
+  useEffect(() => {
+    if (!update) return;
+    let cancelled = false;
+
+    async function fetchContent(slug: string) {
+      setContent('# Loading...');
+      const md = await loadUpdateContent(slug, locale);
+      if (!cancelled) setContent(md);
+    }
+
+    void fetchContent(update.slug);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [update, locale]);
 
   if (!update) {
     return (
@@ -21,6 +42,8 @@ export function UpdateDetailPage() {
       </main>
     );
   }
+
+  const coverSrc = update.cover?.startsWith('images/') ? `/${update.cover}` : update.cover;
 
   return (
     <main className="site-band">
@@ -43,13 +66,18 @@ export function UpdateDetailPage() {
             )}
           </div>
           <h1 className="mt-5 text-5xl font-semibold leading-tight">{resolveLocalizedText(update.title, locale)}</h1>
+          {coverSrc && (
+            <img
+              src={coverSrc}
+              alt=""
+              className="mt-6 aspect-[16/7] w-full rounded-lg border border-black/10 object-cover shadow-lg shadow-black/10"
+            />
+          )}
           <p className="mt-5 text-lg leading-8 text-black/65">{resolveLocalizedText(update.summary, locale)}</p>
           <div className="mt-4 text-sm font-semibold text-black/50">{update.publishedAt}</div>
 
-          <div className="mt-10 space-y-6 border-t border-black/10 pt-8 text-lg leading-8 text-black/72">
-            {update.body.map((paragraph) => (
-              <p key={paragraph.en}>{resolveLocalizedText(paragraph, locale)}</p>
-            ))}
+          <div className="mt-10 border-t border-black/10 pt-8">
+            <MarkdownArticle content={content} />
           </div>
 
           <div className="mt-10 flex flex-wrap gap-2">
