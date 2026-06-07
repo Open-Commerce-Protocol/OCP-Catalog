@@ -12,6 +12,8 @@ import { LiveActivityPulse } from '../components/site/LiveActivityPulse';
 import { LiveActivitySection } from '../components/site/LiveActivitySection';
 import { resolveLocalizedText, useDocsLocale, type LocalizedText } from '../content/i18n';
 import { updates } from '../content/updates';
+import { useCatalogScale } from '../lib/useCatalogScale';
+import { formatCompactCount } from '../lib/formatScale';
 
 const flowSteps = [
   { label: { en: 'Connect', zh: '接入' }, body: { en: 'Merchants expose products and services through an OCP connector.', zh: '商家通过 OCP 接入应用开放商品与服务。' } },
@@ -27,12 +29,6 @@ const builderPaths = [
   { icon: Network, title: { en: 'For agent teams', zh: 'Agent 团队' }, href: '/docs/examples/user-agent-flow', body: { en: 'Discover catalogs, compare candidates, and keep action consent explicit.', zh: '发现 Catalog、比较候选，并保持动作确认清晰。' } },
   { icon: Braces, title: { en: 'For protocol readers', zh: '协议读者' }, href: '/docs/protocols/handshake-v1/catalog-manifest', body: { en: 'Read the contracts behind discovery, query, resolve, and action binding.', zh: '阅读发现、查询、解析和动作绑定背后的契约。' } },
   { icon: Terminal, title: { en: 'For tool builders', zh: '工具构建者' }, href: '/docs/cli-and-skill', body: { en: 'Drive the workflow from the CLI and skill, with manifest-based validation. Coming soon.', zh: '用 CLI 和 skill 驱动工作流，带 manifest 校验。即将推出。' } },
-];
-
-const heroStats = [
-  { value: '01', label: { en: 'Discover', zh: '发现' } },
-  { value: '02', label: { en: 'Resolve', zh: '解析' } },
-  { value: '03', label: { en: 'Confirm', zh: '确认' } },
 ];
 
 const layers = [
@@ -74,6 +70,7 @@ function label(text: LocalizedText, locale: 'en' | 'zh') {
 export function HomePage() {
   const { locale, localizePath } = useDocsLocale();
   const latestUpdate = updates[0];
+  const scale = useCatalogScale();
   const heroRef = useRef<HTMLElement | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('hero');
 
@@ -245,14 +242,26 @@ export function HomePage() {
                 {locale === 'zh' ? '查看新闻' : 'Read the news'}
               </Link>
             </div>
-            <div className="reveal-item mt-10 grid max-w-xl grid-cols-3 gap-2">
-              {heroStats.map((item) => (
-                <div key={item.value} className="rounded-md border border-black/10 bg-white/60 p-3 shadow-sm backdrop-blur">
-                  <div className="font-mono text-xs font-semibold text-[var(--ocp-vermilion)]">{item.value}</div>
-                  <div className="mt-1 text-sm font-semibold text-black/74">{label(item.label, locale)}</div>
+            {scale.status !== 'unavailable' && (
+              <div className="reveal-item mt-10 grid max-w-xl grid-cols-2 gap-3">
+                <div className="rounded-md border border-black/10 bg-white/60 p-4 shadow-sm backdrop-blur">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-black/52">
+                    {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
+                  </div>
+                  <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-[var(--ocp-ink)]">
+                    {scale.status === 'loading' ? '—' : formatCompactCount(scale.storedTotal)}
+                  </div>
                 </div>
-              ))}
-            </div>
+                <div className="rounded-md border border-black/10 bg-white/60 p-4 shadow-sm backdrop-blur">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-black/52">
+                    {locale === 'zh' ? '按需流转' : 'Streamed on demand'}
+                  </div>
+                  <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-[var(--ocp-cyan)]">
+                    ∞
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <div className="hidden min-h-[32rem] items-end justify-end lg:flex">
             <LiveActivityPulse />
