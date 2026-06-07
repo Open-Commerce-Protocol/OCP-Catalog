@@ -18,7 +18,7 @@ export function useCatalogScale(): CatalogScale {
   const [resolved, setResolved] = useState<Map<string, ManifestProbe>>(new Map());
 
   const manifestUrls = catalogs
-    .map((c) => c.manifest_url)
+    .map((c) => c.manifest_url ?? c.route_hint?.manifest_url)
     .filter((url): url is string => typeof url === 'string' && url.length > 0);
   const urlKey = manifestUrls.join('|');
 

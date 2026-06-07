@@ -228,8 +228,8 @@ function resolveApiBaseUrl(configuredValue: string | undefined, devDefault: stri
 }
 
 function resolveRegistrationApiProdDefault() {
-  const deployedUnderRegistrationPrefix = window.location.pathname === '/api/registration' || window.location.pathname.startsWith('/api/registration/');
-  return `${window.location.origin}${deployedUnderRegistrationPrefix ? '/api/registration' : ''}`;
+  const deployedUnderRegistryPrefix = window.location.pathname === '/registry' || window.location.pathname.startsWith('/registry/');
+  return `${window.location.origin}${deployedUnderRegistryPrefix ? '/registry' : ''}`;
 }
 
 function mapRegistrationCatalog(payload: Record<string, unknown>): RegistrationCatalogRecord {
