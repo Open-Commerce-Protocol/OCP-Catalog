@@ -263,6 +263,40 @@ describe('SearchIndexJobHandlerService', () => {
       },
     }]);
   });
+
+  test('worker can defer embedding refresh jobs for batch backfill', async () => {
+    const claimOptions: unknown[] = [];
+    const worker = new SearchIndexWorker(
+      {
+        async claimPending(options: unknown) {
+          claimOptions.push(options);
+          return [];
+        },
+        async markCompleted() {
+          throw new Error('unexpected completion');
+        },
+        async failJob() {
+          throw new Error('unexpected failure');
+        },
+      } as unknown as SearchIndexJobService,
+      {
+        async handle() {
+          throw new Error('unexpected handle');
+        },
+      },
+    );
+
+    await worker.runBatch({
+      catalogId: 'cat_test',
+      includeEmbeddingRefresh: false,
+    });
+
+    expect(claimOptions).toEqual([{
+      catalogId: 'cat_test',
+      limit: undefined,
+      includeEmbeddingRefresh: false,
+    }]);
+  });
 });
 
 describe('retryDelayWithBackoff', () => {

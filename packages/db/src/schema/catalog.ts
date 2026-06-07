@@ -63,6 +63,20 @@ export const catalogSearchIndexJobType = pgEnum('catalog_search_index_job_type',
   'rebuild_all_for_provider',
 ]);
 
+export const catalogEmbeddingBatchJobStatus = pgEnum('catalog_embedding_batch_job_status', [
+  'created',
+  'submitted',
+  'validating',
+  'in_progress',
+  'finalizing',
+  'completed',
+  'failed',
+  'expired',
+  'cancelled',
+  'ingesting',
+  'ingested',
+]);
+
 export const catalogProfiles = pgTable('catalog_profiles', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
@@ -283,6 +297,34 @@ export const catalogSearchEmbeddings = pgTable('catalog_search_embeddings', {
 }, (table) => ({
   documentModelUnique: uniqueIndex('catalog_search_embeddings_document_model_unique').on(table.catalogSearchDocumentId, table.embeddingModel),
   catalogModelStatusIdx: index('catalog_search_embeddings_catalog_model_status_idx').on(table.catalogId, table.embeddingModel, table.status),
+}));
+
+export const catalogEmbeddingBatchJobs = pgTable('catalog_embedding_batch_jobs', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  status: catalogEmbeddingBatchJobStatus('status').notNull().default('created'),
+  openaiBatchId: text('openai_batch_id'),
+  inputFileId: text('input_file_id'),
+  outputFileId: text('output_file_id'),
+  errorFileId: text('error_file_id'),
+  embeddingProvider: text('embedding_provider').notNull(),
+  embeddingModel: text('embedding_model').notNull(),
+  embeddingDimension: integer('embedding_dimension').notNull(),
+  requestedCount: integer('requested_count').notNull().default(0),
+  completedCount: integer('completed_count').notNull().default(0),
+  failedCount: integer('failed_count').notNull().default(0),
+  ingestedCount: integer('ingested_count').notNull().default(0),
+  inputTextChars: integer('input_text_chars').notNull().default(0),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  error: text('error'),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  ingestedAt: timestamp('ingested_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  catalogStatusCreatedIdx: index('catalog_embedding_batch_jobs_catalog_status_created_idx').on(table.catalogId, table.status, table.createdAt),
+  openaiBatchUnique: uniqueIndex('catalog_embedding_batch_jobs_openai_batch_unique').on(table.openaiBatchId),
 }));
 
 export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {

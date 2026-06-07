@@ -71,6 +71,13 @@
       "when": 1780810535000,
       "tag": "0009_provider_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1780812000000,
+      "tag": "0010_embedding_batch_jobs",
+      "breakpoints": true
     }
   ]
 }

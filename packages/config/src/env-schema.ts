@@ -21,6 +21,7 @@ export const envSchema = z.object({
   CATALOG_SEARCH_INDEX_WORKER_ENABLED: z.coerce.boolean().default(true),
   CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(30),
   CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
+  CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT: z.coerce.number().int().min(0).default(5000),
   CATALOG_SEARCH_INDEX_RECONCILE_ON_STARTUP: z.coerce.boolean().default(false),
   CATALOG_SEARCH_INDEX_WORKER_JOB_DELAY_MS: z.coerce.number().int().min(0).default(0),
   CATALOG_SEARCH_INDEX_JOB_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(20).default(5),

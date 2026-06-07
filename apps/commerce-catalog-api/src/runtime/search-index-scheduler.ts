@@ -53,9 +53,25 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
         }));
       }
 
+      const pendingEmbeddingRefreshCount = await context.searchIndexJobs.countPendingEmbeddingRefresh({
+        catalogId: config.CATALOG_ID,
+      });
+      const includeEmbeddingRefresh = pendingEmbeddingRefreshCount <= config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT;
+      if (!includeEmbeddingRefresh) {
+        console.log(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'info',
+          event: 'search_index_embedding_refresh_deferred_to_batch',
+          reason,
+          pending_embedding_refresh_count: pendingEmbeddingRefreshCount,
+          realtime_embedding_backlog_limit: config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT,
+        }));
+      }
+
       const result = await searchIndexWorker.runBatch({
         catalogId: config.CATALOG_ID,
         limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
+        includeEmbeddingRefresh,
         retryDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
         retryMaxDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_MAX_DELAY_MS,
         retryJitterRatio: config.CATALOG_SEARCH_INDEX_RETRY_JITTER_RATIO,

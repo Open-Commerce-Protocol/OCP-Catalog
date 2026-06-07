@@ -19,6 +19,7 @@ export class SearchIndexWorker {
   async runBatch(input: {
     catalogId?: string;
     limit?: number;
+    includeEmbeddingRefresh?: boolean;
     retryDelayMs?: number;
     retryMaxDelayMs?: number;
     retryJitterRatio?: number;
@@ -27,6 +28,7 @@ export class SearchIndexWorker {
     const jobs = await this.jobs.claimPending({
       catalogId: input.catalogId,
       limit: input.limit,
+      includeEmbeddingRefresh: input.includeEmbeddingRefresh,
     });
 
     let completedCount = 0;

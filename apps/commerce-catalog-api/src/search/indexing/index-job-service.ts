@@ -122,12 +122,16 @@ export class SearchIndexJobService {
     catalogId?: string;
     limit?: number;
     now?: Date;
+    includeEmbeddingRefresh?: boolean;
   } = {}) {
     const startedAt = new Date();
     const startedAtIso = startedAt.toISOString();
     const nowIso = (input.now ?? startedAt).toISOString();
     const catalogFilter = input.catalogId
       ? sql`and catalog_id = ${input.catalogId}`
+      : sql``;
+    const embeddingRefreshFilter = input.includeEmbeddingRefresh === false
+      ? sql`and job_type <> 'refresh_embedding'`
       : sql``;
 
     const rows = await this.db.execute(sql`
@@ -137,6 +141,7 @@ export class SearchIndexJobService {
         where status = 'pending'
           and scheduled_at <= ${nowIso}::timestamptz
           ${catalogFilter}
+          ${embeddingRefreshFilter}
         order by
           case job_type
             when 'delete_document' then 0
@@ -213,6 +218,46 @@ export class SearchIndexJobService {
       .limit(input.limit ?? 25);
 
     return rows.map(toSearchIndexJob);
+  }
+
+  async countPendingEmbeddingRefresh(input: {
+    catalogId?: string;
+    now?: Date;
+  } = {}) {
+    const conditions = [
+      eq(schema.catalogSearchIndexJobs.jobType, 'refresh_embedding'),
+      eq(schema.catalogSearchIndexJobs.status, 'pending'),
+      lte(schema.catalogSearchIndexJobs.scheduledAt, input.now ?? new Date()),
+    ];
+    if (input.catalogId) conditions.push(eq(schema.catalogSearchIndexJobs.catalogId, input.catalogId));
+
+    const [row] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.catalogSearchIndexJobs)
+      .where(and(...conditions));
+
+    return row?.count ?? 0;
+  }
+
+  async markPendingEmbeddingRefreshCompleted(input: {
+    catalogId: string;
+    documentIds: string[];
+  }) {
+    if (input.documentIds.length === 0) return 0;
+    const rows = await this.db.execute(sql`
+      update catalog_search_index_jobs
+      set
+        status = 'completed',
+        finished_at = now(),
+        updated_at = now()
+      where catalog_id = ${input.catalogId}
+        and job_type = 'refresh_embedding'
+        and status = 'pending'
+        and payload->>'search_document_id' = any(${input.documentIds}::text[])
+      returning id
+    `);
+
+    return rows.length;
   }
 
   async markCompleted(jobId: string) {

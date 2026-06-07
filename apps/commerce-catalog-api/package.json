@@ -8,6 +8,7 @@
     "start": "cd ../.. && bun apps/commerce-catalog-api/src/index.ts",
     "worker:dev": "cd ../.. && bun --watch apps/commerce-catalog-api/src/worker.ts",
     "worker": "cd ../.. && bun apps/commerce-catalog-api/src/worker.ts",
+    "embedding:batch": "cd ../.. && bun apps/commerce-catalog-api/src/scripts/embedding-batch-backfill.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "bun build src/index.ts src/worker.ts --outdir dist --target bun",
     "lint": "tsc -p tsconfig.json --noEmit",

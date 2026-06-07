@@ -43,7 +43,7 @@ export class SearchEmbeddingService {
     const document = await this.loadDocument(documentId);
     if (!document) return null;
 
-    const embeddingText = buildEmbeddingText(document);
+    const embeddingText = buildSearchDocumentEmbeddingText(document);
     if (!embeddingText) {
       return {
         status: 'skipped',
@@ -52,7 +52,7 @@ export class SearchEmbeddingService {
       };
     }
 
-    const embeddingTextHash = hashText(embeddingText);
+    const embeddingTextHash = hashEmbeddingText(embeddingText);
     const existing = await this.findExisting(documentId);
     if (existing?.embeddingTextHash === embeddingTextHash && existing.status === 'ready') {
       return {
@@ -64,12 +64,8 @@ export class SearchEmbeddingService {
 
     try {
       const embedding = await this.provider.embed(embeddingText);
-      const embeddingId = await this.upsertRow({
-        id: existing?.id ?? newId('semb'),
-        catalogId: document.catalogId,
-        catalogSearchDocumentId: document.id,
-        providerId: document.providerId,
-        objectType: document.objectType,
+      const embeddingId = await this.recordEmbeddingResult(document, {
+        existingEmbeddingId: existing?.id,
         embeddingText,
         embeddingTextHash,
         embeddingDimension: embedding.dimension,
@@ -86,12 +82,8 @@ export class SearchEmbeddingService {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const embeddingId = await this.upsertRow({
-        id: existing?.id ?? newId('semb'),
-        catalogId: document.catalogId,
-        catalogSearchDocumentId: document.id,
-        providerId: document.providerId,
-        objectType: document.objectType,
+      const embeddingId = await this.recordEmbeddingResult(document, {
+        existingEmbeddingId: existing?.id,
         embeddingText,
         embeddingTextHash,
         embeddingDimension: this.provider.dimension,
@@ -120,6 +112,37 @@ export class SearchEmbeddingService {
       .limit(1);
 
     return document ? this.refreshForSearchDocument(document.id) : null;
+  }
+
+  async recordEmbeddingResult(
+    document: typeof schema.catalogSearchDocuments.$inferSelect,
+    input: {
+      existingEmbeddingId?: string | null;
+      embeddingText: string;
+      embeddingTextHash: string;
+      embeddingDimension: number;
+      embeddingVector: number[];
+      status: 'ready' | 'failed';
+      error: string | null;
+    },
+  ) {
+    return this.upsertRow({
+      id: input.existingEmbeddingId ?? newId('semb'),
+      catalogId: document.catalogId,
+      catalogSearchDocumentId: document.id,
+      providerId: document.providerId,
+      objectType: document.objectType,
+      embeddingText: input.embeddingText,
+      embeddingTextHash: input.embeddingTextHash,
+      embeddingDimension: input.embeddingDimension,
+      embeddingVector: input.embeddingVector,
+      status: input.status,
+      error: input.error,
+    });
+  }
+
+  async loadSearchDocument(documentId: string) {
+    return this.loadDocument(documentId);
   }
 
   private async loadDocument(documentId: string) {
@@ -210,7 +233,7 @@ export class SearchEmbeddingService {
   }
 }
 
-function buildEmbeddingText(document: typeof schema.catalogSearchDocuments.$inferSelect) {
+export function buildSearchDocumentEmbeddingText(document: typeof schema.catalogSearchDocuments.$inferSelect) {
   return [
     document.title,
     document.summary,
@@ -226,6 +249,6 @@ function buildEmbeddingText(document: typeof schema.catalogSearchDocuments.$infe
     .trim();
 }
 
-function hashText(value: string) {
+export function hashEmbeddingText(value: string) {
   return createHash('sha256').update(value).digest('hex');
 }
