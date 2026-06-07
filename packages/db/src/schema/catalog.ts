@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { boolean, customType, doublePrecision, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 
 const pgVector = customType<{ data: number[] | null; driverData: string | null }>({
@@ -349,6 +350,15 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   catalogStatusScheduledIdx: index('catalog_search_index_jobs_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
   catalogTypeStatusIdx: index('catalog_search_index_jobs_catalog_type_status_idx').on(table.catalogId, table.jobType, table.status),
   providerCreatedIdx: index('catalog_search_index_jobs_catalog_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
+  pendingClaimIdx: index('catalog_search_index_jobs_pending_claim_idx')
+    .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'pending'`),
+  pendingNonEmbeddingClaimIdx: index('catalog_search_index_jobs_pending_non_embedding_claim_idx')
+    .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'pending' and ${table.jobType} <> 'refresh_embedding'`),
+  pendingEmbeddingCountIdx: index('catalog_search_index_jobs_pending_embedding_count_idx')
+    .on(table.catalogId, table.scheduledAt)
+    .where(sql`${table.status} = 'pending' and ${table.jobType} = 'refresh_embedding'`),
   dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
 }));
 
@@ -488,5 +498,11 @@ export const catalogOutboxEvents = pgTable('catalog_outbox_events', {
 }, (table) => ({
   dedupeUnique: uniqueIndex('catalog_outbox_events_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
   statusScheduledIdx: index('catalog_outbox_events_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
+  pendingClaimIdx: index('catalog_outbox_events_pending_claim_idx')
+    .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'pending'`),
+  staleRunningClaimIdx: index('catalog_outbox_events_stale_running_claim_idx')
+    .on(table.catalogId, table.lockedAt, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'running' and ${table.lockedAt} is not null`),
   aggregateIdx: index('catalog_outbox_events_catalog_aggregate_idx').on(table.catalogId, table.aggregateType, table.aggregateId),
 }));

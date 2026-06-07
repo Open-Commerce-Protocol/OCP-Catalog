@@ -1,7 +1,7 @@
 import type { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
-import { sql, eq } from 'drizzle-orm';
+import { sql, eq, type SQL } from 'drizzle-orm';
 import type { SearchIndexJobService, SearchIndexJobType } from '../search/indexing/index-job-service';
 
 type CatalogOutboxEvent = {
@@ -75,29 +75,43 @@ export class CatalogOutboxService {
     const staleLockedBefore = new Date(now.getTime() - input.lockTimeoutMs);
     const nowIso = now.toISOString();
     const staleLockedBeforeIso = staleLockedBefore.toISOString();
+    const rows = await this.claimRows(sql`
+        status = 'pending'
+        and scheduled_at <= ${nowIso}::timestamptz
+      `, sql`scheduled_at asc, created_at asc, id asc`, input.limit, nowIso, input.catalogId);
+    if (rows.length >= input.limit) return rows;
+
+    const staleRows = await this.claimRows(sql`
+        status = 'running'
+        and locked_at is not null
+        and locked_at <= ${staleLockedBeforeIso}::timestamptz
+      `, sql`locked_at asc, scheduled_at asc, created_at asc, id asc`, input.limit - rows.length, nowIso, input.catalogId);
+    return [...rows, ...staleRows];
+  }
+
+  private async claimRows(
+    statusFilter: SQL,
+    orderBy: SQL,
+    limit: number,
+    lockedAtIso: string,
+    catalogId: string,
+  ) {
+    if (limit <= 0) return [];
     const rows = await this.db.execute(sql`
       with claimed_events as (
         select id
         from catalog_outbox_events
-        where catalog_id = ${input.catalogId}
-          and scheduled_at <= ${nowIso}::timestamptz
-          and (
-            status = 'pending'
-            or (
-              status = 'running'
-              and locked_at is not null
-              and locked_at <= ${staleLockedBeforeIso}::timestamptz
-            )
-          )
-        order by scheduled_at asc, created_at asc, id asc
+        where catalog_id = ${catalogId}
+          and ${statusFilter}
+        order by ${orderBy}
         for update skip locked
-        limit ${input.limit}
+        limit ${limit}
       )
       update catalog_outbox_events as events
       set
         status = 'running',
-        locked_at = ${nowIso}::timestamptz,
-        updated_at = ${nowIso}::timestamptz
+        locked_at = ${lockedAtIso}::timestamptz,
+        updated_at = ${lockedAtIso}::timestamptz
       from claimed_events
       where events.id = claimed_events.id
       returning

@@ -133,16 +133,9 @@ export class SearchIndexJobService {
     const embeddingRefreshFilter = input.includeEmbeddingRefresh === false
       ? sql`and job_type <> 'refresh_embedding'`
       : sql``;
-
-    const rows = await this.db.execute(sql`
-      with claimed_jobs as (
-        select id
-        from catalog_search_index_jobs
-        where status = 'pending'
-          and scheduled_at <= ${nowIso}::timestamptz
-          ${catalogFilter}
-          ${embeddingRefreshFilter}
-        order by
+    const priorityOrder = input.includeEmbeddingRefresh === false
+      ? sql`scheduled_at asc, created_at asc, id asc`
+      : sql`
           case job_type
             when 'delete_document' then 0
             when 'upsert_document' then 1
@@ -155,6 +148,17 @@ export class SearchIndexJobService {
           catalog_id asc,
           created_at asc,
           id asc
+        `;
+
+    const rows = await this.db.execute(sql`
+      with claimed_jobs as (
+        select id
+        from catalog_search_index_jobs
+        where status = 'pending'
+          and scheduled_at <= ${nowIso}::timestamptz
+          ${catalogFilter}
+          ${embeddingRefreshFilter}
+        order by ${priorityOrder}
         for update skip locked
         limit ${input.limit ?? 25}
       )

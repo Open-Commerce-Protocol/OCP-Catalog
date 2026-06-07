@@ -78,6 +78,13 @@
       "when": 1780812000000,
       "tag": "0010_embedding_batch_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1780812500000,
+      "tag": "0011_queue_claim_indexes",
+      "breakpoints": true
     }
   ]
 }
