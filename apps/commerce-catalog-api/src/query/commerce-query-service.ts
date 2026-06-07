@@ -59,25 +59,76 @@ export class CommerceQueryService {
     const pageEnd = request.offset + request.limit;
     const candidatePageEnd = pageEnd + 1;
     const usesSemanticScore = Boolean(this.retrieval && request.query.trim() && (queryMode === 'semantic' || queryMode === 'hybrid'));
+    const usesOpenSearchText = Boolean(this.retrieval?.searchText && fullTextQuery);
     const usesDatabasePagination = queryMode === 'filter' && terms.length === 0 && !usesSemanticScore;
+    let textSearchFailed = false;
+    let textScores = new Map<string, number>();
+    if (usesOpenSearchText) {
+      try {
+        textScores = await this.retrieval!.searchText!({
+          catalogId,
+          query: request.query,
+          limit: computeTextResultLimit(candidatePageEnd, queryMode),
+          filters: {
+            providerId: request.filters.provider_id,
+            category: request.filters.category ? normalize(request.filters.category) : undefined,
+            brand: request.filters.brand ? normalize(request.filters.brand) : undefined,
+            currency: request.filters.currency,
+            availabilityStatus: request.filters.availability_status,
+            sku: request.filters.sku ? normalize(request.filters.sku) : undefined,
+            hasImage: request.filters.has_image,
+            inStockOnly: request.filters.in_stock_only,
+            minAmount: request.filters.min_amount,
+            maxAmount: request.filters.max_amount,
+          },
+        });
+      } catch (error) {
+        textSearchFailed = true;
+        console.warn(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'warn',
+          event: 'opensearch_text_search_fallback',
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    }
     const keywordRows = queryMode === 'semantic'
       ? []
+      : textScores.size > 0
+      ? await this.selectCandidateRows({
+        conditions: [...baseConditions, inArray(schema.catalogSearchDocuments.id, [...textScores.keys()])],
+        limit: textScores.size,
+        rankByDocumentId: textScores,
+      })
       : await this.selectCandidateRows({
         conditions: baseConditions,
         limit: usesDatabasePagination ? request.limit + 1 : computeCandidateLimit(candidatePageEnd, queryMode, terms.length),
         offset: usesDatabasePagination ? request.offset : 0,
-        fullTextQuery,
+        fullTextQuery: usesOpenSearchText ? undefined : fullTextQuery,
       });
 
-    const semanticScores = usesSemanticScore
-      ? await this.retrieval!.nearestNeighbors({
-        catalogId,
-        query: request.query,
-        limit: computeSemanticResultLimit(candidatePageEnd, queryMode),
-        rerankLimit: computeSemanticCandidateLimit(candidatePageEnd, queryMode),
-        oversampleFactor: computeSemanticOversampleFactor(queryMode),
-      })
-      : new Map<string, number>();
+    let semanticSearchFailed = false;
+    let semanticScores = new Map<string, number>();
+    if (usesSemanticScore) {
+      try {
+        semanticScores = await this.retrieval!.nearestNeighbors({
+          catalogId,
+          query: request.query,
+          limit: computeSemanticResultLimit(candidatePageEnd, queryMode),
+          rerankLimit: computeSemanticCandidateLimit(candidatePageEnd, queryMode),
+          oversampleFactor: computeSemanticOversampleFactor(queryMode),
+        });
+      } catch (error) {
+        if (queryMode === 'semantic') throw error;
+        semanticSearchFailed = true;
+        console.warn(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'warn',
+          event: 'semantic_search_fallback',
+          error: error instanceof Error ? error.message : String(error),
+        }));
+      }
+    }
     const semanticRows = semanticScores.size > 0
       ? await this.selectCandidateRows({
         conditions: [...baseConditions, inArray(schema.catalogSearchDocuments.id, [...semanticScores.keys()])],
@@ -91,7 +142,7 @@ export class CommerceQueryService {
         if (!matchesFilters(projection, request.filters)) return null;
 
         const keywordScore = terms.length > 0
-          ? scoreProjection(projection, terms, row.fullTextRank)
+          ? scoreProjection(projection, terms, textScores.get(row.documentId) ?? row.fullTextRank)
           : queryMode === 'semantic' ? 0 : 1;
         const semanticScore = semanticScores.get(row.documentId) ?? 0;
         const score = combinedScore(queryMode, keywordScore, semanticScore, projection, request.filters);
@@ -150,7 +201,10 @@ export class CommerceQueryService {
         ? [
           `Scanned ${rows.length} candidate catalog entries after indexed filtering.`,
           `Inferred query strategy: ${queryMode}.`,
+          ...(textScores.size > 0 ? ['Applied OpenSearch text shortlist.'] : []),
+          ...(textSearchFailed ? ['OpenSearch text shortlist failed; used PostgreSQL keyword fallback.'] : []),
           ...(usesSemanticScore && semanticScores.size > 0 ? ['Applied semantic ANN shortlist with exact cosine rerank.'] : []),
+          ...(semanticSearchFailed ? ['Semantic retrieval failed; used keyword/text results only.'] : []),
           ...(usesSemanticScore && semanticScores.size === 0 ? ['Semantic retrieval ran but found no ready embedding candidates. Check embedding readiness and pending index jobs.'] : []),
           `Applied filters: ${Object.keys(request.filters).length ? Object.keys(request.filters).join(', ') : 'none'}.`,
           `Returned ${entries.length} result(s) at offset ${request.offset}.`,
@@ -175,6 +229,7 @@ export class CommerceQueryService {
     limit: number;
     offset?: number;
     fullTextQuery?: string;
+    rankByDocumentId?: Map<string, number>;
   }) {
     const conditions = [...input.conditions];
     const fullTextRank = input.fullTextQuery
@@ -207,7 +262,10 @@ export class CommerceQueryService {
       .where(and(...conditions))
       .orderBy(...orderBy)
       .offset(input.offset ?? 0)
-      .limit(input.limit);
+      .limit(input.limit)
+      .then((rows) => input.rankByDocumentId
+        ? rows.map((row) => ({ ...row, fullTextRank: input.rankByDocumentId!.get(row.documentId) ?? 0 }))
+        : rows);
   }
 }
 
@@ -328,6 +386,12 @@ function computeSemanticCandidateLimit(limit: number, queryMode: 'keyword' | 'fi
 function computeSemanticResultLimit(limit: number, queryMode: 'keyword' | 'filter' | 'semantic' | 'hybrid') {
   if (queryMode === 'semantic') return Math.min(Math.max(limit * 20, 80), 400);
   if (queryMode === 'hybrid') return Math.min(Math.max(limit * 12, 60), 240);
+  return limit;
+}
+
+function computeTextResultLimit(limit: number, queryMode: 'keyword' | 'filter' | 'semantic' | 'hybrid') {
+  if (queryMode === 'hybrid') return Math.min(Math.max(limit * 20, 100), 500);
+  if (queryMode === 'keyword') return Math.min(Math.max(limit * 30, 150), 800);
   return limit;
 }
 

@@ -25,6 +25,24 @@ export type VectorIndexQueryResult = {
   matches: VectorIndexMatch[];
 };
 
+export type TextIndexQueryInput = {
+  catalogId: string;
+  query: string;
+  limit: number;
+  filters?: {
+    providerId?: string;
+    category?: string;
+    brand?: string;
+    currency?: string;
+    availabilityStatus?: string;
+    sku?: string;
+    hasImage?: boolean;
+    inStockOnly?: boolean;
+    minAmount?: number;
+    maxAmount?: number;
+  };
+};
+
 export type VectorIndexDocument = {
   documentId: string;
   catalogId: string;
@@ -32,6 +50,27 @@ export type VectorIndexDocument = {
   objectType: string;
   embeddingVector: number[];
   embeddingTextHash: string;
+};
+
+export type TextIndexDocument = {
+  documentId: string;
+  catalogId: string;
+  providerId: string;
+  objectId: string;
+  objectType: string;
+  title: string;
+  summary: string | null;
+  searchText: string;
+  documentStatus: 'pending' | 'active' | 'inactive' | 'stale' | 'failed';
+  normalizedBrand: string;
+  normalizedCategory: string;
+  normalizedSku: string;
+  currency: string | null;
+  availabilityStatus: string | null;
+  amount: number | null;
+  hasImage: boolean;
+  qualityRank: number;
+  availabilityRank: number;
 };
 
 export type VectorIndexHealth = {
@@ -49,4 +88,16 @@ export interface WritableVectorIndexAdapter extends VectorIndexAdapter {
   ensureIndex(): Promise<void>;
   upsert(input: VectorIndexDocument): Promise<void>;
   delete(documentId: string): Promise<void>;
+}
+
+export interface TextSearchIndexAdapter {
+  searchText(input: TextIndexQueryInput): Promise<VectorIndexMatch[]>;
+}
+
+export interface WritableTextSearchIndexAdapter extends TextSearchIndexAdapter {
+  upsertText(input: TextIndexDocument): Promise<void>;
+}
+
+export interface BulkWritableTextSearchIndexAdapter extends WritableTextSearchIndexAdapter {
+  bulkUpsertText(input: TextIndexDocument[]): Promise<void>;
 }

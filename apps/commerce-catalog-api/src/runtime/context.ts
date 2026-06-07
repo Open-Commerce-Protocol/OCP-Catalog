@@ -18,7 +18,7 @@ import { SearchIndexJobHandlerService } from '../search/indexing/search-index-jo
 import { CatalogSemanticRetrievalService } from '../search/retrieval/catalog-semantic-retrieval-service';
 import { OpenSearchVectorIndexAdapter } from '../search/retrieval/opensearch-vector-index-adapter';
 import { PostgresLocalVectorIndexAdapter } from '../search/retrieval/postgres-local-vector-index-adapter';
-import type { WritableVectorIndexAdapter } from '../search/retrieval/vector-index-adapter';
+import type { WritableTextSearchIndexAdapter, WritableVectorIndexAdapter } from '../search/retrieval/vector-index-adapter';
 import { CatalogOutboxService } from './catalog-outbox-service';
 
 export type CommerceCatalogRuntimeContextOptions = {
@@ -53,6 +53,9 @@ function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions 
   const writableVectorIndex: WritableVectorIndexAdapter | undefined = isWritableVectorIndex(vectorIndex)
     ? vectorIndex
     : undefined;
+  const writableTextIndex: WritableTextSearchIndexAdapter | undefined = isWritableTextIndex(vectorIndex)
+    ? vectorIndex
+    : undefined;
   const searchRetrievalService = new CatalogSemanticRetrievalService(embeddingProvider, vectorIndex);
   const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
   const searchIndexJobs = new SearchIndexJobService(db, config.CATALOG_SEARCH_INDEX_JOB_MAX_ATTEMPTS);
@@ -69,6 +72,7 @@ function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions 
     vectorIndexProfile,
     vectorIndex,
     writableVectorIndex,
+    writableTextIndex,
     commerceQueryService,
     searchIndexJobs,
     catalogAdminSite,
@@ -90,7 +94,7 @@ export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatal
   const base = createBaseRuntimeContext(options);
   const coordination = new PostgresAdvisoryLockService(base.config.DATABASE_URL);
   const catalogOutbox = new CatalogOutboxService(base.db, base.searchIndexJobs, base.activityEvents);
-  const searchDocumentService = new SearchDocumentUpsertService(base.db, base.writableVectorIndex);
+  const searchDocumentService = new SearchDocumentUpsertService(base.db, base.writableVectorIndex, base.writableTextIndex);
   const searchEmbeddingService = new SearchEmbeddingService(base.db, base.embeddingProvider, base.writableVectorIndex);
   const searchIndexWorker = new SearchIndexWorker(
     base.searchIndexJobs,
@@ -131,6 +135,15 @@ function isWritableVectorIndex(value: unknown): value is WritableVectorIndexAdap
     && 'ensureIndex' in value
     && 'upsert' in value
     && 'delete' in value,
+  );
+}
+
+function isWritableTextIndex(value: unknown): value is WritableTextSearchIndexAdapter {
+  return Boolean(
+    value
+    && typeof value === 'object'
+    && 'upsertText' in value
+    && 'searchText' in value,
   );
 }
 

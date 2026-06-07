@@ -30,15 +30,18 @@ describe('OpenSearchVectorIndexAdapter', () => {
     expect(calls.map((call) => [call.init.method, call.url])).toEqual([
       ['HEAD', 'https://search.example.test/ocp-commerce-catalog-vectors-test'],
       ['PUT', 'https://search.example.test/ocp-commerce-catalog-vectors-test'],
-      ['PUT', 'https://search.example.test/ocp-commerce-catalog-vectors-test/_doc/sdoc_1'],
+      ['POST', 'https://search.example.test/ocp-commerce-catalog-vectors-test/_update/sdoc_1'],
     ]);
     expect(JSON.parse(String(calls[1]!.init.body)).mappings.properties.embedding_vector.dimension).toBe(3);
     expect(JSON.parse(String(calls[2]!.init.body))).toMatchObject({
-      document_id: 'sdoc_1',
-      catalog_id: 'cat_1',
-      embedding_model: 'test-model',
-      embedding_dimension: 3,
-      embedding_vector: [0.1, 0.2, 0.3],
+      doc_as_upsert: true,
+      doc: {
+        document_id: 'sdoc_1',
+        catalog_id: 'cat_1',
+        embedding_model: 'test-model',
+        embedding_dimension: 3,
+        embedding_vector: [0.1, 0.2, 0.3],
+      },
     });
   });
 
@@ -64,7 +67,7 @@ describe('OpenSearchVectorIndexAdapter', () => {
       documentIds: ['sdoc_1'],
     });
 
-    expect(bodies[0]).toMatchObject({
+    expect(bodies.at(-1)).toMatchObject({
       size: 5,
       query: {
         bool: {
@@ -78,6 +81,83 @@ describe('OpenSearchVectorIndexAdapter', () => {
       },
     });
     expect(result.matches).toEqual([{ documentId: 'sdoc_1', score: 0.87 }]);
+  });
+
+  test('upserts and queries text documents with commerce filters', async () => {
+    const bodies: unknown[] = [];
+    globalThis.fetch = (async (_url, init) => {
+      if (init?.method === 'HEAD') return new Response(null, { status: 200 });
+      bodies.push(init?.body ? JSON.parse(String(init.body)) : undefined);
+      return Response.json({
+        hits: {
+          hits: [
+            { _id: 'sdoc_1', _score: 12.34567, _source: { document_id: 'sdoc_1' } },
+          ],
+        },
+      });
+    }) as typeof fetch;
+
+    const adapter = new OpenSearchVectorIndexAdapter(config(), profile());
+    await adapter.upsertText({
+      documentId: 'sdoc_1',
+      catalogId: 'cat_1',
+      providerId: 'provider_1',
+      objectId: 'obj_1',
+      objectType: 'product',
+      documentStatus: 'active',
+      title: 'Travel Headphones',
+      summary: 'Wireless audio',
+      searchText: 'travel headphones wireless audio',
+      normalizedBrand: 'north audio',
+      normalizedCategory: 'electronics',
+      normalizedSku: 'sku-1',
+      currency: 'USD',
+      availabilityStatus: 'in_stock',
+      amount: 99,
+      hasImage: true,
+      qualityRank: 30,
+      availabilityRank: 30,
+    });
+    const matches = await adapter.searchText({
+      catalogId: 'cat_1',
+      query: 'travel headphones',
+      limit: 5,
+      filters: {
+        providerId: 'provider_1',
+        category: 'electronics',
+        inStockOnly: true,
+        maxAmount: 150,
+      },
+    });
+
+    expect(bodies[1]).toMatchObject({
+      doc_as_upsert: true,
+      doc: {
+        document_id: 'sdoc_1',
+        document_status: 'active',
+        search_text: 'travel headphones wireless audio',
+      },
+    });
+    expect(bodies[2]).toMatchObject({
+      size: 5,
+      query: {
+        function_score: {
+          query: {
+            bool: {
+              filter: [
+                { term: { catalog_id: 'cat_1' } },
+                { term: { document_status: 'active' } },
+                { term: { provider_id: 'provider_1' } },
+                { term: { normalized_category: 'electronics' } },
+                { terms: { availability_status: ['in_stock', 'low_stock'] } },
+                { range: { amount: { lte: 150 } } },
+              ],
+            },
+          },
+        },
+      },
+    });
+    expect(matches).toEqual([{ documentId: 'sdoc_1', score: 12.3457 }]);
   });
 });
 

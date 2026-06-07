@@ -1,10 +1,15 @@
 import type { AppConfig } from '@ocp-catalog/config';
 import type {
+  TextIndexDocument,
+  TextIndexQueryInput,
+  BulkWritableTextSearchIndexAdapter,
   VectorIndexDocument,
   VectorIndexHealth,
+  VectorIndexMatch,
   VectorIndexProfile,
   VectorIndexQueryInput,
   VectorIndexQueryResult,
+  WritableTextSearchIndexAdapter,
   WritableVectorIndexAdapter,
 } from './vector-index-adapter';
 
@@ -22,7 +27,7 @@ type OpenSearchSearchResponse = {
   };
 };
 
-export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter {
+export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter, BulkWritableTextSearchIndexAdapter {
   readonly profile: VectorIndexProfile;
   private readonly baseUrl: string;
   private readonly username: string;
@@ -57,21 +62,76 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
       throw new Error(`OpenSearch vector dimension ${input.embeddingVector.length} does not match configured dimension ${this.profile.embeddingDimension}`);
     }
 
-    await this.request(`/${encodeURIComponent(this.profile.indexName)}/_doc/${encodeURIComponent(input.documentId)}`, {
-      method: 'PUT',
-      body: {
-        document_id: input.documentId,
-        catalog_id: input.catalogId,
-        provider_id: input.providerId,
-        object_type: input.objectType,
-        embedding_provider: this.profile.embeddingProviderId,
-        embedding_model: this.profile.embeddingModel,
-        embedding_dimension: this.profile.embeddingDimension,
-        embedding_text_hash: input.embeddingTextHash,
-        embedding_vector: input.embeddingVector,
-        indexed_at: new Date().toISOString(),
-      },
+    await this.updateDocument(input.documentId, {
+      document_id: input.documentId,
+      catalog_id: input.catalogId,
+      provider_id: input.providerId,
+      object_type: input.objectType,
+      embedding_provider: this.profile.embeddingProviderId,
+      embedding_model: this.profile.embeddingModel,
+      embedding_dimension: this.profile.embeddingDimension,
+      embedding_text_hash: input.embeddingTextHash,
+      embedding_vector: input.embeddingVector,
+      embedding_indexed_at: new Date().toISOString(),
     });
+  }
+
+  async upsertText(input: TextIndexDocument) {
+    await this.ensureIndex();
+    await this.updateDocument(input.documentId, this.toTextDocument(input));
+  }
+
+  async bulkUpsertText(input: TextIndexDocument[]) {
+    await this.ensureIndex();
+    if (input.length === 0) return;
+
+    const body = input
+      .flatMap((document) => [
+        {
+          update: {
+            _index: this.profile.indexName,
+            _id: document.documentId,
+          },
+        },
+        {
+          doc: this.toTextDocument(document),
+          doc_as_upsert: true,
+        },
+      ])
+      .map((line) => JSON.stringify(line))
+      .join('\n') + '\n';
+    const response = await this.request<{ errors?: boolean; items?: unknown[] }>('/_bulk', {
+      method: 'POST',
+      rawBody: body,
+      contentType: 'application/x-ndjson',
+    });
+    if (response?.errors) {
+      throw new Error(`OpenSearch bulk text upsert failed for ${input.length} document(s)`);
+    }
+  }
+
+  private toTextDocument(input: TextIndexDocument) {
+    return {
+      document_id: input.documentId,
+      catalog_id: input.catalogId,
+      provider_id: input.providerId,
+      object_id: input.objectId,
+      object_type: input.objectType,
+      document_status: input.documentStatus,
+      title: input.title,
+      summary: input.summary,
+      search_text: input.searchText,
+      normalized_brand: input.normalizedBrand,
+      normalized_category: input.normalizedCategory,
+      normalized_sku: input.normalizedSku,
+      currency: input.currency,
+      availability_status: input.availabilityStatus,
+      amount: input.amount,
+      has_image: input.hasImage,
+      quality_rank: input.qualityRank,
+      availability_rank: input.availabilityRank,
+      text_indexed_at: new Date().toISOString(),
+    };
   }
 
   async delete(documentId: string) {
@@ -122,22 +182,60 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
         },
       },
     });
-    if (!response) {
-      return { profile: this.profile, matches: [] };
-    }
-
-    const matches = (response.hits?.hits ?? [])
-      .map((hit) => ({
-        documentId: hit._source?.document_id ?? hit._id ?? '',
-        score: typeof hit._score === 'number' ? Number(hit._score.toFixed(4)) : 0,
-      }))
-      .filter((match) => match.documentId && match.score > 0)
-      .slice(0, size);
 
     return {
       profile: this.profile,
-      matches,
+      matches: toMatches(response).slice(0, size),
     };
+  }
+
+  async searchText(input: TextIndexQueryInput): Promise<VectorIndexMatch[]> {
+    await this.ensureIndex();
+    const normalizedQuery = input.query.trim();
+    if (!normalizedQuery || input.limit <= 0) return [];
+
+    const response = await this.request<OpenSearchSearchResponse>(`/${encodeURIComponent(this.profile.indexName)}/_search`, {
+      method: 'POST',
+      body: {
+        size: input.limit,
+        _source: ['document_id'],
+        query: {
+          function_score: {
+            query: {
+              bool: {
+                filter: this.textFilters(input),
+                must: [
+                  {
+                    multi_match: {
+                      query: normalizedQuery,
+                      fields: [
+                        'title^5',
+                        'normalized_sku^8',
+                        'normalized_brand^3',
+                        'normalized_category^2',
+                        'search_text',
+                        'summary',
+                      ],
+                      type: 'best_fields',
+                      operator: 'and',
+                      fuzziness: 'AUTO',
+                    },
+                  },
+                ],
+              },
+            },
+            functions: [
+              { field_value_factor: { field: 'quality_rank', factor: 0.02, missing: 0 } },
+              { filter: { term: { has_image: true } }, weight: 1.05 },
+            ],
+            score_mode: 'sum',
+            boost_mode: 'sum',
+          },
+        },
+      },
+    });
+
+    return toMatches(response);
   }
 
   async health(): Promise<VectorIndexHealth> {
@@ -149,10 +247,50 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
     }
   }
 
+  private async updateDocument(documentId: string, doc: Record<string, unknown>) {
+    await this.request(`/${encodeURIComponent(this.profile.indexName)}/_update/${encodeURIComponent(documentId)}`, {
+      method: 'POST',
+      body: {
+        doc,
+        doc_as_upsert: true,
+      },
+    });
+  }
+
+  private textFilters(input: TextIndexQueryInput) {
+    const filters: Array<Record<string, unknown>> = [
+      { term: { catalog_id: input.catalogId } },
+      { term: { document_status: 'active' } },
+    ];
+    const queryFilters = input.filters ?? {};
+    if (queryFilters.providerId) filters.push({ term: { provider_id: queryFilters.providerId } });
+    if (queryFilters.category) filters.push({ term: { normalized_category: queryFilters.category } });
+    if (queryFilters.brand) filters.push({ term: { normalized_brand: queryFilters.brand } });
+    if (queryFilters.currency) filters.push({ term: { currency: queryFilters.currency } });
+    if (queryFilters.availabilityStatus) filters.push({ term: { availability_status: queryFilters.availabilityStatus } });
+    if (queryFilters.sku) filters.push({ term: { normalized_sku: queryFilters.sku } });
+    if (queryFilters.hasImage !== undefined) filters.push({ term: { has_image: queryFilters.hasImage } });
+    if (queryFilters.inStockOnly) filters.push({ terms: { availability_status: ['in_stock', 'low_stock'] } });
+    if (queryFilters.minAmount !== undefined || queryFilters.maxAmount !== undefined) {
+      filters.push({
+        range: {
+          amount: {
+            ...(queryFilters.minAmount !== undefined ? { gte: queryFilters.minAmount } : {}),
+            ...(queryFilters.maxAmount !== undefined ? { lte: queryFilters.maxAmount } : {}),
+          },
+        },
+      });
+    }
+    return filters;
+  }
+
   private async createIndexIfMissing() {
     const indexPath = `/${encodeURIComponent(this.profile.indexName)}`;
     const exists = await this.request(indexPath, { method: 'HEAD', ignoreStatuses: [404] });
-    if (exists !== null) return;
+    if (exists !== null) {
+      await this.ensureTextMappings();
+      return;
+    }
 
     await this.request(indexPath, {
       method: 'PUT',
@@ -168,12 +306,27 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
             document_id: { type: 'keyword' },
             catalog_id: { type: 'keyword' },
             provider_id: { type: 'keyword' },
+            object_id: { type: 'keyword' },
             object_type: { type: 'keyword' },
+            document_status: { type: 'keyword' },
+            title: { type: 'text', analyzer: 'standard' },
+            summary: { type: 'text', analyzer: 'standard' },
+            search_text: { type: 'text', analyzer: 'standard' },
+            normalized_brand: { type: 'keyword' },
+            normalized_category: { type: 'keyword' },
+            normalized_sku: { type: 'keyword' },
+            currency: { type: 'keyword' },
+            availability_status: { type: 'keyword' },
+            amount: { type: 'double' },
+            has_image: { type: 'boolean' },
+            quality_rank: { type: 'integer' },
+            availability_rank: { type: 'integer' },
             embedding_provider: { type: 'keyword' },
             embedding_model: { type: 'keyword' },
             embedding_dimension: { type: 'integer' },
             embedding_text_hash: { type: 'keyword' },
-            indexed_at: { type: 'date' },
+            text_indexed_at: { type: 'date' },
+            embedding_indexed_at: { type: 'date' },
             embedding_vector: {
               type: 'knn_vector',
               dimension: this.profile.embeddingDimension,
@@ -193,9 +346,37 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
     });
   }
 
+  private async ensureTextMappings() {
+    await this.request(`/${encodeURIComponent(this.profile.indexName)}/_mapping`, {
+      method: 'PUT',
+      body: {
+        properties: {
+          object_id: { type: 'keyword' },
+          document_status: { type: 'keyword' },
+          title: { type: 'text', analyzer: 'standard' },
+          summary: { type: 'text', analyzer: 'standard' },
+          search_text: { type: 'text', analyzer: 'standard' },
+          normalized_brand: { type: 'keyword' },
+          normalized_category: { type: 'keyword' },
+          normalized_sku: { type: 'keyword' },
+          currency: { type: 'keyword' },
+          availability_status: { type: 'keyword' },
+          amount: { type: 'double' },
+          has_image: { type: 'boolean' },
+          quality_rank: { type: 'integer' },
+          availability_rank: { type: 'integer' },
+          text_indexed_at: { type: 'date' },
+          embedding_indexed_at: { type: 'date' },
+        },
+      },
+    });
+  }
+
   private async request<T = unknown>(path: string, options: {
     method: 'GET' | 'HEAD' | 'PUT' | 'POST' | 'DELETE';
     body?: unknown;
+    rawBody?: string;
+    contentType?: string;
     ignoreStatuses?: number[];
   }): Promise<T | null> {
     const controller = new AbortController();
@@ -203,8 +384,8 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
         method: options.method,
-        headers: this.headers(options.body !== undefined),
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        headers: this.headers(options.body !== undefined || options.rawBody !== undefined, options.contentType),
+        body: options.rawBody ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
         signal: controller.signal,
       });
 
@@ -220,12 +401,21 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter 
     }
   }
 
-  private headers(includeJson: boolean) {
+  private headers(includeBody: boolean, contentType = 'application/json') {
     const headers: Record<string, string> = {};
-    if (includeJson) headers['content-type'] = 'application/json';
+    if (includeBody) headers['content-type'] = contentType;
     if (this.username || this.password) {
       headers.authorization = `Basic ${btoa(`${this.username}:${this.password}`)}`;
     }
     return headers;
   }
+}
+
+function toMatches(response: OpenSearchSearchResponse | null): VectorIndexMatch[] {
+  return (response?.hits?.hits ?? [])
+    .map((hit) => ({
+      documentId: hit._source?.document_id ?? hit._id ?? '',
+      score: typeof hit._score === 'number' ? Number(hit._score.toFixed(4)) : 0,
+    }))
+    .filter((match) => match.documentId && match.score > 0);
 }

@@ -1,5 +1,5 @@
 import type { EmbeddingProvider } from '../indexing/search-embedding-service';
-import type { VectorIndexAdapter } from './vector-index-adapter';
+import type { TextIndexQueryInput, TextSearchIndexAdapter, VectorIndexAdapter } from './vector-index-adapter';
 
 export type SemanticRetrievalQuery = {
   catalogId: string;
@@ -12,12 +12,13 @@ export type SemanticRetrievalQuery = {
 
 export interface CatalogSemanticRetriever {
   nearestNeighbors(input: SemanticRetrievalQuery): Promise<Map<string, number>>;
+  searchText?(input: TextIndexQueryInput): Promise<Map<string, number>>;
 }
 
 export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever {
   constructor(
     private readonly provider: EmbeddingProvider,
-    private readonly vectorIndex: VectorIndexAdapter,
+    private readonly vectorIndex: VectorIndexAdapter & Partial<TextSearchIndexAdapter>,
   ) {}
 
   async nearestNeighbors(input: SemanticRetrievalQuery) {
@@ -44,5 +45,11 @@ export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever
     });
 
     return new Map(result.matches.map((match) => [match.documentId, match.score]));
+  }
+
+  async searchText(input: TextIndexQueryInput) {
+    if (typeof this.vectorIndex.searchText !== 'function') return new Map<string, number>();
+    const matches = await this.vectorIndex.searchText(input);
+    return new Map(matches.map((match) => [match.documentId, match.score]));
   }
 }

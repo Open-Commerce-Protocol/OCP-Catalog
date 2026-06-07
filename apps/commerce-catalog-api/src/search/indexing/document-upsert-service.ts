@@ -2,7 +2,7 @@ import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
 import { and, desc, eq, lt, or, sql } from 'drizzle-orm';
-import type { WritableVectorIndexAdapter } from '../retrieval/vector-index-adapter';
+import type { WritableTextSearchIndexAdapter, WritableVectorIndexAdapter } from '../retrieval/vector-index-adapter';
 
 export type SearchDocumentUpsertResult = {
   catalogEntryId: string;
@@ -28,6 +28,7 @@ export class SearchDocumentUpsertService {
   constructor(
     private readonly db: Db,
     private readonly writableVectorIndex?: WritableVectorIndexAdapter,
+    private readonly writableTextIndex?: WritableTextSearchIndexAdapter,
   ) {}
 
   async upsertForCatalogEntry(catalogEntryId: string): Promise<SearchDocumentUpsertResult | null> {
@@ -102,6 +103,29 @@ export class SearchDocumentUpsertService {
       });
 
     if (!document) return null;
+
+    if (this.writableTextIndex) {
+      await this.writableTextIndex.upsertText({
+        documentId: document.id,
+        catalogId: row.catalogId,
+        providerId: row.providerId,
+        objectId: row.objectId,
+        objectType: row.objectType,
+        documentStatus,
+        title: values.title,
+        summary: values.summary,
+        searchText,
+        normalizedBrand: values.normalizedBrand,
+        normalizedCategory: values.normalizedCategory,
+        normalizedSku: values.normalizedSku,
+        currency: values.currency,
+        availabilityStatus,
+        amount,
+        hasImage: values.hasImage,
+        qualityRank: values.qualityRank,
+        availabilityRank: values.availabilityRank,
+      });
+    }
 
     return {
       catalogEntryId: document.catalogEntryId,
