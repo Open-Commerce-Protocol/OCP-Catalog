@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { resolveUpdateContent } from './updates-loader';
+import { resolveUpdateContent } from './updates-content';
 
 const modules: Record<string, string> = {
   './updates/demo.md': '# English body',
