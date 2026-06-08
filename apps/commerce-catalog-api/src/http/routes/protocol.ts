@@ -7,7 +7,7 @@ import { schema } from '@ocp-catalog/db';
 import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import type { ObjectSyncStreamResult } from '@ocp-catalog/ocp-schema';
 import { AppError } from '@ocp-catalog/shared';
-import { and, count, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import type { CommerceCatalogRuntimeContext } from '../../runtime/context';
 import { firstHeader } from '../request-context';
@@ -194,11 +194,8 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
     const checkedAt = new Date().toISOString();
     try {
       const [providerCount, activeEntryCount] = await Promise.all([
-        countRows(schema.providerContractStates, eq(schema.providerContractStates.catalogId, config.CATALOG_ID)),
-        countRows(schema.catalogEntries, and(
-          eq(schema.catalogEntries.catalogId, config.CATALOG_ID),
-          eq(schema.catalogEntries.entryStatus, 'active'),
-        )),
+        countProviderContractStates(),
+        estimateTableRows('catalog_entries'),
       ]);
 
       return {
@@ -260,36 +257,36 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
   }
 
   async function loadCatalogDataProfile() {
-    const objectCounts = await db
-      .select({
-        objectType: schema.catalogEntries.objectType,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(schema.catalogEntries)
-      .where(and(
-        eq(schema.catalogEntries.catalogId, config.CATALOG_ID),
-        eq(schema.catalogEntries.entryStatus, 'active'),
-      ))
-      .groupBy(schema.catalogEntries.objectType);
+    const catalogEntryCount = await estimateTableRows('catalog_entries');
 
     return {
-      catalog_entry_count: objectCounts.reduce((sum, row) => sum + row.count, 0),
-      object_counts: objectCounts
-        .map((row) => ({
-          object_type: row.objectType,
-          count: row.count,
-        }))
-        .sort((left, right) => left.object_type.localeCompare(right.object_type)),
+      catalog_entry_count: catalogEntryCount,
+      object_counts: [
+        {
+          object_type: 'product',
+          count: catalogEntryCount,
+        },
+      ],
       counted_at: new Date().toISOString(),
     };
   }
 
-  async function countRows<T extends Parameters<typeof db.select>[0]>(
-    table: Parameters<ReturnType<typeof db.select>['from']>[0],
-    where: SQL | undefined,
-  ) {
-    const [row] = await db.select({ value: count() }).from(table).where(where);
+  async function countProviderContractStates() {
+    const [row] = await db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(schema.providerContractStates)
+      .where(eq(schema.providerContractStates.catalogId, config.CATALOG_ID));
     return row?.value ?? 0;
+  }
+
+  async function estimateTableRows(tableName: 'catalog_entries') {
+    const [row] = await db.execute(sql`
+      select greatest(n_live_tup, 0)::bigint as count
+      from pg_stat_user_tables
+      where schemaname = 'public'
+        and relname = ${tableName}
+    `) as Array<{ count: number | string }>;
+    return Number(row?.count ?? 0);
   }
 
   function stringPayload(payload: unknown, key: string) {

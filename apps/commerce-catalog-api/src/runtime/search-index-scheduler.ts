@@ -57,7 +57,8 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
         catalogId: config.CATALOG_ID,
         maxCount: config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT + 1,
       });
-      const includeEmbeddingRefresh = pendingEmbeddingRefreshCount <= config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT;
+      const includeEmbeddingRefresh = !config.CATALOG_EMBEDDING_BATCH_WORKER_ENABLED
+        || pendingEmbeddingRefreshCount <= config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT;
       if (!includeEmbeddingRefresh) {
         console.log(JSON.stringify({
           ts: new Date().toISOString(),
@@ -66,6 +67,16 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
           reason,
           pending_embedding_refresh_count_at_least: pendingEmbeddingRefreshCount,
           realtime_embedding_backlog_limit: config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT,
+        }));
+      } else if (!config.CATALOG_EMBEDDING_BATCH_WORKER_ENABLED && pendingEmbeddingRefreshCount > config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT) {
+        console.warn(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'warn',
+          event: 'search_index_embedding_refresh_backlog_processed_realtime',
+          reason,
+          pending_embedding_refresh_count_at_least: pendingEmbeddingRefreshCount,
+          realtime_embedding_backlog_limit: config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT,
+          hint: 'Enable CATALOG_EMBEDDING_BATCH_WORKER_ENABLED for large embedding backlogs.',
         }));
       }
 

@@ -2,7 +2,7 @@ import type { AppConfig } from '@ocp-catalog/config';
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
-import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { readFile } from 'node:fs/promises';
 import {
   buildSearchDocumentEmbeddingText,
@@ -15,6 +15,7 @@ const BATCH_EMBEDDINGS_ENDPOINT = '/v1/embeddings';
 const OPENAI_BATCH_REQUEST_LIMIT = 50_000;
 const DEFAULT_OPENAI_BATCH_REQUEST_LIMIT = 5_000;
 const INGEST_CHUNK_SIZE = 250;
+const MAX_STALE_CANDIDATE_SWEEPS = 10;
 
 type OpenAIBatchStatus =
   | 'validating'
@@ -219,35 +220,63 @@ export class OpenAIEmbeddingBatchBackfillService {
   }
 
   private async loadCandidates(options: { limit: number; providerId?: string }) {
-    const filters = [
-      eq(schema.catalogSearchDocuments.catalogId, this.config.CATALOG_ID),
-      eq(schema.catalogSearchDocuments.documentStatus, 'active'),
-    ];
-    if (options.providerId) {
-      filters.push(eq(schema.catalogSearchDocuments.providerId, options.providerId));
+    const candidates: SearchDocument[] = [];
+    for (let sweep = 0; sweep < MAX_STALE_CANDIDATE_SWEEPS && candidates.length < options.limit; sweep += 1) {
+      const remaining = options.limit - candidates.length;
+      const pendingJobRows = await this.loadPendingEmbeddingDocumentIds({
+        ...options,
+        limit: remaining,
+      });
+      const documentIds = unique(pendingJobRows.map((row) => row.documentId).filter((value): value is string => Boolean(value)));
+      if (documentIds.length === 0) break;
+
+      const existingEmbeddings = await this.loadExistingEmbeddingsByDocumentId(documentIds, this.embeddingModel);
+      const readyDocumentIds = new Set(documentIds.filter((documentId) => {
+        const existing = existingEmbeddings.get(documentId);
+        return existing?.status === 'ready' && existing.embeddingDimension === this.config.EMBEDDING_DIMENSION;
+      }));
+      const readyJobIds = pendingJobRows
+        .filter((row) => row.documentId && readyDocumentIds.has(row.documentId))
+        .map((row) => row.jobId);
+      await this.embeddingServiceJobsMarkCompletedById(readyJobIds);
+
+      const candidateDocumentIds = documentIds.filter((documentId) => !readyDocumentIds.has(documentId));
+      if (candidateDocumentIds.length === 0) continue;
+
+      const filters = [
+        eq(schema.catalogSearchDocuments.catalogId, this.config.CATALOG_ID),
+        eq(schema.catalogSearchDocuments.documentStatus, 'active'),
+        inArray(schema.catalogSearchDocuments.id, candidateDocumentIds),
+      ];
+      if (options.providerId) {
+        filters.push(eq(schema.catalogSearchDocuments.providerId, options.providerId));
+      }
+
+      const documents = await this.db
+        .select()
+        .from(schema.catalogSearchDocuments)
+        .where(and(...filters))
+        .limit(remaining);
+      candidates.push(...documents);
     }
 
-    return this.db
-      .select({
-        document: schema.catalogSearchDocuments,
-      })
-      .from(schema.catalogSearchDocuments)
-      .leftJoin(
-        schema.catalogSearchEmbeddings,
-        and(
-          eq(schema.catalogSearchEmbeddings.catalogSearchDocumentId, schema.catalogSearchDocuments.id),
-          eq(schema.catalogSearchEmbeddings.embeddingModel, this.embeddingModel),
-          eq(schema.catalogSearchEmbeddings.embeddingDimension, this.config.EMBEDDING_DIMENSION),
-          eq(schema.catalogSearchEmbeddings.status, 'ready'),
-        ),
-      )
-      .where(and(
-        ...filters,
-        isNull(schema.catalogSearchEmbeddings.id),
-      ))
-      .orderBy(asc(schema.catalogSearchDocuments.updatedAt))
-      .limit(options.limit)
-      .then((rows) => rows.map((row) => row.document));
+    return candidates;
+  }
+
+  private async loadPendingEmbeddingDocumentIds(options: { limit: number; providerId?: string }) {
+    const providerFilter = options.providerId ? sql`and provider_id = ${options.providerId}` : sql``;
+    const rows = await this.db.execute(sql`
+      select id as "jobId", payload->>'search_document_id' as "documentId"
+      from catalog_search_index_jobs
+      where catalog_id = ${this.config.CATALOG_ID}
+        and job_type = 'refresh_embedding'
+        and status = 'pending'
+        ${providerFilter}
+        and payload->>'search_document_id' is not null
+      order by scheduled_at asc, created_at asc, id asc
+      limit ${options.limit}
+    `);
+    return rows as unknown as Array<{ jobId: string; documentId: string | null }>;
   }
 
   private async embeddingServiceJobsMarkCompleted(documentIds: string[]) {
@@ -264,6 +293,28 @@ export class OpenAIEmbeddingBatchBackfillService {
           and job_type = 'refresh_embedding'
           and status = 'pending'
           and payload->>'search_document_id' in (${sql.join(chunk.map((documentId) => sql`${documentId}`), sql`, `)})
+        returning id
+      `);
+      completedCount += rows.length;
+    }
+
+    return completedCount;
+  }
+
+  private async embeddingServiceJobsMarkCompletedById(jobIds: string[]) {
+    if (jobIds.length === 0) return 0;
+    let completedCount = 0;
+    for (const chunk of chunks(unique(jobIds), 1000)) {
+      const rows = await this.db.execute(sql`
+        update catalog_search_index_jobs
+        set
+          status = 'completed',
+          finished_at = now(),
+          updated_at = now()
+        where catalog_id = ${this.config.CATALOG_ID}
+          and job_type = 'refresh_embedding'
+          and status = 'pending'
+          and id in (${sql.join(chunk.map((jobId) => sql`${jobId}`), sql`, `)})
         returning id
       `);
       completedCount += rows.length;

@@ -369,6 +369,7 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
 }, (table) => ({
   catalogStatusScheduledIdx: index('catalog_search_index_jobs_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
   catalogTypeStatusIdx: index('catalog_search_index_jobs_catalog_type_status_idx').on(table.catalogId, table.jobType, table.status),
+  catalogStatusIdx: index('catalog_search_index_jobs_catalog_status_idx').on(table.catalogId, table.status),
   providerCreatedIdx: index('catalog_search_index_jobs_catalog_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
   pendingClaimIdx: index('catalog_search_index_jobs_pending_claim_idx')
     .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)
@@ -379,6 +380,9 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   pendingEmbeddingCountIdx: index('catalog_search_index_jobs_pending_embedding_count_idx')
     .on(table.catalogId, table.scheduledAt)
     .where(sql`${table.status} = 'pending' and ${table.jobType} = 'refresh_embedding'`),
+  pendingEmbeddingDocumentIdx: index('catalog_search_index_jobs_pending_embedding_document_idx')
+    .on(table.catalogId, sql`(${table.payload}->>'search_document_id')`)
+    .where(sql`${table.status} in ('pending', 'running') and ${table.jobType} = 'refresh_embedding'`),
   dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
   queueTrendCreatedIdx: index('catalog_search_index_jobs_queue_trend_created_idx')
     .on(table.catalogId, table.createdAt, table.jobType),
@@ -526,6 +530,7 @@ export const catalogOutboxEvents = pgTable('catalog_outbox_events', {
 }, (table) => ({
   dedupeUnique: uniqueIndex('catalog_outbox_events_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
   statusScheduledIdx: index('catalog_outbox_events_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
+  catalogStatusIdx: index('catalog_outbox_events_catalog_status_idx').on(table.catalogId, table.status),
   pendingClaimIdx: index('catalog_outbox_events_pending_claim_idx')
     .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)
     .where(sql`${table.status} = 'pending'`),
