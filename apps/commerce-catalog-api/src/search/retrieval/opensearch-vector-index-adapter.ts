@@ -195,7 +195,6 @@ export class OpenSearchVectorIndexAdapter implements BulkWritableVectorIndexAdap
   }
 
   async query(input: VectorIndexQueryInput): Promise<VectorIndexQueryResult> {
-    await this.ensureIndex();
     if (input.queryVector.length === 0 || input.limit <= 0) {
       return { profile: this.profile, matches: [] };
     }
@@ -256,7 +255,6 @@ export class OpenSearchVectorIndexAdapter implements BulkWritableVectorIndexAdap
   }
 
   async searchText(input: TextIndexQueryInput): Promise<VectorIndexMatch[]> {
-    await this.ensureIndex();
     const normalizedQuery = input.query.trim();
     if (!normalizedQuery || input.limit <= 0) return [];
 

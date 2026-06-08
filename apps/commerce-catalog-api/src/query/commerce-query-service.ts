@@ -44,6 +44,8 @@ export class CommerceQueryService {
   ) {}
 
   async query(input: unknown, meta: CommerceQueryMeta = {}): Promise<CatalogQueryResult> {
+    const startedAt = performance.now();
+    const timings: Record<string, number> = {};
     const request = catalogQueryRequestSchema.parse(input);
     const queryPlan = planCommerceQuery(this.scenario, request, { retrievalAvailable: Boolean(this.retrieval) });
     const queryMode = queryPlan.queryMode;
@@ -82,6 +84,7 @@ export class CommerceQueryService {
     const textDocuments = new Map<string, TextIndexStoredDocument>();
     if (usesOpenSearchText) {
       try {
+        const textStartedAt = performance.now();
         const textMatches = await this.retrieval!.searchText!({
           catalogId,
           query: request.query,
@@ -99,6 +102,7 @@ export class CommerceQueryService {
             maxAmount: request.filters.max_amount,
           },
         });
+        timings.text_search_ms = elapsedMs(textStartedAt);
         textScores = new Map(textMatches.map((match) => [match.documentId, match.score]));
         for (const match of textMatches) {
           if (match.document) textDocuments.set(match.documentId, match.document);
@@ -113,6 +117,7 @@ export class CommerceQueryService {
         }));
       }
     }
+    const keywordStartedAt = performance.now();
     const keywordRows = queryMode === 'semantic'
       ? []
       : textScores.size > 0 && textDocuments.size === textScores.size
@@ -129,11 +134,13 @@ export class CommerceQueryService {
         offset: usesDatabasePagination ? request.offset : 0,
         fullTextQuery: usesOpenSearchText ? undefined : fullTextQuery,
       });
+    timings.keyword_rows_ms = elapsedMs(keywordStartedAt);
 
     let semanticSearchFailed = false;
     let semanticScores = new Map<string, number>();
     if (usesSemanticScore) {
       try {
+        const semanticStartedAt = performance.now();
         semanticScores = await this.retrieval!.nearestNeighbors({
           catalogId,
           query: request.query,
@@ -141,6 +148,7 @@ export class CommerceQueryService {
           rerankLimit: computeSemanticCandidateLimit(candidatePageEnd, queryMode),
           oversampleFactor: computeSemanticOversampleFactor(queryMode),
         });
+        timings.semantic_search_ms = elapsedMs(semanticStartedAt);
       } catch (error) {
         if (queryMode === 'semantic') throw error;
         semanticSearchFailed = true;
@@ -152,12 +160,15 @@ export class CommerceQueryService {
         }));
       }
     }
+    const semanticRowsStartedAt = performance.now();
     const semanticRows = semanticScores.size > 0
       ? await this.selectCandidateRows({
         conditions: [...baseConditions, inArray(schema.catalogSearchDocuments.id, [...semanticScores.keys()])],
         limit: semanticScores.size,
       })
       : [];
+    timings.semantic_rows_ms = elapsedMs(semanticRowsStartedAt);
+    const rankStartedAt = performance.now();
     const rows = mergeRows(keywordRows, semanticRows);
     const rankedMatches = rows
       .map((row): CatalogEntryMatch | null => {
@@ -200,6 +211,7 @@ export class CommerceQueryService {
     const hasMore = usesDatabasePagination
       ? rankedMatches.length > request.limit
       : rankedMatches.length > pageEnd;
+    timings.rank_ms = elapsedMs(rankStartedAt);
 
     const auditId = newId('qaudit');
     const result: CatalogQueryResult = {
@@ -235,6 +247,7 @@ export class CommerceQueryService {
         : [],
     };
 
+    const auditStartedAt = performance.now();
     await this.db.insert(schema.queryAuditRecords).values({
       id: auditId,
       catalogId,
@@ -243,6 +256,21 @@ export class CommerceQueryService {
       resultCount: entries.length,
       requesterKeyHash: meta.requesterKey ? hashKey(meta.requesterKey) : null,
     });
+    timings.audit_ms = elapsedMs(auditStartedAt);
+    const totalMs = elapsedMs(startedAt);
+    if (totalMs >= 1000) {
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'info',
+        event: 'commerce_query_timing',
+        catalog_id: catalogId,
+        query_mode: queryMode,
+        query_pack: queryPlan.selectedQueryPack,
+        result_count: entries.length,
+        total_ms: totalMs,
+        ...timings,
+      }));
+    }
 
     return result;
   }
@@ -404,6 +432,10 @@ function booleanValue(value: unknown) {
 
 function numberValue(value: unknown) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function elapsedMs(startedAt: number) {
+  return Number((performance.now() - startedAt).toFixed(2));
 }
 
 function hashKey(value: string) {
