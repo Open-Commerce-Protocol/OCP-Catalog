@@ -315,29 +315,27 @@ async function getOutboxMetrics(context: CommerceCatalogRuntimeContext) {
 
 async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext, query: Record<string, string | undefined>) {
   const hours = parseTrendHours(query.hours);
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
   const rows = await context.db.execute(sql`
-    with bounds as (
-      select now() - (${hours}::int * interval '1 hour') as since
-    ),
-    events as (
+    with events as (
       select
         'search_index_jobs'::text as queue_name,
         date_trunc('hour', created_at) as bucket_at,
         'created'::text as status,
         job_type::text as type
-      from catalog_search_index_jobs, bounds
+      from catalog_search_index_jobs
       where catalog_id = ${context.config.CATALOG_ID}
-        and created_at >= bounds.since
+        and created_at >= ${since.toISOString()}::timestamptz
       union all
       select
         'search_index_jobs'::text as queue_name,
         date_trunc('hour', finished_at) as bucket_at,
         status::text as status,
         job_type::text as type
-      from catalog_search_index_jobs, bounds
+      from catalog_search_index_jobs
       where catalog_id = ${context.config.CATALOG_ID}
         and finished_at is not null
-        and finished_at >= bounds.since
+        and finished_at >= ${since.toISOString()}::timestamptz
         and status in ('completed', 'failed', 'cancelled')
       union all
       select
@@ -345,19 +343,19 @@ async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext
         date_trunc('hour', created_at) as bucket_at,
         'created'::text as status,
         event_type::text as type
-      from catalog_outbox_events, bounds
+      from catalog_outbox_events
       where catalog_id = ${context.config.CATALOG_ID}
-        and created_at >= bounds.since
+        and created_at >= ${since.toISOString()}::timestamptz
       union all
       select
         'catalog_outbox'::text as queue_name,
         date_trunc('hour', finished_at) as bucket_at,
         status::text as status,
         event_type::text as type
-      from catalog_outbox_events, bounds
+      from catalog_outbox_events
       where catalog_id = ${context.config.CATALOG_ID}
         and finished_at is not null
-        and finished_at >= bounds.since
+        and finished_at >= ${since.toISOString()}::timestamptz
         and status in ('completed', 'failed')
     )
     select
@@ -382,7 +380,7 @@ async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext
     window_hours: hours,
     buckets: rows.map((row) => ({
       queue_name: row.queue_name,
-      bucket_at: row.bucketAt.toISOString(),
+      bucket_at: toIsoTimestamp(row.bucketAt),
       status: row.status,
       type: row.type,
       count: row.count,
@@ -851,15 +849,25 @@ function parseAdminLimit(value: string | undefined) {
 }
 
 function parseTrendHours(value: string | undefined) {
-  if (!value) return 24;
+  if (!value) return 1;
   const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 168) {
-    throw new AppError('validation_error', 'hours must be an integer from 1 to 168', 400, {
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 6) {
+    throw new AppError('validation_error', 'hours must be an integer from 1 to 6', 400, {
       hours: value,
-      max_hours: 168,
+      max_hours: 6,
     });
   }
   return parsed;
+}
+
+function toIsoTimestamp(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new AppError('internal_error', 'invalid timestamp returned by database', 500, {
+      timestamp: String(value),
+    });
+  }
+  return date.toISOString();
 }
 
 function buildPage<T>(limit: number, rows: T[], hasMore: boolean, cursorFromRow: (row: T) => KeysetCursor) {

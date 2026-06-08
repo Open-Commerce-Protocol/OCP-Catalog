@@ -380,6 +380,11 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
     .on(table.catalogId, table.scheduledAt)
     .where(sql`${table.status} = 'pending' and ${table.jobType} = 'refresh_embedding'`),
   dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
+  queueTrendCreatedIdx: index('catalog_search_index_jobs_queue_trend_created_idx')
+    .on(table.catalogId, table.createdAt, table.jobType),
+  queueTrendFinishedIdx: index('catalog_search_index_jobs_queue_trend_finished_idx')
+    .on(table.catalogId, table.finishedAt, table.status, table.jobType)
+    .where(sql`${table.finishedAt} is not null and ${table.status} in ('completed', 'failed', 'cancelled')`),
   completedCleanupIdx: index('catalog_search_index_jobs_completed_cleanup_idx')
     .on(table.catalogId, table.finishedAt, table.id)
     .where(sql`${table.status} = 'completed' and ${table.finishedAt} is not null`),
@@ -528,6 +533,11 @@ export const catalogOutboxEvents = pgTable('catalog_outbox_events', {
     .on(table.catalogId, table.lockedAt, table.scheduledAt, table.createdAt, table.id)
     .where(sql`${table.status} = 'running' and ${table.lockedAt} is not null`),
   aggregateIdx: index('catalog_outbox_events_catalog_aggregate_idx').on(table.catalogId, table.aggregateType, table.aggregateId),
+  queueTrendCreatedIdx: index('catalog_outbox_events_queue_trend_created_idx')
+    .on(table.catalogId, table.createdAt, table.eventType),
+  queueTrendFinishedIdx: index('catalog_outbox_events_queue_trend_finished_idx')
+    .on(table.catalogId, table.finishedAt, table.status, table.eventType)
+    .where(sql`${table.finishedAt} is not null and ${table.status} in ('completed', 'failed')`),
   completedCleanupIdx: index('catalog_outbox_events_completed_cleanup_idx')
     .on(table.catalogId, table.finishedAt, table.id)
     .where(sql`${table.status} = 'completed' and ${table.finishedAt} is not null`),

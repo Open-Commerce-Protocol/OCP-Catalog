@@ -299,7 +299,7 @@ export async function fetchCatalogAdminEntries(apiKey: string, filters?: {
   return payload.entries;
 }
 
-export async function fetchCatalogAdminQueueTrends(apiKey: string, hours = 24) {
+export async function fetchCatalogAdminQueueTrends(apiKey: string, hours = 1) {
   return request<CatalogAdminQueueTrends>(`${adminPrefix}/queue-trends?hours=${hours}`, {
     method: 'GET',
     apiKey,

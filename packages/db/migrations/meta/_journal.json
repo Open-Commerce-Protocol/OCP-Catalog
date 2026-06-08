@@ -99,6 +99,13 @@
       "when": 1780813500000,
       "tag": "0013_provider_throttle_descriptor_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1780814000000,
+      "tag": "0014_queue_trend_indexes",
+      "breakpoints": true
     }
   ]
 }
