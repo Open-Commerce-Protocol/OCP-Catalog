@@ -1217,9 +1217,9 @@ export default function App() {
     try {
       setLoading(true);
       const overview = await fetchCatalogAdminOverview(apiKey);
-      const [providers, queueTrends, health, wellKnown, manifest, contracts] = await Promise.all([
+      const [providers, queueTrendsResult, health, wellKnown, manifest, contracts] = await Promise.all([
         fetchCatalogAdminProviders(apiKey),
-        fetchCatalogAdminQueueTrends(apiKey),
+        fetchCatalogAdminQueueTrends(apiKey).catch(() => null),
         fetchCatalogHealth(),
         fetchCatalogWellKnown(),
         fetchCatalogManifest(),
@@ -1235,7 +1235,7 @@ export default function App() {
 
       setState({
         overview,
-        queueTrends,
+        queueTrends: queueTrendsResult,
         providers,
         health,
         wellKnown,

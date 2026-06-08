@@ -295,58 +295,60 @@ async function countOutboxEventsByStatus(context: CommerceCatalogRuntimeContext,
 async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext, query: Record<string, string | undefined>) {
   const hours = parseTrendHours(query.hours);
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-  const rows = await context.db.execute(sql`
-    with events as (
+  const rows = (await Promise.all([
+    context.db.execute(sql`
       select
         'search_index_jobs'::text as queue_name,
-        date_trunc('hour', created_at) as bucket_at,
+        date_trunc('hour', created_at) as "bucketAt",
         'created'::text as status,
-        job_type::text as type
+        job_type::text as type,
+        count(*)::int as count
       from catalog_search_index_jobs
       where catalog_id = ${context.config.CATALOG_ID}
         and created_at >= ${since.toISOString()}::timestamptz
-      union all
+      group by "bucketAt", job_type
+    `),
+    context.db.execute(sql`
       select
         'search_index_jobs'::text as queue_name,
-        date_trunc('hour', finished_at) as bucket_at,
+        date_trunc('hour', finished_at) as "bucketAt",
         status::text as status,
-        job_type::text as type
+        job_type::text as type,
+        count(*)::int as count
       from catalog_search_index_jobs
       where catalog_id = ${context.config.CATALOG_ID}
         and finished_at is not null
         and finished_at >= ${since.toISOString()}::timestamptz
         and status in ('completed', 'failed', 'cancelled')
-      union all
+      group by "bucketAt", status, job_type
+    `),
+    context.db.execute(sql`
       select
         'catalog_outbox'::text as queue_name,
-        date_trunc('hour', created_at) as bucket_at,
+        date_trunc('hour', created_at) as "bucketAt",
         'created'::text as status,
-        event_type::text as type
+        event_type::text as type,
+        count(*)::int as count
       from catalog_outbox_events
       where catalog_id = ${context.config.CATALOG_ID}
         and created_at >= ${since.toISOString()}::timestamptz
-      union all
+      group by "bucketAt", event_type
+    `),
+    context.db.execute(sql`
       select
         'catalog_outbox'::text as queue_name,
-        date_trunc('hour', finished_at) as bucket_at,
+        date_trunc('hour', finished_at) as "bucketAt",
         status::text as status,
-        event_type::text as type
+        event_type::text as type,
+        count(*)::int as count
       from catalog_outbox_events
       where catalog_id = ${context.config.CATALOG_ID}
         and finished_at is not null
         and finished_at >= ${since.toISOString()}::timestamptz
         and status in ('completed', 'failed')
-    )
-    select
-      queue_name,
-      bucket_at as "bucketAt",
-      status,
-      type,
-      count(*)::int as count
-    from events
-    group by queue_name, bucket_at, status, type
-    order by bucket_at asc, queue_name asc, status asc, type asc
-  `) as Array<{
+      group by "bucketAt", status, event_type
+    `),
+  ])).flat() as Array<{
     queue_name: string;
     bucketAt: Date;
     status: string;
@@ -357,13 +359,20 @@ async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext
   return {
     catalog_id: context.config.CATALOG_ID,
     window_hours: hours,
-    buckets: rows.map((row) => ({
-      queue_name: row.queue_name,
-      bucket_at: toIsoTimestamp(row.bucketAt),
-      status: row.status,
-      type: row.type,
-      count: row.count,
-    })),
+    buckets: rows
+      .sort((left, right) => (
+        toIsoTimestamp(left.bucketAt).localeCompare(toIsoTimestamp(right.bucketAt))
+        || left.queue_name.localeCompare(right.queue_name)
+        || left.status.localeCompare(right.status)
+        || left.type.localeCompare(right.type)
+      ))
+      .map((row) => ({
+        queue_name: row.queue_name,
+        bucket_at: toIsoTimestamp(row.bucketAt),
+        status: row.status,
+        type: row.type,
+        count: row.count,
+      })),
   };
 }
 
