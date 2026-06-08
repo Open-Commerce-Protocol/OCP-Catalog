@@ -37,6 +37,7 @@ async function run(currentCommand: Command) {
       return service.ingest({
         jobId: args.job,
         limit: parseInteger(args.limit),
+        outputFilePath: args.outputFilePath,
       });
     case 'run': {
       const submitted = await service.submit({

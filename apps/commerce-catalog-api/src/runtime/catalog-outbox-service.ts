@@ -47,7 +47,21 @@ export class CatalogOutboxService {
 
     let completedCount = 0;
     let failedCount = 0;
-    for (const event of events) {
+    const searchIndexEvents = events.filter((event) => event.eventType === 'search_index.enqueue_job');
+    const otherEvents = events.filter((event) => event.eventType !== 'search_index.enqueue_job');
+    if (searchIndexEvents.length > 0) {
+      try {
+        await this.deliverSearchIndexEvents(searchIndexEvents);
+        await this.markManyCompleted(searchIndexEvents.map((event) => event.id));
+        completedCount += searchIndexEvents.length;
+      } catch (error) {
+        for (const event of searchIndexEvents) {
+          await this.markFailed(event, error instanceof Error ? error.message : String(error), input.retryDelayMs ?? 30_000);
+          failedCount += 1;
+        }
+      }
+    }
+    for (const event of otherEvents) {
       try {
         await this.deliver(event);
         await this.markCompleted(event.id);
@@ -155,6 +169,21 @@ export class CatalogOutboxService {
     throw new Error(`Unsupported catalog outbox event type ${event.eventType}`);
   }
 
+  private async deliverSearchIndexEvents(events: CatalogOutboxEvent[]) {
+    await this.searchIndexJobs.enqueueMany(events.map((event) => {
+      const job = requireRecord(event.payload.job, 'payload.job');
+      return {
+        catalogId: requireString(job.catalogId, 'payload.job.catalogId'),
+        providerId: optionalString(job.providerId, 'payload.job.providerId'),
+        catalogEntryId: optionalString(job.catalogEntryId, 'payload.job.catalogEntryId'),
+        commercialObjectId: optionalString(job.commercialObjectId, 'payload.job.commercialObjectId'),
+        dedupeKey: requireString(job.dedupeKey, 'payload.job.dedupeKey'),
+        jobType: requireSearchIndexJobType(job.jobType),
+        payload: optionalRecord(job.payload, 'payload.job.payload') ?? {},
+      };
+    }));
+  }
+
   private async markCompleted(eventId: string) {
     await this.db
       .update(schema.catalogOutboxEvents)
@@ -164,6 +193,19 @@ export class CatalogOutboxService {
         updatedAt: new Date(),
       })
       .where(eq(schema.catalogOutboxEvents.id, eventId));
+  }
+
+  private async markManyCompleted(eventIds: string[]) {
+    if (eventIds.length === 0) return;
+    const now = new Date();
+    await this.db
+      .update(schema.catalogOutboxEvents)
+      .set({
+        status: 'completed',
+        finishedAt: now,
+        updatedAt: now,
+      })
+      .where(sql`${schema.catalogOutboxEvents.id} in (${sql.join(eventIds.map((eventId) => sql`${eventId}`), sql`, `)})`);
   }
 
   private async markFailed(event: CatalogOutboxEvent, error: string, retryDelayMs: number) {

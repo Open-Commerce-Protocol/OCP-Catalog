@@ -3,6 +3,7 @@ import type {
   TextIndexDocument,
   TextIndexQueryInput,
   BulkWritableTextSearchIndexAdapter,
+  BulkWritableVectorIndexAdapter,
   VectorIndexDocument,
   VectorIndexHealth,
   VectorIndexMatch,
@@ -18,6 +19,17 @@ type OpenSearchHit = {
   _score?: number;
   _source?: {
     document_id?: string;
+    catalog_entry_id?: string;
+    commercial_object_id?: string;
+    catalog_id?: string;
+    provider_id?: string;
+    object_id?: string;
+    object_type?: string;
+    document_status?: 'pending' | 'active' | 'inactive' | 'stale' | 'failed';
+    title?: string;
+    summary?: string | null;
+    search_text?: string;
+    visible_attributes_payload?: Record<string, unknown>;
   };
 };
 
@@ -27,7 +39,7 @@ type OpenSearchSearchResponse = {
   };
 };
 
-export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter, BulkWritableTextSearchIndexAdapter {
+export class OpenSearchVectorIndexAdapter implements BulkWritableVectorIndexAdapter, BulkWritableTextSearchIndexAdapter {
   readonly profile: VectorIndexProfile;
   private readonly baseUrl: string;
   private readonly username: string;
@@ -58,22 +70,39 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
 
   async upsert(input: VectorIndexDocument) {
     await this.ensureIndex();
-    if (input.embeddingVector.length !== this.profile.embeddingDimension) {
-      throw new Error(`OpenSearch vector dimension ${input.embeddingVector.length} does not match configured dimension ${this.profile.embeddingDimension}`);
-    }
+    this.assertVectorDimension(input);
 
-    await this.updateDocument(input.documentId, {
-      document_id: input.documentId,
-      catalog_id: input.catalogId,
-      provider_id: input.providerId,
-      object_type: input.objectType,
-      embedding_provider: this.profile.embeddingProviderId,
-      embedding_model: this.profile.embeddingModel,
-      embedding_dimension: this.profile.embeddingDimension,
-      embedding_text_hash: input.embeddingTextHash,
-      embedding_vector: input.embeddingVector,
-      embedding_indexed_at: new Date().toISOString(),
+    await this.updateDocument(input.documentId, this.toVectorDocument(input));
+  }
+
+  async bulkUpsert(input: VectorIndexDocument[]) {
+    await this.ensureIndex();
+    if (input.length === 0) return;
+    for (const document of input) this.assertVectorDimension(document);
+
+    const body = input
+      .flatMap((document) => [
+        {
+          update: {
+            _index: this.profile.indexName,
+            _id: document.documentId,
+          },
+        },
+        {
+          doc: this.toVectorDocument(document),
+          doc_as_upsert: true,
+        },
+      ])
+      .map((line) => JSON.stringify(line))
+      .join('\n') + '\n';
+    const response = await this.request<{ errors?: boolean; items?: unknown[] }>('/_bulk', {
+      method: 'POST',
+      rawBody: body,
+      contentType: 'application/x-ndjson',
     });
+    if (response?.errors) {
+      throw new Error(`OpenSearch bulk vector upsert failed for ${input.length} document(s)`);
+    }
   }
 
   async upsertText(input: TextIndexDocument) {
@@ -113,6 +142,8 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
   private toTextDocument(input: TextIndexDocument) {
     return {
       document_id: input.documentId,
+      catalog_entry_id: input.catalogEntryId,
+      commercial_object_id: input.commercialObjectId,
       catalog_id: input.catalogId,
       provider_id: input.providerId,
       object_id: input.objectId,
@@ -130,8 +161,30 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
       has_image: input.hasImage,
       quality_rank: input.qualityRank,
       availability_rank: input.availabilityRank,
+      visible_attributes_payload: input.visibleAttributesPayload,
       text_indexed_at: new Date().toISOString(),
     };
+  }
+
+  private toVectorDocument(input: VectorIndexDocument) {
+    return {
+      document_id: input.documentId,
+      catalog_id: input.catalogId,
+      provider_id: input.providerId,
+      object_type: input.objectType,
+      embedding_provider: this.profile.embeddingProviderId,
+      embedding_model: this.profile.embeddingModel,
+      embedding_dimension: this.profile.embeddingDimension,
+      embedding_text_hash: input.embeddingTextHash,
+      embedding_vector: input.embeddingVector,
+      embedding_indexed_at: new Date().toISOString(),
+    };
+  }
+
+  private assertVectorDimension(input: VectorIndexDocument) {
+    if (input.embeddingVector.length !== this.profile.embeddingDimension) {
+      throw new Error(`OpenSearch vector dimension ${input.embeddingVector.length} does not match configured dimension ${this.profile.embeddingDimension}`);
+    }
   }
 
   async delete(documentId: string) {
@@ -164,7 +217,20 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
       method: 'POST',
       body: {
         size,
-        _source: ['document_id'],
+        _source: [
+          'document_id',
+          'catalog_entry_id',
+          'commercial_object_id',
+          'catalog_id',
+          'provider_id',
+          'object_id',
+          'object_type',
+          'document_status',
+          'title',
+          'summary',
+          'search_text',
+          'visible_attributes_payload',
+        ],
         query: {
           bool: {
             filter: filters,
@@ -304,6 +370,8 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
           dynamic: 'strict',
           properties: {
             document_id: { type: 'keyword' },
+            catalog_entry_id: { type: 'keyword' },
+            commercial_object_id: { type: 'keyword' },
             catalog_id: { type: 'keyword' },
             provider_id: { type: 'keyword' },
             object_id: { type: 'keyword' },
@@ -321,6 +389,7 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
             has_image: { type: 'boolean' },
             quality_rank: { type: 'integer' },
             availability_rank: { type: 'integer' },
+            visible_attributes_payload: { type: 'object', enabled: false },
             embedding_provider: { type: 'keyword' },
             embedding_model: { type: 'keyword' },
             embedding_dimension: { type: 'integer' },
@@ -352,6 +421,8 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
       body: {
         properties: {
           object_id: { type: 'keyword' },
+          catalog_entry_id: { type: 'keyword' },
+          commercial_object_id: { type: 'keyword' },
           document_status: { type: 'keyword' },
           title: { type: 'text', analyzer: 'standard' },
           summary: { type: 'text', analyzer: 'standard' },
@@ -365,6 +436,7 @@ export class OpenSearchVectorIndexAdapter implements WritableVectorIndexAdapter,
           has_image: { type: 'boolean' },
           quality_rank: { type: 'integer' },
           availability_rank: { type: 'integer' },
+          visible_attributes_payload: { type: 'object', enabled: false },
           text_indexed_at: { type: 'date' },
           embedding_indexed_at: { type: 'date' },
         },
@@ -416,6 +488,26 @@ function toMatches(response: OpenSearchSearchResponse | null): VectorIndexMatch[
     .map((hit) => ({
       documentId: hit._source?.document_id ?? hit._id ?? '',
       score: typeof hit._score === 'number' ? Number(hit._score.toFixed(4)) : 0,
+      document: toStoredDocument(hit._source),
     }))
     .filter((match) => match.documentId && match.score > 0);
+}
+
+function toStoredDocument(source: OpenSearchHit['_source']): VectorIndexMatch['document'] {
+  if (!source?.document_id || !source.catalog_entry_id || !source.commercial_object_id) return undefined;
+  if (!source.catalog_id || !source.provider_id || !source.object_id || !source.object_type || !source.document_status) return undefined;
+  return {
+    documentId: source.document_id,
+    catalogEntryId: source.catalog_entry_id,
+    commercialObjectId: source.commercial_object_id,
+    catalogId: source.catalog_id,
+    providerId: source.provider_id,
+    objectId: source.object_id,
+    objectType: source.object_type,
+    documentStatus: source.document_status,
+    title: source.title ?? '',
+    summary: source.summary ?? null,
+    searchText: source.search_text ?? '',
+    visibleAttributesPayload: source.visible_attributes_payload ?? {},
+  };
 }

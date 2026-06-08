@@ -107,6 +107,8 @@ export class SearchDocumentUpsertService {
     if (this.writableTextIndex) {
       await this.writableTextIndex.upsertText({
         documentId: document.id,
+        catalogEntryId: row.entryId,
+        commercialObjectId: row.commercialObjectId,
         catalogId: row.catalogId,
         providerId: row.providerId,
         objectId: row.objectId,
@@ -124,6 +126,7 @@ export class SearchDocumentUpsertService {
         hasImage: values.hasImage,
         qualityRank: values.qualityRank,
         availabilityRank: values.availabilityRank,
+        visibleAttributesPayload: values.visibleAttributesPayload,
       });
     }
 

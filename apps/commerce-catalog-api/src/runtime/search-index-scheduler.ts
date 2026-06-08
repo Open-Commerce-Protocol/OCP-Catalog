@@ -55,6 +55,7 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
 
       const pendingEmbeddingRefreshCount = await context.searchIndexJobs.countPendingEmbeddingRefresh({
         catalogId: config.CATALOG_ID,
+        maxCount: config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT + 1,
       });
       const includeEmbeddingRefresh = pendingEmbeddingRefreshCount <= config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT;
       if (!includeEmbeddingRefresh) {
@@ -63,7 +64,7 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
           level: 'info',
           event: 'search_index_embedding_refresh_deferred_to_batch',
           reason,
-          pending_embedding_refresh_count: pendingEmbeddingRefreshCount,
+          pending_embedding_refresh_count_at_least: pendingEmbeddingRefreshCount,
           realtime_embedding_backlog_limit: config.CATALOG_SEARCH_INDEX_REALTIME_EMBEDDING_BACKLOG_LIMIT,
         }));
       }

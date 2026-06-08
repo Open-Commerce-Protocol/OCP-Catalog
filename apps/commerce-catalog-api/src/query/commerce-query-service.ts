@@ -13,7 +13,23 @@ import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
 import type { CatalogSemanticRetriever } from '../search/retrieval/catalog-semantic-retrieval-service';
+import type { TextIndexStoredDocument } from '../search/retrieval/vector-index-adapter';
 import { planCommerceQuery } from './commerce-query-planner';
+
+type CandidateRow = {
+  documentId: string;
+  entryId: string;
+  commercialObjectId: string;
+  title: string;
+  summary: string | null;
+  providerId: string;
+  objectId: string;
+  objectType: string;
+  searchText: string;
+  fullTextRank: number;
+  visibleAttributesPayload: Record<string, unknown>;
+  explainPayload: Record<string, unknown>;
+};
 
 export type CommerceQueryMeta = {
   requesterKey?: string | null;
@@ -63,9 +79,10 @@ export class CommerceQueryService {
     const usesDatabasePagination = queryMode === 'filter' && terms.length === 0 && !usesSemanticScore;
     let textSearchFailed = false;
     let textScores = new Map<string, number>();
+    const textDocuments = new Map<string, TextIndexStoredDocument>();
     if (usesOpenSearchText) {
       try {
-        textScores = await this.retrieval!.searchText!({
+        const textMatches = await this.retrieval!.searchText!({
           catalogId,
           query: request.query,
           limit: computeTextResultLimit(candidatePageEnd, queryMode),
@@ -82,6 +99,10 @@ export class CommerceQueryService {
             maxAmount: request.filters.max_amount,
           },
         });
+        textScores = new Map(textMatches.map((match) => [match.documentId, match.score]));
+        for (const match of textMatches) {
+          if (match.document) textDocuments.set(match.documentId, match.document);
+        }
       } catch (error) {
         textSearchFailed = true;
         console.warn(JSON.stringify({
@@ -94,6 +115,8 @@ export class CommerceQueryService {
     }
     const keywordRows = queryMode === 'semantic'
       ? []
+      : textScores.size > 0 && textDocuments.size === textScores.size
+      ? [...textDocuments.values()].map((document) => textDocumentToCandidateRow(document, textScores.get(document.documentId) ?? 0))
       : textScores.size > 0
       ? await this.selectCandidateRows({
         conditions: [...baseConditions, inArray(schema.catalogSearchDocuments.id, [...textScores.keys()])],
@@ -230,7 +253,7 @@ export class CommerceQueryService {
     offset?: number;
     fullTextQuery?: string;
     rankByDocumentId?: Map<string, number>;
-  }) {
+  }): Promise<CandidateRow[]> {
     const conditions = [...input.conditions];
     const fullTextRank = input.fullTextQuery
       ? sql<number>`ts_rank(${schema.catalogSearchDocuments.searchVector}, plainto_tsquery('simple', ${input.fullTextQuery}))`
@@ -267,6 +290,23 @@ export class CommerceQueryService {
         ? rows.map((row) => ({ ...row, fullTextRank: input.rankByDocumentId!.get(row.documentId) ?? 0 }))
         : rows);
   }
+}
+
+function textDocumentToCandidateRow(document: TextIndexStoredDocument, score: number): CandidateRow {
+  return {
+    documentId: document.documentId,
+    entryId: document.catalogEntryId,
+    commercialObjectId: document.commercialObjectId,
+    title: document.title,
+    summary: document.summary,
+    providerId: document.providerId,
+    objectId: document.objectId,
+    objectType: document.objectType,
+    searchText: document.searchText,
+    fullTextRank: score,
+    visibleAttributesPayload: document.visibleAttributesPayload,
+    explainPayload: {},
+  };
 }
 
 function tokenize(query: string) {

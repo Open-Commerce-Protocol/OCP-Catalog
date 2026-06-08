@@ -18,6 +18,7 @@ export type VectorIndexQueryInput = {
 export type VectorIndexMatch = {
   documentId: string;
   score: number;
+  document?: TextIndexStoredDocument;
 };
 
 export type VectorIndexQueryResult = {
@@ -54,6 +55,8 @@ export type VectorIndexDocument = {
 
 export type TextIndexDocument = {
   documentId: string;
+  catalogEntryId: string;
+  commercialObjectId: string;
   catalogId: string;
   providerId: string;
   objectId: string;
@@ -71,6 +74,22 @@ export type TextIndexDocument = {
   hasImage: boolean;
   qualityRank: number;
   availabilityRank: number;
+  visibleAttributesPayload: Record<string, unknown>;
+};
+
+export type TextIndexStoredDocument = {
+  documentId: string;
+  catalogEntryId: string;
+  commercialObjectId: string;
+  catalogId: string;
+  providerId: string;
+  objectId: string;
+  objectType: string;
+  documentStatus: 'pending' | 'active' | 'inactive' | 'stale' | 'failed';
+  title: string;
+  summary: string | null;
+  searchText: string;
+  visibleAttributesPayload: Record<string, unknown>;
 };
 
 export type VectorIndexHealth = {
@@ -88,6 +107,10 @@ export interface WritableVectorIndexAdapter extends VectorIndexAdapter {
   ensureIndex(): Promise<void>;
   upsert(input: VectorIndexDocument): Promise<void>;
   delete(documentId: string): Promise<void>;
+}
+
+export interface BulkWritableVectorIndexAdapter extends WritableVectorIndexAdapter {
+  bulkUpsert(input: VectorIndexDocument[]): Promise<void>;
 }
 
 export interface TextSearchIndexAdapter {

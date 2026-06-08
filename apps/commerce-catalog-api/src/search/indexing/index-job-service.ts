@@ -227,6 +227,7 @@ export class SearchIndexJobService {
   async countPendingEmbeddingRefresh(input: {
     catalogId?: string;
     now?: Date;
+    maxCount?: number;
   } = {}) {
     const conditions = [
       eq(schema.catalogSearchIndexJobs.jobType, 'refresh_embedding'),
@@ -234,6 +235,23 @@ export class SearchIndexJobService {
       lte(schema.catalogSearchIndexJobs.scheduledAt, input.now ?? new Date()),
     ];
     if (input.catalogId) conditions.push(eq(schema.catalogSearchIndexJobs.catalogId, input.catalogId));
+
+    if (input.maxCount !== undefined) {
+      const nowIso = (input.now ?? new Date()).toISOString();
+      const [row] = await this.db.execute(sql`
+        select count(*)::int as count
+        from (
+          select 1
+          from catalog_search_index_jobs
+          where job_type = 'refresh_embedding'
+            and status = 'pending'
+            and scheduled_at <= ${nowIso}::timestamptz
+            ${input.catalogId ? sql`and catalog_id = ${input.catalogId}` : sql``}
+          limit ${input.maxCount}
+        ) pending_embedding_jobs
+      `) as Array<{ count: number }>;
+      return row?.count ?? 0;
+    }
 
     const [row] = await this.db
       .select({ count: sql<number>`count(*)::int` })

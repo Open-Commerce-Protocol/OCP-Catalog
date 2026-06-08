@@ -3,14 +3,18 @@ import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
 import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { readFile } from 'node:fs/promises';
 import {
   buildSearchDocumentEmbeddingText,
   hashEmbeddingText,
   type SearchEmbeddingService,
 } from './search-embedding-service';
+import type { BulkWritableVectorIndexAdapter, VectorIndexDocument } from '../retrieval/vector-index-adapter';
 
 const BATCH_EMBEDDINGS_ENDPOINT = '/v1/embeddings';
 const OPENAI_BATCH_REQUEST_LIMIT = 50_000;
+const DEFAULT_OPENAI_BATCH_REQUEST_LIMIT = 5_000;
+const INGEST_CHUNK_SIZE = 250;
 
 type OpenAIBatchStatus =
   | 'validating'
@@ -74,7 +78,7 @@ export class OpenAIEmbeddingBatchBackfillService {
     dryRun?: boolean;
   } = {}) {
     this.assertOpenAIConfigured();
-    const limit = Math.min(options.limit ?? OPENAI_BATCH_REQUEST_LIMIT, OPENAI_BATCH_REQUEST_LIMIT);
+    const limit = Math.min(options.limit ?? DEFAULT_OPENAI_BATCH_REQUEST_LIMIT, OPENAI_BATCH_REQUEST_LIMIT);
     const candidates = await this.loadCandidates({
       limit,
       providerId: options.providerId,
@@ -158,7 +162,7 @@ export class OpenAIEmbeddingBatchBackfillService {
     return updated;
   }
 
-  async ingest(options: { jobId?: string; limit?: number } = {}) {
+  async ingest(options: { jobId?: string; limit?: number; outputFilePath?: string } = {}) {
     this.assertOpenAIConfigured();
     const jobs = await this.loadIngestibleJobs(options.jobId);
     const results: Array<{
@@ -171,18 +175,35 @@ export class OpenAIEmbeddingBatchBackfillService {
     for (const job of jobs) {
       if (!job.outputFileId) continue;
       await this.markJobIngesting(job.id);
-      const content = await this.client.downloadFileContent(job.outputFileId);
-      const result = await this.ingestOutput(job, content, options.limit);
-      await this.db.update(schema.catalogEmbeddingBatchJobs)
-        .set({
-          status: 'ingested',
-          ingestedCount: job.ingestedCount + result.ingestedCount,
-          failedCount: job.failedCount + result.failedCount,
-          ingestedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
-      results.push({ jobId: job.id, ...result });
+      try {
+        const content = options.outputFilePath
+          ? await readFile(options.outputFilePath, 'utf8')
+          : await this.client.downloadFileContent(job.outputFileId);
+        const result = await this.ingestOutput(job, content, options.limit);
+        const nextIngestedCount = result.ingestedCount;
+        const nextFailedCount = result.failedCount;
+        const fullyProcessed = !options.limit || nextIngestedCount + nextFailedCount >= job.requestedCount;
+        await this.db.update(schema.catalogEmbeddingBatchJobs)
+          .set({
+            status: fullyProcessed ? 'ingested' : 'completed',
+            ingestedCount: nextIngestedCount,
+            failedCount: nextFailedCount,
+            ingestedAt: fullyProcessed ? new Date() : job.ingestedAt,
+            error: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
+        results.push({ jobId: job.id, ...result });
+      } catch (error) {
+        await this.db.update(schema.catalogEmbeddingBatchJobs)
+          .set({
+            status: 'completed',
+            error: error instanceof Error ? error.message.slice(0, 4000) : String(error).slice(0, 4000),
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
+        throw error;
+      }
     }
 
     return results;
@@ -222,20 +243,24 @@ export class OpenAIEmbeddingBatchBackfillService {
 
   private async embeddingServiceJobsMarkCompleted(documentIds: string[]) {
     if (documentIds.length === 0) return 0;
-    const rows = await this.db.execute(sql`
-      update catalog_search_index_jobs
-      set
-        status = 'completed',
-        finished_at = now(),
-        updated_at = now()
-      where catalog_id = ${this.config.CATALOG_ID}
-        and job_type = 'refresh_embedding'
-        and status = 'pending'
-        and payload->>'search_document_id' = any(${documentIds}::text[])
-      returning id
-    `);
+    let completedCount = 0;
+    for (const chunk of chunks(unique(documentIds), 1000)) {
+      const rows = await this.db.execute(sql`
+        update catalog_search_index_jobs
+        set
+          status = 'completed',
+          finished_at = now(),
+          updated_at = now()
+        where catalog_id = ${this.config.CATALOG_ID}
+          and job_type = 'refresh_embedding'
+          and status = 'pending'
+          and payload->>'search_document_id' in (${sql.join(chunk.map((documentId) => sql`${documentId}`), sql`, `)})
+        returning id
+      `);
+      completedCount += rows.length;
+    }
 
-    return rows.length;
+    return completedCount;
   }
 
   private toBatchRequest(document: SearchDocument): BatchEmbeddingRequest | null {
@@ -306,50 +331,178 @@ export class OpenAIEmbeddingBatchBackfillService {
     let failedCount = 0;
     let skippedCount = 0;
     const processedDocumentIds: string[] = [];
-    for (const line of content.split('\n')) {
-      if (!line.trim()) continue;
-      if (limit && ingestedCount + failedCount + skippedCount >= limit) break;
-      const parsed = JSON.parse(line) as OpenAIBatchOutputLine;
-      const documentId = parsed.custom_id;
-      if (!documentId) {
-        skippedCount += 1;
-        continue;
-      }
-      const document = await this.embeddingService.loadSearchDocument(documentId);
-      if (!document || document.catalogId !== job.catalogId) {
-        skippedCount += 1;
-        continue;
-      }
-      const embeddingText = buildSearchDocumentEmbeddingText(document);
-      const embeddingTextHash = hashEmbeddingText(embeddingText);
-      const vector = parsed.response?.body?.data?.[0]?.embedding;
-      if (parsed.error || parsed.response?.status_code !== 200 || !isNumberVector(vector)) {
-        await this.embeddingService.recordEmbeddingResult(document, {
+    const outputLines = content.split('\n').filter((line) => line.trim());
+    for (let offset = 0; offset < outputLines.length;) {
+      const remaining = limit ? limit - ingestedCount - failedCount - skippedCount : Number.POSITIVE_INFINITY;
+      if (remaining <= 0) break;
+      const lines = outputLines.slice(offset, offset + Math.min(INGEST_CHUNK_SIZE, remaining));
+      offset += lines.length;
+      const parsedLines = lines.map((line) => JSON.parse(line) as OpenAIBatchOutputLine);
+      const documentIds = parsedLines.map((line) => line.custom_id).filter((value): value is string => Boolean(value));
+      const documents = await this.loadSearchDocumentsById(documentIds, job.catalogId);
+      const existingEmbeddings = await this.loadExistingEmbeddingsByDocumentId(documentIds, job.embeddingModel);
+      const rows: Array<typeof schema.catalogSearchEmbeddings.$inferInsert> = [];
+      const vectorDocuments: VectorIndexDocument[] = [];
+
+      for (const parsed of parsedLines) {
+        const documentId = parsed.custom_id;
+        const document = documentId ? documents.get(documentId) : undefined;
+        if (!documentId || !document) {
+          skippedCount += 1;
+          continue;
+        }
+        const embeddingText = buildSearchDocumentEmbeddingText(document);
+        const embeddingTextHash = hashEmbeddingText(embeddingText);
+        const existing = existingEmbeddings.get(document.id);
+        if (existing?.status === 'ready' && existing.embeddingTextHash === embeddingTextHash) {
+          ingestedCount += 1;
+          processedDocumentIds.push(document.id);
+          continue;
+        }
+        const vector = parsed.response?.body?.data?.[0]?.embedding;
+        const failed = parsed.error || parsed.response?.status_code !== 200 || !isNumberVector(vector);
+        rows.push({
+          id: newId('semb'),
+          catalogId: document.catalogId,
+          catalogSearchDocumentId: document.id,
+          embeddingProvider: 'openai',
+          embeddingModel: job.embeddingModel,
+          embeddingDimension: failed ? job.embeddingDimension : vector.length,
           embeddingText,
           embeddingTextHash,
-          embeddingDimension: job.embeddingDimension,
-          embeddingVector: [],
-          status: 'failed',
-          error: JSON.stringify(parsed.error ?? parsed.response ?? 'unknown batch embedding error').slice(0, 4000),
+          embeddingVector: failed ? [] : vector,
+          embeddingVectorPg: failed ? [] : vector,
+          status: failed ? 'failed' : 'ready',
+          error: failed
+            ? JSON.stringify(parsed.error ?? parsed.response ?? 'unknown batch embedding error').slice(0, 4000)
+            : null,
         });
-        failedCount += 1;
+        if (failed) {
+          failedCount += 1;
+        } else {
+          ingestedCount += 1;
+          vectorDocuments.push({
+            documentId: document.id,
+            catalogId: document.catalogId,
+            providerId: document.providerId,
+            objectType: document.objectType,
+            embeddingVector: vector,
+            embeddingTextHash,
+          });
+        }
         processedDocumentIds.push(document.id);
-        continue;
       }
 
-      await this.embeddingService.recordEmbeddingResult(document, {
-        embeddingText,
-        embeddingTextHash,
-        embeddingDimension: vector.length,
-        embeddingVector: vector,
-        status: 'ready',
-        error: null,
-      });
-      ingestedCount += 1;
-      processedDocumentIds.push(document.id);
+      await this.bulkRecordEmbeddingRows(rows);
+      await this.bulkUpsertVectorDocuments(vectorDocuments);
+      await this.updateIngestProgress(job, { ingestedCount, failedCount });
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'info',
+        event: 'embedding_batch_ingest_chunk',
+        job_id: job.id,
+        processed_count: ingestedCount + failedCount + skippedCount,
+        ingested_count: ingestedCount,
+        failed_count: failedCount,
+        skipped_count: skippedCount,
+      }));
     }
-    await this.embeddingServiceJobsMarkCompleted(processedDocumentIds);
+    await this.tryEmbeddingServiceJobsMarkCompleted(processedDocumentIds);
     return { ingestedCount, failedCount, skippedCount };
+  }
+
+  private async tryEmbeddingServiceJobsMarkCompleted(documentIds: string[]) {
+    if (documentIds.length > 5000) {
+      console.warn(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'warn',
+        event: 'embedding_batch_index_job_cleanup_skipped',
+        document_count: documentIds.length,
+        reason: 'too_many_documents_for_json_payload_cleanup',
+      }));
+      return 0;
+    }
+    try {
+      return await this.embeddingServiceJobsMarkCompleted(documentIds);
+    } catch (error) {
+      console.warn(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'warn',
+        event: 'embedding_batch_index_job_cleanup_failed',
+        document_count: documentIds.length,
+        error: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
+      }));
+      return 0;
+    }
+  }
+
+  private async loadSearchDocumentsById(documentIds: string[], catalogId: string) {
+    if (documentIds.length === 0) return new Map<string, SearchDocument>();
+    const rows = await this.db
+      .select()
+      .from(schema.catalogSearchDocuments)
+      .where(and(
+        eq(schema.catalogSearchDocuments.catalogId, catalogId),
+        inArray(schema.catalogSearchDocuments.id, documentIds),
+      ));
+    return new Map(rows.map((row) => [row.id, row]));
+  }
+
+  private async loadExistingEmbeddingsByDocumentId(documentIds: string[], embeddingModel: string) {
+    if (documentIds.length === 0) return new Map<string, typeof schema.catalogSearchEmbeddings.$inferSelect>();
+    const rows = await this.db
+      .select()
+      .from(schema.catalogSearchEmbeddings)
+      .where(and(
+        eq(schema.catalogSearchEmbeddings.embeddingModel, embeddingModel),
+        inArray(schema.catalogSearchEmbeddings.catalogSearchDocumentId, documentIds),
+      ));
+    return new Map(rows.map((row) => [row.catalogSearchDocumentId, row]));
+  }
+
+  private async updateIngestProgress(job: BatchBackfillJob, counts: { ingestedCount: number; failedCount: number }) {
+    await this.db.update(schema.catalogEmbeddingBatchJobs)
+      .set({
+        ingestedCount: counts.ingestedCount,
+        failedCount: counts.failedCount,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
+  }
+
+  private async bulkRecordEmbeddingRows(rows: Array<typeof schema.catalogSearchEmbeddings.$inferInsert>) {
+    if (rows.length === 0) return;
+    await this.db.insert(schema.catalogSearchEmbeddings)
+      .values(rows)
+      .onConflictDoUpdate({
+        target: [
+          schema.catalogSearchEmbeddings.catalogSearchDocumentId,
+          schema.catalogSearchEmbeddings.embeddingModel,
+        ],
+        set: {
+          embeddingProvider: sql`excluded.embedding_provider`,
+          embeddingDimension: sql`excluded.embedding_dimension`,
+          embeddingText: sql`excluded.embedding_text`,
+          embeddingTextHash: sql`excluded.embedding_text_hash`,
+          embeddingVector: sql`excluded.embedding_vector`,
+          embeddingVectorPg: sql`excluded.embedding_vector_pg`,
+          status: sql`excluded.status`,
+          error: sql`excluded.error`,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  private async bulkUpsertVectorDocuments(documents: VectorIndexDocument[]) {
+    const writableVectorIndex = this.embeddingService.writableVectorIndex;
+    if (!writableVectorIndex || documents.length === 0) return;
+    if (isBulkWritableVectorIndex(writableVectorIndex)) {
+      await writableVectorIndex.bulkUpsert(documents);
+      return;
+    }
+    for (const document of documents) {
+      await writableVectorIndex.upsert(document);
+    }
   }
 
   private assertOpenAIConfigured() {
@@ -417,10 +570,44 @@ class OpenAIBatchClient {
   }
 
   async downloadFileContent(fileId: string): Promise<string> {
-    return this.request(`/files/${encodeURIComponent(fileId)}/content`, {
+    return this.requestWithRetry(`/files/${encodeURIComponent(fileId)}/content`, {
       method: 'GET',
       text: true,
+      timeoutMs: Math.max(this.timeoutMs, 10 * 60 * 1000),
+    }, {
+      attempts: 5,
+      baseDelayMs: 5000,
     });
+  }
+
+  private async requestWithRetry<T = unknown>(path: string, options: {
+    method: 'GET' | 'POST';
+    json?: unknown;
+    body?: BodyInit;
+    text?: boolean;
+    timeoutMs?: number;
+  }, retry: { attempts: number; baseDelayMs: number }): Promise<T> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= retry.attempts; attempt += 1) {
+      try {
+        return await this.request<T>(path, options);
+      } catch (error) {
+        lastError = error;
+        if (attempt >= retry.attempts || !isRetryableOpenAIError(error)) break;
+        const delayMs = retry.baseDelayMs * attempt;
+        console.warn(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'warn',
+          event: 'openai_batch_file_download_retry',
+          path,
+          attempt,
+          next_delay_ms: delayMs,
+          error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
+        }));
+        await sleep(delayMs);
+      }
+    }
+    throw lastError;
   }
 
   private async request<T = unknown>(path: string, options: {
@@ -428,9 +615,10 @@ class OpenAIBatchClient {
     json?: unknown;
     body?: BodyInit;
     text?: boolean;
+    timeoutMs?: number;
   }): Promise<T> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? this.timeoutMs);
     try {
       const headers: Record<string, string> = {
         authorization: `Bearer ${this.apiKey}`,
@@ -480,4 +668,34 @@ function truncateInput(input: string, maxInputChars: number) {
 
 function isNumberVector(value: unknown): value is number[] {
   return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'number' && Number.isFinite(item));
+}
+
+function isBulkWritableVectorIndex(value: unknown): value is BulkWritableVectorIndexAdapter {
+  return Boolean(value && typeof value === 'object' && 'bulkUpsert' in value);
+}
+
+function unique<T>(items: T[]) {
+  return [...new Set(items)];
+}
+
+function chunks<T>(items: T[], size: number) {
+  const result: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += size) {
+    result.push(items.slice(offset, offset + size));
+  }
+  return result;
+}
+
+function isRetryableOpenAIError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes(' 429 ')
+    || message.includes(' 500 ')
+    || message.includes(' 502 ')
+    || message.includes(' 503 ')
+    || message.includes(' 504 ')
+    || message.includes('aborted');
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -91,7 +91,24 @@ describe('OpenSearchVectorIndexAdapter', () => {
       return Response.json({
         hits: {
           hits: [
-            { _id: 'sdoc_1', _score: 12.34567, _source: { document_id: 'sdoc_1' } },
+            {
+              _id: 'sdoc_1',
+              _score: 12.34567,
+              _source: {
+                document_id: 'sdoc_1',
+                catalog_entry_id: 'centry_1',
+                commercial_object_id: 'cobj_1',
+                catalog_id: 'cat_1',
+                provider_id: 'provider_1',
+                object_id: 'obj_1',
+                object_type: 'product',
+                document_status: 'active',
+                title: 'Travel Headphones',
+                summary: 'Wireless audio',
+                search_text: 'travel headphones wireless audio',
+                visible_attributes_payload: { title: 'Travel Headphones' },
+              },
+            },
           ],
         },
       });
@@ -100,6 +117,8 @@ describe('OpenSearchVectorIndexAdapter', () => {
     const adapter = new OpenSearchVectorIndexAdapter(config(), profile());
     await adapter.upsertText({
       documentId: 'sdoc_1',
+      catalogEntryId: 'centry_1',
+      commercialObjectId: 'cobj_1',
       catalogId: 'cat_1',
       providerId: 'provider_1',
       objectId: 'obj_1',
@@ -117,6 +136,11 @@ describe('OpenSearchVectorIndexAdapter', () => {
       hasImage: true,
       qualityRank: 30,
       availabilityRank: 30,
+      visibleAttributesPayload: {
+        title: 'Travel Headphones',
+        provider_id: 'provider_1',
+        object_id: 'obj_1',
+      },
     });
     const matches = await adapter.searchText({
       catalogId: 'cat_1',
@@ -134,6 +158,8 @@ describe('OpenSearchVectorIndexAdapter', () => {
       doc_as_upsert: true,
       doc: {
         document_id: 'sdoc_1',
+        catalog_entry_id: 'centry_1',
+        commercial_object_id: 'cobj_1',
         document_status: 'active',
         search_text: 'travel headphones wireless audio',
       },
@@ -157,7 +183,24 @@ describe('OpenSearchVectorIndexAdapter', () => {
         },
       },
     });
-    expect(matches).toEqual([{ documentId: 'sdoc_1', score: 12.3457 }]);
+    expect(matches).toEqual([{
+      documentId: 'sdoc_1',
+      score: 12.3457,
+      document: {
+        documentId: 'sdoc_1',
+        catalogEntryId: 'centry_1',
+        commercialObjectId: 'cobj_1',
+        catalogId: 'cat_1',
+        providerId: 'provider_1',
+        objectId: 'obj_1',
+        objectType: 'product',
+        documentStatus: 'active',
+        title: 'Travel Headphones',
+        summary: 'Wireless audio',
+        searchText: 'travel headphones wireless audio',
+        visibleAttributesPayload: { title: 'Travel Headphones' },
+      },
+    }]);
   });
 });
 

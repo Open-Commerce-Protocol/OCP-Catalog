@@ -1,5 +1,5 @@
 import type { EmbeddingProvider } from '../indexing/search-embedding-service';
-import type { TextIndexQueryInput, TextSearchIndexAdapter, VectorIndexAdapter } from './vector-index-adapter';
+import type { TextIndexQueryInput, TextSearchIndexAdapter, VectorIndexAdapter, VectorIndexMatch } from './vector-index-adapter';
 
 export type SemanticRetrievalQuery = {
   catalogId: string;
@@ -12,10 +12,24 @@ export type SemanticRetrievalQuery = {
 
 export interface CatalogSemanticRetriever {
   nearestNeighbors(input: SemanticRetrievalQuery): Promise<Map<string, number>>;
-  searchText?(input: TextIndexQueryInput): Promise<Map<string, number>>;
+  searchText?(input: TextIndexQueryInput): Promise<VectorIndexMatch[]>;
 }
 
 export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever {
+  private readonly queryEmbeddingCache = new Map<string, {
+    expiresAt: number;
+    vector: number[];
+    model: string;
+    dimension: number;
+  }>();
+  private readonly inFlightQueryEmbeddings = new Map<string, Promise<{
+    vector: number[];
+    model: string;
+    dimension: number;
+  }>>();
+  private readonly queryEmbeddingCacheTtlMs = 10 * 60 * 1000;
+  private readonly queryEmbeddingCacheMaxEntries = 5000;
+
   constructor(
     private readonly provider: EmbeddingProvider,
     private readonly vectorIndex: VectorIndexAdapter & Partial<TextSearchIndexAdapter>,
@@ -25,7 +39,7 @@ export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever
     const normalizedQuery = input.query.trim();
     if (!normalizedQuery || input.limit <= 0) return new Map<string, number>();
 
-    const queryEmbedding = await this.provider.embed(normalizedQuery);
+    const queryEmbedding = await this.embedQuery(normalizedQuery);
     if (
       queryEmbedding.model !== this.vectorIndex.profile.embeddingModel ||
       queryEmbedding.dimension !== this.vectorIndex.profile.embeddingDimension
@@ -48,8 +62,44 @@ export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever
   }
 
   async searchText(input: TextIndexQueryInput) {
-    if (typeof this.vectorIndex.searchText !== 'function') return new Map<string, number>();
-    const matches = await this.vectorIndex.searchText(input);
-    return new Map(matches.map((match) => [match.documentId, match.score]));
+    if (typeof this.vectorIndex.searchText !== 'function') return [];
+    return this.vectorIndex.searchText(input);
+  }
+
+  private async embedQuery(query: string) {
+    const cacheKey = `${this.provider.providerId}:${this.provider.model}:${this.provider.dimension}:${query.toLowerCase()}`;
+    const now = Date.now();
+    const cached = this.queryEmbeddingCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      this.queryEmbeddingCache.delete(cacheKey);
+      this.queryEmbeddingCache.set(cacheKey, cached);
+      return cached;
+    }
+
+    const inFlight = this.inFlightQueryEmbeddings.get(cacheKey);
+    if (inFlight) return inFlight;
+
+    const promise = this.provider.embed(query)
+      .then((embedding) => {
+        const cachedEmbedding = {
+          vector: embedding.vector,
+          model: embedding.model,
+          dimension: embedding.dimension,
+          expiresAt: Date.now() + this.queryEmbeddingCacheTtlMs,
+        };
+        this.queryEmbeddingCache.set(cacheKey, cachedEmbedding);
+        while (this.queryEmbeddingCache.size > this.queryEmbeddingCacheMaxEntries) {
+          const oldestKey = this.queryEmbeddingCache.keys().next().value;
+          if (!oldestKey) break;
+          this.queryEmbeddingCache.delete(oldestKey);
+        }
+        return cachedEmbedding;
+      })
+      .finally(() => {
+        this.inFlightQueryEmbeddings.delete(cacheKey);
+      });
+
+    this.inFlightQueryEmbeddings.set(cacheKey, promise);
+    return promise;
   }
 }

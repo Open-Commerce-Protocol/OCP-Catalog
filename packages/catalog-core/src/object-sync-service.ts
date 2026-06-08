@@ -411,12 +411,44 @@ export class ObjectSyncService {
     result: ObjectSyncResult,
     options: ObjectSyncOptions,
   ) {
-    const summary = await this.aggregateSyncRun(db, syncRunRowId);
     const completed = options.syncRun?.complete === true;
+    if (!completed) {
+      await db
+        .update(schema.objectSyncRuns)
+        .set({
+          status: 'running',
+          batchCount: sql`${schema.objectSyncRuns.batchCount} + 1`,
+          acceptedCount: sql`${schema.objectSyncRuns.acceptedCount} + ${result.accepted_count}`,
+          rejectedCount: sql`${schema.objectSyncRuns.rejectedCount} + ${result.rejected_count}`,
+          errorCount: sql`${schema.objectSyncRuns.errorCount} + ${result.error_count}`,
+          lastBatchId: result.batch_id,
+          lastChunkOrdinal: options.syncRun?.chunkOrdinal ?? null,
+          checkpoint: sql`jsonb_set(
+            jsonb_set(
+              coalesce(${schema.objectSyncRuns.checkpoint}, '{}'::jsonb),
+              '{last_batch_id}',
+              to_jsonb(${result.batch_id}::text),
+              true
+            ),
+            '{last_chunk_ordinal}',
+            coalesce(to_jsonb(${options.syncRun?.chunkOrdinal ?? null}::int), 'null'::jsonb),
+            true
+          )`,
+          resultSummary: {
+            last_batch_id: result.batch_id,
+            last_chunk_ordinal: options.syncRun?.chunkOrdinal ?? null,
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.objectSyncRuns.id, syncRunRowId));
+      return;
+    }
+
+    const summary = await this.aggregateSyncRun(db, syncRunRowId);
     await db
       .update(schema.objectSyncRuns)
       .set({
-        status: completed ? syncRunStatusFromCounts(summary.acceptedCount, summary.rejectedCount) : 'running',
+        status: syncRunStatusFromCounts(summary.acceptedCount, summary.rejectedCount),
         batchCount: summary.batchCount,
         acceptedCount: summary.acceptedCount,
         rejectedCount: summary.rejectedCount,
@@ -433,7 +465,7 @@ export class ObjectSyncService {
           last_chunk_ordinal: options.syncRun?.chunkOrdinal ?? null,
         },
         updatedAt: new Date(),
-        finishedAt: completed ? new Date() : null,
+        finishedAt: new Date(),
       })
       .where(eq(schema.objectSyncRuns.id, syncRunRowId));
   }

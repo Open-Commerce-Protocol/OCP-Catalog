@@ -24,6 +24,8 @@ while (processed < limit) {
   const rows = await context.db
     .select({
       id: schema.catalogSearchDocuments.id,
+      catalogEntryId: schema.catalogSearchDocuments.catalogEntryId,
+      commercialObjectId: schema.catalogSearchDocuments.commercialObjectId,
       catalogId: schema.catalogSearchDocuments.catalogId,
       providerId: schema.catalogSearchDocuments.providerId,
       objectId: schema.catalogSearchDocuments.objectId,
@@ -41,6 +43,7 @@ while (processed < limit) {
       hasImage: schema.catalogSearchDocuments.hasImage,
       qualityRank: schema.catalogSearchDocuments.qualityRank,
       availabilityRank: schema.catalogSearchDocuments.availabilityRank,
+      visibleAttributesPayload: schema.catalogSearchDocuments.visibleAttributesPayload,
     })
     .from(schema.catalogSearchDocuments)
     .where(and(
@@ -54,6 +57,8 @@ while (processed < limit) {
 
   const documents = rows.map((row): TextIndexDocument => ({
     documentId: row.id,
+    catalogEntryId: row.catalogEntryId,
+    commercialObjectId: row.commercialObjectId,
     catalogId: row.catalogId,
     providerId: row.providerId,
     objectId: row.objectId,
@@ -71,6 +76,7 @@ while (processed < limit) {
     hasImage: row.hasImage,
     qualityRank: row.qualityRank,
     availabilityRank: row.availabilityRank,
+    visibleAttributesPayload: row.visibleAttributesPayload,
   }));
 
   if (!dryRun) {

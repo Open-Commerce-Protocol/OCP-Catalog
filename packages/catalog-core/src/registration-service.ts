@@ -15,6 +15,8 @@ import type { CatalogScenarioModule } from './scenario';
 import { asProjection } from './projection';
 import { createHash, randomBytes } from 'node:crypto';
 
+const PROVIDER_API_KEY_LAST_USED_WRITE_INTERVAL_MS = 10 * 60 * 1000;
+
 export type RequestMeta = {
   sourceIp?: string | null;
   userAgent?: string | null;
@@ -166,10 +168,13 @@ export class RegistrationService {
       ))
       .limit(1);
     if (!row) return false;
-    await this.db
-      .update(schema.providerApiKeys)
-      .set({ lastUsedAt: new Date(), updatedAt: new Date() })
-      .where(eq(schema.providerApiKeys.id, row.id));
+    const now = new Date();
+    if (!row.lastUsedAt || now.getTime() - row.lastUsedAt.getTime() >= PROVIDER_API_KEY_LAST_USED_WRITE_INTERVAL_MS) {
+      await this.db
+        .update(schema.providerApiKeys)
+        .set({ lastUsedAt: now, updatedAt: now })
+        .where(eq(schema.providerApiKeys.id, row.id));
+    }
     return true;
   }
 

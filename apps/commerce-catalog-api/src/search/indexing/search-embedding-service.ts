@@ -36,7 +36,7 @@ export class SearchEmbeddingService {
   constructor(
     private readonly db: Db,
     private readonly provider: EmbeddingProvider,
-    private readonly writableVectorIndex?: WritableVectorIndexAdapter,
+    readonly writableVectorIndex?: WritableVectorIndexAdapter,
   ) {}
 
   async refreshForSearchDocument(documentId: string): Promise<SearchEmbeddingRefreshResult | null> {
