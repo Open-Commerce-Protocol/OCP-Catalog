@@ -5,6 +5,7 @@ import {
   fetchCatalogAdminEntries,
   fetchCatalogAdminOverview,
   fetchCatalogAdminProviders,
+  fetchCatalogAdminQueueTrends,
   fetchCatalogContracts,
   fetchCatalogHealth,
   fetchCatalogManifest,
@@ -22,6 +23,7 @@ import {
   type CatalogAdminEntry,
   type CatalogAdminOverview,
   type CatalogAdminProvider,
+  type CatalogAdminQueueTrends,
   type CatalogContracts,
   type CatalogHealth,
   type CatalogManifest,
@@ -39,6 +41,7 @@ type ToastState = { tone: 'success' | 'danger'; message: string } | null;
 
 type ConsoleState = {
   overview: CatalogAdminOverview | null;
+  queueTrends: CatalogAdminQueueTrends | null;
   providers: CatalogAdminProvider[];
   health: CatalogHealth | null;
   wellKnown: CatalogWellKnown | null;
@@ -52,6 +55,7 @@ type ConsoleState = {
 
 const emptyState: ConsoleState = {
   overview: null,
+  queueTrends: null,
   providers: [],
   health: null,
   wellKnown: null,
@@ -159,10 +163,12 @@ function Sidebar({ activeTab, setActiveTab }: { activeTab: WorkspaceTab; setActi
 
 function Overview({
   overview,
+  queueTrends,
   health,
   registrationCatalog,
 }: {
   overview: CatalogAdminOverview;
+  queueTrends: CatalogAdminQueueTrends | null;
   health: CatalogHealth | null;
   registrationCatalog: RegistrationCatalogRecord | null;
 }) {
@@ -310,7 +316,65 @@ function Overview({
           </div>
         </div>
       </div>
+
+      <QueueTrendPanel overview={overview} queueTrends={queueTrends} />
     </div>
+  );
+}
+
+function QueueTrendPanel({
+  overview,
+  queueTrends,
+}: {
+  overview: CatalogAdminOverview;
+  queueTrends: CatalogAdminQueueTrends | null;
+}) {
+  const buckets = queueTrends?.buckets ?? [];
+  const hourly = groupQueueTrendBuckets(buckets);
+  const maxTotal = Math.max(1, ...hourly.map((bucket) => bucket.created + bucket.completed + bucket.failed));
+
+  return (
+    <section className="operator-panel p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3 border-b border-operator-border pb-4">
+        <div>
+          <h3 className="operator-heading text-lg">Queue Flow</h3>
+          <p className="mt-1 max-w-2xl text-xs text-operator-muted operator-mono">
+            Hourly queue event volume from persisted outbox and search-index job rows.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-right operator-mono">
+          <MiniQueueStat label="pending" value={overview.metrics.pending_index_job_count + overview.metrics.pending_outbox_count} />
+          <MiniQueueStat label="running" value={overview.metrics.running_index_job_count + overview.metrics.running_outbox_count} />
+          <MiniQueueStat label="failed" value={overview.metrics.failed_index_job_count + overview.metrics.failed_outbox_count} />
+        </div>
+      </div>
+      {hourly.length === 0 ? (
+        <EmptyState title="No queue activity in the selected window." body="New outbox or search-index jobs will appear here after providers sync objects." compact />
+      ) : (
+        <div className="space-y-2">
+          {hourly.slice(-24).map((bucket) => (
+            <div key={bucket.bucketAt} className="grid grid-cols-[88px_minmax(0,1fr)_148px] items-center gap-3 text-xs">
+              <div className="text-operator-muted operator-mono">{formatHour(bucket.bucketAt)}</div>
+              <div className="grid h-7 grid-cols-1 overflow-hidden rounded-sm border border-operator-border bg-operator-bg">
+                <div className="flex min-w-0">
+                  <div className="bg-accent-teal/70" style={{ width: `${(bucket.completed / maxTotal) * 100}%` }} />
+                  <div className="bg-accent-brass/70" style={{ width: `${(bucket.created / maxTotal) * 100}%` }} />
+                  <div className="bg-accent-rust/80" style={{ width: `${(bucket.failed / maxTotal) * 100}%` }} />
+                </div>
+              </div>
+              <div className="text-right text-operator-muted operator-mono">
+                +{bucket.created} / ok {bucket.completed} / fail {bucket.failed}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-operator-muted operator-mono">
+        <span><span className="inline-block h-2 w-2 bg-accent-brass/70" /> created</span>
+        <span><span className="inline-block h-2 w-2 bg-accent-teal/70" /> completed</span>
+        <span><span className="inline-block h-2 w-2 bg-accent-rust/80" /> failed</span>
+      </div>
+    </section>
   );
 }
 
@@ -1040,6 +1104,15 @@ function MiniMetric({ label, value }: { label: string; value: number }) {
   );
 }
 
+function MiniQueueStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-sm border border-operator-border bg-operator-bg px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wider text-operator-muted">{label}</div>
+      <div className="text-base operator-heading">{formatCompactNumber(value)}</div>
+    </div>
+  );
+}
+
 function StatusBadge({ tone, label }: { tone: 'success' | 'warning' | 'danger'; label: string }) {
   const toneClass = tone === 'success'
     ? 'border-accent-teal/30 bg-accent-teal/10 text-accent-teal'
@@ -1087,6 +1160,32 @@ function formatTimestamp(value: string | null | undefined) {
   }).format(date);
 }
 
+function formatHour(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '--:--';
+  return new Intl.DateTimeFormat('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function groupQueueTrendBuckets(buckets: CatalogAdminQueueTrends['buckets']) {
+  const grouped = new Map<string, { bucketAt: string; created: number; completed: number; failed: number }>();
+  for (const bucket of buckets) {
+    const current = grouped.get(bucket.bucket_at) ?? {
+      bucketAt: bucket.bucket_at,
+      created: 0,
+      completed: 0,
+      failed: 0,
+    };
+    if (bucket.status === 'created') current.created += bucket.count;
+    if (bucket.status === 'completed') current.completed += bucket.count;
+    if (bucket.status === 'failed' || bucket.status === 'cancelled') current.failed += bucket.count;
+    grouped.set(bucket.bucket_at, current);
+  }
+  return [...grouped.values()].sort((left, right) => left.bucketAt.localeCompare(right.bucketAt));
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('overview');
   const [apiKey, setApiKey] = useState(() => window.localStorage.getItem('catalog-admin-api-key') || 'dev-api-key');
@@ -1118,8 +1217,9 @@ export default function App() {
     try {
       setLoading(true);
       const overview = await fetchCatalogAdminOverview(apiKey);
-      const [providers, health, wellKnown, manifest, contracts] = await Promise.all([
+      const [providers, queueTrends, health, wellKnown, manifest, contracts] = await Promise.all([
         fetchCatalogAdminProviders(apiKey),
+        fetchCatalogAdminQueueTrends(apiKey),
         fetchCatalogHealth(),
         fetchCatalogWellKnown(),
         fetchCatalogManifest(),
@@ -1135,6 +1235,7 @@ export default function App() {
 
       setState({
         overview,
+        queueTrends,
         providers,
         health,
         wellKnown,
@@ -1175,7 +1276,14 @@ export default function App() {
               <EmptyState title="Unable to load catalog admin data." body="Check catalog API availability and the admin key, then refresh." />
             </div>
           ) : null}
-          {activeTab === 'overview' && state.overview ? <Overview overview={state.overview} health={state.health} registrationCatalog={state.registrationCatalog} /> : null}
+          {activeTab === 'overview' && state.overview ? (
+            <Overview
+              overview={state.overview}
+              queueTrends={state.queueTrends}
+              health={state.health}
+              registrationCatalog={state.registrationCatalog}
+            />
+          ) : null}
           {activeTab === 'providers' && <ProvidersPage providers={state.providers} />}
           {activeTab === 'objects' && (
             <ObjectsEntriesPage

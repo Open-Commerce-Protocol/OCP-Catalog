@@ -117,9 +117,6 @@ export class OpenAIEmbeddingBatchBackfillService {
         embedding_dimension: String(this.config.EMBEDDING_DIMENSION),
       },
     });
-    const completedPendingRefreshJobs = await this.embeddingServiceJobsMarkCompleted(
-      requests.map((request) => request.custom_id),
-    );
 
     const [row] = await this.db.insert(schema.catalogEmbeddingBatchJobs).values({
       id: jobId,
@@ -138,7 +135,6 @@ export class OpenAIEmbeddingBatchBackfillService {
       inputTextChars,
       metadata: {
         provider_id: options.providerId ?? null,
-        completed_pending_refresh_jobs: completedPendingRefreshJobs,
       },
       submittedAt: new Date(),
     }).returning();
@@ -207,6 +203,19 @@ export class OpenAIEmbeddingBatchBackfillService {
     }
 
     return results;
+  }
+
+  async countActiveJobs() {
+    const statuses = ['submitted', 'validating', 'in_progress', 'finalizing', 'completed', 'ingesting'] as const;
+    const [row] = await this.db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.catalogEmbeddingBatchJobs)
+      .where(and(
+        eq(schema.catalogEmbeddingBatchJobs.catalogId, this.config.CATALOG_ID),
+        inArray(schema.catalogEmbeddingBatchJobs.status, statuses),
+      ));
+
+    return row?.count ?? 0;
   }
 
   private async loadCandidates(options: { limit: number; providerId?: string }) {

@@ -27,6 +27,10 @@ export function catalogAdminApiRoutes(context: CommerceCatalogRuntimeContext) {
       assertAdminAuth(context, headers);
       return getCatalogAdminEntries(context, query);
     })
+    .get('/api/catalog-admin/queue-trends', async ({ headers, query }) => {
+      assertAdminAuth(context, headers);
+      return getCatalogAdminQueueTrends(context, query);
+    })
     .post('/api/catalog-admin/registration/register', async ({ headers, body }) => {
       assertAdminAuth(context, headers);
       return runRegistrationTargets(context, body, (target) => registerCatalogInRegistration(context, target));
@@ -306,6 +310,83 @@ async function getOutboxMetrics(context: CommerceCatalogRuntimeContext) {
     runningOutboxCount: metrics?.runningOutboxCount ?? 0,
     failedOutboxCount: metrics?.failedOutboxCount ?? 0,
     oldestPendingOutboxCreatedAt: oldestPending?.createdAt ?? null,
+  };
+}
+
+async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext, query: Record<string, string | undefined>) {
+  const hours = parseTrendHours(query.hours);
+  const rows = await context.db.execute(sql`
+    with bounds as (
+      select now() - (${hours}::int * interval '1 hour') as since
+    ),
+    events as (
+      select
+        'search_index_jobs'::text as queue_name,
+        date_trunc('hour', created_at) as bucket_at,
+        'created'::text as status,
+        job_type::text as type
+      from catalog_search_index_jobs, bounds
+      where catalog_id = ${context.config.CATALOG_ID}
+        and created_at >= bounds.since
+      union all
+      select
+        'search_index_jobs'::text as queue_name,
+        date_trunc('hour', finished_at) as bucket_at,
+        status::text as status,
+        job_type::text as type
+      from catalog_search_index_jobs, bounds
+      where catalog_id = ${context.config.CATALOG_ID}
+        and finished_at is not null
+        and finished_at >= bounds.since
+        and status in ('completed', 'failed', 'cancelled')
+      union all
+      select
+        'catalog_outbox'::text as queue_name,
+        date_trunc('hour', created_at) as bucket_at,
+        'created'::text as status,
+        event_type::text as type
+      from catalog_outbox_events, bounds
+      where catalog_id = ${context.config.CATALOG_ID}
+        and created_at >= bounds.since
+      union all
+      select
+        'catalog_outbox'::text as queue_name,
+        date_trunc('hour', finished_at) as bucket_at,
+        status::text as status,
+        event_type::text as type
+      from catalog_outbox_events, bounds
+      where catalog_id = ${context.config.CATALOG_ID}
+        and finished_at is not null
+        and finished_at >= bounds.since
+        and status in ('completed', 'failed')
+    )
+    select
+      queue_name,
+      bucket_at as "bucketAt",
+      status,
+      type,
+      count(*)::int as count
+    from events
+    group by queue_name, bucket_at, status, type
+    order by bucket_at asc, queue_name asc, status asc, type asc
+  `) as Array<{
+    queue_name: string;
+    bucketAt: Date;
+    status: string;
+    type: string;
+    count: number;
+  }>;
+
+  return {
+    catalog_id: context.config.CATALOG_ID,
+    window_hours: hours,
+    buckets: rows.map((row) => ({
+      queue_name: row.queue_name,
+      bucket_at: row.bucketAt.toISOString(),
+      status: row.status,
+      type: row.type,
+      count: row.count,
+    })),
   };
 }
 
@@ -764,6 +845,18 @@ function parseAdminLimit(value: string | undefined) {
     throw new AppError('validation_error', `limit must be an integer from 1 to ${ADMIN_MAX_PAGE_LIMIT}`, 400, {
       limit: value,
       max_limit: ADMIN_MAX_PAGE_LIMIT,
+    });
+  }
+  return parsed;
+}
+
+function parseTrendHours(value: string | undefined) {
+  if (!value) return 24;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 168) {
+    throw new AppError('validation_error', 'hours must be an integer from 1 to 168', 400, {
+      hours: value,
+      max_hours: 168,
     });
   }
   return parsed;

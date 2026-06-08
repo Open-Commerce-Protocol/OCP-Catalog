@@ -17,6 +17,7 @@ import type { RegistrationService } from './registration-service';
 
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
 const MAX_OBJECT_SYNC_BATCH_SIZE = 1_000;
+const UNCHANGED_OBJECT_WARNING = 'unchanged_object_hash';
 
 export type ObjectSyncOptions = {
   syncRun?: {
@@ -90,6 +91,8 @@ export class ObjectSyncService {
     });
     if (existingResult) return existingResult;
 
+    await this.assertProviderSyncAllowed(request.provider_id);
+
     const batchRowId = newId('syncbatch');
     return this.db.transaction(async (tx) => {
       const syncDb = tx as unknown as Db;
@@ -134,7 +137,7 @@ export class ObjectSyncService {
         });
       }
 
-      const items: ObjectSyncItemResult[] = [];
+      const items: SyncItemResult[] = [];
       for (const item of request.objects) {
         const result = await this.syncOne(syncDb, item, {
           catalogId: request.catalog_id,
@@ -174,7 +177,7 @@ export class ObjectSyncService {
         accepted_count: acceptedCount,
         rejected_count: rejectedCount,
         error_count: rejectedCount,
-        items,
+        items: items.map(toPublicItemResult),
       };
 
       await syncDb
@@ -548,7 +551,12 @@ export class ObjectSyncService {
     const events: Array<typeof schema.catalogOutboxEvents.$inferInsert> = [];
     if (options.sideEffects?.searchIndexJobs) {
       for (const item of result.items) {
-        if (item.status !== 'accepted' || !item.catalog_entry_id || !item.commercial_object_id) continue;
+        if (
+          item.status !== 'accepted'
+          || !item.catalog_entry_id
+          || !item.commercial_object_id
+          || item.warnings.includes(UNCHANGED_OBJECT_WARNING)
+        ) continue;
         events.push({
           id: newId('outbox'),
           catalogId: result.catalog_id,
@@ -624,7 +632,7 @@ export class ObjectSyncService {
       });
   }
 
-  private async syncOne(db: Db, input: unknown, context: SyncContext): Promise<ObjectSyncItemResult> {
+  private async syncOne(db: Db, input: unknown, context: SyncContext): Promise<SyncItemResult> {
     const parsed = commercialObjectSchema.safeParse(input);
     if (!parsed.success) {
       return {
@@ -648,7 +656,26 @@ export class ObjectSyncService {
 
     const projection = this.scenario.buildSearchProjection(object);
     const explainProjection = this.scenario.buildExplainProjection?.(object, projection) ?? buildDefaultExplainProjection(object, projection);
+    const rawObjectHash = await hashJson(object);
+    const descriptorHash = await hashJson(toDescriptorHashPayload(object));
     try {
+      const existing = await this.findExistingObjectForSkip(db, context, object.object_id);
+      if (
+        existing?.rawObjectHash === rawObjectHash
+        && existing.descriptorHash === descriptorHash
+        && existing.entryId
+      ) {
+        return {
+          object_id: object.object_id,
+          status: 'accepted',
+          commercial_object_id: existing.commercialObjectId,
+          catalog_entry_id: existing.entryId,
+          errors: [],
+          warnings: [UNCHANGED_OBJECT_WARNING],
+          changed: false,
+        };
+      }
+
       const [commercialObject] = await db
         .insert(schema.commercialObjects)
         .values({
@@ -662,6 +689,8 @@ export class ObjectSyncService {
           status: object.status,
           sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
           rawObject: object as unknown as Record<string, unknown>,
+          rawObjectHash,
+          descriptorHash,
         })
         .onConflictDoUpdate({
           target: [
@@ -676,6 +705,8 @@ export class ObjectSyncService {
             status: object.status,
             sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
             rawObject: object as unknown as Record<string, unknown>,
+            rawObjectHash,
+            descriptorHash,
             updatedAt: new Date(),
           },
         })
@@ -764,6 +795,7 @@ export class ObjectSyncService {
         catalog_entry_id: entry.id,
         errors: [],
         warnings: [],
+        changed: true,
       };
     } catch (error) {
       return {
@@ -774,6 +806,88 @@ export class ObjectSyncService {
       };
     }
   }
+
+  private async findExistingObjectForSkip(db: Db, context: SyncContext, objectId: string) {
+    const [row] = await db
+      .select({
+        commercialObjectId: schema.commercialObjects.id,
+        rawObjectHash: schema.commercialObjects.rawObjectHash,
+        descriptorHash: schema.commercialObjects.descriptorHash,
+        entryId: schema.catalogEntries.id,
+      })
+      .from(schema.commercialObjects)
+      .leftJoin(schema.catalogEntries, eq(schema.catalogEntries.commercialObjectId, schema.commercialObjects.id))
+      .where(and(
+        eq(schema.commercialObjects.catalogId, context.catalogId),
+        eq(schema.commercialObjects.providerId, context.providerId),
+        eq(schema.commercialObjects.objectId, objectId),
+      ))
+      .limit(1);
+
+    return row ?? null;
+  }
+
+  private async assertProviderSyncAllowed(providerId: string) {
+    if (!this.config.CATALOG_PROVIDER_THROTTLE_ENABLED) return;
+    const [control, backlog] = await Promise.all([
+      this.db
+        .select()
+        .from(schema.providerSyncControls)
+        .where(and(
+          eq(schema.providerSyncControls.catalogId, this.config.CATALOG_ID),
+          eq(schema.providerSyncControls.providerId, providerId),
+        ))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      this.db
+        .select({
+          pendingCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'pending')::int`,
+          runningCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'running')::int`,
+          failedCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'failed')::int`,
+        })
+        .from(schema.catalogSearchIndexJobs)
+        .where(and(
+          eq(schema.catalogSearchIndexJobs.catalogId, this.config.CATALOG_ID),
+          eq(schema.catalogSearchIndexJobs.providerId, providerId),
+        ))
+        .then((rows) => rows[0] ?? { pendingCount: 0, runningCount: 0, failedCount: 0 }),
+    ]);
+
+    const now = new Date();
+    if (control?.status === 'paused') {
+      throw providerThrottled(providerId, 'provider_sync_paused', {
+        pause_reason: control.pauseReason,
+      });
+    }
+    if (control?.cooldownUntil && control.cooldownUntil > now) {
+      throw providerThrottled(providerId, 'provider_sync_cooldown', {
+        cooldown_until: control.cooldownUntil.toISOString(),
+        pause_reason: control.pauseReason,
+      });
+    }
+
+    const pendingLimit = control?.maxPendingIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_PENDING_JOB_LIMIT;
+    const runningLimit = control?.maxRunningIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_RUNNING_JOB_LIMIT;
+    const failedLimit = control?.maxFailedIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_FAILED_JOB_LIMIT;
+    if (pendingLimit > 0 && backlog.pendingCount >= pendingLimit) {
+      throw providerThrottled(providerId, 'provider_pending_index_backlog_limit', {
+        pending_index_job_count: backlog.pendingCount,
+        pending_index_job_limit: pendingLimit,
+      });
+    }
+    if (runningLimit > 0 && backlog.runningCount >= runningLimit) {
+      throw providerThrottled(providerId, 'provider_running_index_backlog_limit', {
+        running_index_job_count: backlog.runningCount,
+        running_index_job_limit: runningLimit,
+      });
+    }
+    if (failedLimit > 0 && backlog.failedCount >= failedLimit) {
+      throw providerThrottled(providerId, 'provider_failed_index_backlog_limit', {
+        failed_index_job_count: backlog.failedCount,
+        failed_index_job_limit: failedLimit,
+      });
+    }
+  }
 }
 
 type SyncContext = {
@@ -782,6 +896,29 @@ type SyncContext = {
   registrationVersion: number;
   scenario: CatalogScenarioModule;
 };
+
+type SyncItemResult = ObjectSyncItemResult & {
+  changed?: boolean;
+};
+
+function toPublicItemResult(item: SyncItemResult): ObjectSyncItemResult {
+  return {
+    object_id: item.object_id,
+    status: item.status,
+    commercial_object_id: item.commercial_object_id,
+    catalog_entry_id: item.catalog_entry_id,
+    errors: item.errors,
+    warnings: item.warnings,
+  };
+}
+
+function providerThrottled(providerId: string, reason: string, details: Record<string, unknown>) {
+  return new AppError('rate_limited', `Provider ${providerId} sync is throttled: ${reason}`, 429, {
+    provider_id: providerId,
+    reason,
+    ...details,
+  });
+}
 
 function validateCommercialObject(object: CommercialObject, context: SyncContext) {
   const errors: string[] = [];
@@ -892,11 +1029,31 @@ function publicErrorMessage(error: unknown) {
 }
 
 async function hashJson(value: unknown) {
-  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const bytes = new TextEncoder().encode(stableStringify(value));
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+}
+
+function toDescriptorHashPayload(object: CommercialObject) {
+  return object.descriptors
+    .map((descriptor) => ({
+      pack_id: descriptor.pack_id,
+      schema_uri: descriptor.schema_uri ?? null,
+      data: descriptor.data,
+    }))
+    .sort((left, right) => (
+      left.pack_id.localeCompare(right.pack_id)
+      || String(left.schema_uri ?? '').localeCompare(String(right.schema_uri ?? ''))
+    ));
+}
+
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`).join(',')}}`;
 }
 
 function syncRunStatusFromCounts(acceptedCount: number, rejectedCount: number) {

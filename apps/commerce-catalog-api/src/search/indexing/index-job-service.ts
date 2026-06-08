@@ -318,6 +318,31 @@ export class SearchIndexJobService {
       })
       .where(eq(schema.catalogSearchIndexJobs.id, job.id));
   }
+
+  async cleanupCompleted(input: {
+    catalogId: string;
+    olderThan: Date;
+    limit: number;
+  }) {
+    const rows = await this.db.execute(sql`
+      with deleted_jobs as (
+        select id
+        from catalog_search_index_jobs
+        where catalog_id = ${input.catalogId}
+          and status = 'completed'
+          and finished_at is not null
+          and finished_at < ${input.olderThan.toISOString()}::timestamptz
+        order by finished_at asc, id asc
+        limit ${input.limit}
+      )
+      delete from catalog_search_index_jobs jobs
+      using deleted_jobs
+      where jobs.id = deleted_jobs.id
+      returning jobs.id
+    `);
+
+    return rows.length;
+  }
 }
 
 function toInsertValue(input: EnqueueJobInput, defaultMaxAttempts: number) {

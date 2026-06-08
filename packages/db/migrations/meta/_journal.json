@@ -85,6 +85,20 @@
       "when": 1780812500000,
       "tag": "0011_queue_claim_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780813000000,
+      "tag": "0012_queue_cleanup_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780813500000,
+      "tag": "0013_provider_throttle_descriptor_hash",
+      "breakpoints": true
     }
   ]
 }

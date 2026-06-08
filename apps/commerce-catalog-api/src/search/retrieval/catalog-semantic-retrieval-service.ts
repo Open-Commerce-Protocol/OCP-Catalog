@@ -1,4 +1,5 @@
 import type { EmbeddingProvider } from '../indexing/search-embedding-service';
+import { InMemoryQueryEmbeddingCache, type QueryEmbeddingCache } from './query-embedding-cache';
 import type { TextIndexQueryInput, TextSearchIndexAdapter, VectorIndexAdapter, VectorIndexMatch } from './vector-index-adapter';
 
 export type SemanticRetrievalQuery = {
@@ -16,23 +17,16 @@ export interface CatalogSemanticRetriever {
 }
 
 export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever {
-  private readonly queryEmbeddingCache = new Map<string, {
-    expiresAt: number;
-    vector: number[];
-    model: string;
-    dimension: number;
-  }>();
   private readonly inFlightQueryEmbeddings = new Map<string, Promise<{
     vector: number[];
     model: string;
     dimension: number;
   }>>();
-  private readonly queryEmbeddingCacheTtlMs = 10 * 60 * 1000;
-  private readonly queryEmbeddingCacheMaxEntries = 5000;
 
   constructor(
     private readonly provider: EmbeddingProvider,
     private readonly vectorIndex: VectorIndexAdapter & Partial<TextSearchIndexAdapter>,
+    private readonly queryEmbeddingCache: QueryEmbeddingCache = new InMemoryQueryEmbeddingCache(10 * 60 * 1000, 5000),
   ) {}
 
   async nearestNeighbors(input: SemanticRetrievalQuery) {
@@ -68,31 +62,20 @@ export class CatalogSemanticRetrievalService implements CatalogSemanticRetriever
 
   private async embedQuery(query: string) {
     const cacheKey = `${this.provider.providerId}:${this.provider.model}:${this.provider.dimension}:${query.toLowerCase()}`;
-    const now = Date.now();
-    const cached = this.queryEmbeddingCache.get(cacheKey);
-    if (cached && cached.expiresAt > now) {
-      this.queryEmbeddingCache.delete(cacheKey);
-      this.queryEmbeddingCache.set(cacheKey, cached);
-      return cached;
-    }
+    const cached = await this.queryEmbeddingCache.get(cacheKey);
+    if (cached) return cached;
 
     const inFlight = this.inFlightQueryEmbeddings.get(cacheKey);
     if (inFlight) return inFlight;
 
     const promise = this.provider.embed(query)
-      .then((embedding) => {
+      .then(async (embedding) => {
         const cachedEmbedding = {
           vector: embedding.vector,
           model: embedding.model,
           dimension: embedding.dimension,
-          expiresAt: Date.now() + this.queryEmbeddingCacheTtlMs,
         };
-        this.queryEmbeddingCache.set(cacheKey, cachedEmbedding);
-        while (this.queryEmbeddingCache.size > this.queryEmbeddingCacheMaxEntries) {
-          const oldestKey = this.queryEmbeddingCache.keys().next().value;
-          if (!oldestKey) break;
-          this.queryEmbeddingCache.delete(oldestKey);
-        }
+        await this.queryEmbeddingCache.set(cacheKey, cachedEmbedding);
         return cachedEmbedding;
       })
       .finally(() => {

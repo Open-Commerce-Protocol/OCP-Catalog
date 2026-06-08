@@ -13,6 +13,9 @@ export type CatalogAdminOverview = {
     pending_index_job_count: number;
     running_index_job_count: number;
     failed_index_job_count: number;
+    pending_outbox_count: number;
+    running_outbox_count: number;
+    failed_outbox_count: number;
     query_audit_count: number;
     rich_entry_count: number;
     standard_entry_count: number;
@@ -33,6 +36,24 @@ export type CatalogAdminOverview = {
     failed_job_count: number;
     oldest_pending_job_created_at: string | null;
   };
+  outbox: {
+    pending_count: number;
+    running_count: number;
+    failed_count: number;
+    oldest_pending_created_at: string | null;
+  };
+  latest_sync_run: {
+    provider_id: string;
+    sync_run_id: string;
+    run_mode: string;
+    status: string;
+    batch_count: number;
+    accepted_count: number;
+    rejected_count: number;
+    error_count: number;
+    created_at: string;
+    finished_at: string | null;
+  } | null;
   latest_sync_chunk: {
     provider_id: string;
     status: string;
@@ -41,6 +62,20 @@ export type CatalogAdminOverview = {
     created_at: string;
     finished_at: string | null;
   } | null;
+};
+
+export type CatalogAdminQueueTrendBucket = {
+  queue_name: 'search_index_jobs' | 'catalog_outbox';
+  bucket_at: string;
+  status: string;
+  type: string;
+  count: number;
+};
+
+export type CatalogAdminQueueTrends = {
+  catalog_id: string;
+  window_hours: number;
+  buckets: CatalogAdminQueueTrendBucket[];
 };
 
 export type CatalogAdminProvider = {
@@ -262,6 +297,13 @@ export async function fetchCatalogAdminEntries(apiKey: string, filters?: {
     apiKey,
   });
   return payload.entries;
+}
+
+export async function fetchCatalogAdminQueueTrends(apiKey: string, hours = 24) {
+  return request<CatalogAdminQueueTrends>(`${adminPrefix}/queue-trends?hours=${hours}`, {
+    method: 'GET',
+    apiKey,
+  });
 }
 
 export async function fetchCatalogHealth() {

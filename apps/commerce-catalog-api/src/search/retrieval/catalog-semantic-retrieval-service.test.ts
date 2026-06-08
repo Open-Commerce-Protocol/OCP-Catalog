@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { EmbeddingProvider, EmbeddingResult } from '../indexing/search-embedding-service';
 import { CatalogSemanticRetrievalService } from './catalog-semantic-retrieval-service';
+import type { QueryEmbeddingCache } from './query-embedding-cache';
 import type { VectorIndexAdapter, VectorIndexQueryInput } from './vector-index-adapter';
 
 describe('CatalogSemanticRetrievalService', () => {
@@ -83,6 +84,28 @@ describe('CatalogSemanticRetrievalService', () => {
     expect(queryCount).toBe(0);
     expect(result.size).toBe(0);
   });
+
+  test('fails loud when query embedding cache read fails', async () => {
+    let embedCount = 0;
+    const service = new CatalogSemanticRetrievalService(
+      {
+        ...embeddingProvider({ vector: [1, 0, 0], model: 'test-model', dimension: 3 }),
+        async embed() {
+          embedCount += 1;
+          throw new Error('embed should not be called after cache failure');
+        },
+      },
+      vectorAdapter({ embeddingModel: 'test-model', embeddingDimension: 3 }),
+      failingCache('redis unavailable'),
+    );
+
+    await expect(service.nearestNeighbors({
+      catalogId: 'cat_test',
+      query: 'travel headphones',
+      limit: 2,
+    })).rejects.toThrow('redis unavailable');
+    expect(embedCount).toBe(0);
+  });
 });
 
 function embeddingProvider(output: EmbeddingResult): EmbeddingProvider {
@@ -121,5 +144,16 @@ function testVectorProfile(input: { embeddingModel: string; embeddingDimension: 
     embeddingProviderId: 'test-embedding-provider',
     embeddingModel: input.embeddingModel,
     embeddingDimension: input.embeddingDimension,
+  };
+}
+
+function failingCache(message: string): QueryEmbeddingCache {
+  return {
+    async get() {
+      throw new Error(message);
+    },
+    async set() {
+      throw new Error('set should not be called');
+    },
   };
 }

@@ -88,6 +88,14 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
           ...result,
         }));
       }
+
+      if (config.CATALOG_EMBEDDING_BATCH_WORKER_ENABLED) {
+        await runEmbeddingBatchWorker(context, reason);
+      }
+
+      if (config.CATALOG_QUEUE_CLEANUP_ENABLED) {
+        await cleanupCompletedQueues(context, reason);
+      }
     } catch (error) {
       console.error(JSON.stringify({
         ts: new Date().toISOString(),
@@ -111,4 +119,66 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
   }, config.CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS * 1000);
 
   return timer;
+}
+
+async function runEmbeddingBatchWorker(context: CommerceCatalogWorkerRuntimeContext, reason: string) {
+  const { config, embeddingBatchBackfill } = context;
+  const lockName = `ocp:catalog:${config.CATALOG_ID}:embedding-batch-worker`;
+  const result = await context.coordination.withLock(lockName, async () => {
+    const polled = await embeddingBatchBackfill.poll();
+    const ingested = await embeddingBatchBackfill.ingest({
+      limit: config.CATALOG_EMBEDDING_BATCH_WORKER_INGEST_LIMIT,
+    });
+    const activeCount = await embeddingBatchBackfill.countActiveJobs();
+    const submitted = activeCount >= config.CATALOG_EMBEDDING_BATCH_MAX_ACTIVE_JOBS
+      ? { status: 'skipped_active_limit' as const, activeCount }
+      : await embeddingBatchBackfill.submit({
+        limit: config.CATALOG_EMBEDDING_BATCH_WORKER_SUBMIT_LIMIT,
+      });
+    return { polled, ingested, submitted };
+  });
+
+  if (!result.acquired) return;
+  console.log(JSON.stringify({
+    ts: new Date().toISOString(),
+    level: 'info',
+    event: 'embedding_batch_worker_tick',
+    reason,
+    lock_name: lockName,
+    polled_count: result.value.polled.length,
+    ingested_count: result.value.ingested.reduce((sum, item) => sum + item.ingestedCount, 0),
+    failed_count: result.value.ingested.reduce((sum, item) => sum + item.failedCount, 0),
+    submitted_status: result.value.submitted.status,
+  }));
+}
+
+async function cleanupCompletedQueues(context: CommerceCatalogWorkerRuntimeContext, reason: string) {
+  const { config } = context;
+  const olderThan = new Date(Date.now() - config.CATALOG_QUEUE_COMPLETED_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const lockName = `ocp:catalog:${config.CATALOG_ID}:queue-cleanup`;
+  const result = await context.coordination.withLock(lockName, async () => {
+    const outboxDeleted = await context.catalogOutbox.cleanupCompleted({
+      catalogId: config.CATALOG_ID,
+      olderThan,
+      limit: config.CATALOG_QUEUE_CLEANUP_BATCH_SIZE,
+    });
+    const searchJobsDeleted = await context.searchIndexJobs.cleanupCompleted({
+      catalogId: config.CATALOG_ID,
+      olderThan,
+      limit: config.CATALOG_QUEUE_CLEANUP_BATCH_SIZE,
+    });
+    return { outboxDeleted, searchJobsDeleted };
+  });
+
+  if (!result.acquired || (result.value.outboxDeleted === 0 && result.value.searchJobsDeleted === 0)) return;
+  console.log(JSON.stringify({
+    ts: new Date().toISOString(),
+    level: 'info',
+    event: 'catalog_queue_cleanup',
+    reason,
+    lock_name: lockName,
+    completed_retention_days: config.CATALOG_QUEUE_COMPLETED_RETENTION_DAYS,
+    outbox_deleted_count: result.value.outboxDeleted,
+    search_jobs_deleted_count: result.value.searchJobsDeleted,
+  }));
 }

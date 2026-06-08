@@ -15,9 +15,11 @@ import { SearchIndexJobService } from '../search/indexing/index-job-service';
 import { SearchIndexWorker } from '../search/indexing/index-worker';
 import { SearchEmbeddingService } from '../search/indexing/search-embedding-service';
 import { SearchIndexJobHandlerService } from '../search/indexing/search-index-job-handler';
+import { OpenAIEmbeddingBatchBackfillService } from '../search/indexing/openai-embedding-batch-backfill';
 import { CatalogSemanticRetrievalService } from '../search/retrieval/catalog-semantic-retrieval-service';
 import { OpenSearchVectorIndexAdapter } from '../search/retrieval/opensearch-vector-index-adapter';
 import { PostgresLocalVectorIndexAdapter } from '../search/retrieval/postgres-local-vector-index-adapter';
+import { InMemoryQueryEmbeddingCache, RedisQueryEmbeddingCache } from '../search/retrieval/query-embedding-cache';
 import type { WritableTextSearchIndexAdapter, WritableVectorIndexAdapter } from '../search/retrieval/vector-index-adapter';
 import { CatalogOutboxService } from './catalog-outbox-service';
 
@@ -56,7 +58,13 @@ function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions 
   const writableTextIndex: WritableTextSearchIndexAdapter | undefined = isWritableTextIndex(vectorIndex)
     ? vectorIndex
     : undefined;
-  const searchRetrievalService = new CatalogSemanticRetrievalService(embeddingProvider, vectorIndex);
+  const queryEmbeddingCache = config.QUERY_EMBEDDING_CACHE_REDIS_URL
+    ? new RedisQueryEmbeddingCache(config.QUERY_EMBEDDING_CACHE_REDIS_URL, config.QUERY_EMBEDDING_CACHE_TTL_SECONDS)
+    : new InMemoryQueryEmbeddingCache(
+      config.QUERY_EMBEDDING_CACHE_TTL_SECONDS * 1000,
+      config.QUERY_EMBEDDING_CACHE_MAX_ENTRIES,
+    );
+  const searchRetrievalService = new CatalogSemanticRetrievalService(embeddingProvider, vectorIndex, queryEmbeddingCache);
   const commerceQueryService = new CommerceQueryService(db, config, commerceCatalogScenario, searchRetrievalService);
   const searchIndexJobs = new SearchIndexJobService(db, config.CATALOG_SEARCH_INDEX_JOB_MAX_ATTEMPTS);
   const catalogAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../../public/dist', import.meta.url)));
@@ -69,6 +77,7 @@ function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions 
     commerceCatalogScenario,
     services,
     searchRetrievalService,
+    queryEmbeddingCache,
     vectorIndexProfile,
     vectorIndex,
     writableVectorIndex,
@@ -96,6 +105,7 @@ export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatal
   const catalogOutbox = new CatalogOutboxService(base.db, base.searchIndexJobs, base.activityEvents);
   const searchDocumentService = new SearchDocumentUpsertService(base.db, base.writableVectorIndex, base.writableTextIndex);
   const searchEmbeddingService = new SearchEmbeddingService(base.db, base.embeddingProvider, base.writableVectorIndex);
+  const embeddingBatchBackfill = new OpenAIEmbeddingBatchBackfillService(base.db, base.config, searchEmbeddingService);
   const searchIndexWorker = new SearchIndexWorker(
     base.searchIndexJobs,
     new SearchIndexJobHandlerService(searchDocumentService, base.searchIndexJobs, searchEmbeddingService),
@@ -107,6 +117,7 @@ export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatal
     catalogOutbox,
     searchDocumentService,
     searchEmbeddingService,
+    embeddingBatchBackfill,
     searchIndexWorker,
   };
 }

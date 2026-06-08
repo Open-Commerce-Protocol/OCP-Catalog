@@ -170,11 +170,31 @@ export const commercialObjects = pgTable('commercial_objects', {
   status: text('status').notNull().default('active'),
   sourceUrl: text('source_url'),
   rawObject: jsonb('raw_object').$type<Record<string, unknown>>().notNull(),
+  rawObjectHash: text('raw_object_hash').notNull().default(''),
+  descriptorHash: text('descriptor_hash').notNull().default(''),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   objectUnique: uniqueIndex('commercial_objects_provider_object_unique').on(table.catalogId, table.providerId, table.objectId),
   typeIdx: index('commercial_objects_catalog_type_idx').on(table.catalogId, table.objectType),
+}));
+
+export const providerSyncControls = pgTable('provider_sync_controls', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  status: text('status').notNull().default('active'),
+  maxPendingIndexJobs: integer('max_pending_index_jobs'),
+  maxRunningIndexJobs: integer('max_running_index_jobs'),
+  maxFailedIndexJobs: integer('max_failed_index_jobs'),
+  cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
+  pauseReason: text('pause_reason'),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  providerUnique: uniqueIndex('provider_sync_controls_provider_unique').on(table.catalogId, table.providerId),
+  statusCooldownIdx: index('provider_sync_controls_status_cooldown_idx').on(table.catalogId, table.status, table.cooldownUntil),
 }));
 
 export const descriptorInstances = pgTable('descriptor_instances', {
@@ -360,6 +380,9 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
     .on(table.catalogId, table.scheduledAt)
     .where(sql`${table.status} = 'pending' and ${table.jobType} = 'refresh_embedding'`),
   dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
+  completedCleanupIdx: index('catalog_search_index_jobs_completed_cleanup_idx')
+    .on(table.catalogId, table.finishedAt, table.id)
+    .where(sql`${table.status} = 'completed' and ${table.finishedAt} is not null`),
 }));
 
 export const catalogSearchReconcileCheckpoints = pgTable('catalog_search_reconcile_checkpoints', {
@@ -505,4 +528,7 @@ export const catalogOutboxEvents = pgTable('catalog_outbox_events', {
     .on(table.catalogId, table.lockedAt, table.scheduledAt, table.createdAt, table.id)
     .where(sql`${table.status} = 'running' and ${table.lockedAt} is not null`),
   aggregateIdx: index('catalog_outbox_events_catalog_aggregate_idx').on(table.catalogId, table.aggregateType, table.aggregateId),
+  completedCleanupIdx: index('catalog_outbox_events_completed_cleanup_idx')
+    .on(table.catalogId, table.finishedAt, table.id)
+    .where(sql`${table.status} = 'completed' and ${table.finishedAt} is not null`),
 }));

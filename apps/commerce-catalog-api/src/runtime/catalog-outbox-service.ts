@@ -79,6 +79,31 @@ export class CatalogOutboxService {
     };
   }
 
+  async cleanupCompleted(input: {
+    catalogId: string;
+    olderThan: Date;
+    limit: number;
+  }) {
+    const rows = await this.db.execute(sql`
+      with deleted_events as (
+        select id
+        from catalog_outbox_events
+        where catalog_id = ${input.catalogId}
+          and status = 'completed'
+          and finished_at is not null
+          and finished_at < ${input.olderThan.toISOString()}::timestamptz
+        order by finished_at asc, id asc
+        limit ${input.limit}
+      )
+      delete from catalog_outbox_events events
+      using deleted_events
+      where events.id = deleted_events.id
+      returning events.id
+    `);
+
+    return rows.length;
+  }
+
   async claimPending(input: {
     catalogId: string;
     limit: number;
