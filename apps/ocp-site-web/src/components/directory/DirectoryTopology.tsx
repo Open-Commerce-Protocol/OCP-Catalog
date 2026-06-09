@@ -17,7 +17,7 @@ const trustColor: Record<string, string> = {
   verified_domain: 'var(--ocp-green)',
   declared: 'var(--ocp-gold)',
   claimed: 'var(--ocp-gold)',
-  none: 'rgba(20, 20, 20, 0.42)',
+  none: 'rgba(255, 255, 255, 0.42)',
 };
 
 export function DirectoryTopology({ snapshot, locale }: Props) {
@@ -78,7 +78,7 @@ export function DirectoryTopology({ snapshot, locale }: Props) {
   const empty = registries.length === 0;
 
   return (
-    <div className="directory-topology relative overflow-hidden rounded-md border border-black/10 bg-[var(--ocp-ink)] text-[var(--ocp-paper)]">
+    <div className="directory-topology relative overflow-hidden rounded-md border border-white/10 bg-[#05070a] text-white">
       <div className="absolute inset-0" aria-hidden>
         <div className="directory-topology-grid" />
         <div className="directory-topology-glow" />
@@ -167,7 +167,7 @@ export function DirectoryTopology({ snapshot, locale }: Props) {
             <circle r={28} fill="url(#dir-node-glow)" opacity={reg.live ? 1 : 0.3} />
             <circle
               r={11}
-              fill="var(--ocp-ink)"
+              fill="#05070a"
               stroke={reg.live ? 'var(--ocp-cyan)' : 'rgba(255,255,255,0.32)'}
               strokeWidth={1.5}
             />
@@ -250,7 +250,7 @@ function Stat({
   value: string;
   tone?: 'cyan' | 'green';
 }) {
-  const color = tone === 'cyan' ? 'var(--ocp-cyan)' : tone === 'green' ? 'var(--ocp-green)' : 'var(--ocp-paper)';
+  const color = tone === 'cyan' ? 'var(--ocp-cyan)' : tone === 'green' ? 'var(--ocp-green)' : '#f4f5f2';
   return (
     <div>
       <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/52">{label}</dt>
