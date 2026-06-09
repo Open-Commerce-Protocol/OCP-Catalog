@@ -37,7 +37,7 @@ export function SiteLayout() {
       >
         <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link to={localizePath('/')} className="group flex items-center gap-3">
-            <span className={`grid h-10 w-10 place-items-center rounded-md shadow-[0_10px_24px_rgba(20,20,20,0.18)] ${dark ? 'bg-white' : 'bg-[var(--ocp-ink)]'}`}>
+            <span className={`grid h-10 w-10 place-items-center rounded-md ${dark ? 'border border-white/12 bg-black shadow-[0_8px_24px_rgba(0,0,0,0.6)]' : 'bg-[var(--ocp-ink)] shadow-[0_10px_24px_rgba(20,20,20,0.18)]'}`}>
               <OcpLogo className="h-7 w-7" title="Open Commerce Protocol" />
             </span>
             <span className="hidden leading-tight sm:block">
