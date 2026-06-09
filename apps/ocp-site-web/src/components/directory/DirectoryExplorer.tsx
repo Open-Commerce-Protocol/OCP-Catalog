@@ -99,7 +99,7 @@ export function DirectoryExplorer({ showHeader = true }: Props) {
                       ? '注册节点与 Catalog · 实况一览'
                       : 'Registration nodes & catalogs · live view'}
                   </h1>
-                  <p className="mt-3 max-w-2xl text-base leading-7 text-black/64">
+                  <p className="mt-3 max-w-2xl text-base leading-7 text-[var(--text-muted)]">
                     {locale === 'zh'
                       ? 'OCP 是开放协议，任何主体都能运行注册节点与 Catalog。本页以站点维护的已知注册节点为入口，实时聚合它们索引的 Catalog metadata。'
                       : 'OCP is an open protocol — anyone can run a registration node or catalog. This page seeds known registration nodes and aggregates the catalog metadata they index, live.'}
@@ -107,7 +107,7 @@ export function DirectoryExplorer({ showHeader = true }: Props) {
                 </>
               )}
             </div>
-            <div className="hidden items-center gap-2 text-xs text-black/52 sm:flex">
+            <div className="hidden items-center gap-2 text-xs text-[var(--text-faint)] sm:flex">
               <RefreshCw
                 className={`h-3.5 w-3.5 ${snapshot.isLoading ? 'animate-spin text-[var(--ocp-cyan)]' : ''}`}
               />
@@ -127,7 +127,7 @@ export function DirectoryExplorer({ showHeader = true }: Props) {
         </div>
       </section>
 
-      <section className="site-section border-y border-black/10 bg-white">
+      <section className="site-section border-y border-[var(--border-soft)] bg-[var(--ocp-porcelain)]">
         <div className="site-container">
           <div className="mb-5 flex items-end justify-between">
             <div>
@@ -136,7 +136,7 @@ export function DirectoryExplorer({ showHeader = true }: Props) {
                 {locale === 'zh' ? '我们已知的注册节点' : 'Known registration nodes'}
               </h2>
             </div>
-            <span className="hidden font-mono text-xs uppercase tracking-wider text-black/48 sm:inline">
+            <span className="hidden font-mono text-xs uppercase tracking-wider text-[var(--text-faint)] sm:inline">
               {snapshot.stats.registriesLive}/{snapshot.stats.registriesTotal}{' '}
               {locale === 'zh' ? '在线' : 'live'}
             </span>
@@ -235,9 +235,9 @@ function EmptyState({
   }[kind];
 
   return (
-    <div className="rounded-md border border-dashed border-black/12 bg-white p-8 text-center">
+    <div className="rounded-md border border-dashed border-[var(--border-soft)] bg-[var(--ocp-porcelain)] p-8 text-center">
       <AlertTriangle className="mx-auto mb-3 h-6 w-6 text-[var(--ocp-gold)]" />
-      <p className="text-sm text-black/64">{copy[locale]}</p>
+      <p className="text-sm text-[var(--text-muted)]">{copy[locale]}</p>
     </div>
   );
 }

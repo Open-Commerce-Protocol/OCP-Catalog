@@ -35,7 +35,7 @@ function healthTone(status: string | undefined) {
   if (status === 'healthy') return 'var(--ocp-green)';
   if (status === 'degraded') return 'var(--ocp-gold)';
   if (status === 'unhealthy' || status === 'stale') return 'var(--ocp-vermilion)';
-  return 'rgba(20, 20, 20, 0.32)';
+  return 'var(--border-soft)';
 }
 
 export function CatalogCard({ catalog, locale, onOpen }: Props) {
@@ -55,7 +55,7 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
         <header className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-black/48">
+              <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-faint)]">
                 {catalog.catalog_id}
               </span>
               {isVerified && (
@@ -69,7 +69,7 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
               )}
               {isNotRequired && (
                 <span
-                  className="inline-flex items-center gap-0.5 rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black/52"
+                  className="inline-flex items-center gap-0.5 rounded-full bg-[var(--surface-1)] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[var(--text-faint)]"
                   title="verification not required by this registry"
                 >
                   no-check
@@ -87,22 +87,22 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
           />
         </header>
 
-        <p className="mt-2 line-clamp-2 text-xs leading-5 text-black/62">
+        <p className="mt-2 line-clamp-2 text-xs leading-5 text-[var(--text-muted)]">
           {catalog.description ?? (locale === 'zh' ? '（暂无描述）' : '(no description)')}
         </p>
 
-        <div className="mt-3 space-y-2 border-t border-black/8 pt-3 text-[11px]">
+        <div className="mt-3 space-y-2 border-t border-[var(--border-soft)] pt-3 text-[11px]">
           <Row label={locale === 'zh' ? 'modes' : 'modes'}>
             {queryModes.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {queryModes.map((mode) => (
-                  <code key={mode} className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[10px] text-black/72">
+                  <code key={mode} className="rounded bg-[var(--surface-1)] px-1.5 py-0.5 text-[10px] text-[var(--text-strong)]">
                     {mode}
                   </code>
                 ))}
               </div>
             ) : (
-              <span className="text-black/36">—</span>
+              <span className="text-[var(--text-faint)]">—</span>
             )}
           </Row>
 
@@ -110,13 +110,13 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
             {queryPacks.length > 0 ? (
               <div className="flex flex-wrap gap-1">
                 {queryPacks.map((pack) => (
-                  <code key={pack} className="truncate rounded bg-black/[0.05] px-1.5 py-0.5 text-[10px] text-black/72">
+                  <code key={pack} className="truncate rounded bg-[var(--surface-1)] px-1.5 py-0.5 text-[10px] text-[var(--text-strong)]">
                     {pack}
                   </code>
                 ))}
               </div>
             ) : (
-              <span className="text-black/36">—</span>
+              <span className="text-[var(--text-faint)]">—</span>
             )}
           </Row>
 
@@ -127,18 +127,18 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
                   <span
                     key={i}
                     className="catalog-trust-cell"
-                    style={{ background: i <= trust ? 'var(--ocp-cyan)' : 'rgba(20,20,20,0.12)' }}
+                    style={{ background: i <= trust ? 'var(--ocp-cyan)' : 'var(--border-soft)' }}
                   />
                 ))}
               </div>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-black/64">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
                 {trustLabel(catalog.trust_tier, locale)}
               </span>
             </div>
           </Row>
         </div>
 
-        <footer className="mt-3 flex items-center justify-between border-t border-black/8 pt-2 text-[10px] text-black/52">
+        <footer className="mt-3 flex items-center justify-between border-t border-[var(--border-soft)] pt-2 text-[10px] text-[var(--text-faint)]">
           <div className="flex items-center gap-1.5">
             <Sparkles className="h-3 w-3 text-[var(--ocp-gold)]" />
             <span className="font-mono uppercase tracking-wider">
@@ -147,7 +147,7 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
             </span>
           </div>
           {typeof catalog.score === 'number' && (
-            <span className="font-mono tabular-nums text-black/52">score {catalog.score.toFixed(2)}</span>
+            <span className="font-mono tabular-nums text-[var(--text-faint)]">score {catalog.score.toFixed(2)}</span>
           )}
         </footer>
       </div>
@@ -158,7 +158,7 @@ export function CatalogCard({ catalog, locale, onOpen }: Props) {
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2">
-      <span className="w-12 shrink-0 font-mono uppercase tracking-wider text-black/40">{label}</span>
+      <span className="w-12 shrink-0 font-mono uppercase tracking-wider text-[var(--text-faint)]">{label}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </div>
   );

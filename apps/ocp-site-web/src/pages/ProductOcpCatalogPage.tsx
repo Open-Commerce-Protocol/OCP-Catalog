@@ -2,18 +2,20 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpen, Boxes, Milestone } from 'lucide-react';
 import { useDocsLocale } from '../content/i18n';
 import { DirectoryExplorer } from '../components/directory/DirectoryExplorer';
+import { PageTheme } from '../theme/ThemeContext';
 
 export function ProductOcpCatalogPage() {
   const { locale, localizePath } = useDocsLocale();
 
   return (
     <main className="bg-[var(--ocp-paper)]">
-      <section className="relative isolate overflow-hidden border-b border-black/10 site-band">
+      <PageTheme theme="dark" />
+      <section className="relative isolate overflow-hidden border-b border-[var(--border-soft)] site-band">
         <div className="site-section">
           <div className="site-container">
             <Link
               to={localizePath('/products')}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-black/64 hover:text-black"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)] hover:text-[var(--text-strong)]"
             >
               <ArrowLeft className="h-4 w-4" />
               {locale === 'zh' ? '产品' : 'Products'}
@@ -24,7 +26,7 @@ export function ProductOcpCatalogPage() {
                 {locale === 'zh' ? '核心协议' : 'Core protocol'}
               </div>
               <h1 className="mt-4 text-5xl font-semibold leading-tight sm:text-6xl">OCP Catalog</h1>
-              <p className="mt-5 text-lg leading-8 text-black/65">
+              <p className="mt-5 text-lg leading-8 text-[var(--text-muted)]">
                 {locale === 'zh'
                   ? 'OCP Catalog 把商品、服务和可执行动作变成开放的协议对象：Agent 可以发现、查询、解析它们，并在用户确认后继续到商家的真实交易入口。下面是当前网络的实时拓扑。'
                   : 'OCP Catalog turns products, services, and action entry points into open protocol objects: agents discover, query, and resolve them, then continue to merchant-owned execution after user confirmation. Below is the live topology of the network today.'}
@@ -40,7 +42,7 @@ export function ProductOcpCatalogPage() {
                 </Link>
                 <Link
                   to={localizePath('/roadmap')}
-                  className="inline-flex items-center justify-center gap-2 rounded-md border border-black/12 bg-white/70 px-5 py-3 text-sm font-semibold text-black transition-colors hover:bg-white"
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-[var(--border-soft)] bg-[var(--surface-1)] px-5 py-3 text-sm font-semibold text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-glass)]"
                 >
                   <Milestone className="h-4 w-4" />
                   {locale === 'zh' ? '查看路线图' : 'View the roadmap'}
