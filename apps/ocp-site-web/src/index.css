@@ -996,24 +996,7 @@
   [data-theme='dark'] .roadmap-item { border-color: var(--border-soft); }
   [data-theme='dark'] .roadmap-item:hover { box-shadow: 0 14px 30px rgba(0,0,0,0.55); }
   [data-theme='dark'] .roadmap-timeline::before { background: linear-gradient(180deg, rgba(46,125,87,0.55) 0%, rgba(46,230,224,0.5) 50%, rgba(255,255,255,0.16) 100%); }
-
-  /* ---- directory: registry / catalog cards (dark) ---- */
-  [data-theme='dark'] .registry-card { border-color: var(--border-soft); box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
-  [data-theme='dark'] .registry-card:hover { border-color: rgba(46,230,224,0.4); box-shadow: 0 20px 36px rgba(0,0,0,0.55); }
-  [data-theme='dark'] .registry-card.is-offline { background: repeating-linear-gradient(135deg, rgba(217,84,54,0.06) 0, rgba(217,84,54,0.06) 6px, transparent 6px, transparent 12px), var(--ocp-porcelain); }
-  [data-theme='dark'] .catalog-card-frame { border-color: var(--border-soft); box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
-  [data-theme='dark'] .catalog-card:hover .catalog-card-frame { border-color: rgba(46,230,224,0.4); box-shadow: 0 16px 28px rgba(0,0,0,0.5); }
-  [data-theme='dark'] .catalog-health-dot { box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
-
-  /* ---- directory: filters / chips (dark) ---- */
-  [data-theme='dark'] .directory-filters { border-color: var(--border-soft); }
-  [data-theme='dark'] .directory-chip { border-color: var(--border-soft); background: var(--surface-1); color: var(--text-muted); }
-  [data-theme='dark'] .directory-chip:hover { border-color: rgba(46,230,224,0.5); color: var(--ocp-ink); }
-  [data-theme='dark'] .directory-chip.is-active { background: var(--ocp-ink); border-color: var(--ocp-ink); color: var(--ocp-paper); }
-
-  /* ---- directory: drawer (dark) ---- */
-  [data-theme='dark'] .catalog-drawer { border-left-color: var(--border-soft); box-shadow: -20px 0 60px rgba(0,0,0,0.6); }
-  [data-theme='dark'] .catalog-drawer-scrim { background: rgba(0,0,0,0.6); }
+  [data-theme='dark'] .roadmap-phase-planned .roadmap-node { color: rgba(244,245,242,0.4); }
 }
 
 @keyframes reveal-up {
@@ -1404,3 +1387,22 @@
     transition: none;
   }
 }
+
+/*
+ * Directory 暗色覆盖（保持无层 unlayered）。
+ * 这些组件的 base 规则（.registry-card / .directory-chip / .catalog-drawer 等）
+ * 定义在 @layer components 之外（无层），无层样式恒胜过有层样式，与特异性无关。
+ * 因此暗色覆盖必须同样无层，靠 [data-theme='dark'] .x 的更高特异性压过 base。
+ */
+[data-theme='dark'] .registry-card { border-color: var(--border-soft); box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+[data-theme='dark'] .registry-card:hover { border-color: rgba(46,230,224,0.4); box-shadow: 0 20px 36px rgba(0,0,0,0.55); }
+[data-theme='dark'] .registry-card.is-offline { background: repeating-linear-gradient(135deg, rgba(217,84,54,0.06) 0, rgba(217,84,54,0.06) 6px, transparent 6px, transparent 12px), var(--ocp-porcelain); }
+[data-theme='dark'] .catalog-card-frame { border-color: var(--border-soft); box-shadow: 0 1px 2px rgba(0,0,0,0.4); }
+[data-theme='dark'] .catalog-card:hover .catalog-card-frame { border-color: rgba(46,230,224,0.4); box-shadow: 0 16px 28px rgba(0,0,0,0.5); }
+[data-theme='dark'] .catalog-health-dot { box-shadow: 0 0 0 3px rgba(255,255,255,0.06); }
+[data-theme='dark'] .directory-filters { border-color: var(--border-soft); }
+[data-theme='dark'] .directory-chip { border-color: var(--border-soft); background: var(--surface-1); color: var(--text-muted); }
+[data-theme='dark'] .directory-chip:hover { border-color: rgba(46,230,224,0.5); color: var(--ocp-ink); }
+[data-theme='dark'] .directory-chip.is-active { background: var(--ocp-ink); border-color: var(--ocp-ink); color: var(--ocp-paper); }
+[data-theme='dark'] .catalog-drawer { border-left-color: var(--border-soft); box-shadow: -20px 0 60px rgba(0,0,0,0.6); }
+[data-theme='dark'] .catalog-drawer-scrim { background: rgba(0,0,0,0.6); }
