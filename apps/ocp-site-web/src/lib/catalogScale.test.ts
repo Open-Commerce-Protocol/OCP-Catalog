@@ -61,11 +61,22 @@ describe('aggregateCatalogScale', () => {
     expect(result.status).toBe('loading');
   });
 
-  test('status is ready when all probes settled and at least one succeeded', () => {
+  test('status is ready when all probes settled and at least one reported a count', () => {
     const result = aggregateCatalogScale([
       { status: 'ready', dataProfileCount: 100 },
       { status: 'error', dataProfileCount: null },
     ]);
     expect(result.status).toBe('ready');
+  });
+
+  test('status is unavailable when catalogs are ready but none reported a count', () => {
+    // Don't surface a misleading "0" when no catalog exposes catalog_entry_count.
+    const result = aggregateCatalogScale([
+      { status: 'ready', dataProfileCount: null },
+      { status: 'ready', dataProfileCount: null },
+    ]);
+    expect(result.status).toBe('unavailable');
+    expect(result.streamedCatalogCount).toBe(2);
+    expect(result.storedCatalogCount).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { formatCompactCount } from './formatScale';
+import { formatCompactCount, formatFullCount } from './formatScale';
 
 describe('formatCompactCount', () => {
   test('returns plain number below 1000', () => {
@@ -32,5 +32,19 @@ describe('formatCompactCount', () => {
   test('guards against negatives and non-finite', () => {
     expect(formatCompactCount(-5)).toBe('0');
     expect(formatCompactCount(Number.NaN)).toBe('0');
+  });
+});
+
+describe('formatFullCount', () => {
+  test('groups the full number with separators', () => {
+    expect(formatFullCount(12_008_514)).toBe('12,008,514');
+    expect(formatFullCount(1000)).toBe('1,000');
+    expect(formatFullCount(42)).toBe('42');
+  });
+
+  test('guards against negatives and non-finite', () => {
+    expect(formatFullCount(0)).toBe('0');
+    expect(formatFullCount(-5)).toBe('0');
+    expect(formatFullCount(Number.NaN)).toBe('0');
   });
 });

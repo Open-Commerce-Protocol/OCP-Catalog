@@ -48,12 +48,15 @@ export function aggregateCatalogScale(probes: ManifestProbe[]): CatalogScale {
   }
 
   let status: CatalogScaleStatus;
-  if (readyCount === 0 && pendingCount === 0) {
-    status = 'unavailable';
-  } else if (pendingCount > 0) {
+  if (pendingCount > 0) {
     status = 'loading';
+  } else if (storedCatalogCount > 0) {
+    // At least one catalog reported a real catalog_entry_count (a genuine 0 counts).
+    status = 'ready';
   } else {
-    status = readyCount > 0 ? 'ready' : 'unavailable';
+    // Nothing settled, or everything settled but no catalog reported a count —
+    // surface as unavailable so the UI shows a placeholder, never a misleading 0.
+    status = 'unavailable';
   }
 
   return { status, storedTotal, storedCatalogCount, streamedCatalogCount };
