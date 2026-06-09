@@ -38,14 +38,6 @@ const layers = [
   { name: 'Action Binding', tone: 'ink' },
 ];
 
-const layerToneClass: Record<string, string> = {
-  cyan: 'protocol-chip-cyan',
-  gold: 'protocol-chip-gold',
-  green: 'protocol-chip-green',
-  vermilion: 'protocol-chip-vermilion',
-  ink: 'protocol-chip-ink',
-};
-
 const sectionIds = ['hero', 'flow', 'live', 'glance', 'why', 'open', 'onboarding', 'paths'] as const;
 type SectionId = (typeof sectionIds)[number];
 
@@ -269,20 +261,28 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="flow" className="home-panel site-section">
+      <section id="flow" className="home-panel site-section immersive-section py-24 lg:py-32">
+        <div
+          className="section-bg"
+          style={{ backgroundImage: 'url(/images/discovery-field.png)', opacity: 0.3 }}
+          aria-hidden="true"
+        />
+        <div className="section-veil" aria-hidden="true" />
         <div className="site-container">
-          <div className="reveal-on-scroll section-kicker">{locale === 'zh' ? '一次请求如何完成' : 'How one request moves'}</div>
-          <div className="mt-4 grid gap-3 lg:grid-cols-5">
+          <div className="reveal-on-scroll">
+            <span className="mono-kicker">{locale === 'zh' ? '一次请求如何完成' : 'How one request moves'}</span>
+          </div>
+          <div className="mt-12 grid gap-x-6 gap-y-10 lg:grid-cols-5">
             {flowSteps.map((step, index) => (
               <div
                 key={step.label.en}
-                className="flow-card glass-card reveal-on-scroll relative p-5 shadow-sm"
+                className="reveal-on-scroll border-t border-white/10 pt-5"
                 style={{ '--reveal-delay': `${index * 90}ms` } as CSSProperties}
               >
-                <div className="mb-5 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--ocp-ink)] text-sm font-semibold text-[var(--ocp-paper)]">
-                  {index + 1}
+                <div className="font-mono text-3xl font-semibold tabular-nums text-[var(--ocp-cyan)]/60">
+                  {String(index + 1).padStart(2, '0')}
                 </div>
-                <h2 className="text-lg font-semibold">{label(step.label, locale)}</h2>
+                <h2 className="mt-4 text-lg font-semibold text-white">{label(step.label, locale)}</h2>
                 <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{label(step.body, locale)}</p>
               </div>
             ))}
@@ -296,42 +296,51 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="glance" className="home-panel home-diagram-panel site-section border-y border-white/10">
+      <section id="glance" className="home-panel home-diagram-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
+        <div
+          className="section-bg"
+          style={{ backgroundImage: 'url(/images/network-substrate.png)' }}
+          aria-hidden="true"
+        />
+        <div className="section-veil" aria-hidden="true" />
         <div className="site-container">
           <div className="reveal-on-scroll mb-8 max-w-3xl">
-            <div className="section-kicker">{locale === 'zh' ? '一眼看懂 OCP Catalog' : 'OCP Catalog at a glance'}</div>
-            <h2 className="mt-4 text-4xl font-semibold leading-tight">
+            <span className="mono-kicker">{locale === 'zh' ? '一眼看懂 OCP Catalog' : 'OCP Catalog at a glance'}</span>
+            <h2 className="giant-heading mt-4 font-semibold leading-tight">
               {locale === 'zh' ? '先理解它帮谁连接了什么，再决定是否深入文档。' : 'Understand who it connects and what stays under control before diving deeper.'}
             </h2>
           </div>
           <div className="home-diagram-stack space-y-5">
-            <div className="reveal-on-scroll glass-card p-4"><CatalogArchitectureDiagram locale={locale} /></div>
-            <div className="reveal-on-scroll glass-card p-4" style={{ '--reveal-delay': '120ms' } as CSSProperties}><SearchResolveActionDiagram locale={locale} /></div>
-            <div className="reveal-on-scroll glass-card p-4" style={{ '--reveal-delay': '240ms' } as CSSProperties}><TrustBoundaryDiagram locale={locale} /></div>
+            <div className="reveal-on-scroll rounded-md border border-white/10 bg-white/[0.02] p-4"><CatalogArchitectureDiagram locale={locale} /></div>
+            <div className="reveal-on-scroll rounded-md border border-white/10 bg-white/[0.02] p-4" style={{ '--reveal-delay': '120ms' } as CSSProperties}><SearchResolveActionDiagram locale={locale} /></div>
+            <div className="reveal-on-scroll rounded-md border border-white/10 bg-white/[0.02] p-4" style={{ '--reveal-delay': '240ms' } as CSSProperties}><TrustBoundaryDiagram locale={locale} /></div>
           </div>
         </div>
       </section>
 
-      <section id="why" className="home-panel site-section border-y border-white/10">
+      <section id="why" className="home-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
         <div className="site-container grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div className="reveal-on-scroll">
-            <div className="section-kicker">{locale === 'zh' ? '为什么需要它' : 'Why this matters'}</div>
-            <h2 className="mt-4 text-4xl font-semibold leading-tight">{locale === 'zh' ? '让 Agent 找得到、看得懂，也不会绕过商家的交易边界。' : 'Agents can find and understand commerce options without bypassing merchant boundaries.'}</h2>
+            <span className="mono-kicker">{locale === 'zh' ? '为什么需要它' : 'Why this matters'}</span>
+            <h2 className="giant-heading mt-4 font-semibold leading-tight">{locale === 'zh' ? '让 Agent 找得到、看得懂，也不会绕过商家的交易边界。' : 'Agents can find and understand commerce options without bypassing merchant boundaries.'}</h2>
             <p className="mt-5 text-lg leading-8 text-[var(--text-muted)]">
               {locale === 'zh'
                 ? 'OCP 不替代店铺、库存、报价或结账系统。它只把发现、查询、详情查看和动作确认的边界标准化。'
                 : 'OCP does not replace stores, inventory, quotes, or checkout. It standardizes the boundary for discovery, search, detail lookup, and confirmed action.'}
             </p>
-            <div className="mt-8 flex flex-wrap gap-2">
-              {layers.map((layer) => (
-                <span key={layer.name} className={`protocol-chip ${layerToneClass[layer.tone]}`}>{layer.name}</span>
+            <div className="mt-8 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-sm text-white/55">
+              {layers.map((layer, index) => (
+                <span key={layer.name} className="inline-flex items-center gap-2">
+                  {index > 0 && <span className="text-[var(--ocp-cyan)]">·</span>}
+                  {layer.name}
+                </span>
               ))}
             </div>
           </div>
           <img
             src="/images/site/home-commerce-object-stack.png"
             alt=""
-            className="reveal-on-scroll aspect-[4/3] w-full rounded-md border border-white/10 object-cover shadow-2xl shadow-black/12"
+            className="reveal-on-scroll aspect-[4/3] w-full rounded-md border border-white/10 object-cover shadow-2xl shadow-black/40 brightness-90"
             style={{ '--reveal-delay': '120ms' } as CSSProperties}
           />
         </div>
