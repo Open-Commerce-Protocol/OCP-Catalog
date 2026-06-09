@@ -198,9 +198,9 @@ export function HomePage() {
 
         {/* monospace corner annotations (Collov-style lab labels) */}
         <div className="hero-annotations pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
-          <span className="absolute left-8 top-28 font-mono text-[11px] uppercase tracking-[0.28em] text-white/30">discovery</span>
-          <span className="absolute right-10 top-40 font-mono text-[11px] uppercase tracking-[0.28em] text-white/25">query · resolve</span>
-          <span className="absolute right-24 bottom-44 font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--ocp-cyan)]/40">action binding</span>
+          <span className="absolute left-8 top-28 font-mono text-[11px] uppercase tracking-[0.28em] text-white/40">discovery</span>
+          <span className="absolute left-8 top-40 font-mono text-[11px] uppercase tracking-[0.28em] text-white/30">query · resolve</span>
+          <span className="absolute bottom-44 left-8 font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--ocp-cyan)]/55">action binding</span>
         </div>
 
         <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
@@ -302,7 +302,7 @@ export function HomePage() {
       <section id="glance" className="home-panel home-diagram-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
         <div
           className="section-bg"
-          style={{ backgroundImage: 'url(/images/network-substrate.png)' }}
+          style={{ backgroundImage: 'url(/images/network-substrate.png)', opacity: 0.38 }}
           aria-hidden="true"
         />
         <div className="section-veil" aria-hidden="true" />
