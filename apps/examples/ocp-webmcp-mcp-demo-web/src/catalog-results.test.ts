@@ -97,6 +97,100 @@ test('ignores malformed entries without throwing', () => {
   expect(summary.title).toBe('没有找到商品');
 });
 
+test('parses affiliate entry format with nested price and image_urls array', () => {
+  const summary = summarizeCatalogResponse({
+    catalog_id: 'cat_alimama',
+    entries: [{
+      entry: {
+        entry_id: 'entry_alimama_1',
+        title: '夏季连衣裙',
+        image_url: 'https://img.alimama.example/top.jpg',
+        attributes: {
+          brand: '某旗舰店',
+          price: { amount: 99.5, currency: 'CNY' },
+          image_urls: ['https://img.alimama.example/a.jpg', 'https://img.alimama.example/b.jpg'],
+          source_url: 'https://s.click.example/item',
+        },
+      },
+      score: 0.8,
+      explain: [],
+    }],
+  }, 'Alimama Affiliate Catalog');
+
+  expect(summary.products).toHaveLength(1);
+  expect(summary.products[0]).toMatchObject({
+    title: '夏季连衣裙',
+    brand: '某旗舰店',
+    price: 'CN¥99.50',
+    imageUrl: 'https://img.alimama.example/top.jpg',
+    productUrl: 'https://s.click.example/item',
+  });
+});
+
+test('falls back to image_urls array when no direct image field is present', () => {
+  const summary = summarizeCatalogResponse({
+    catalog_id: 'cat_pdd',
+    entries: [{
+      entry: {
+        entry_id: 'entry_pdd_1',
+        title: '拼团商品',
+        attributes: {
+          price: { amount: 25, currency: 'CNY' },
+          image_urls: ['https://img.pdd.example/cover.jpg'],
+        },
+      },
+      score: 1,
+      explain: [],
+    }],
+  });
+
+  expect(summary.products[0]?.imageUrl).toBe('https://img.pdd.example/cover.jpg');
+  expect(summary.products[0]?.price).toBe('CN¥25.00');
+});
+
+test('findLatestCatalogSummary ignores page-native ocp.mall.* records', () => {
+  const summary = findLatestCatalogSummary([
+    createRecord({
+      structuredContent: {
+        entries: [{
+          entry: { entry_id: 'sku-stale', title: 'Stale Mall Product', attributes: {} },
+          score: 1,
+          explain: [],
+        }],
+      },
+    }, 'ocp.mall.list_products'),
+    createRecord({
+      structuredContent: {
+        catalog_name: 'Gateway Query Catalog',
+        entries: [{
+          entry: { entry_id: 'sku-gw', title: 'Gateway Product', attributes: { amount: 7, currency: 'USD' } },
+          score: 1,
+          explain: [],
+        }],
+      },
+    }, 'ocp.mcp.query_catalog'),
+  ]);
+
+  expect(summary?.catalogName).toBe('Gateway Query Catalog');
+  expect(summary?.products[0]?.title).toBe('Gateway Product');
+});
+
+test('findLatestCatalogSummary returns null when only page-native records exist', () => {
+  const summary = findLatestCatalogSummary([
+    createRecord({
+      structuredContent: {
+        entries: [{
+          entry: { entry_id: 'sku-mall', title: 'Mall Product', attributes: {} },
+          score: 1,
+          explain: [],
+        }],
+      },
+    }, 'ocp.mall.search_products'),
+  ]);
+
+  expect(summary).toBeNull();
+});
+
 test('summarizes direct catalog HTTP list response entries', () => {
   const summary = summarizeCatalogResponse({
     catalog_id: 'cat_local_dev',

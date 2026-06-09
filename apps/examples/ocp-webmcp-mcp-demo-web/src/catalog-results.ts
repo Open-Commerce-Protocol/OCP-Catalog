@@ -22,6 +22,10 @@ export type CatalogSearchSummary = {
 
 export function findLatestCatalogSummary(history: readonly DemoCallRecord[]) {
   for (const record of history) {
+    // Page-native tools (ocp.mall.*) already drive productSummary directly, so a
+    // stale entry here must not shadow fresh page state. Only surface results from
+    // the server-side gateway tools (ocp.mcp.*), which never touch page state.
+    if (record.toolName.startsWith('ocp.mall.')) continue;
     const summary = summarizeCatalogCall(record);
     if (summary.products.length > 0 || summary.error) return summary;
   }
@@ -78,12 +82,37 @@ function toProductCard(entry: Record<string, unknown>, index: number): ProductCa
     id: getString(entry.id) ?? getString(entry.entry_id) ?? `${title}-${index}`,
     title,
     brand: getString(attributes.brand),
-    price: formatPrice(attributes.amount, attributes.currency) ?? getString(attributes.price),
+    price: extractPrice(attributes),
     availability: formatAvailability(getString(attributes.availability_status) ?? getString(attributes.availability)),
-    imageUrl: getString(attributes.primary_image_url) ?? getString(attributes.image_url),
-    productUrl: getString(attributes.product_url) ?? getString(attributes.url),
+    imageUrl: extractImageUrl(entry, attributes),
+    productUrl: getString(attributes.product_url) ?? getString(attributes.url) ?? getString(attributes.source_url) ?? getString(entry.source_url),
     subtitle: getString(attributes.category) ?? getString(attributes.description) ?? (score !== undefined ? `score ${score}` : undefined),
   };
+}
+
+// Catalog sources expose price differently: the commerce catalog emits flat
+// attributes.amount + attributes.currency, while affiliate sources (alimama /
+// jdunion / pdd) nest it as attributes.price = { amount, currency }.
+function extractPrice(attributes: Record<string, unknown>) {
+  const flat = formatPrice(attributes.amount, attributes.currency);
+  if (flat) return flat;
+  const nested = isRecord(attributes.price) ? attributes.price : undefined;
+  if (nested) {
+    const nestedPrice = formatPrice(nested.amount, nested.currency);
+    if (nestedPrice) return nestedPrice;
+  }
+  return getString(attributes.price);
+}
+
+// The commerce catalog exposes primary_image_url / image_url strings; affiliate
+// sources expose an image_urls[] array and/or a top-level entry.image_url.
+function extractImageUrl(entry: Record<string, unknown>, attributes: Record<string, unknown>) {
+  const direct = getString(attributes.primary_image_url) ?? getString(attributes.image_url) ?? getString(entry.image_url);
+  if (direct) return direct;
+  if (Array.isArray(attributes.image_urls)) {
+    return attributes.image_urls.map(getString).find((url): url is string => Boolean(url));
+  }
+  return undefined;
 }
 
 function formatPrice(amount: unknown, currency: unknown) {

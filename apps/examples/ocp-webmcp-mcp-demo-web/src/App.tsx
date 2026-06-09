@@ -30,6 +30,17 @@ export function App() {
     void refreshCatalogs();
   }, []);
 
+  // refreshCatalogs loads the first catalog on mount; this reloads products when the
+  // user (or the set_data_source tool) switches to a different catalog afterwards.
+  // Keyed on catalogId so it fires only on a real switch, not on every catalogs
+  // array identity change. Reset the search box so the new catalog browses cleanly.
+  useEffect(() => {
+    if (!selectedCatalog) return;
+    setSearchQuery('');
+    void loadProducts(selectedCatalog, '', resolveQueryPackForCatalog(selectedCatalog, searchQueryPack));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCatalog?.catalogId]);
+
   const context = useMemo<OcpMcpDemoContext>(() => ({
     getState: () => ({
       webMcpAvailable: Boolean((navigator as Navigator & { modelContext?: unknown }).modelContext),
@@ -61,13 +72,18 @@ export function App() {
       const nextCatalogs = await searchCatalogOptions(registrationBaseUrl);
       setCatalogs(nextCatalogs);
       const firstCatalog = nextCatalogs[0];
-      setSelectedCatalogId((current) => nextCatalogs.some((catalog) => catalog.catalogId === current) ? current : firstCatalog?.catalogId ?? '');
-      if (firstCatalog) {
-        await loadProducts(firstCatalog, searchQuery, resolveQueryPackForCatalog(firstCatalog, searchQueryPack));
-      } else {
+      const nextCatalogId = nextCatalogs.some((catalog) => catalog.catalogId === selectedCatalogId) ? selectedCatalogId : firstCatalog?.catalogId ?? '';
+      setSelectedCatalogId(nextCatalogId);
+      if (!firstCatalog) {
         setProductSummary(null);
         setPageError('这个注册中心没有返回可用的商品目录。');
+      } else if (nextCatalogId === selectedCatalogId) {
+        // Same catalog id (e.g. manual refresh): the catalog-switch effect won't
+        // fire, so reload products explicitly here.
+        const catalog = nextCatalogs.find((item) => item.catalogId === nextCatalogId) ?? firstCatalog;
+        await loadProducts(catalog, searchQuery, resolveQueryPackForCatalog(catalog, searchQueryPack));
       }
+      // Otherwise the selected catalog id changed; the catalog-switch effect loads it.
     } catch (error) {
       setProductSummary(null);
       setPageError(error instanceof Error ? error.message : '注册中心连接失败');
