@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, CircleDashed, Loader } from 'lucide-react';
 import { ProtocolRelayCanvas } from '../components/site/ProtocolRelayCanvas';
 import { resolveLocalizedText, useDocsLocale } from '../content/i18n';
 import { roadmap, roadmapStatusLabels, type RoadmapStatus } from '../content/roadmap';
+import { PageTheme } from '../theme/ThemeContext';
 
 const statusIcon: Record<RoadmapStatus, typeof CheckCircle2> = {
   done: CheckCircle2,
@@ -37,13 +38,15 @@ export function RoadmapPage() {
 
   return (
     <main className="home-story">
-      <section className="relative isolate overflow-hidden border-b border-black/10">
+      <PageTheme theme="dark" />
+      <section className="relative isolate overflow-hidden border-b border-[var(--border-soft)]">
         <div
-          className="absolute inset-0 bg-cover bg-center opacity-[0.7]"
+          className="absolute inset-0 bg-cover bg-center opacity-[0.35]"
           style={{ backgroundImage: 'url(/images/site/home-hero-protocol-relay.png)' }}
           aria-hidden="true"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(246,247,242,0.97)_0%,rgba(246,247,242,0.88)_44%,rgba(246,247,242,0.30)_100%)]" aria-hidden="true" />
+        <div className="ambient-field" aria-hidden="true" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,2,3,0.96)_0%,rgba(2,2,3,0.82)_45%,rgba(2,2,3,0.35)_72%,rgba(2,2,3,0.05)_100%)]" aria-hidden="true" />
         <ProtocolRelayCanvas />
         <div className="relative mx-auto min-h-[52vh] max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
@@ -51,7 +54,7 @@ export function RoadmapPage() {
             <h1 className="mt-4 text-5xl font-semibold leading-tight sm:text-6xl">
               {locale === 'zh' ? '我们已经实现了什么，下一步去哪里。' : 'What is already shipped, and where OCP is heading.'}
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-black/65">
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--text-muted)]">
               {locale === 'zh'
                 ? 'OCP Catalog 已经从协议草案走到可运行的工具与真实接入。这里把已交付、进行中和规划中的工作排成一条时间线。'
                 : 'OCP Catalog has moved from a draft spec to running tooling and real integrations. This timeline lays out what is shipped, in progress, and planned.'}
@@ -87,14 +90,14 @@ export function RoadmapPage() {
                       <span className={`roadmap-status-chip roadmap-status-chip-${phase.status}`}>
                         {resolveLocalizedText(roadmapStatusLabels[phase.status], locale)}
                       </span>
-                      <span className="text-sm font-semibold uppercase tracking-wide text-black/45">
+                      <span className="text-sm font-semibold uppercase tracking-wide text-[var(--text-faint)]">
                         {resolveLocalizedText(phase.period, locale)}
                       </span>
                     </div>
                     <h2 className="mt-3 text-3xl font-semibold leading-tight">
                       {resolveLocalizedText(phase.title, locale)}
                     </h2>
-                    <p className="mt-3 max-w-3xl text-lg leading-8 text-black/64">
+                    <p className="mt-3 max-w-3xl text-lg leading-8 text-[var(--text-muted)]">
                       {resolveLocalizedText(phase.summary, locale)}
                     </p>
                     <div className="mt-6 grid gap-3 md:grid-cols-2">
@@ -105,12 +108,12 @@ export function RoadmapPage() {
                               {resolveLocalizedText(item.title, locale)}
                             </h3>
                             {item.tag && (
-                              <span className="rounded-md border border-black/10 bg-white px-2 py-0.5 text-[0.7rem] font-semibold uppercase text-black/50">
+                              <span className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[0.7rem] font-semibold uppercase text-[var(--text-faint)]">
                                 {item.tag}
                               </span>
                             )}
                           </div>
-                          <p className="mt-2 text-sm leading-6 text-black/62">
+                          <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">
                             {resolveLocalizedText(item.body, locale)}
                           </p>
                         </div>
@@ -124,7 +127,7 @@ export function RoadmapPage() {
         </div>
       </section>
 
-      <section className="site-section border-t border-black/10 bg-[var(--ocp-ink)] text-[var(--ocp-paper)]">
+      <section className="site-section glass-card border-t border-[var(--border-soft)]">
         <div className="site-container flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="text-xs font-semibold uppercase text-[var(--ocp-gold)]">
@@ -142,7 +145,7 @@ export function RoadmapPage() {
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
               to={localizePath('/docs/cli-and-skill')}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--ocp-paper)] px-5 py-3 text-sm font-semibold text-[var(--ocp-ink)] transition-transform hover:-translate-y-0.5"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5"
             >
               {locale === 'zh' ? 'CLI 与 Skill（即将推出）' : 'CLI & skill (coming soon)'}
               <ArrowRight className="h-4 w-4" />

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { resolveLocalizedText, useDocsLocale } from '../content/i18n';
 import { products, productStatusLabels, type Product, type ProductStatus } from '../content/products';
+import { PageTheme } from '../theme/ThemeContext';
 
 const GITHUB_URL = 'https://github.com/Open-Commerce-Protocol/OCP-Catalog';
 
@@ -57,6 +58,7 @@ export function ProductsPage() {
 
   return (
     <main className="site-band">
+      <PageTheme theme="dark" />
       <section className="site-section">
         <div className="site-container">
           <div className="reveal-on-scroll max-w-3xl">
@@ -64,7 +66,7 @@ export function ProductsPage() {
             <h1 className="mt-4 text-5xl font-semibold leading-tight sm:text-6xl">
               {locale === 'zh' ? 'OCP 的全部开放组件。' : 'Every open piece of OCP.'}
             </h1>
-            <p className="mt-5 text-lg leading-8 text-black/65">
+            <p className="mt-5 text-lg leading-8 text-[var(--text-muted)]">
               {locale === 'zh'
                 ? '从协议本体到 CLI、Agent skill、MCP 服务器和电商连接器——都是开源的，任何人都可以使用。'
                 : 'From the protocol itself to a CLI, an agent skill, an MCP server, and commerce connectors — all open source, free for anyone to use.'}
@@ -73,7 +75,7 @@ export function ProductsPage() {
               href={GITHUB_URL}
               target="_blank"
               rel="noreferrer"
-              className="mt-6 inline-flex items-center gap-2 rounded-md border border-black/12 bg-white/70 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-white"
+              className="mt-6 inline-flex items-center gap-2 rounded-md border border-[var(--border-soft)] bg-[var(--surface-1)] px-4 py-2 text-sm font-semibold text-[var(--text-strong)] transition-colors hover:bg-[var(--surface-glass)]"
             >
               <GitFork className="h-4 w-4" />
               {locale === 'zh' ? '在 GitHub 上查看源码' : 'Open source on GitHub'}
@@ -132,7 +134,7 @@ function ProductCard({
       <p className="mt-1 text-sm font-semibold text-[var(--ocp-cyan)]">
         {resolveLocalizedText(product.tagline, locale)}
       </p>
-      <p className="mt-3 text-sm leading-6 text-black/62">
+      <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
         {resolveLocalizedText(product.description, locale)}
       </p>
       {product.tags && product.tags.length > 0 && (
@@ -140,14 +142,14 @@ function ProductCard({
           {product.tags.map((tag) => (
             <span
               key={tag}
-              className="rounded-md border border-black/10 bg-white px-2 py-0.5 text-[0.7rem] font-semibold uppercase text-black/50"
+              className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-1)] px-2 py-0.5 text-[0.7rem] font-semibold uppercase text-[var(--text-faint)]"
             >
               {tag}
             </span>
           ))}
         </div>
       )}
-      <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-black/72 group-hover:text-black">
+      <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)] group-hover:text-[var(--text-strong)]">
         {cta}
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
       </span>
@@ -155,7 +157,7 @@ function ProductCard({
   );
 
   const className =
-    'builder-card reveal-on-scroll group flex flex-col rounded-md border border-black/10 bg-white p-5 shadow-sm';
+    'builder-card glass-card reveal-on-scroll group flex flex-col rounded-md p-5';
   const style = { '--reveal-delay': `${index * 70}ms` } as CSSProperties;
 
   if (product.external) {
