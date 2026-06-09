@@ -20,7 +20,14 @@ export function handleHttpError(input: {
       durationMs,
       error: input.error,
     });
-    return { error: { code: input.error.code, message: input.error.message, details: input.error.details } };
+    return {
+      error: {
+        code: input.error.code,
+        message: input.error.message,
+        status: input.error.status,
+        details: input.error.details,
+      },
+    };
   }
 
   if (input.error instanceof ZodError) {
@@ -32,7 +39,14 @@ export function handleHttpError(input: {
       durationMs,
       error: input.error,
     });
-    return { error: { code: 'validation_error', message: 'Invalid request body', details: input.error.issues } };
+    return {
+      error: {
+        code: 'validation_error',
+        message: 'Invalid request body',
+        status: 400,
+        details: input.error.issues,
+      },
+    };
   }
 
   input.set.status = 500;
@@ -47,6 +61,7 @@ export function handleHttpError(input: {
     error: {
       code: 'internal_error',
       message: input.error instanceof Error ? input.error.message : 'Unknown error',
+      status: 500,
     },
   };
 }

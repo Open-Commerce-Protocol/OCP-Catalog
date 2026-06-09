@@ -370,6 +370,7 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   catalogStatusScheduledIdx: index('catalog_search_index_jobs_catalog_status_scheduled_idx').on(table.catalogId, table.status, table.scheduledAt),
   catalogTypeStatusIdx: index('catalog_search_index_jobs_catalog_type_status_idx').on(table.catalogId, table.jobType, table.status),
   catalogStatusIdx: index('catalog_search_index_jobs_catalog_status_idx').on(table.catalogId, table.status),
+  catalogProviderStatusIdx: index('catalog_search_index_jobs_catalog_provider_status_idx').on(table.catalogId, table.providerId, table.status),
   providerCreatedIdx: index('catalog_search_index_jobs_catalog_provider_created_idx').on(table.catalogId, table.providerId, table.createdAt),
   pendingClaimIdx: index('catalog_search_index_jobs_pending_claim_idx')
     .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)

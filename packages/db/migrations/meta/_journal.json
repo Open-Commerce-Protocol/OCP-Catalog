@@ -120,6 +120,13 @@
       "when": 1780815000000,
       "tag": "0016_embedding_job_document_index",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1780859000000,
+      "tag": "0017_provider_status_throttle_index",
+      "breakpoints": true
     }
   ]
 }

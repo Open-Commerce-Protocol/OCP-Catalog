@@ -17,6 +17,7 @@ import type { RegistrationService } from './registration-service';
 
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
 const MAX_OBJECT_SYNC_BATCH_SIZE = 1_000;
+const PROVIDER_THROTTLE_COUNT_SCAN_LIMIT = 1_000;
 const UNCHANGED_OBJECT_WARNING = 'unchanged_object_hash';
 
 export type ObjectSyncOptions = {
@@ -48,7 +49,10 @@ export class ObjectSyncService {
   ) {}
 
   async sync(input: unknown, options: ObjectSyncOptions = {}): Promise<ObjectSyncResult> {
+    const startedAt = performance.now();
+    const timings: Record<string, number> = {};
     const request = objectSyncRequestSchema.parse(input);
+    timings.parse_ms = elapsedMs(startedAt);
     if (request.catalog_id !== this.config.CATALOG_ID) {
       throw new AppError('validation_error', `catalog_id must be ${this.config.CATALOG_ID}`, 400);
     }
@@ -65,7 +69,9 @@ export class ObjectSyncService {
       });
     }
 
+    const providerStartedAt = performance.now();
     const providerState = await this.registrations.findProviderState(request.provider_id);
+    timings.provider_state_ms = elapsedMs(providerStartedAt);
     if (!providerState || providerState.status !== 'active') {
       throw new AppError('validation_error', `Provider ${request.provider_id} is not active`, 400);
     }
@@ -82,6 +88,7 @@ export class ObjectSyncService {
       registration_version: request.registration_version,
       objects: request.objects,
     });
+    const replayStartedAt = performance.now();
     const existingResult = await this.findExistingBatchResult({
       catalogId: request.catalog_id,
       providerId: request.provider_id,
@@ -89,12 +96,19 @@ export class ObjectSyncService {
       batchId,
       requestHash,
     });
-    if (existingResult) return existingResult;
+    timings.replay_lookup_ms = elapsedMs(replayStartedAt);
+    if (existingResult) {
+      logObjectSyncTiming(request, existingResult, timings, startedAt, 'replayed');
+      return existingResult;
+    }
 
+    const throttleStartedAt = performance.now();
     await this.assertProviderSyncAllowed(request.provider_id);
+    timings.throttle_ms = elapsedMs(throttleStartedAt);
 
     const batchRowId = newId('syncbatch');
-    return this.db.transaction(async (tx) => {
+    const transactionStartedAt = performance.now();
+    const result = await this.db.transaction(async (tx) => {
       const syncDb = tx as unknown as Db;
       const syncRun = await this.ensureSyncRun(syncDb, request, batchId, options);
       const [insertedBatch] = await syncDb
@@ -206,6 +220,9 @@ export class ObjectSyncService {
 
       return result;
     });
+    timings.transaction_ms = elapsedMs(transactionStartedAt);
+    logObjectSyncTiming(request, result, timings, startedAt, 'committed');
+    return result;
   }
 
   async listProviderObjects(providerId: string) {
@@ -829,29 +846,14 @@ export class ObjectSyncService {
 
   private async assertProviderSyncAllowed(providerId: string) {
     if (!this.config.CATALOG_PROVIDER_THROTTLE_ENABLED) return;
-    const [control, backlog] = await Promise.all([
-      this.db
-        .select()
-        .from(schema.providerSyncControls)
-        .where(and(
-          eq(schema.providerSyncControls.catalogId, this.config.CATALOG_ID),
-          eq(schema.providerSyncControls.providerId, providerId),
-        ))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      this.db
-        .select({
-          pendingCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'pending')::int`,
-          runningCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'running')::int`,
-          failedCount: sql<number>`count(*) filter (where ${schema.catalogSearchIndexJobs.status} = 'failed')::int`,
-        })
-        .from(schema.catalogSearchIndexJobs)
-        .where(and(
-          eq(schema.catalogSearchIndexJobs.catalogId, this.config.CATALOG_ID),
-          eq(schema.catalogSearchIndexJobs.providerId, providerId),
-        ))
-        .then((rows) => rows[0] ?? { pendingCount: 0, runningCount: 0, failedCount: 0 }),
-    ]);
+    const [control] = await this.db
+      .select()
+      .from(schema.providerSyncControls)
+      .where(and(
+        eq(schema.providerSyncControls.catalogId, this.config.CATALOG_ID),
+        eq(schema.providerSyncControls.providerId, providerId),
+      ))
+      .limit(1);
 
     const now = new Date();
     if (control?.status === 'paused') {
@@ -869,24 +871,54 @@ export class ObjectSyncService {
     const pendingLimit = control?.maxPendingIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_PENDING_JOB_LIMIT;
     const runningLimit = control?.maxRunningIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_RUNNING_JOB_LIMIT;
     const failedLimit = control?.maxFailedIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_FAILED_JOB_LIMIT;
-    if (pendingLimit > 0 && backlog.pendingCount >= pendingLimit) {
-      throw providerThrottled(providerId, 'provider_pending_index_backlog_limit', {
-        pending_index_job_count: backlog.pendingCount,
+    const pendingThreshold = providerThrottleThreshold(pendingLimit);
+    const runningThreshold = providerThrottleThreshold(runningLimit);
+    const failedThreshold = providerThrottleThreshold(failedLimit);
+    const [pendingCount, runningCount, failedCount] = await Promise.all([
+      this.countProviderJobsAtLimit(providerId, 'pending', pendingThreshold),
+      this.countProviderJobsAtLimit(providerId, 'running', runningThreshold),
+      this.countProviderJobsAtLimit(providerId, 'failed', failedThreshold),
+    ]);
+    if (pendingThreshold > 0 && pendingCount >= pendingThreshold) {
+      throw providerThrottled(providerId, providerThrottleReason('pending', pendingLimit), {
+        pending_index_job_observed_count: pendingCount,
         pending_index_job_limit: pendingLimit,
+        internal_count_scan_limit: pendingThreshold,
+        count_is_capped: pendingThreshold < pendingLimit,
       });
     }
-    if (runningLimit > 0 && backlog.runningCount >= runningLimit) {
-      throw providerThrottled(providerId, 'provider_running_index_backlog_limit', {
-        running_index_job_count: backlog.runningCount,
+    if (runningThreshold > 0 && runningCount >= runningThreshold) {
+      throw providerThrottled(providerId, providerThrottleReason('running', runningLimit), {
+        running_index_job_observed_count: runningCount,
         running_index_job_limit: runningLimit,
+        internal_count_scan_limit: runningThreshold,
+        count_is_capped: runningThreshold < runningLimit,
       });
     }
-    if (failedLimit > 0 && backlog.failedCount >= failedLimit) {
-      throw providerThrottled(providerId, 'provider_failed_index_backlog_limit', {
-        failed_index_job_count: backlog.failedCount,
+    if (failedThreshold > 0 && failedCount >= failedThreshold) {
+      throw providerThrottled(providerId, providerThrottleReason('failed', failedLimit), {
+        failed_index_job_observed_count: failedCount,
         failed_index_job_limit: failedLimit,
+        internal_count_scan_limit: failedThreshold,
+        count_is_capped: failedThreshold < failedLimit,
       });
     }
+  }
+
+  private async countProviderJobsAtLimit(providerId: string, status: 'pending' | 'running' | 'failed', limit: number) {
+    if (limit <= 0) return 0;
+    const [row] = await this.db.execute(sql`
+      select count(*)::int as count
+      from (
+        select 1
+        from catalog_search_index_jobs
+        where catalog_id = ${this.config.CATALOG_ID}
+          and provider_id = ${providerId}
+          and status = ${status}
+        limit ${limit}
+      ) capped_provider_jobs
+    `) as Array<{ count: number }>;
+    return row?.count ?? 0;
   }
 }
 
@@ -916,8 +948,22 @@ function providerThrottled(providerId: string, reason: string, details: Record<s
   return new AppError('rate_limited', `Provider ${providerId} sync is throttled: ${reason}`, 429, {
     provider_id: providerId,
     reason,
+    action: 'retry_later',
+    retry_after_ms: 60_000,
     ...details,
   });
+}
+
+function providerThrottleThreshold(limit: number) {
+  if (limit <= 0) return 0;
+  return Math.min(limit, PROVIDER_THROTTLE_COUNT_SCAN_LIMIT);
+}
+
+function providerThrottleReason(status: 'pending' | 'running' | 'failed', configuredLimit: number) {
+  if (configuredLimit > PROVIDER_THROTTLE_COUNT_SCAN_LIMIT) {
+    return `provider_${status}_index_backlog_internal_guard`;
+  }
+  return `provider_${status}_index_backlog_limit`;
 }
 
 function validateCommercialObject(object: CommercialObject, context: SyncContext) {
@@ -1026,6 +1072,31 @@ function publicErrorMessage(error: unknown) {
   if (!(error instanceof Error)) return 'unknown persistence error';
   const message = error.message.replace(/\s+/g, ' ').trim();
   return message.length > 240 ? `${message.slice(0, 237)}...` : message;
+}
+
+function elapsedMs(startedAt: number) {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
+}
+
+function logObjectSyncTiming(
+  request: ObjectSyncRequest,
+  result: ObjectSyncResult,
+  timings: Record<string, number>,
+  startedAt: number,
+  outcome: 'committed' | 'replayed',
+) {
+  console.info('[object-sync] timing', {
+    catalog_id: request.catalog_id,
+    provider_id: request.provider_id,
+    batch_id: result.batch_id,
+    object_count: request.objects.length,
+    accepted_count: result.accepted_count,
+    rejected_count: result.rejected_count,
+    status: result.status,
+    outcome,
+    ...timings,
+    total_ms: elapsedMs(startedAt),
+  });
 }
 
 async function hashJson(value: unknown) {
