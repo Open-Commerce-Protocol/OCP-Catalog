@@ -26,8 +26,8 @@
   [data-theme='dark'] {
     /* 语义对调：现有用 var(--ocp-ink)/var(--ocp-paper) 的组件自动反相 */
     --ocp-ink: #f4f5f2;
-    --ocp-paper: #050608;
-    --ocp-porcelain: #0c0f12;
+    --ocp-paper: #020203;
+    --ocp-porcelain: #08090b;
     --ocp-graphite: #c7ccc4;
     --ocp-cyan: #2ee6e0;
     --ocp-cyan-deep: #00a7a5;
@@ -69,10 +69,8 @@
   }
 
   [data-theme='dark'] body {
-    background:
-      radial-gradient(circle at 72% 30%, rgba(0, 167, 165, 0.16), transparent 38%),
-      radial-gradient(circle at 24% 74%, rgba(40, 90, 140, 0.14), transparent 46%),
-      var(--ocp-paper);
+    /* 纯黑底，氛围光晕只存在于 hero 的 .ambient-field，不铺满全页（贴近 Collov） */
+    background: var(--ocp-paper);
   }
 }
 
@@ -912,9 +910,9 @@
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(circle at var(--ax, 72%) var(--ay, 32%), rgba(0, 222, 218, 0.22), transparent 42%),
-      radial-gradient(circle at 26% 72%, rgba(40, 90, 140, 0.20), transparent 52%),
-      radial-gradient(circle at 50% 50%, rgba(120, 220, 255, 0.08), transparent 64%);
+      radial-gradient(circle at var(--ax, 72%) var(--ay, 32%), rgba(0, 222, 218, 0.18), transparent 36%),
+      radial-gradient(circle at 26% 72%, rgba(40, 90, 140, 0.14), transparent 44%),
+      radial-gradient(circle at 50% 50%, rgba(120, 220, 255, 0.05), transparent 58%);
     filter: blur(2px);
     animation: ambient-drift 22s ease-in-out infinite alternate;
   }
