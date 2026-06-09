@@ -12,7 +12,8 @@ import { PageTheme } from '../theme/ThemeContext';
 import { resolveLocalizedText, useDocsLocale, type LocalizedText } from '../content/i18n';
 import { updates } from '../content/updates';
 import { useCatalogScale } from '../lib/useCatalogScale';
-import { formatCompactCount } from '../lib/formatScale';
+import { formatFullCount } from '../lib/formatScale';
+import { useCountUp } from '../lib/useCountUp';
 
 const flowSteps = [
   { label: { en: 'Connect', zh: '接入' }, body: { en: 'Merchants expose products and services through an OCP connector.', zh: '商家通过 OCP 接入应用开放商品与服务。' } },
@@ -56,6 +57,19 @@ const GITHUB_URL = 'https://github.com/Open-Commerce-Protocol/OCP-Catalog';
 
 function label(text: LocalizedText, locale: 'en' | 'zh') {
   return resolveLocalizedText(text, locale);
+}
+
+/**
+ * "Stored & indexed" figure: shows the real grouped count (e.g. 12,008,514),
+ * ticking up from 0 once a real value is available. Shows "—" (never a fake 0)
+ * while loading or when the figure is unavailable — distinguishing "don't know"
+ * from a genuine zero.
+ */
+function StoredCount({ scale }: { scale: ReturnType<typeof useCatalogScale> }) {
+  const ready = scale.status === 'ready';
+  const animated = useCountUp(scale.storedTotal, ready);
+  if (!ready) return <>—</>;
+  return <>{formatFullCount(animated)}</>;
 }
 
 export function HomePage() {
@@ -236,24 +250,22 @@ export function HomePage() {
             </div>
           </div>
 
-          {scale.status !== 'unavailable' && (
-            <div className="reveal-item mt-10 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-white/10 pt-6 font-mono">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
-                  {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
-                </div>
-                <div className="mt-2 text-4xl font-semibold tabular-nums text-white">
-                  {scale.status === 'loading' ? '—' : formatCompactCount(scale.storedTotal)}
-                </div>
+          <div className="reveal-item mt-10 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-white/10 pt-6 font-mono">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+                {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
               </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
-                  {locale === 'zh' ? '按需流转' : 'Streamed on demand'}
-                </div>
-                <div className="mt-2 text-4xl font-semibold tabular-nums text-[var(--ocp-cyan)]">∞</div>
+              <div className="mt-2 text-4xl font-semibold tabular-nums text-white">
+                <StoredCount scale={scale} />
               </div>
             </div>
-          )}
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+                {locale === 'zh' ? '按需流转' : 'Streamed on demand'}
+              </div>
+              <div className="mt-2 text-4xl font-semibold tabular-nums text-[var(--ocp-cyan)]">∞</div>
+            </div>
+          </div>
         </div>
 
         <div className="hero-scroll-cue hidden lg:flex" aria-hidden="true">

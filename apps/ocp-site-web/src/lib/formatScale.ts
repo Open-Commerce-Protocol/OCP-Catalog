@@ -22,3 +22,11 @@ export function formatCompactCount(value: number): string {
 
   return String(Math.round(value));
 }
+
+/**
+ * Full grouped count: 12008514 -> "12,008,514". Non-finite/negative -> "0".
+ */
+export function formatFullCount(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0';
+  return Math.round(value).toLocaleString('en-US');
+}

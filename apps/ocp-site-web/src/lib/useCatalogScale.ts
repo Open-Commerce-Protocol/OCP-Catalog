@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react';
 import { useDirectory } from './useDirectory';
-import { fetchManifestOnce } from './useCatalogManifest';
 import {
   aggregateCatalogScale,
   type CatalogScale,
@@ -8,54 +6,36 @@ import {
 } from './catalogScale';
 
 /**
- * Aggregates a network-wide product-scale snapshot by fanning out manifest
- * fetches over every catalog the directory discovered, then splitting totals
- * by presence of data_profile. Lazy: never blocks first paint.
+ * Network-wide product-scale snapshot.
+ *
+ * The per-catalog `catalog_entry_count` already rides along in each search
+ * result's `route_hint.metadata.data_profile` — the registry computes it during
+ * its scheduled refresh and serves it from cache. So this hook just reads what
+ * the directory search already returned; it does NOT fan out a manifest fetch
+ * per catalog on every page load.
  */
 export function useCatalogScale(): CatalogScale {
-  const { catalogs } = useDirectory({ pollMs: 60_000, searchLimit: 50 });
-  // Only resolved probes live in state; URLs not yet present are treated as pending.
-  const [resolved, setResolved] = useState<Map<string, ManifestProbe>>(new Map());
+  const { catalogs, isLoading } = useDirectory({ pollMs: 60_000, searchLimit: 50 });
 
-  const manifestUrls = catalogs
-    .map((c) => c.manifest_url ?? c.route_hint?.manifest_url)
-    .filter((url): url is string => typeof url === 'string' && url.length > 0);
-  const urlKey = manifestUrls.join('|');
-
-  useEffect(() => {
-    if (manifestUrls.length === 0) return;
-    let cancelled = false;
-
-    for (const url of manifestUrls) {
-      void fetchManifestOnce(url).then((entry) => {
-        if (cancelled) return;
-        const probe: ManifestProbe =
-          entry.status === 'ready'
-            ? {
-                status: 'ready',
-                dataProfileCount: entry.manifest.data_profile?.catalog_entry_count ?? null,
-              }
-            : { status: 'error', dataProfileCount: null };
-        setResolved((prev) => {
-          const next = new Map(prev);
-          next.set(url, probe);
-          return next;
-        });
-      });
-    }
-
-    return () => {
-      cancelled = true;
+  // Still waiting on the very first directory response — nothing to show yet.
+  if (isLoading && catalogs.length === 0) {
+    return {
+      status: 'loading',
+      storedTotal: 0,
+      storedCatalogCount: 0,
+      streamedCatalogCount: 0,
     };
-    // urlKey captures the set of URLs; manifestUrls is derived from it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlKey]);
+  }
 
-  // Probes are derived here rather than kept in a second state slice: a
-  // discovered URL with no resolved entry yet counts as pending.
-  const probes: ManifestProbe[] = manifestUrls.map(
-    (url) => resolved.get(url) ?? { status: 'pending', dataProfileCount: null },
-  );
+  // Each discovered catalog becomes a settled probe: it has a data_profile count
+  // (stored) or it does not (streamed). No network call — the value is already here.
+  const probes: ManifestProbe[] = catalogs.map((catalog) => {
+    const count = catalog.route_hint?.metadata?.data_profile?.catalog_entry_count;
+    return {
+      status: 'ready',
+      dataProfileCount: typeof count === 'number' ? count : null,
+    };
+  });
 
   return aggregateCatalogScale(probes);
 }

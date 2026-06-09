@@ -13,6 +13,12 @@ export type RegistrationDiscovery = {
   catalog_search_url?: string;
 };
 
+export type CatalogDataProfile = {
+  catalog_entry_count?: number;
+  object_counts?: Array<{ object_type?: string; count?: number }>;
+  counted_at?: string;
+};
+
 export type CatalogRouteHintPreview = {
   catalog_id?: string;
   manifest_url?: string;
@@ -20,6 +26,10 @@ export type CatalogRouteHintPreview = {
   resolve_url?: string;
   supported_query_packs?: string[];
   cache_ttl_seconds?: number;
+  metadata?: {
+    data_profile?: CatalogDataProfile;
+    [key: string]: unknown;
+  };
 };
 
 export type CatalogSearchResultItem = {
