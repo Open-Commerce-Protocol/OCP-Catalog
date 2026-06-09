@@ -183,7 +183,7 @@ export function HomePage() {
       </nav>
 
       <div className="home-panel-track">
-      <section id="hero" ref={heroRef} className="home-panel relative isolate flex min-h-[100svh] flex-col overflow-hidden">
+      <section id="hero" ref={heroRef} className="home-panel relative isolate flex min-h-[calc(100svh-5rem)] flex-col overflow-hidden">
         {/* Full-bleed cinematic ambient image (bokeh on the right, black on the left) */}
         <div
           className="hero-bg hero-parallax-slow absolute inset-0 bg-cover bg-center"
@@ -322,6 +322,8 @@ export function HomePage() {
       </section>
 
       <section id="why" className="home-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
+        <div className="section-bg" style={{ backgroundImage: 'url(/images/trust-boundary.png)', opacity: 0.4 }} aria-hidden="true" />
+        <div className="section-veil" aria-hidden="true" />
         <div className="site-container grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <div className="reveal-on-scroll">
             <span className="mono-kicker">{locale === 'zh' ? '为什么需要它' : 'Why this matters'}</span>
@@ -412,7 +414,7 @@ export function HomePage() {
       </section>
 
       <section id="paths" className="home-panel site-section immersive-section py-24 lg:py-32">
-        <div className="ambient-field" aria-hidden="true" />
+        <div className="section-bg" style={{ backgroundImage: 'url(/images/closing-ambient.png)', opacity: 0.45 }} aria-hidden="true" />
         <div className="section-veil" aria-hidden="true" />
         <div className="site-container">
           <div className="reveal-on-scroll flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -432,7 +434,7 @@ export function HomePage() {
                 <Link
                   key={path.href}
                   to={localizePath(path.href)}
-                  className="builder-card reveal-on-scroll group rounded-none border-t border-white/12 bg-transparent pt-6 transition-colors hover:border-[var(--ocp-cyan)]/60"
+                  className="reveal-on-scroll group -mx-4 rounded-lg border-t border-white/12 px-4 pb-5 pt-6 transition-all duration-300 hover:-translate-y-1 hover:border-t-[var(--ocp-cyan)]/60 hover:bg-white/[0.03]"
                   style={{ '--reveal-delay': `${index * 80}ms` } as CSSProperties}
                 >
                   <Icon className="h-6 w-6 text-[var(--ocp-vermilion)]" />
