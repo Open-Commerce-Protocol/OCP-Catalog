@@ -56,13 +56,13 @@ export function LiveActivityPulse() {
   const recent = events.slice(0, 2);
 
   return (
-    <div className="hero-orbit-card hero-parallax-fast reveal-item relative mb-10 w-80 overflow-hidden rounded-md border border-white/44 bg-white/58 p-5 shadow-2xl shadow-black/16 backdrop-blur-xl">
+    <div className="hero-orbit-card hero-parallax-fast reveal-item relative mb-10 w-80 overflow-hidden rounded-md border border-[var(--border-soft)] bg-[var(--surface-glass)] p-5 shadow-2xl shadow-black/16 backdrop-blur-xl">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-semibold text-black/72">
+        <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)]">
           <Radio className="h-4 w-4 text-[var(--ocp-cyan)]" />
           {locale === 'zh' ? '协议实时脉冲' : 'Protocol live pulse'}
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-black/64">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-glass)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
           <span
             className="h-1.5 w-1.5 rounded-full"
             style={{
@@ -78,7 +78,7 @@ export function LiveActivityPulse() {
         <span className="font-mono text-3xl font-semibold tabular-nums text-[var(--ocp-ink)]">
           {rollups?.event_count ?? (status === 'error' ? '–' : '…')}
         </span>
-        <span className="text-xs font-semibold uppercase text-black/52">
+        <span className="text-xs font-semibold uppercase text-[var(--text-faint)]">
           {locale === 'zh' ? `24 小时事件` : '24h events'}
         </span>
       </div>
@@ -87,11 +87,11 @@ export function LiveActivityPulse() {
         {familyBars.length > 0 ? (
           familyBars.map((bar) => (
             <div key={bar.name} className="text-xs">
-              <div className="flex items-center justify-between text-black/64">
+              <div className="flex items-center justify-between text-[var(--text-muted)]">
                 <span className="font-semibold uppercase tracking-wide">{bar.name}</span>
                 <span className="font-mono tabular-nums">{bar.value}</span>
               </div>
-              <div className="mt-1 h-1 overflow-hidden rounded bg-black/8">
+              <div className="mt-1 h-1 overflow-hidden rounded bg-[var(--surface-1)]">
                 <div
                   className="h-full transition-all duration-700"
                   style={{ width: `${Math.max(6, bar.ratio * 100)}%`, background: bar.color }}
@@ -100,7 +100,7 @@ export function LiveActivityPulse() {
             </div>
           ))
         ) : (
-          <p className="text-xs text-black/48">
+          <p className="text-xs text-[var(--text-faint)]">
             {status === 'error'
               ? locale === 'zh'
                 ? 'Activity API 离线。'
@@ -113,20 +113,20 @@ export function LiveActivityPulse() {
       </div>
 
       {recent.length > 0 && (
-        <div className="mt-4 border-t border-black/8 pt-3">
-          <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-black/48">
+        <div className="mt-4 border-t border-[var(--border-soft)] pt-3">
+          <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">
             <Activity className="h-3 w-3" />
             {locale === 'zh' ? '最近事件' : 'Recent'}
           </div>
           <ul className="space-y-1.5">
             {recent.map((event) => (
-              <li key={event.public_event_id} className="flex items-center gap-2 text-xs text-black/64">
+              <li key={event.public_event_id} className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                 <span
                   className="h-1.5 w-1.5 shrink-0 rounded-full"
                   style={{ background: familyTone[event.protocol_family] ?? 'var(--ocp-ink)' }}
                 />
-                <span className="min-w-0 flex-1 truncate font-medium text-black/72">{event.event_type}</span>
-                <span className="shrink-0 font-mono tabular-nums text-black/44">
+                <span className="min-w-0 flex-1 truncate font-medium text-[var(--text-muted)]">{event.event_type}</span>
+                <span className="shrink-0 font-mono tabular-nums text-[var(--text-faint)]">
                   {relativeTime(event.occurred_at, locale)}
                 </span>
               </li>

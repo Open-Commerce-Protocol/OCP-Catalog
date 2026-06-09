@@ -343,7 +343,7 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="open" className="home-panel site-section border-y border-white/10 bg-[var(--ocp-ink)] text-[var(--ocp-paper)]">
+      <section id="open" className="home-panel site-section border-y border-white/10 glass-card">
         <div className="site-container grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="reveal-on-scroll">
             <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--ocp-gold)]">
@@ -355,7 +355,7 @@ export function HomePage() {
                 ? 'OCP 是开放协议，不是封闭平台。'
                 : 'OCP is an open protocol, not a closed platform.'}
             </h2>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-white/64">
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-[var(--text-muted)]">
               {locale === 'zh'
                 ? '协议、参考实现、CLI、Agent skill 和连接器全部开源、对所有人免费。任何主体都可以运行自己的注册节点与 Catalog，没有守门人。'
                 : 'The protocol, the reference implementations, the CLI, the agent skill, and the connectors are all open source and free for everyone. Anyone can run their own registration node and catalog — there is no gatekeeper.'}
@@ -365,7 +365,7 @@ export function HomePage() {
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--ocp-paper)] px-5 py-3 text-sm font-semibold text-[var(--ocp-ink)] transition-transform hover:-translate-y-0.5"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5"
               >
                 <GitFork className="h-4 w-4" />
                 {locale === 'zh' ? '在 GitHub 上查看源码' : 'Open source on GitHub'}
@@ -386,8 +386,8 @@ export function HomePage() {
               { value: locale === 'zh' ? '联邦' : 'Federated', label: { en: 'Run your own node', zh: '自建注册节点' } },
             ].map((item) => (
               <div key={item.value} className="rounded-md border border-white/12 bg-white/[0.06] p-4 text-center">
-                <div className="text-2xl font-semibold text-[var(--ocp-paper)]">{item.value}</div>
-                <div className="mt-2 text-xs font-semibold text-white/56">{label(item.label, locale)}</div>
+                <div className="text-2xl font-semibold text-[var(--text-strong)]">{item.value}</div>
+                <div className="mt-2 text-xs font-semibold text-[var(--text-muted)]">{label(item.label, locale)}</div>
               </div>
             ))}
           </div>
@@ -438,14 +438,14 @@ export function HomePage() {
       </section>
 
       {latestUpdate && (
-        <section className="home-panel site-section border-t border-black/10 bg-[var(--ocp-ink)] text-[var(--ocp-paper)]">
+        <section className="home-panel site-section border-t border-[var(--border-soft)] glass-card">
           <div className="site-container reveal-on-scroll flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="text-xs font-semibold uppercase text-[var(--ocp-gold)]">{locale === 'zh' ? '新闻' : 'News'}</div>
               <h2 className="mt-3 max-w-3xl text-3xl font-semibold">{label(latestUpdate.title, locale)}</h2>
-              <p className="mt-3 max-w-2xl text-white/62">{label(latestUpdate.summary, locale)}</p>
+              <p className="mt-3 max-w-2xl text-[var(--text-muted)]">{label(latestUpdate.summary, locale)}</p>
             </div>
-            <Link to={localizePath(`/updates/${latestUpdate.slug}`)} className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--ocp-paper)] px-5 py-3 text-sm font-semibold text-[var(--ocp-ink)] transition-transform hover:-translate-y-0.5">
+            <Link to={localizePath(`/updates/${latestUpdate.slug}`)} className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5">
               {locale === 'zh' ? '查看详情' : 'Read more'}
               <ArrowRight className="h-4 w-4" />
             </Link>

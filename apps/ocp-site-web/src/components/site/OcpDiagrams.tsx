@@ -81,7 +81,7 @@ const toneClasses: Record<DiagramNode['tone'], string> = {
   gold: 'border-[rgba(197,154,50,0.34)] bg-[rgba(197,154,50,0.12)] text-[#755407]',
   green: 'border-[rgba(46,125,87,0.32)] bg-[rgba(46,125,87,0.12)] text-[#1f5e3e]',
   vermilion: 'border-[rgba(217,84,54,0.34)] bg-[rgba(217,84,54,0.12)] text-[#96341e]',
-  ink: 'border-black/15 bg-black/[0.06] text-[var(--ocp-ink)]',
+  ink: 'border-[var(--border-soft)] bg-[var(--surface-1)] text-[var(--ocp-ink)]',
 };
 
 function text(value: LocalizedText, locale: DocsLocale) {
@@ -92,15 +92,15 @@ function DiagramCard({ node, locale }: { node: DiagramNode; locale: DocsLocale }
   return (
     <div className={`rounded-md border p-4 shadow-sm ${toneClasses[node.tone]}`}>
       <div className="text-base font-semibold">{text(node.title, locale)}</div>
-      <p className="mt-2 text-sm leading-6 text-black/62">{text(node.body, locale)}</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{text(node.body, locale)}</p>
     </div>
   );
 }
 
 export function CatalogArchitectureDiagram({ locale }: { locale: DocsLocale }) {
   return (
-    <div className="rounded-md border border-black/10 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-black/70">
+    <div className="rounded-md border border-[var(--border-soft)] bg-[var(--ocp-porcelain)] p-5 shadow-sm">
+      <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)]">
         <Waypoints className="h-4 w-4 text-[var(--ocp-cyan)]" />
         {locale === 'zh' ? '从商家到用户的完整路径' : 'From merchant data to user action'}
       </div>
@@ -111,23 +111,23 @@ export function CatalogArchitectureDiagram({ locale }: { locale: DocsLocale }) {
               <DiagramCard node={node} locale={locale} />
             </div>
             {index < architectureNodes.length - 1 && (
-              <div className="hidden items-center justify-center text-black/30 lg:flex">
+              <div className="hidden items-center justify-center text-[var(--text-faint)] lg:flex">
                 <ArrowRight className="h-5 w-5" />
               </div>
             )}
           </div>
         ))}
       </div>
-      <div className="mt-5 grid gap-3 border-t border-black/10 pt-5 sm:grid-cols-3">
-        <div className="flex items-start gap-3 text-sm text-black/62">
+      <div className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-5 sm:grid-cols-3">
+        <div className="flex items-start gap-3 text-sm text-[var(--text-muted)]">
           <FileCheck2 className="mt-0.5 h-4 w-4 flex-none text-[var(--ocp-gold)]" />
           {locale === 'zh' ? '商家只公开可被发现的能力，不需要暴露私有系统。' : 'Merchants expose discoverable capabilities without exposing private systems.'}
         </div>
-        <div className="flex items-start gap-3 text-sm text-black/62">
+        <div className="flex items-start gap-3 text-sm text-[var(--text-muted)]">
           <DatabaseZap className="mt-0.5 h-4 w-4 flex-none text-[var(--ocp-cyan)]" />
           {locale === 'zh' ? 'Catalog 负责搜索和详情查看，不接管交易履约。' : 'Catalogs handle search and detail lookup without taking over fulfillment.'}
         </div>
-        <div className="flex items-start gap-3 text-sm text-black/62">
+        <div className="flex items-start gap-3 text-sm text-[var(--text-muted)]">
           <LockKeyhole className="mt-0.5 h-4 w-4 flex-none text-[var(--ocp-vermilion)]" />
           {locale === 'zh' ? '购买、预约、报价等动作仍回到商家确认后的执行入口。' : 'Checkout, booking, and quote actions continue through merchant-owned entry points.'}
         </div>
@@ -138,19 +138,19 @@ export function CatalogArchitectureDiagram({ locale }: { locale: DocsLocale }) {
 
 export function SearchResolveActionDiagram({ locale }: { locale: DocsLocale }) {
   return (
-    <div className="rounded-md border border-black/10 bg-[var(--ocp-ink)] p-5 text-[var(--ocp-paper)] shadow-xl shadow-black/10">
-      <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-white/72">
+    <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-glass)] p-5 text-[var(--text-strong)] shadow-xl shadow-black/10">
+      <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)]">
         <Search className="h-4 w-4 text-[var(--ocp-cyan)]" />
         {locale === 'zh' ? '从发现到行动，分三步保持可控' : 'Three steps from discovery to action'}
       </div>
       <div className="grid gap-3 md:grid-cols-3">
         {actionSteps.map((step, index) => (
-          <div key={step.title.en} className="relative rounded-md border border-white/12 bg-white/[0.06] p-5">
-            <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-md bg-white text-sm font-semibold text-[var(--ocp-ink)]">
+          <div key={step.title.en} className="relative rounded-md border border-[var(--border-soft)] bg-[var(--surface-1)] p-5">
+            <div className="mb-4 flex h-9 w-9 items-center justify-center rounded-md bg-[var(--ocp-porcelain)] text-sm font-semibold text-[var(--ocp-ink)]">
               {index + 1}
             </div>
             <div className="text-xl font-semibold">{text(step.title, locale)}</div>
-            <p className="mt-3 text-sm leading-6 text-white/62">{text(step.body, locale)}</p>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{text(step.body, locale)}</p>
           </div>
         ))}
       </div>
@@ -160,8 +160,8 @@ export function SearchResolveActionDiagram({ locale }: { locale: DocsLocale }) {
 
 export function TrustBoundaryDiagram({ locale }: { locale: DocsLocale }) {
   return (
-    <div className="rounded-md border border-black/10 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-black/70">
+    <div className="rounded-md border border-[var(--border-soft)] bg-[var(--ocp-porcelain)] p-5 shadow-sm">
+      <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)]">
         <GitBranch className="h-4 w-4 text-[var(--ocp-green)]" />
         {locale === 'zh' ? '关键安全边界' : 'Key safety boundaries'}
       </div>
@@ -180,14 +180,14 @@ export function OnboardingScenePanel({ locale }: { locale: DocsLocale }) {
       <img
         src="/images/site/provider-onboarding-scene.png"
         alt=""
-        className="aspect-[16/9] w-full rounded-md border border-black/10 object-cover shadow-2xl shadow-black/12"
+        className="aspect-[16/9] w-full rounded-md border border-[var(--border-soft)] object-cover shadow-2xl shadow-black/12"
       />
       <div>
         <div className="section-kicker">{locale === 'zh' ? '商家如何接入' : 'How merchants connect'}</div>
         <h2 className="mt-4 text-4xl font-semibold leading-tight">
           {locale === 'zh' ? '已有商品系统可以接入 OCP，而不是推倒重建。' : 'Existing commerce systems can join OCP without being rebuilt.'}
         </h2>
-        <p className="mt-5 text-lg leading-8 text-black/65">
+        <p className="mt-5 text-lg leading-8 text-[var(--text-muted)]">
           {locale === 'zh'
             ? '接入应用负责翻译商品数据，Catalog 负责让它们可被查找，发现网络负责让 Agent 找到正确入口。每一层都可以独立演进。'
             : 'Connector apps translate commerce data, Catalogs make it searchable, and the discovery network helps agents find the right entry point. Each layer can evolve independently.'}
