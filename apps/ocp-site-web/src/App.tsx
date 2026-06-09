@@ -10,11 +10,13 @@ import { ProductOcpCatalogPage } from './pages/ProductOcpCatalogPage';
 import { RoadmapPage } from './pages/RoadmapPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PageView } from './pages/PageView';
+import { ThemeProvider } from './theme/ThemeContext';
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <ThemeProvider>
+        <Routes>
         <Route path="/" element={<SiteLayout />}>
           <Route index element={<HomePage />} />
           <Route path="docs" element={<DocsLandingPage />} />
@@ -43,7 +45,8 @@ function App() {
           <Route path="roadmap" element={<RoadmapPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
-      </Routes>
+        </Routes>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
