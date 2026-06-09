@@ -203,7 +203,7 @@ export function HomePage() {
           <span className="absolute bottom-44 left-8 font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--ocp-cyan)]/55">action binding</span>
         </div>
 
-        <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
+        <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-8">
           <div className="hero-copy hero-parallax-fade max-w-4xl">
             <div className="reveal-item mb-8 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-white/50">
               <span>Open Commerce Protocol</span>
@@ -237,7 +237,7 @@ export function HomePage() {
           </div>
 
           {scale.status !== 'unavailable' && (
-            <div className="reveal-item mt-16 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-white/10 pt-8 font-mono">
+            <div className="reveal-item mt-10 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-white/10 pt-6 font-mono">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
                   {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
