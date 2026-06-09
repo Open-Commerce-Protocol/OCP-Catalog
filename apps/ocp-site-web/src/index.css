@@ -1008,6 +1008,53 @@
   [data-theme='dark'] .roadmap-item:hover { box-shadow: 0 14px 30px rgba(0,0,0,0.55); }
   [data-theme='dark'] .roadmap-timeline::before { background: linear-gradient(180deg, rgba(46,125,87,0.55) 0%, rgba(46,230,224,0.5) 50%, rgba(255,255,255,0.16) 100%); }
   [data-theme='dark'] .roadmap-phase-planned .roadmap-node { color: rgba(244,245,242,0.4); }
+
+  /* ---- Collov-style immersive sections ---- */
+  .immersive-section {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .section-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.5;
+  }
+
+  .section-veil {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(180deg, rgba(2,2,3,0.92) 0%, rgba(2,2,3,0.55) 40%, rgba(2,2,3,0.7) 100%);
+  }
+
+  .section-veil-left {
+    background: linear-gradient(90deg, rgba(2,2,3,0.95) 0%, rgba(2,2,3,0.8) 45%, rgba(2,2,3,0.4) 75%, rgba(2,2,3,0.1) 100%);
+  }
+
+  .mono-kicker {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(244, 245, 242, 0.5);
+  }
+
+  .mono-kicker-cyan {
+    color: color-mix(in srgb, var(--ocp-cyan) 80%, transparent);
+  }
+
+  .giant-heading {
+    font-size: clamp(2rem, 5vw, 3.75rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
 }
 
 @keyframes reveal-up {
