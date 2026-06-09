@@ -631,6 +631,32 @@
     color: var(--ocp-ink);
   }
 
+  [data-theme='dark'] .protocol-chip-cyan {
+    border-color: rgba(46, 230, 224, 0.4);
+    background: rgba(46, 230, 224, 0.12);
+    color: #7ff3ef;
+  }
+  [data-theme='dark'] .protocol-chip-gold {
+    border-color: rgba(197, 154, 50, 0.5);
+    background: rgba(197, 154, 50, 0.16);
+    color: #e6c878;
+  }
+  [data-theme='dark'] .protocol-chip-green {
+    border-color: rgba(46, 125, 87, 0.55);
+    background: rgba(46, 125, 87, 0.18);
+    color: #7fd6a6;
+  }
+  [data-theme='dark'] .protocol-chip-vermilion {
+    border-color: rgba(217, 84, 54, 0.5);
+    background: rgba(217, 84, 54, 0.16);
+    color: #f0a08a;
+  }
+  [data-theme='dark'] .protocol-chip-ink {
+    border-color: rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--ocp-ink);
+  }
+
   /* Roadmap legend pills (hero) */
   .roadmap-legend {
     @apply inline-flex items-center gap-2 rounded-md border border-black/10 bg-white/70 px-3 py-1.5 text-sm font-semibold backdrop-blur;
