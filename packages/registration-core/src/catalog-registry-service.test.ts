@@ -74,4 +74,41 @@ describe('catalog registry health state', () => {
       }
     ).routeHintFromIndexRow(row)).toThrow('missing searchProjection.query_url');
   });
+
+  test('route hint re-emits data_profile from the projection metadata', () => {
+    const service = new CatalogRegistryService({} as never, { REGISTRATION_ID: 'reg_test' } as never);
+    const dataProfile = {
+      catalog_entry_count: 12_008_514,
+      object_counts: [{ object_type: 'product', count: 12_008_514 }],
+      counted_at: '2026-06-09T16:40:49.949Z',
+    };
+    const row = {
+      id: 'idx_with_data_profile',
+      catalogId: 'catalog_with_data_profile',
+      catalogName: 'Catalog With Data Profile',
+      description: null,
+      manifestUrl: 'https://catalog.example.com/ocp/manifest',
+      supportedQueryPacks: [],
+      supportedQueryModes: [],
+      supportedQueryLanguages: [],
+      contentLanguages: [],
+      searchProjection: {
+        query_url: 'https://catalog.example.com/ocp/query',
+        metadata: { data_profile: dataProfile },
+      },
+      verificationStatus: 'not_required',
+      trustTier: 'declared',
+      healthStatus: 'healthy',
+      activeSnapshotId: 'catsnap_test',
+      updatedAt: new Date('2026-06-09T00:00:00.000Z'),
+    };
+
+    const routeHint = (
+      service as unknown as {
+        routeHintFromIndexRow(row: unknown): { metadata?: { data_profile?: unknown } };
+      }
+    ).routeHintFromIndexRow(row);
+
+    expect(routeHint.metadata?.data_profile).toEqual(dataProfile);
+  });
 });
