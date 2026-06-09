@@ -15,6 +15,7 @@ const BATCH_EMBEDDINGS_ENDPOINT = '/v1/embeddings';
 const OPENAI_BATCH_REQUEST_LIMIT = 50_000;
 const DEFAULT_OPENAI_BATCH_REQUEST_LIMIT = 5_000;
 const INGEST_CHUNK_SIZE = 250;
+const ACTIVE_INGESTING_STALE_MS = 15 * 60 * 1000;
 const MAX_STALE_CANDIDATE_SWEEPS = 10;
 
 type OpenAIBatchStatus =
@@ -207,13 +208,20 @@ export class OpenAIEmbeddingBatchBackfillService {
   }
 
   async countActiveJobs() {
-    const statuses = ['submitted', 'validating', 'in_progress', 'finalizing', 'completed', 'ingesting'] as const;
+    const statuses = ['submitted', 'validating', 'in_progress', 'finalizing', 'completed'] as const;
+    const activeIngestingAfter = new Date(Date.now() - ACTIVE_INGESTING_STALE_MS).toISOString();
     const [row] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(schema.catalogEmbeddingBatchJobs)
       .where(and(
         eq(schema.catalogEmbeddingBatchJobs.catalogId, this.config.CATALOG_ID),
-        inArray(schema.catalogEmbeddingBatchJobs.status, statuses),
+        sql`(
+          ${schema.catalogEmbeddingBatchJobs.status} in (${sql.join(statuses.map((status) => sql`${status}`), sql`, `)})
+          or (
+            ${schema.catalogEmbeddingBatchJobs.status} = 'ingesting'
+            and ${schema.catalogEmbeddingBatchJobs.updatedAt} >= ${activeIngestingAfter}::timestamptz
+          )
+        )`,
       ));
 
     return row?.count ?? 0;
@@ -352,12 +360,21 @@ export class OpenAIEmbeddingBatchBackfillService {
   }
 
   private async loadIngestibleJobs(jobId?: string) {
+    const staleIngestingBefore = new Date(Date.now() - ACTIVE_INGESTING_STALE_MS).toISOString();
     return this.db
       .select()
       .from(schema.catalogEmbeddingBatchJobs)
       .where(and(
         eq(schema.catalogEmbeddingBatchJobs.catalogId, this.config.CATALOG_ID),
-        jobId ? eq(schema.catalogEmbeddingBatchJobs.id, jobId) : eq(schema.catalogEmbeddingBatchJobs.status, 'completed'),
+        jobId
+          ? eq(schema.catalogEmbeddingBatchJobs.id, jobId)
+          : sql`(
+              ${schema.catalogEmbeddingBatchJobs.status} = 'completed'
+              or (
+                ${schema.catalogEmbeddingBatchJobs.status} = 'ingesting'
+                and ${schema.catalogEmbeddingBatchJobs.updatedAt} < ${staleIngestingBefore}::timestamptz
+              )
+            )`,
       ))
       .orderBy(asc(schema.catalogEmbeddingBatchJobs.createdAt))
       .limit(jobId ? 1 : 5);

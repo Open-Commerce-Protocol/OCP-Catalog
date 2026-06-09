@@ -51,6 +51,59 @@ describe('SearchIndexJobHandlerService', () => {
     }]);
   });
 
+  test('uses search document snapshots without reloading catalog entries', async () => {
+    const snapshots: unknown[] = [];
+    const handler = new SearchIndexJobHandlerService(
+      {
+        async upsertForSnapshot(snapshot: unknown) {
+          snapshots.push(snapshot);
+          return {
+            catalogEntryId: 'centry_test',
+            documentId: 'sdoc_test',
+            documentStatus: 'inactive' as const,
+          };
+        },
+        async upsertForCatalogEntry() {
+          throw new Error('catalog entry reload should not be used');
+        },
+      } as unknown as SearchDocumentUpsertService,
+    );
+
+    await handler.handle(searchIndexJob({
+      catalogEntryId: 'centry_test',
+      commercialObjectId: 'cobj_test',
+      jobType: 'upsert_document',
+      payload: {
+        search_document_snapshot: searchDocumentSnapshot(),
+      },
+    }));
+
+    expect(snapshots).toEqual([{
+      entryId: 'centry_test',
+      catalogId: 'cat_test',
+      commercialObjectId: 'cobj_test',
+      objectType: 'product',
+      providerId: 'provider_test',
+      objectId: 'sku_test',
+      entryStatus: 'active',
+      title: 'Test product',
+      summary: null,
+      brand: null,
+      category: null,
+      currency: 'USD',
+      availabilityStatus: 'in_stock',
+      searchText: 'test product',
+      projection: {
+        title: 'Test product',
+      },
+      explainProjection: {
+        indexed_fields: ['title'],
+      },
+      objectStatus: 'active',
+      objectUpdatedAt: '2026-01-01T00:00:00.000Z',
+    }]);
+  });
+
   test('refreshes embeddings for explicit refresh job', async () => {
     const refreshed: string[] = [];
     const handler = new SearchIndexJobHandlerService(
@@ -221,6 +274,67 @@ describe('SearchIndexJobHandlerService', () => {
     ]);
   });
 
+  test('worker can process queued jobs concurrently', async () => {
+    const events: string[] = [];
+    let releaseFirstJob: (() => void) = () => {};
+    const firstJobBlocker = new Promise<void>((resolve) => {
+      releaseFirstJob = resolve;
+    });
+    const jobs = [
+      searchIndexJob({ id: 'sjob_1', jobType: 'upsert_document', catalogEntryId: 'centry_1' }),
+      searchIndexJob({ id: 'sjob_2', jobType: 'upsert_document', catalogEntryId: 'centry_2' }),
+    ];
+    const worker = new SearchIndexWorker(
+      {
+        async claimPending() {
+          return jobs;
+        },
+        async markCompleted(jobId: string) {
+          events.push(`completed:${jobId}`);
+        },
+        async failJob() {
+          throw new Error('unexpected failure');
+        },
+      } as unknown as SearchIndexJobService,
+      {
+        async handle(job: SearchIndexJob) {
+          events.push(`handle:start:${job.id}`);
+          if (job.id === 'sjob_1') {
+            await firstJobBlocker;
+          }
+          events.push(`handle:end:${job.id}`);
+        },
+      },
+    );
+
+    const resultPromise = worker.runBatch({ concurrency: 2 });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(events).toEqual([
+      'handle:start:sjob_1',
+      'handle:start:sjob_2',
+      'handle:end:sjob_2',
+      'completed:sjob_2',
+    ]);
+    releaseFirstJob();
+    const result = await resultPromise;
+
+    expect(result).toEqual({
+      claimedCount: 2,
+      completedCount: 2,
+      failedCount: 0,
+    });
+    expect(events).toEqual([
+      'handle:start:sjob_1',
+      'handle:start:sjob_2',
+      'handle:end:sjob_2',
+      'completed:sjob_2',
+      'handle:end:sjob_1',
+      'completed:sjob_1',
+    ]);
+  });
+
   test('worker applies retry backoff options after handler failure', async () => {
     const failed: unknown[] = [];
     const worker = new SearchIndexWorker(
@@ -348,5 +462,32 @@ function searchIndexJob(input: Partial<SearchIndexJob>): SearchIndexJob {
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...input,
+  };
+}
+
+function searchDocumentSnapshot() {
+  return {
+    entry_id: 'centry_test',
+    catalog_id: 'cat_test',
+    commercial_object_id: 'cobj_test',
+    object_type: 'product',
+    provider_id: 'provider_test',
+    object_id: 'sku_test',
+    entry_status: 'active',
+    title: 'Test product',
+    summary: null,
+    brand: null,
+    category: null,
+    currency: 'USD',
+    availability_status: 'in_stock',
+    search_text: 'test product',
+    projection: {
+      title: 'Test product',
+    },
+    explain_projection: {
+      indexed_fields: ['title'],
+    },
+    object_status: 'active',
+    object_updated_at: '2026-01-01T00:00:00.000Z',
   };
 }

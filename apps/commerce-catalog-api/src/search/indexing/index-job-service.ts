@@ -1,7 +1,7 @@
 import type { Db } from '@ocp-catalog/db';
 import { schema } from '@ocp-catalog/db';
 import { newId } from '@ocp-catalog/shared';
-import { and, asc, eq, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 
 export type SearchIndexJobType =
   | 'upsert_document'
@@ -291,6 +291,18 @@ export class SearchIndexJobService {
         updatedAt: new Date(),
       })
       .where(eq(schema.catalogSearchIndexJobs.id, jobId));
+  }
+
+  async markCompletedMany(jobIds: string[]) {
+    if (jobIds.length === 0) return;
+    await this.db
+      .update(schema.catalogSearchIndexJobs)
+      .set({
+        status: 'completed',
+        finishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(inArray(schema.catalogSearchIndexJobs.id, jobIds));
   }
 
   async failJob(job: SearchIndexJob, error: string, retry?: {

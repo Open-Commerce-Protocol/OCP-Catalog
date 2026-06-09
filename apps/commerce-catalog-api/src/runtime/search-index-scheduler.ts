@@ -83,6 +83,7 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
       const result = await searchIndexWorker.runBatch({
         catalogId: config.CATALOG_ID,
         limit: config.CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE,
+        concurrency: config.CATALOG_SEARCH_INDEX_WORKER_CONCURRENCY,
         includeEmbeddingRefresh,
         retryDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
         retryMaxDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_MAX_DELAY_MS,

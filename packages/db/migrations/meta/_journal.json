@@ -127,6 +127,20 @@
       "when": 1780859000000,
       "tag": "0017_provider_status_throttle_index",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780867800000,
+      "tag": "0018_drop_unused_search_document_trgm_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780868400000,
+      "tag": "0019_drop_unused_catalog_entries_trgm_index",
+      "breakpoints": true
     }
   ]
 }

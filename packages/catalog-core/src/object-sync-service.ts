@@ -17,7 +17,6 @@ import type { RegistrationService } from './registration-service';
 
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
 const MAX_OBJECT_SYNC_BATCH_SIZE = 1_000;
-const PROVIDER_THROTTLE_COUNT_SCAN_LIMIT = 1_000;
 const UNCHANGED_OBJECT_WARNING = 'unchanged_object_hash';
 
 export type ObjectSyncOptions = {
@@ -216,7 +215,7 @@ export class ObjectSyncService {
         await this.updateSyncRunAfterBatch(syncDb, syncRun.id, result, options);
       }
 
-      await this.insertOutboxEvents(syncDb, result, options);
+      await this.insertOutboxEvents(syncDb, result, items, options);
 
       return result;
     });
@@ -564,10 +563,15 @@ export class ObjectSyncService {
     };
   }
 
-  private async insertOutboxEvents(db: Db, result: ObjectSyncResult, options: ObjectSyncOptions) {
+  private async insertOutboxEvents(
+    db: Db,
+    result: ObjectSyncResult,
+    syncItems: SyncItemResult[],
+    options: ObjectSyncOptions,
+  ) {
     const events: Array<typeof schema.catalogOutboxEvents.$inferInsert> = [];
     if (options.sideEffects?.searchIndexJobs) {
-      for (const item of result.items) {
+      for (const item of syncItems) {
         if (
           item.status !== 'accepted'
           || !item.catalog_entry_id
@@ -593,6 +597,9 @@ export class ObjectSyncService {
               payload: {
                 object_id: item.object_id,
                 registration_version: result.registration_version,
+                ...(item.searchDocumentSnapshot
+                  ? { search_document_snapshot: item.searchDocumentSnapshot }
+                  : {}),
               },
             },
           },
@@ -813,6 +820,26 @@ export class ObjectSyncService {
         errors: [],
         warnings: [],
         changed: true,
+        searchDocumentSnapshot: {
+          entry_id: entry.id,
+          catalog_id: context.catalogId,
+          commercial_object_id: commercialObject.id,
+          object_type: object.object_type,
+          provider_id: context.providerId,
+          object_id: object.object_id,
+          entry_status: object.status === 'active' ? 'active' : 'inactive',
+          title: projection.title,
+          summary: stringValue(projection.summary) ?? object.summary ?? null,
+          brand: stringValue(projection.brand) ?? null,
+          category: stringValue(projection.category) ?? null,
+          currency: stringValue(projection.currency) ?? null,
+          availability_status: stringValue(projection.availability_status) ?? null,
+          search_text: buildSearchText(projection),
+          projection: projection as unknown as Record<string, unknown>,
+          explain_projection: explainProjection,
+          object_status: object.status,
+          object_updated_at: commercialObject.updatedAt.toISOString(),
+        },
       };
     } catch (error) {
       return {
@@ -868,57 +895,6 @@ export class ObjectSyncService {
       });
     }
 
-    const pendingLimit = control?.maxPendingIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_PENDING_JOB_LIMIT;
-    const runningLimit = control?.maxRunningIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_RUNNING_JOB_LIMIT;
-    const failedLimit = control?.maxFailedIndexJobs ?? this.config.CATALOG_PROVIDER_THROTTLE_FAILED_JOB_LIMIT;
-    const pendingThreshold = providerThrottleThreshold(pendingLimit);
-    const runningThreshold = providerThrottleThreshold(runningLimit);
-    const failedThreshold = providerThrottleThreshold(failedLimit);
-    const [pendingCount, runningCount, failedCount] = await Promise.all([
-      this.countProviderJobsAtLimit(providerId, 'pending', pendingThreshold),
-      this.countProviderJobsAtLimit(providerId, 'running', runningThreshold),
-      this.countProviderJobsAtLimit(providerId, 'failed', failedThreshold),
-    ]);
-    if (pendingThreshold > 0 && pendingCount >= pendingThreshold) {
-      throw providerThrottled(providerId, providerThrottleReason('pending', pendingLimit), {
-        pending_index_job_observed_count: pendingCount,
-        pending_index_job_limit: pendingLimit,
-        internal_count_scan_limit: pendingThreshold,
-        count_is_capped: pendingThreshold < pendingLimit,
-      });
-    }
-    if (runningThreshold > 0 && runningCount >= runningThreshold) {
-      throw providerThrottled(providerId, providerThrottleReason('running', runningLimit), {
-        running_index_job_observed_count: runningCount,
-        running_index_job_limit: runningLimit,
-        internal_count_scan_limit: runningThreshold,
-        count_is_capped: runningThreshold < runningLimit,
-      });
-    }
-    if (failedThreshold > 0 && failedCount >= failedThreshold) {
-      throw providerThrottled(providerId, providerThrottleReason('failed', failedLimit), {
-        failed_index_job_observed_count: failedCount,
-        failed_index_job_limit: failedLimit,
-        internal_count_scan_limit: failedThreshold,
-        count_is_capped: failedThreshold < failedLimit,
-      });
-    }
-  }
-
-  private async countProviderJobsAtLimit(providerId: string, status: 'pending' | 'running' | 'failed', limit: number) {
-    if (limit <= 0) return 0;
-    const [row] = await this.db.execute(sql`
-      select count(*)::int as count
-      from (
-        select 1
-        from catalog_search_index_jobs
-        where catalog_id = ${this.config.CATALOG_ID}
-          and provider_id = ${providerId}
-          and status = ${status}
-        limit ${limit}
-      ) capped_provider_jobs
-    `) as Array<{ count: number }>;
-    return row?.count ?? 0;
   }
 }
 
@@ -931,6 +907,26 @@ type SyncContext = {
 
 type SyncItemResult = ObjectSyncItemResult & {
   changed?: boolean;
+  searchDocumentSnapshot?: {
+    entry_id: string;
+    catalog_id: string;
+    commercial_object_id: string;
+    object_type: string;
+    provider_id: string;
+    object_id: string;
+    entry_status: 'active' | 'inactive';
+    title: string;
+    summary: string | null;
+    brand: string | null;
+    category: string | null;
+    currency: string | null;
+    availability_status: string | null;
+    search_text: string;
+    projection: Record<string, unknown>;
+    explain_projection: Record<string, unknown>;
+    object_status: string;
+    object_updated_at: string;
+  };
 };
 
 function toPublicItemResult(item: SyncItemResult): ObjectSyncItemResult {
@@ -952,18 +948,6 @@ function providerThrottled(providerId: string, reason: string, details: Record<s
     retry_after_ms: 60_000,
     ...details,
   });
-}
-
-function providerThrottleThreshold(limit: number) {
-  if (limit <= 0) return 0;
-  return Math.min(limit, PROVIDER_THROTTLE_COUNT_SCAN_LIMIT);
-}
-
-function providerThrottleReason(status: 'pending' | 'running' | 'failed', configuredLimit: number) {
-  if (configuredLimit > PROVIDER_THROTTLE_COUNT_SCAN_LIMIT) {
-    return `provider_${status}_index_backlog_internal_guard`;
-  }
-  return `provider_${status}_index_backlog_limit`;
 }
 
 function validateCommercialObject(object: CommercialObject, context: SyncContext) {

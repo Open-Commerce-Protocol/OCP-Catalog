@@ -2,6 +2,7 @@ import { SearchIndexJobService, type SearchIndexJob } from './index-job-service'
 
 export type SearchIndexJobHandler = {
   handle(job: SearchIndexJob): Promise<void>;
+  handleBatch?(jobs: SearchIndexJob[]): Promise<Set<string>>;
 };
 
 export type SearchIndexWorkerRunResult = {
@@ -24,6 +25,7 @@ export class SearchIndexWorker {
     retryMaxDelayMs?: number;
     retryJitterRatio?: number;
     jobDelayMs?: number;
+    concurrency?: number;
   } = {}): Promise<SearchIndexWorkerRunResult> {
     const jobs = await this.jobs.claimPending({
       catalogId: input.catalogId,
@@ -33,8 +35,10 @@ export class SearchIndexWorker {
 
     let completedCount = 0;
     let failedCount = 0;
+    const concurrency = Math.max(1, Math.trunc(input.concurrency ?? 1));
 
-    for (const job of jobs) {
+    const processJob = async (job: SearchIndexJob) => {
+      if (batchCompletedJobIds.has(job.id)) return;
       try {
         await this.handler.handle(job);
         await this.jobs.markCompleted(job.id);
@@ -51,6 +55,18 @@ export class SearchIndexWorker {
       if (input.jobDelayMs && input.jobDelayMs > 0) {
         await sleep(input.jobDelayMs);
       }
+    };
+
+    const batchCompletedJobIds = this.handler.handleBatch
+      ? await this.handler.handleBatch(jobs)
+      : new Set<string>();
+    if (batchCompletedJobIds.size > 0) {
+      await this.jobs.markCompletedMany([...batchCompletedJobIds]);
+      completedCount += batchCompletedJobIds.size;
+    }
+
+    for (let offset = 0; offset < jobs.length; offset += concurrency) {
+      await Promise.all(jobs.slice(offset, offset + concurrency).map(processJob));
     }
 
     return {
