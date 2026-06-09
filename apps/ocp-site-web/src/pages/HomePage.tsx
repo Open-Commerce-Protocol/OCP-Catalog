@@ -290,8 +290,11 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="live" className="home-panel site-section border-y border-white/10">
-        <div className="glass-card mx-auto w-[min(100%,80rem)] p-6">
+      <section id="live" className="home-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
+        <div className="mx-auto w-[min(100%,80rem)] px-4 sm:px-6 lg:px-8">
+          <div className="reveal-on-scroll mb-10">
+            <span className="mono-kicker">{locale === 'zh' ? '实时网络' : 'Live network'}</span>
+          </div>
           <LiveActivitySection />
         </div>
       </section>
@@ -346,14 +349,14 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="open" className="home-panel site-section border-y border-white/10 glass-card">
+      <section id="open" className="home-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
         <div className="site-container grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div className="reveal-on-scroll">
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--ocp-gold)]">
+            <div className="mono-kicker inline-flex items-center gap-2 text-[var(--ocp-gold)]">
               <Unlock className="h-4 w-4" />
               {locale === 'zh' ? '开源 · 人人免费' : 'Open source · Free for everyone'}
             </div>
-            <h2 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight">
+            <h2 className="giant-heading mt-4 max-w-2xl font-semibold leading-tight">
               {locale === 'zh'
                 ? 'OCP 是开放协议，不是封闭平台。'
                 : 'OCP is an open protocol, not a closed platform.'}
@@ -382,55 +385,60 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="reveal-on-scroll grid grid-cols-3 gap-3" style={{ '--reveal-delay': '120ms' } as CSSProperties}>
+          <div className="reveal-on-scroll flex flex-col" style={{ '--reveal-delay': '120ms' } as CSSProperties}>
             {[
               { value: locale === 'zh' ? '开源' : 'Open', label: { en: 'Source on GitHub', zh: '源码在 GitHub' } },
               { value: locale === 'zh' ? '免费' : 'Free', label: { en: 'For everyone', zh: '对所有人' } },
               { value: locale === 'zh' ? '联邦' : 'Federated', label: { en: 'Run your own node', zh: '自建注册节点' } },
             ].map((item) => (
-              <div key={item.value} className="rounded-md border border-white/12 bg-white/[0.06] p-4 text-center">
-                <div className="text-2xl font-semibold text-[var(--text-strong)]">{item.value}</div>
-                <div className="mt-2 text-xs font-semibold text-[var(--text-muted)]">{label(item.label, locale)}</div>
+              <div key={item.value} className="flex items-baseline justify-between gap-6 border-t border-white/10 py-5 first:border-t-0 first:pt-0">
+                <div className="text-3xl font-semibold tracking-tight text-[var(--text-strong)]">{item.value}</div>
+                <div className="font-mono text-xs uppercase tracking-[0.2em] text-[var(--text-muted)]">{label(item.label, locale)}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section id="onboarding" className="home-panel site-section">
-        <div className="site-container reveal-on-scroll">
-          <div className="glass-card p-6">
+      <section id="onboarding" className="home-panel site-section immersive-section py-24 lg:py-32">
+        <div className="site-container">
+          <div className="reveal-on-scroll mb-10">
+            <span className="mono-kicker">{locale === 'zh' ? '接入' : 'Onboarding'}</span>
+          </div>
+          <div className="reveal-on-scroll">
             <OnboardingScenePanel locale={locale} />
           </div>
         </div>
       </section>
 
-      <section id="paths" className="home-panel site-section">
+      <section id="paths" className="home-panel site-section immersive-section py-24 lg:py-32">
+        <div className="ambient-field" aria-hidden="true" />
+        <div className="section-veil" aria-hidden="true" />
         <div className="site-container">
           <div className="reveal-on-scroll flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <div className="section-kicker">{locale === 'zh' ? '下一步阅读' : 'Where to go next'}</div>
-              <h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-tight">{locale === 'zh' ? '按你的身份选择入口。' : 'Choose the path that matches your role.'}</h2>
+              <div className="mono-kicker">{locale === 'zh' ? '下一步阅读' : 'Where to go next'}</div>
+              <h2 className="giant-heading mt-4 max-w-3xl font-semibold leading-tight">{locale === 'zh' ? '按你的身份选择入口。' : 'Choose the path that matches your role.'}</h2>
             </div>
             <Link to={localizePath('/docs')} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--ocp-cyan)]">
               {locale === 'zh' ? '完整文档入口' : 'Full docs entry'}
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-x-8 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
             {builderPaths.map((path, index) => {
               const Icon = path.icon;
               return (
                 <Link
                   key={path.href}
                   to={localizePath(path.href)}
-                  className="builder-card glass-card reveal-on-scroll group p-5 shadow-sm"
+                  className="builder-card reveal-on-scroll group rounded-none border-t border-white/12 bg-transparent pt-6 transition-colors hover:border-[var(--ocp-cyan)]/60"
                   style={{ '--reveal-delay': `${index * 80}ms` } as CSSProperties}
                 >
                   <Icon className="h-6 w-6 text-[var(--ocp-vermilion)]" />
-                  <h3 className="mt-5 text-lg font-semibold">{label(path.title, locale)}</h3>
+                  <h3 className="mt-6 text-lg font-semibold">{label(path.title, locale)}</h3>
                   <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{label(path.body, locale)}</p>
-                  <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)] group-hover:text-[var(--ocp-ink)]">
+                  <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)] transition-colors group-hover:text-[var(--ocp-cyan)]">
                     {locale === 'zh' ? '打开' : 'Open'} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Link>
