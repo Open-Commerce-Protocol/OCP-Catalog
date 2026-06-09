@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Boxes, Braces, GitFork, Network, RadioTower, ShieldCheck, Terminal, Unlock } from 'lucide-react';
-import { ProtocolRelayCanvas } from '../components/site/ProtocolRelayCanvas';
+import { ArrowRight, Boxes, Braces, GitFork, Network, RadioTower, Terminal, Unlock } from 'lucide-react';
 import {
   CatalogArchitectureDiagram,
   OnboardingScenePanel,
   SearchResolveActionDiagram,
   TrustBoundaryDiagram,
 } from '../components/site/OcpDiagrams';
-import { LiveActivityPulse } from '../components/site/LiveActivityPulse';
 import { LiveActivitySection } from '../components/site/LiveActivitySection';
 import { PageTheme } from '../theme/ThemeContext';
 import { resolveLocalizedText, useDocsLocale, type LocalizedText } from '../content/i18n';
@@ -193,83 +191,79 @@ export function HomePage() {
       </nav>
 
       <div className="home-panel-track">
-      <section id="hero" ref={heroRef} className="home-panel relative isolate overflow-hidden">
+      <section id="hero" ref={heroRef} className="home-panel relative isolate flex min-h-[100svh] flex-col overflow-hidden">
+        {/* Full-bleed cinematic ambient image (bokeh on the right, black on the left) */}
         <div
-          className="hero-bg hero-parallax-slow absolute inset-0 bg-cover bg-center opacity-[0.35]"
-          style={{ backgroundImage: 'url(/images/site/home-hero-protocol-relay.png)' }}
+          className="hero-bg hero-parallax-slow absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url(/images/hero-ambient.png)' }}
           aria-hidden="true"
         />
-        <div className="ambient-field" aria-hidden="true" />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,6,8,0.96)_0%,rgba(5,6,8,0.85)_42%,rgba(5,6,8,0.35)_70%,rgba(5,6,8,0.05)_100%)]" aria-hidden="true" />
-        <div className="hero-sweep absolute inset-0" aria-hidden="true" />
-        <ProtocolRelayCanvas />
-        <div className="hero-live-field" aria-hidden="true">
-          <span className="hero-beacon hero-beacon-a" />
-          <span className="hero-beacon hero-beacon-b" />
-          <span className="hero-beacon hero-beacon-c" />
-          <span className="hero-scanline hero-scanline-a" />
-          <span className="hero-scanline hero-scanline-b" />
+        {/* Darken the left two-thirds so copy reads; let the right glow breathe */}
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,2,3,0.97)_0%,rgba(2,2,3,0.88)_38%,rgba(2,2,3,0.45)_66%,rgba(2,2,3,0.10)_100%)]" aria-hidden="true" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,2,3,0.6)_0%,transparent_22%,transparent_72%,rgba(2,2,3,0.85)_100%)]" aria-hidden="true" />
+        {/* Faint technical grid */}
+        <div className="hero-grid absolute inset-0" aria-hidden="true" />
+
+        {/* monospace corner annotations (Collov-style lab labels) */}
+        <div className="hero-annotations pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
+          <span className="absolute left-8 top-28 font-mono text-[11px] uppercase tracking-[0.28em] text-white/30">discovery</span>
+          <span className="absolute right-10 top-40 font-mono text-[11px] uppercase tracking-[0.28em] text-white/25">query · resolve</span>
+          <span className="absolute right-24 bottom-44 font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--ocp-cyan)]/40">action binding</span>
         </div>
 
-        <div className="relative mx-auto grid min-h-[78vh] w-full max-w-7xl items-center px-4 py-16 sm:px-6 lg:min-h-[calc(100vh-80px)] lg:grid-cols-[0.86fr_1.14fr] lg:px-8">
-          <div className="hero-copy hero-parallax-fade max-w-3xl pt-6">
-            <div className="reveal-item mb-6 flex flex-wrap items-center gap-2">
-              <span className="glass-chip text-sm font-semibold text-white/72 shadow-sm">
-                <ShieldCheck className="h-4 w-4 text-[var(--ocp-cyan)]" />
-                {locale === 'zh' ? '让 AI Agent 读懂开放商业' : 'Commerce that AI agents can understand'}
-              </span>
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="glass-chip border-[var(--ocp-cyan)]/40 text-sm font-semibold text-[var(--ocp-cyan)] shadow-sm transition-colors hover:bg-[rgba(0,167,165,0.18)]"
-              >
-                <Unlock className="h-4 w-4" />
-                {locale === 'zh' ? '开源 · 人人免费' : 'Open source · Free for everyone'}
+        <div className="relative mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 py-24 sm:px-6 lg:px-8">
+          <div className="hero-copy hero-parallax-fade max-w-4xl">
+            <div className="reveal-item mb-8 flex flex-wrap items-center gap-3 font-mono text-[11px] uppercase tracking-[0.22em] text-white/50">
+              <span>Open Commerce Protocol</span>
+              <span className="text-white/20">/</span>
+              <a href={GITHUB_URL} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[var(--ocp-cyan)]/80 transition-colors hover:text-[var(--ocp-cyan)]">
+                <Unlock className="h-3 w-3" />
+                {locale === 'zh' ? '开源' : 'Open source'}
               </a>
             </div>
-            <h1 className="reveal-item hero-gradient-text max-w-4xl select-none text-5xl font-semibold leading-[1.02] cursor-default sm:text-6xl lg:text-7xl">
-              Open Commerce Protocol
+            <h1 className="reveal-item max-w-5xl select-none text-[clamp(2.75rem,8vw,6.5rem)] font-semibold leading-[0.98] tracking-[-0.02em] text-white">
+              {locale === 'zh' ? (
+                <>商业对象,<br /><span className="text-white/55">为 Agent 而生</span></>
+              ) : (
+                <>Commerce objects,<br /><span className="text-white/55">built for agents.</span></>
+              )}
             </h1>
-            <p className="reveal-item mt-6 max-w-2xl text-xl leading-8 text-[var(--text-muted)]">
+            <p className="reveal-item mt-8 max-w-2xl text-lg leading-8 text-[var(--text-muted)] sm:text-xl">
               {locale === 'zh'
-                ? 'OCP Catalog 把商品、服务和可执行动作变成开放的协议对象。Agent 可以发现它们、比较它们，并在用户确认后继续到商家的真实交易入口。'
-                : 'OCP Catalog turns products, services, and action entry points into open protocol objects. Agents can discover them, compare them, and continue to merchant-owned execution after user confirmation.'}
+                ? 'OCP Catalog 把商品、服务和可执行动作变成开放的协议对象。Agent 发现、比较，并在用户确认后继续到商家真实交易入口。'
+                : 'OCP Catalog turns products, services, and actions into open protocol objects. Agents discover them, compare them, and continue to merchant-owned execution after user confirmation.'}
             </p>
-            <div className="reveal-item mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to={localizePath('/docs')} className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-[#050608] shadow-lg shadow-black/15 transition-transform hover:-translate-y-0.5">
+            <div className="reveal-item mt-10 flex flex-col gap-3 sm:flex-row">
+              <Link to={localizePath('/docs')} className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-6 py-3.5 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5">
                 {locale === 'zh' ? '了解 OCP 如何工作' : 'See how OCP works'}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to={localizePath('/updates')} className="glass-card inline-flex items-center justify-center px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/[0.12]">
+              <Link to={localizePath('/updates')} className="inline-flex items-center justify-center border border-white/20 px-6 py-3.5 text-sm font-semibold text-white/90 transition-colors hover:border-white/40 hover:bg-white/[0.06]">
                 {locale === 'zh' ? '查看新闻' : 'Read the news'}
               </Link>
             </div>
-            {scale.status !== 'unavailable' && (
-              <div className="reveal-item mt-10 grid max-w-xl grid-cols-2 gap-3">
-                <div className="glass-card p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-faint)]">
-                    {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
-                  </div>
-                  <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-[var(--ocp-ink)]">
-                    {scale.status === 'loading' ? '—' : formatCompactCount(scale.storedTotal)}
-                  </div>
+          </div>
+
+          {scale.status !== 'unavailable' && (
+            <div className="reveal-item mt-16 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-white/10 pt-8 font-mono">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+                  {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
                 </div>
-                <div className="glass-card p-4 shadow-sm">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-[var(--text-faint)]">
-                    {locale === 'zh' ? '按需流转' : 'Streamed on demand'}
-                  </div>
-                  <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-[var(--ocp-cyan)]">
-                    ∞
-                  </div>
+                <div className="mt-2 text-4xl font-semibold tabular-nums text-white">
+                  {scale.status === 'loading' ? '—' : formatCompactCount(scale.storedTotal)}
                 </div>
               </div>
-            )}
-          </div>
-          <div className="hidden min-h-[32rem] items-end justify-end lg:flex">
-            <LiveActivityPulse />
-          </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+                  {locale === 'zh' ? '按需流转' : 'Streamed on demand'}
+                </div>
+                <div className="mt-2 text-4xl font-semibold tabular-nums text-[var(--ocp-cyan)]">∞</div>
+              </div>
+            </div>
+          )}
         </div>
+
         <div className="hero-scroll-cue hidden lg:flex" aria-hidden="true">
           <span />
         </div>
