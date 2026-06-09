@@ -10,7 +10,7 @@ import {
   type ObjectSyncResult,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { isPresent, readDescriptorField } from './field-ref';
 import type { CatalogScenarioModule, SearchProjection } from './scenario';
 import type { RegistrationService } from './registration-service';
@@ -18,6 +18,12 @@ import type { RegistrationService } from './registration-service';
 const MAX_DESCRIPTOR_PAYLOAD_BYTES = 64 * 1024;
 const MAX_OBJECT_SYNC_BATCH_SIZE = 1_000;
 const UNCHANGED_OBJECT_WARNING = 'unchanged_object_hash';
+// Multi-row INSERT/UPSERT statements are split into groups of this many rows to
+// stay well under the PostgreSQL/postgres-js bind-parameter ceiling. Wide tables
+// (commercial_objects, catalog_entries) carry ~15-18 columns per row, and the
+// flattened descriptor insert can exceed the object count, so we keep this
+// conservative. Mirrors the chunking precedent in the embedding backfill path.
+const BULK_WRITE_CHUNK_SIZE = 500;
 
 export type ObjectSyncOptions = {
   syncRun?: {
@@ -150,16 +156,12 @@ export class ObjectSyncService {
         });
       }
 
-      const items: SyncItemResult[] = [];
-      for (const item of request.objects) {
-        const result = await this.syncOne(syncDb, item, {
-          catalogId: request.catalog_id,
-          providerId: request.provider_id,
-          registrationVersion: request.registration_version,
-          scenario: this.scenario,
-        });
-        items.push(result);
-      }
+      const items = await this.syncChunk(syncDb, request.objects, {
+        catalogId: request.catalog_id,
+        providerId: request.provider_id,
+        registrationVersion: request.registration_version,
+        scenario: this.scenario,
+      });
 
       if (items.length > 0) {
         await syncDb.insert(schema.objectSyncItemResults).values(items.map((item, itemOrdinal) => ({
@@ -656,66 +658,187 @@ export class ObjectSyncService {
       });
   }
 
-  private async syncOne(db: Db, input: unknown, context: SyncContext): Promise<SyncItemResult> {
-    const parsed = commercialObjectSchema.safeParse(input);
-    if (!parsed.success) {
-      return {
-        object_id: extractObjectId(input),
-        status: 'rejected',
-        errors: parsed.error.issues.map((issue) => `${issue.path.join('.') || 'object'}: ${issue.message}`),
-        warnings: [],
-      };
-    }
+  /**
+   * Persist a full sync chunk with batched writes instead of one round-trip per
+   * object. Returns `SyncItemResult[]` in input order so callers can keep using
+   * `itemOrdinal`, build `object_sync_item_results`, and emit outbox events
+   * exactly as before. Per-item partial-accept semantics are preserved: objects
+   * that fail parse/validation are marked rejected and excluded from DB writes,
+   * while valid objects are written in bulk.
+   */
+  private async syncChunk(db: Db, inputs: unknown[], context: SyncContext): Promise<SyncItemResult[]> {
+    // Stage 0: in-memory preprocess (no DB). Reject parse/validation failures
+    // up front so the bulk statements only ever carry valid rows.
+    const slots: ChunkSlot[] = await Promise.all(inputs.map(async (input) => {
+      const parsed = commercialObjectSchema.safeParse(input);
+      if (!parsed.success) {
+        return {
+          kind: 'rejected',
+          result: {
+            object_id: extractObjectId(input),
+            status: 'rejected',
+            errors: parsed.error.issues.map((issue) => `${issue.path.join('.') || 'object'}: ${issue.message}`),
+            warnings: [],
+          },
+        };
+      }
 
-    const object = sanitizeCommercialObjectStrings(parsed.data);
-    const errors = validateCommercialObject(object, context);
-    if (errors.length > 0) {
-      return {
-        object_id: object.object_id,
-        status: 'rejected',
-        errors,
-        warnings: [],
-      };
-    }
+      const object = sanitizeCommercialObjectStrings(parsed.data);
+      const errors = validateCommercialObject(object, context);
+      if (errors.length > 0) {
+        return {
+          kind: 'rejected',
+          result: {
+            object_id: object.object_id,
+            status: 'rejected',
+            errors,
+            warnings: [],
+          },
+        };
+      }
 
-    const projection = this.scenario.buildSearchProjection(object);
-    const explainProjection = this.scenario.buildExplainProjection?.(object, projection) ?? buildDefaultExplainProjection(object, projection);
-    const rawObjectHash = await hashJson(object);
-    const descriptorHash = await hashJson(toDescriptorHashPayload(object));
-    try {
-      const existing = await this.findExistingObjectForSkip(db, context, object.object_id);
+      const projection = this.scenario.buildSearchProjection(object);
+      const explainProjection = this.scenario.buildExplainProjection?.(object, projection)
+        ?? buildDefaultExplainProjection(object, projection);
+      const rawObjectHash = await hashJson(object);
+      const descriptorHash = await hashJson(toDescriptorHashPayload(object));
+      return {
+        kind: 'candidate',
+        candidate: { object, projection, explainProjection, rawObjectHash, descriptorHash },
+      };
+    }));
+
+    const candidates = slots
+      .filter((slot): slot is Extract<ChunkSlot, { kind: 'candidate' }> => slot.kind === 'candidate')
+      .map((slot) => slot.candidate);
+
+    // Stage 1: single prefetch replacing N per-object skip-checks.
+    const existingByObjectId = await this.prefetchExistingObjects(
+      db,
+      context,
+      candidates.map((candidate) => candidate.object.object_id),
+    );
+
+    // Partition candidates into unchanged (skip all writes) and changed.
+    const unchangedResultByObjectId = new Map<string, SyncItemResult>();
+    const changed: PreparedObject[] = [];
+    for (const candidate of candidates) {
+      const existing = existingByObjectId.get(candidate.object.object_id);
       if (
-        existing?.rawObjectHash === rawObjectHash
-        && existing.descriptorHash === descriptorHash
+        existing?.rawObjectHash === candidate.rawObjectHash
+        && existing.descriptorHash === candidate.descriptorHash
         && existing.entryId
       ) {
-        return {
-          object_id: object.object_id,
+        unchangedResultByObjectId.set(candidate.object.object_id, {
+          object_id: candidate.object.object_id,
           status: 'accepted',
           commercial_object_id: existing.commercialObjectId,
           catalog_entry_id: existing.entryId,
           errors: [],
           warnings: [UNCHANGED_OBJECT_WARNING],
           changed: false,
-        };
+        });
+        continue;
       }
+      changed.push({ ...candidate, existing: existing ?? null });
+    }
 
-      const [commercialObject] = await db
+    // Stage 2: bulk writes for changed objects.
+    const changedResultByObjectId = await this.persistChangedObjects(db, context, changed);
+
+    // Stage 3: reassemble results in input order.
+    return slots.map((slot) => {
+      if (slot.kind === 'rejected') return slot.result;
+      const objectId = slot.candidate.object.object_id;
+      return unchangedResultByObjectId.get(objectId)
+        ?? changedResultByObjectId.get(objectId)
+        ?? {
+          object_id: objectId,
+          status: 'rejected',
+          errors: ['Failed to persist commercial object'],
+          warnings: [],
+        };
+    });
+  }
+
+  /**
+   * Load existing object/entry metadata for the whole chunk in one query. Mirrors
+   * the select shape of the former per-object skip-check but uses an IN list.
+   */
+  private async prefetchExistingObjects(db: Db, context: SyncContext, objectIds: string[]) {
+    const result = new Map<string, {
+      commercialObjectId: string;
+      rawObjectHash: string;
+      descriptorHash: string;
+      entryId: string | null;
+    }>();
+    const uniqueIds = [...new Set(objectIds)];
+    if (uniqueIds.length === 0) return result;
+
+    for (const idChunk of chunk(uniqueIds, BULK_WRITE_CHUNK_SIZE)) {
+      const rows = await db
+        .select({
+          objectId: schema.commercialObjects.objectId,
+          commercialObjectId: schema.commercialObjects.id,
+          rawObjectHash: schema.commercialObjects.rawObjectHash,
+          descriptorHash: schema.commercialObjects.descriptorHash,
+          entryId: schema.catalogEntries.id,
+        })
+        .from(schema.commercialObjects)
+        .leftJoin(schema.catalogEntries, eq(schema.catalogEntries.commercialObjectId, schema.commercialObjects.id))
+        .where(and(
+          eq(schema.commercialObjects.catalogId, context.catalogId),
+          eq(schema.commercialObjects.providerId, context.providerId),
+          inArray(schema.commercialObjects.objectId, idChunk),
+        ));
+      for (const row of rows) {
+        result.set(row.objectId, {
+          commercialObjectId: row.commercialObjectId,
+          rawObjectHash: row.rawObjectHash,
+          descriptorHash: row.descriptorHash,
+          entryId: row.entryId,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Bulk-upsert commercial_objects, conditionally rewrite descriptors (skipping
+   * objects whose descriptorHash is unchanged), and bulk-upsert catalog_entries,
+   * then build a SyncItemResult per object. Each result mirrors the field-for-field
+   * shape the former per-object path produced, including searchDocumentSnapshot.
+   */
+  private async persistChangedObjects(
+    db: Db,
+    context: SyncContext,
+    changed: PreparedObject[],
+  ): Promise<Map<string, SyncItemResult>> {
+    const results = new Map<string, SyncItemResult>();
+    if (changed.length === 0) return results;
+
+    // 1. Bulk upsert commercial_objects, capturing the authoritative row id and
+    //    updatedAt (which differ from our generated id on a conflict update).
+    const commercialObjectByObjectId = new Map<string, { id: string; updatedAt: Date }>();
+    for (const group of chunk(changed, BULK_WRITE_CHUNK_SIZE)) {
+      const rows = await db
         .insert(schema.commercialObjects)
-        .values({
+        .values(group.map((prepared) => ({
           id: newId('cobj'),
           catalogId: context.catalogId,
           providerId: context.providerId,
-          objectId: object.object_id,
-          objectType: object.object_type,
-          title: projection.title,
-          summary: projection.summary ?? object.summary ?? null,
-          status: object.status,
-          sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
-          rawObject: object as unknown as Record<string, unknown>,
-          rawObjectHash,
-          descriptorHash,
-        })
+          objectId: prepared.object.object_id,
+          objectType: prepared.object.object_type,
+          title: prepared.projection.title,
+          summary: prepared.projection.summary ?? prepared.object.summary ?? null,
+          status: prepared.object.status,
+          sourceUrl: prepared.object.source_url ?? stringValue(prepared.projection.source_url) ?? null,
+          rawObject: prepared.object as unknown as Record<string, unknown>,
+          rawObjectHash: prepared.rawObjectHash,
+          descriptorHash: prepared.descriptorHash,
+          updatedAt: new Date(),
+        })))
         .onConflictDoUpdate({
           target: [
             schema.commercialObjects.catalogId,
@@ -723,105 +846,148 @@ export class ObjectSyncService {
             schema.commercialObjects.objectId,
           ],
           set: {
-            objectType: object.object_type,
-            title: projection.title,
-            summary: projection.summary ?? object.summary ?? null,
-            status: object.status,
-            sourceUrl: object.source_url ?? stringValue(projection.source_url) ?? null,
-            rawObject: object as unknown as Record<string, unknown>,
-            rawObjectHash,
-            descriptorHash,
-            updatedAt: new Date(),
+            objectType: sql`excluded.object_type`,
+            title: sql`excluded.title`,
+            summary: sql`excluded.summary`,
+            status: sql`excluded.status`,
+            sourceUrl: sql`excluded.source_url`,
+            rawObject: sql`excluded.raw_object`,
+            rawObjectHash: sql`excluded.raw_object_hash`,
+            descriptorHash: sql`excluded.descriptor_hash`,
+            updatedAt: sql`excluded.updated_at`,
           },
         })
-        .returning();
-
-      if (!commercialObject) {
-        return {
-          object_id: object.object_id,
-          status: 'rejected',
-          errors: ['Failed to upsert commercial object'],
-          warnings: [],
-        };
+        .returning({
+          id: schema.commercialObjects.id,
+          objectId: schema.commercialObjects.objectId,
+          updatedAt: schema.commercialObjects.updatedAt,
+        });
+      for (const row of rows) {
+        commercialObjectByObjectId.set(row.objectId, { id: row.id, updatedAt: row.updatedAt });
       }
+    }
 
-      await db
-        .delete(schema.descriptorInstances)
-        .where(eq(schema.descriptorInstances.commercialObjectId, commercialObject.id));
-
-      if (object.descriptors.length > 0) {
-        await db.insert(schema.descriptorInstances).values(object.descriptors.map((descriptor) => ({
+    // 2. Descriptors: rewrite only objects whose descriptorHash actually changed.
+    //    Hash-unchanged objects skip the delete+insert entirely (a new save over
+    //    the previous unconditional rewrite).
+    const descriptorRewrites = changed.filter((prepared) => (
+      prepared.existing?.descriptorHash !== prepared.descriptorHash
+    ));
+    const rewriteCommercialObjectIds = descriptorRewrites
+      .map((prepared) => commercialObjectByObjectId.get(prepared.object.object_id)?.id)
+      .filter((id): id is string => Boolean(id));
+    if (rewriteCommercialObjectIds.length > 0) {
+      for (const idChunk of chunk(rewriteCommercialObjectIds, BULK_WRITE_CHUNK_SIZE)) {
+        await db
+          .delete(schema.descriptorInstances)
+          .where(inArray(schema.descriptorInstances.commercialObjectId, idChunk));
+      }
+      const descriptorRows = descriptorRewrites.flatMap((prepared) => {
+        const commercialObjectId = commercialObjectByObjectId.get(prepared.object.object_id)?.id;
+        if (!commercialObjectId) return [];
+        return prepared.object.descriptors.map((descriptor) => ({
           id: newId('desc'),
-          commercialObjectId: commercialObject.id,
+          commercialObjectId,
           packId: descriptor.pack_id,
           schemaUri: descriptor.schema_uri ?? null,
           payload: descriptor.data,
-        })));
+        }));
+      });
+      for (const group of chunk(descriptorRows, BULK_WRITE_CHUNK_SIZE)) {
+        await db.insert(schema.descriptorInstances).values(group);
       }
+    }
 
-      const [entry] = await db
-        .insert(schema.catalogEntries)
-        .values({
-          id: newId('centry'),
-          catalogId: context.catalogId,
-          commercialObjectId: commercialObject.id,
-          objectType: object.object_type,
-          providerId: context.providerId,
-          objectId: object.object_id,
-          entryStatus: object.status === 'active' ? 'active' : 'inactive',
-          contractMatchStatus: 'matched',
-          title: projection.title,
-          summary: stringValue(projection.summary) ?? object.summary ?? null,
-          brand: stringValue(projection.brand) ?? null,
-          category: stringValue(projection.category) ?? null,
-          currency: stringValue(projection.currency) ?? null,
-          availabilityStatus: stringValue(projection.availability_status) ?? null,
-          searchText: buildSearchText(projection),
-          searchProjection: projection as unknown as Record<string, unknown>,
-          explainProjection,
+    // 3. Bulk upsert catalog_entries, capturing the authoritative entry id.
+    const entryIdByCommercialObjectId = new Map<string, string>();
+    for (const group of chunk(changed, BULK_WRITE_CHUNK_SIZE)) {
+      const values = group
+        .map((prepared) => {
+          const commercialObjectId = commercialObjectByObjectId.get(prepared.object.object_id)?.id;
+          if (!commercialObjectId) return null;
+          return {
+            id: newId('centry'),
+            catalogId: context.catalogId,
+            commercialObjectId,
+            objectType: prepared.object.object_type,
+            providerId: context.providerId,
+            objectId: prepared.object.object_id,
+            entryStatus: prepared.object.status === 'active' ? ('active' as const) : ('inactive' as const),
+            contractMatchStatus: 'matched',
+            title: prepared.projection.title,
+            summary: stringValue(prepared.projection.summary) ?? prepared.object.summary ?? null,
+            brand: stringValue(prepared.projection.brand) ?? null,
+            category: stringValue(prepared.projection.category) ?? null,
+            currency: stringValue(prepared.projection.currency) ?? null,
+            availabilityStatus: stringValue(prepared.projection.availability_status) ?? null,
+            searchText: buildSearchText(prepared.projection),
+            searchProjection: prepared.projection as unknown as Record<string, unknown>,
+            explainProjection: prepared.explainProjection,
+          };
         })
+        .filter((value): value is NonNullable<typeof value> => value !== null);
+      if (values.length === 0) continue;
+      const rows = await db
+        .insert(schema.catalogEntries)
+        .values(values)
         .onConflictDoUpdate({
           target: [schema.catalogEntries.commercialObjectId],
           set: {
-            objectType: object.object_type,
-            providerId: context.providerId,
-            objectId: object.object_id,
-            entryStatus: object.status === 'active' ? 'active' : 'inactive',
-            contractMatchStatus: 'matched',
-            title: projection.title,
-            summary: stringValue(projection.summary) ?? object.summary ?? null,
-            brand: stringValue(projection.brand) ?? null,
-            category: stringValue(projection.category) ?? null,
-            currency: stringValue(projection.currency) ?? null,
-            availabilityStatus: stringValue(projection.availability_status) ?? null,
-            searchText: buildSearchText(projection),
-            searchProjection: projection as unknown as Record<string, unknown>,
-            explainProjection,
-            updatedAt: new Date(),
+            objectType: sql`excluded.object_type`,
+            providerId: sql`excluded.provider_id`,
+            objectId: sql`excluded.object_id`,
+            entryStatus: sql`excluded.entry_status`,
+            contractMatchStatus: sql`excluded.contract_match_status`,
+            title: sql`excluded.title`,
+            summary: sql`excluded.summary`,
+            brand: sql`excluded.brand`,
+            category: sql`excluded.category`,
+            currency: sql`excluded.currency`,
+            availabilityStatus: sql`excluded.availability_status`,
+            searchText: sql`excluded.search_text`,
+            searchProjection: sql`excluded.search_projection`,
+            explainProjection: sql`excluded.explain_projection`,
+            updatedAt: sql`now()`,
           },
         })
-        .returning();
+        .returning({
+          id: schema.catalogEntries.id,
+          commercialObjectId: schema.catalogEntries.commercialObjectId,
+        });
+      for (const row of rows) {
+        entryIdByCommercialObjectId.set(row.commercialObjectId, row.id);
+      }
+    }
 
-      if (!entry) {
-        return {
+    // 4. Assemble per-object results (field-for-field equal to the legacy path).
+    for (const prepared of changed) {
+      const object = prepared.object;
+      const commercialObject = commercialObjectByObjectId.get(object.object_id);
+      const entryId = commercialObject
+        ? entryIdByCommercialObjectId.get(commercialObject.id)
+        : undefined;
+      if (!commercialObject || !entryId) {
+        results.set(object.object_id, {
           object_id: object.object_id,
           status: 'rejected',
-          commercial_object_id: commercialObject.id,
-          errors: ['Failed to upsert catalog entry'],
+          commercial_object_id: commercialObject?.id,
+          errors: [commercialObject ? 'Failed to upsert catalog entry' : 'Failed to upsert commercial object'],
           warnings: [],
-        };
+        });
+        continue;
       }
 
-      return {
+      const projection = prepared.projection;
+      results.set(object.object_id, {
         object_id: object.object_id,
         status: 'accepted',
         commercial_object_id: commercialObject.id,
-        catalog_entry_id: entry.id,
+        catalog_entry_id: entryId,
         errors: [],
         warnings: [],
         changed: true,
         searchDocumentSnapshot: {
-          entry_id: entry.id,
+          entry_id: entryId,
           catalog_id: context.catalogId,
           commercial_object_id: commercialObject.id,
           object_type: object.object_type,
@@ -836,39 +1002,14 @@ export class ObjectSyncService {
           availability_status: stringValue(projection.availability_status) ?? null,
           search_text: buildSearchText(projection),
           projection: projection as unknown as Record<string, unknown>,
-          explain_projection: explainProjection,
+          explain_projection: prepared.explainProjection,
           object_status: object.status,
           object_updated_at: commercialObject.updatedAt.toISOString(),
         },
-      };
-    } catch (error) {
-      return {
-        object_id: object.object_id,
-        status: 'rejected',
-        errors: [`Failed to persist commercial object: ${publicErrorMessage(error)}`],
-        warnings: [],
-      };
+      });
     }
-  }
 
-  private async findExistingObjectForSkip(db: Db, context: SyncContext, objectId: string) {
-    const [row] = await db
-      .select({
-        commercialObjectId: schema.commercialObjects.id,
-        rawObjectHash: schema.commercialObjects.rawObjectHash,
-        descriptorHash: schema.commercialObjects.descriptorHash,
-        entryId: schema.catalogEntries.id,
-      })
-      .from(schema.commercialObjects)
-      .leftJoin(schema.catalogEntries, eq(schema.catalogEntries.commercialObjectId, schema.commercialObjects.id))
-      .where(and(
-        eq(schema.commercialObjects.catalogId, context.catalogId),
-        eq(schema.commercialObjects.providerId, context.providerId),
-        eq(schema.commercialObjects.objectId, objectId),
-      ))
-      .limit(1);
-
-    return row ?? null;
+    return results;
   }
 
   private async assertProviderSyncAllowed(providerId: string) {
@@ -928,6 +1069,35 @@ type SyncItemResult = ObjectSyncItemResult & {
     object_updated_at: string;
   };
 };
+
+type PreparedCandidate = {
+  object: CommercialObject;
+  projection: SearchProjection;
+  explainProjection: Record<string, unknown>;
+  rawObjectHash: string;
+  descriptorHash: string;
+};
+
+type PreparedObject = PreparedCandidate & {
+  existing: {
+    commercialObjectId: string;
+    rawObjectHash: string;
+    descriptorHash: string;
+    entryId: string | null;
+  } | null;
+};
+
+type ChunkSlot =
+  | { kind: 'rejected'; result: SyncItemResult }
+  | { kind: 'candidate'; candidate: PreparedCandidate };
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let offset = 0; offset < items.length; offset += size) {
+    result.push(items.slice(offset, offset + size));
+  }
+  return result;
+}
 
 function toPublicItemResult(item: SyncItemResult): ObjectSyncItemResult {
   return {
@@ -1050,12 +1220,6 @@ function removeLoneSurrogates(value: string) {
   return value
     .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
     .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
-}
-
-function publicErrorMessage(error: unknown) {
-  if (!(error instanceof Error)) return 'unknown persistence error';
-  const message = error.message.replace(/\s+/g, ' ').trim();
-  return message.length > 240 ? `${message.slice(0, 237)}...` : message;
 }
 
 function elapsedMs(startedAt: number) {
