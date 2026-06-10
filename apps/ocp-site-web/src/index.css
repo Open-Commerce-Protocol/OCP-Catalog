@@ -87,6 +87,99 @@
     @apply px-4 py-16 sm:px-6 lg:px-8 lg:py-24;
   }
 
+  .route-loader {
+    display: grid;
+    min-height: clamp(18rem, 42vh, 32rem);
+    place-items: center;
+    gap: 1rem;
+    padding: 6rem 1.5rem;
+    color: var(--ocp-ink);
+  }
+
+  .route-loader-mark {
+    position: relative;
+    width: min(14rem, 58vw);
+    height: 2.75rem;
+    overflow: hidden;
+  }
+
+  .route-loader-line {
+    position: absolute;
+    top: 50%;
+    left: 0.25rem;
+    right: 0.25rem;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--ocp-ink) 18%, transparent) 18%,
+      var(--ocp-cyan) 50%,
+      color-mix(in srgb, var(--ocp-ink) 18%, transparent) 82%,
+      transparent
+    );
+    transform: translateY(-50%);
+  }
+
+  .route-loader-line::after {
+    content: '';
+    position: absolute;
+    inset-block: -0.38rem;
+    width: 28%;
+    background: linear-gradient(90deg, transparent, rgba(46, 230, 224, 0.72), transparent);
+    filter: blur(4px);
+    animation: route-loader-scan 1.55s cubic-bezier(0.55, 0, 0.2, 1) infinite;
+  }
+
+  .route-loader-node {
+    position: absolute;
+    top: 50%;
+    width: 0.72rem;
+    height: 0.72rem;
+    border-radius: 999px;
+    border: 1px solid var(--ocp-cyan);
+    background: var(--ocp-paper);
+    box-shadow:
+      0 0 0 0.28rem color-mix(in srgb, var(--ocp-cyan) 14%, transparent),
+      0 0 1.65rem color-mix(in srgb, var(--ocp-cyan) 38%, transparent);
+    transform: translateY(-50%);
+    animation: route-loader-node 1.55s ease-in-out infinite;
+  }
+
+  .route-loader-node-source {
+    left: 0;
+  }
+
+  .route-loader-node-target {
+    right: 0;
+    animation-delay: 0.28s;
+  }
+
+  .route-loader-label {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .route-loader-line::after,
+    .route-loader-node {
+      animation: none;
+    }
+
+    .route-loader-line::after {
+      left: 36%;
+      opacity: 0.42;
+      transform: none;
+    }
+
+    .route-loader-node {
+      opacity: 0.82;
+    }
+  }
+
   .home-story {
     overflow-x: clip;
   }
@@ -1066,6 +1159,35 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes route-loader-scan {
+  0% {
+    opacity: 0;
+    transform: translateX(-42%);
+  }
+
+  18% {
+    opacity: 0.82;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(360%);
+  }
+}
+
+@keyframes route-loader-node {
+  0%,
+  100% {
+    transform: translateY(-50%) scale(0.86);
+    opacity: 0.56;
+  }
+
+  50% {
+    transform: translateY(-50%) scale(1);
+    opacity: 1;
   }
 }
 
