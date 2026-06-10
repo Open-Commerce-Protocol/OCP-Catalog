@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from 'react';
-import { Activity, AlertTriangle, Clock, DatabaseZap, Radio } from 'lucide-react';
+import { AlertTriangle, Radio } from 'lucide-react';
 import { useLiveActivity, type PublicActivityEvent } from '../../lib/useLiveActivity';
 import { useDocsLocale } from '../../content/i18n';
 
@@ -20,15 +20,15 @@ function formatTime(value: string) {
 }
 
 function statusTone(statusClass: string) {
-  if (statusClass === 'success') return 'bg-emerald-50 text-emerald-800';
-  if (statusClass === 'client_error' || statusClass === 'policy_denied') return 'bg-amber-50 text-amber-800';
-  if (statusClass === 'server_error') return 'bg-red-50 text-red-800';
-  return 'bg-[var(--surface-1)] text-[var(--text-muted)]';
+  if (statusClass === 'success') return 'border-emerald-300/30 text-emerald-200';
+  if (statusClass === 'client_error' || statusClass === 'policy_denied') return 'border-amber-300/30 text-amber-200';
+  if (statusClass === 'server_error') return 'border-red-300/35 text-red-200';
+  return 'border-white/14 text-[var(--text-muted)]';
 }
 
 export function LiveActivitySection() {
   const { locale } = useDocsLocale();
-  const { events, rollups, status } = useLiveActivity({ limit: 12, windowHours: 24, pollMs: 15_000 });
+  const { events, rollups, status, error } = useLiveActivity({ limit: 12, windowHours: 24, pollMs: 15_000 });
 
   const topTypes = useMemo(
     () =>
@@ -53,6 +53,9 @@ export function LiveActivitySection() {
           metricProtocols: '协议族',
           metricWindow: '观测窗口',
           offline: '离线',
+          loading: '同步中',
+          sourceUnavailable: '公开 Activity 投影不可用',
+          sourceReady: '公开投影已连接',
         }
       : {
           kicker: 'Live protocol activity',
@@ -67,46 +70,66 @@ export function LiveActivitySection() {
           metricProtocols: 'Protocols',
           metricWindow: 'Window',
           offline: 'Offline',
+          loading: 'Syncing',
+          sourceUnavailable: 'Public activity projection unavailable',
+          sourceReady: 'Public projection connected',
         };
 
   const protocolCount = Object.keys(rollups?.by_protocol_family ?? {}).length;
+  const sourceLabel =
+    status === 'loading' ? copy.loading : status === 'error' ? copy.sourceUnavailable : copy.sourceReady;
+  const metrics = [
+    { label: copy.metricEvents, value: status === 'error' ? copy.offline : status === 'loading' ? '...' : (rollups?.event_count ?? 0) },
+    { label: copy.metricProtocols, value: status === 'error' ? '-' : status === 'loading' ? '...' : protocolCount },
+    { label: copy.metricWindow, value: status === 'error' ? '-' : `${rollups?.window_hours ?? 24}h` },
+  ];
 
   return (
-    <div className="site-container">
-      <div className="reveal-on-scroll grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+    <div className="site-container live-observatory">
+      <div className="reveal-on-scroll grid gap-10 border-y border-white/10 py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
         <div>
-          <div className="section-kicker inline-flex items-center gap-2">
+          <div className="mono-kicker inline-flex items-center gap-2 text-[var(--ocp-cyan)]/80">
             <Radio className="h-3.5 w-3.5 text-[var(--ocp-cyan)]" />
             {copy.kicker}
           </div>
-          <h2 className="mt-4 max-w-2xl text-4xl font-semibold leading-tight">{copy.headline}</h2>
+          <h2 className="mt-5 max-w-3xl text-[clamp(2.4rem,5vw,4.8rem)] font-semibold leading-[1.02] tracking-[-0.02em] text-white">
+            {copy.headline}
+          </h2>
           <p className="mt-4 max-w-xl text-base leading-7 text-[var(--text-muted)]">{copy.description}</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Metric label={copy.metricEvents} value={rollups?.event_count ?? 0} icon={Activity} />
-          <Metric label={copy.metricProtocols} value={protocolCount} icon={DatabaseZap} />
-          <Metric label={copy.metricWindow} value={`${rollups?.window_hours ?? 24}h`} icon={Clock} />
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-white/10 pb-3 font-mono text-[11px] uppercase tracking-[0.24em] text-white/46">
+            <span>{sourceLabel}</span>
+            <span className={status === 'error' ? 'text-red-200' : 'text-[var(--ocp-cyan)]'}>
+              {status === 'error' ? copy.offline : 'Live'}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            {metrics.map((metric) => (
+              <Metric key={metric.label} label={metric.label} value={metric.value} />
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="reveal-on-scroll mt-10 grid gap-6 lg:grid-cols-[18rem_1fr]" style={{ '--reveal-delay': '120ms' } as CSSProperties}>
-        <aside className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-faint)]">{copy.rollups}</h3>
-          <div className="rounded-md border border-[var(--border-soft)] bg-[var(--ocp-porcelain)] p-4 shadow-sm">
+      <div className="reveal-on-scroll mt-12 grid gap-12 lg:grid-cols-[20rem_1fr]" style={{ '--reveal-delay': '120ms' } as CSSProperties}>
+        <aside className="space-y-5">
+          <h3 className="mono-kicker">{copy.rollups}</h3>
+          <div className="space-y-1 border-t border-white/10">
             {topTypes.length > 0 ? (
               topTypes.map(([eventType, count], idx) => {
                 const max = topTypes[0][1] || 1;
                 const ratio = count / max;
                 return (
-                  <div key={eventType} className={`py-2.5 ${idx > 0 ? 'border-t border-[var(--border-soft)]' : ''}`}>
+                  <div key={eventType} className={`py-4 ${idx > 0 ? 'border-t border-white/10' : ''}`}>
                     <div className="flex items-center justify-between gap-3">
-                      <span className="min-w-0 truncate text-sm font-medium text-[var(--text-muted)]">{eventType}</span>
-                      <span className="font-mono text-xs font-semibold tabular-nums text-[var(--text-muted)]">{count}</span>
+                      <span className="min-w-0 truncate text-sm font-medium text-white/72">{eventType}</span>
+                      <span className="font-mono text-xs font-semibold tabular-nums text-white/48">{count}</span>
                     </div>
-                    <div className="mt-1.5 h-1 overflow-hidden rounded bg-[var(--surface-1)]">
+                    <div className="mt-2 h-px overflow-hidden bg-white/10">
                       <div
-                        className="h-full bg-[var(--ocp-ink)] transition-all duration-700"
+                        className="h-full bg-[var(--ocp-cyan)] transition-all duration-700"
                         style={{ width: `${Math.max(6, ratio * 100)}%` }}
                       />
                     </div>
@@ -114,16 +137,18 @@ export function LiveActivitySection() {
                 );
               })
             ) : (
-              <p className="text-sm text-[var(--text-faint)]">{copy.empty}</p>
+              <p className="border-t border-white/10 pt-4 text-sm text-[var(--text-faint)]">
+                {status === 'error' ? `${copy.unavailable} ${error ?? ''}`.trim() : copy.empty}
+              </p>
             )}
           </div>
         </aside>
 
         <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-faint)]">{copy.events}</h3>
+          <div className="mb-5 flex items-center justify-between">
+            <h3 className="mono-kicker">{copy.events}</h3>
             {status === 'error' ? (
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700">
+              <span className="inline-flex items-center gap-1.5 border border-red-300/30 px-2.5 py-1 font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-red-200">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 {copy.offline}
               </span>
@@ -131,13 +156,16 @@ export function LiveActivitySection() {
           </div>
 
           {status === 'error' ? (
-            <div className="rounded-md border border-red-200 bg-red-50 p-5 text-sm text-red-800">{copy.unavailable}</div>
+            <div className="border-y border-red-300/25 py-8 text-sm leading-7 text-red-100">
+              {copy.unavailable}
+              {error ? <span className="mt-3 block font-mono text-xs text-red-100/70">{error}</span> : null}
+            </div>
           ) : events.length === 0 ? (
-            <div className="rounded-md border border-[var(--border-soft)] bg-[var(--ocp-porcelain)] p-8 text-center text-sm text-[var(--text-faint)]">
+            <div className="border-y border-white/10 py-10 text-center text-sm text-[var(--text-faint)]">
               {copy.empty}
             </div>
           ) : (
-            <ul className="overflow-hidden rounded-md border border-[var(--border-soft)] bg-[var(--ocp-porcelain)] shadow-sm">
+            <ul className="border-y border-white/10">
               {events.slice(0, 8).map((event) => (
                 <EventRow key={event.public_event_id} event={event} />
               ))}
@@ -149,12 +177,11 @@ export function LiveActivitySection() {
   );
 }
 
-function Metric({ label, value, icon: Icon }: { label: string; value: string | number; icon: typeof Activity }) {
+function Metric({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-md border border-[var(--border-soft)] bg-[var(--ocp-porcelain)] p-4 shadow-sm">
-      <Icon className="mb-3 h-5 w-5 text-[var(--ocp-cyan)]" />
-      <div className="font-mono text-2xl font-semibold tabular-nums text-[var(--ocp-ink)]">{value}</div>
-      <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-faint)]">{label}</div>
+    <div className="border-t border-white/10 pt-4">
+      <div className="font-mono text-3xl font-semibold tabular-nums text-white">{value}</div>
+      <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-faint)]">{label}</div>
     </div>
   );
 }
@@ -162,27 +189,27 @@ function Metric({ label, value, icon: Icon }: { label: string; value: string | n
 function EventRow({ event }: { event: PublicActivityEvent }) {
   const tone = familyTone[event.protocol_family] ?? 'var(--ocp-ink)';
   return (
-    <li className="grid gap-3 border-b border-[var(--border-soft)] p-4 last:border-0 md:grid-cols-[9rem_1fr_7rem]">
+    <li className="grid gap-3 border-b border-white/10 py-4 last:border-0 md:grid-cols-[9rem_1fr_7rem]">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: tone }} />
         <time className="font-mono text-xs tabular-nums text-[var(--text-faint)]">{formatTime(event.occurred_at)}</time>
       </div>
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded bg-[var(--ocp-ink)] px-2 py-0.5 text-[11px] font-semibold text-[var(--ocp-paper)]">
+          <span className="border border-white/12 px-2 py-0.5 font-mono text-[11px] font-semibold text-white/82">
             {event.event_type}
           </span>
-          <span className="rounded border border-[var(--border-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+          <span className="border border-white/10 px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
             {event.protocol_family}
           </span>
-          <span className="rounded border border-[var(--border-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
+          <span className="border border-white/10 px-2 py-0.5 text-[11px] font-medium text-[var(--text-muted)]">
             {event.source_kind}
           </span>
         </div>
         <p className="mt-1.5 truncate text-sm text-[var(--text-muted)]">{event.public_summary}</p>
       </div>
       <div className="text-left md:text-right">
-        <span className={`inline-flex rounded-md px-2 py-0.5 text-[11px] font-bold ${statusTone(event.status_class)}`}>
+        <span className={`inline-flex border px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] ${statusTone(event.status_class)}`}>
           {event.status_class}
         </span>
       </div>

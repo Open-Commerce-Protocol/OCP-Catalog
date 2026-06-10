@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BookOpen, LayoutGrid, Menu, Milestone, Newspaper, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { docsUiText, useDocsLocale } from '../content/i18n';
 import { stripLocalePrefix } from '../content/routing';
 import { OcpLogo } from '../components/site/OcpLogo';
 import { useTheme } from '../theme/ThemeContext';
 
 const navItems = [
-  { label: { en: 'News', zh: '新闻' }, href: '/updates', icon: Newspaper },
-  { label: { en: 'Docs', zh: '文档' }, href: '/docs', icon: BookOpen },
-  { label: { en: 'Products', zh: '产品' }, href: '/products', icon: LayoutGrid },
-  { label: { en: 'Roadmap', zh: '路线图' }, href: '/roadmap', icon: Milestone },
+  { label: { en: 'News', zh: '新闻' }, href: '/updates' },
+  { label: { en: 'Docs', zh: '文档' }, href: '/docs' },
+  { label: { en: 'Products', zh: '产品' }, href: '/products' },
+  { label: { en: 'Roadmap', zh: '路线图' }, href: '/roadmap' },
 ];
 
 export function SiteLayout() {
@@ -31,41 +31,43 @@ export function SiteLayout() {
       <header
         className={`sticky top-0 z-50 ${
           dark
-            ? 'border-b border-white/10 bg-[rgba(5,6,8,0.72)] backdrop-blur-xl'
+            ? 'border-b border-white/10 bg-[rgba(2,2,3,0.88)] backdrop-blur-xl'
             : 'border-b border-black/10 bg-[rgba(246,247,242,0.88)] backdrop-blur-xl'
         }`}
       >
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className={`mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8 ${dark ? 'h-16' : 'h-20'}`}>
           <Link to={localizePath('/')} className="group flex items-center gap-3">
-            <span className={`grid h-10 w-10 place-items-center rounded-md ${dark ? 'border border-white/12 bg-black shadow-[0_8px_24px_rgba(0,0,0,0.6)]' : 'bg-[var(--ocp-ink)] shadow-[0_10px_24px_rgba(20,20,20,0.18)]'}`}>
-              <OcpLogo className="h-7 w-7" title="Open Commerce Protocol" />
+            <span className={`grid place-items-center ${dark ? 'h-8 w-8' : 'h-10 w-10 rounded-md bg-[var(--ocp-ink)] shadow-[0_10px_24px_rgba(20,20,20,0.18)]'}`}>
+              <OcpLogo className={dark ? 'h-7 w-7' : 'h-7 w-7'} title="Open Commerce Protocol" />
             </span>
             <span className="hidden leading-tight sm:block">
-              <span className="block font-semibold">{text(docsUiText.brand)}</span>
-              <span className="block text-xs text-black/55">{tagline}</span>
+              <span className={dark ? 'block text-sm font-semibold tracking-tight text-white' : 'block font-semibold'}>
+                {text(docsUiText.brand)}
+              </span>
+              <span className={`block text-xs ${dark ? 'text-white/32' : 'text-black/55'}`}>{tagline}</span>
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-2 md:flex">
+          <nav className={dark ? 'hidden items-center gap-10 md:flex' : 'hidden items-center gap-2 md:flex'}>
             {navItems.map((item) => {
-              const Icon = item.icon;
               return (
                 <NavLink
                   key={item.href}
                   to={localizePath(item.href)}
                   className={({ isActive }) =>
-                    `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-                      isActive || isSectionActive(location.pathname, item.href)
-                        ? dark
-                          ? 'bg-[rgba(46,230,224,0.14)] text-[var(--ocp-cyan)]'
-                          : 'bg-black text-[var(--ocp-paper)]'
-                        : dark
-                          ? 'text-white/70 hover:bg-white/[0.08] hover:text-white'
-                          : 'text-black/66 hover:bg-black/[0.06] hover:text-black'
-                    }`
+                    dark
+                      ? `inline-flex py-2 text-sm font-semibold transition-colors ${
+                          isActive || isSectionActive(location.pathname, item.href)
+                            ? 'text-white'
+                            : 'text-white/68 hover:text-white'
+                        }`
+                      : `inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                          isActive || isSectionActive(location.pathname, item.href)
+                            ? 'bg-black text-[var(--ocp-paper)]'
+                            : 'text-black/66 hover:bg-black/[0.06] hover:text-black'
+                        }`
                   }
                 >
-                  <Icon className="h-4 w-4" />
                   {text(item.label)}
                 </NavLink>
               );
@@ -73,7 +75,7 @@ export function SiteLayout() {
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
-            <div className={`flex items-center rounded-md p-0.5 ${dark ? 'border border-white/10 bg-white/[0.06]' : 'border border-black/10 bg-white/70'}`}>
+            <div className={`flex items-center rounded-md p-0.5 ${dark ? 'border border-white/10 bg-transparent' : 'border border-black/10 bg-white/70'}`}>
               <button
                 type="button"
                 onClick={() => setLocale('en')}
@@ -104,7 +106,7 @@ export function SiteLayout() {
             {dark && (
               <Link
                 to={localizePath('/docs')}
-                className="hidden rounded-md bg-white px-4 py-2 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5 md:inline-flex"
+                className="hidden bg-white px-5 py-3 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5 md:inline-flex"
               >
                 {locale === 'zh' ? '开始使用' : 'Get Started'}
               </Link>
@@ -125,7 +127,6 @@ export function SiteLayout() {
           <div className={`border-t bg-[var(--ocp-paper)] px-4 py-4 md:hidden ${dark ? 'border-white/10' : 'border-black/10'}`}>
             <div className="flex flex-col gap-2">
               {navItems.map((item) => {
-                const Icon = item.icon;
                 return (
                   <NavLink
                     key={item.href}
@@ -133,7 +134,6 @@ export function SiteLayout() {
                     onClick={() => setMenuOpen(false)}
                     className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium ${dark ? 'text-white/76 hover:bg-white/[0.08]' : 'text-black/76 hover:bg-black/[0.06]'}`}
                   >
-                    <Icon className="h-4 w-4" />
                     {text(item.label)}
                   </NavLink>
                 );

@@ -37,10 +37,48 @@ type Options = {
   pollMs?: number;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNumberRecord(value: unknown): value is Record<string, number> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'number');
+}
+
+function parseRollups(value: unknown): ActivityRollups {
+  if (
+    !isRecord(value) ||
+    typeof value.window_hours !== 'number' ||
+    typeof value.event_count !== 'number' ||
+    !isNumberRecord(value.by_event_type) ||
+    !isNumberRecord(value.by_protocol_family) ||
+    !isNumberRecord(value.by_status_class)
+  ) {
+    throw new Error('Activity rollup payload does not match the public projection schema');
+  }
+
+  return {
+    window_hours: value.window_hours,
+    event_count: value.event_count,
+    by_event_type: value.by_event_type,
+    by_protocol_family: value.by_protocol_family,
+    by_status_class: value.by_status_class,
+  };
+}
+
+function parseEvents(value: unknown): PublicActivityEvent[] {
+  if (!isRecord(value) || !Array.isArray(value.events)) {
+    throw new Error('Activity recent payload does not expose an events array');
+  }
+
+  return value.events as PublicActivityEvent[];
+}
+
 export function useLiveActivity({ limit = 40, windowHours = 24, pollMs = 15_000 }: Options = {}) {
   const [events, setEvents] = useState<PublicActivityEvent[]>([]);
   const [rollups, setRollups] = useState<ActivityRollups | null>(null);
   const [status, setStatus] = useState<LiveActivityStatus>('loading');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,13 +93,19 @@ export function useLiveActivity({ limit = 40, windowHours = 24, pollMs = 15_000 
         if (!recentResponse.ok || !rollupResponse.ok) throw new Error('Activity API unavailable');
         const recentPayload = await recentResponse.json();
         const rollupPayload = await rollupResponse.json();
+        const parsedEvents = parseEvents(recentPayload);
+        const parsedRollups = parseRollups(rollupPayload);
         if (cancelled) return;
 
-        setEvents(Array.isArray(recentPayload.events) ? recentPayload.events : []);
-        setRollups(rollupPayload);
+        setEvents(parsedEvents);
+        setRollups(parsedRollups);
+        setError(null);
         setStatus('ready');
-      } catch {
-        if (!cancelled) setStatus('error');
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : 'Activity API unavailable');
+          setStatus('error');
+        }
       }
     }
 
@@ -73,5 +117,5 @@ export function useLiveActivity({ limit = 40, windowHours = 24, pollMs = 15_000 
     };
   }, [limit, windowHours, pollMs]);
 
-  return { events, rollups, status };
+  return { events, rollups, status, error };
 }

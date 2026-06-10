@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Boxes, Braces, GitFork, Network, RadioTower, Terminal, Unlock } from 'lucide-react';
+import { ArrowRight, GitFork, Unlock } from 'lucide-react';
 import {
   CatalogArchitectureDiagram,
   OnboardingScenePanel,
@@ -24,11 +24,11 @@ const flowSteps = [
 ];
 
 const builderPaths = [
-  { icon: Boxes, title: { en: 'For catalog builders', zh: 'Catalog 构建者' }, href: '/docs/examples/minimal-catalog', body: { en: 'Learn how searchable commerce objects are published and resolved.', zh: '了解商业对象如何被发布、搜索和展开。' } },
-  { icon: RadioTower, title: { en: 'For merchants', zh: '商家与服务方' }, href: '/docs/examples/minimal-provider', body: { en: 'Connect existing product, inventory, quote, or booking systems.', zh: '接入已有商品、库存、报价或预订系统。' } },
-  { icon: Network, title: { en: 'For agent teams', zh: 'Agent 团队' }, href: '/docs/examples/user-agent-flow', body: { en: 'Discover catalogs, compare candidates, and keep action consent explicit.', zh: '发现 Catalog、比较候选，并保持动作确认清晰。' } },
-  { icon: Braces, title: { en: 'For protocol readers', zh: '协议读者' }, href: '/docs/protocols/handshake-v1/catalog-manifest', body: { en: 'Read the contracts behind discovery, query, resolve, and action binding.', zh: '阅读发现、查询、解析和动作绑定背后的契约。' } },
-  { icon: Terminal, title: { en: 'For tool builders', zh: '工具构建者' }, href: '/docs/cli-and-skill', body: { en: 'Drive the workflow from the CLI and skill, with manifest-based validation. Coming soon.', zh: '用 CLI 和 skill 驱动工作流，带 manifest 校验。即将推出。' } },
+  { title: { en: 'For catalog builders', zh: 'Catalog 构建者' }, href: '/docs/examples/minimal-catalog', body: { en: 'Learn how searchable commerce objects are published and resolved.', zh: '了解商业对象如何被发布、搜索和展开。' } },
+  { title: { en: 'For merchants', zh: '商家与服务方' }, href: '/docs/examples/minimal-provider', body: { en: 'Connect existing product, inventory, quote, or booking systems.', zh: '接入已有商品、库存、报价或预订系统。' } },
+  { title: { en: 'For agent teams', zh: 'Agent 团队' }, href: '/docs/examples/user-agent-flow', body: { en: 'Discover catalogs, compare candidates, and keep action consent explicit.', zh: '发现 Catalog、比较候选，并保持动作确认清晰。' } },
+  { title: { en: 'For protocol readers', zh: '协议读者' }, href: '/docs/protocols/handshake-v1/catalog-manifest', body: { en: 'Read the contracts behind discovery, query, resolve, and action binding.', zh: '阅读发现、查询、解析和动作绑定背后的契约。' } },
+  { title: { en: 'For tool builders', zh: '工具构建者' }, href: '/docs/cli-and-skill', body: { en: 'Drive the workflow from the CLI and skill, with manifest-based validation. Coming soon.', zh: '用 CLI 和 skill 驱动工作流，带 manifest 校验。即将推出。' } },
 ];
 
 const layers = [
@@ -212,8 +212,8 @@ export function HomePage() {
 
         {/* monospace corner annotations (Collov-style lab labels) */}
         <div className="hero-annotations pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="true">
-          <span className="absolute left-8 top-28 font-mono text-[11px] uppercase tracking-[0.28em] text-white/40">discovery</span>
-          <span className="absolute left-8 top-40 font-mono text-[11px] uppercase tracking-[0.28em] text-white/30">query · resolve</span>
+          <span className="absolute right-8 top-28 font-mono text-[11px] uppercase tracking-[0.28em] text-white/40">discovery</span>
+          <span className="absolute right-8 top-40 font-mono text-[11px] uppercase tracking-[0.28em] text-white/30">query · resolve</span>
           <span className="absolute bottom-44 left-8 font-mono text-[11px] uppercase tracking-[0.28em] text-[var(--ocp-cyan)]/55">action binding</span>
         </div>
 
@@ -250,20 +250,20 @@ export function HomePage() {
             </div>
           </div>
 
-          <div className="reveal-item mt-10 flex flex-wrap items-end gap-x-12 gap-y-6 border-t border-white/10 pt-6 font-mono">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+          <div className="reveal-item mt-12 grid max-w-xl grid-cols-2 gap-8 border-t border-white/10 pt-5 font-mono">
+            <div className="border-t border-white/10 pt-3">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-[var(--text-faint)]">
                 {locale === 'zh' ? '存储索引' : 'Stored & indexed'}
               </div>
-              <div className="mt-2 text-4xl font-semibold tabular-nums text-white">
+              <div className="mt-2 text-2xl font-semibold tabular-nums text-white/86">
                 <StoredCount scale={scale} />
               </div>
             </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.2em] text-[var(--text-faint)]">
+            <div className="border-t border-white/10 pt-3">
+              <div className="text-[10px] uppercase tracking-[0.24em] text-[var(--text-faint)]">
                 {locale === 'zh' ? '按需流转' : 'Streamed on demand'}
               </div>
-              <div className="mt-2 text-4xl font-semibold tabular-nums text-[var(--ocp-cyan)]">∞</div>
+              <div className="mt-2 text-2xl font-semibold tabular-nums text-[var(--ocp-cyan)]">∞</div>
             </div>
           </div>
         </div>
@@ -303,12 +303,7 @@ export function HomePage() {
       </section>
 
       <section id="live" className="home-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
-        <div className="mx-auto w-[min(100%,80rem)] px-4 sm:px-6 lg:px-8">
-          <div className="reveal-on-scroll mb-10">
-            <span className="mono-kicker">{locale === 'zh' ? '实时网络' : 'Live network'}</span>
-          </div>
-          <LiveActivitySection />
-        </div>
+        <LiveActivitySection />
       </section>
 
       <section id="glance" className="home-panel home-diagram-panel site-section immersive-section border-y border-white/10 py-24 lg:py-32">
@@ -325,10 +320,10 @@ export function HomePage() {
               {locale === 'zh' ? '先理解它帮谁连接了什么，再决定是否深入文档。' : 'Understand who it connects and what stays under control before diving deeper.'}
             </h2>
           </div>
-          <div className="home-diagram-stack space-y-5">
-            <div className="reveal-on-scroll rounded-md border border-white/10 bg-white/[0.02] p-4"><CatalogArchitectureDiagram locale={locale} /></div>
-            <div className="reveal-on-scroll rounded-md border border-white/10 bg-white/[0.02] p-4" style={{ '--reveal-delay': '120ms' } as CSSProperties}><SearchResolveActionDiagram locale={locale} /></div>
-            <div className="reveal-on-scroll rounded-md border border-white/10 bg-white/[0.02] p-4" style={{ '--reveal-delay': '240ms' } as CSSProperties}><TrustBoundaryDiagram locale={locale} /></div>
+          <div className="home-diagram-stack space-y-12">
+            <div className="reveal-on-scroll"><CatalogArchitectureDiagram locale={locale} /></div>
+            <div className="reveal-on-scroll" style={{ '--reveal-delay': '120ms' } as CSSProperties}><SearchResolveActionDiagram locale={locale} /></div>
+            <div className="reveal-on-scroll" style={{ '--reveal-delay': '240ms' } as CSSProperties}><TrustBoundaryDiagram locale={locale} /></div>
           </div>
         </div>
       </section>
@@ -439,21 +434,24 @@ export function HomePage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-          <div className="mt-12 grid gap-x-8 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-14 border-y border-white/10">
             {builderPaths.map((path, index) => {
-              const Icon = path.icon;
               return (
                 <Link
                   key={path.href}
                   to={localizePath(path.href)}
-                  className="reveal-on-scroll group -mx-4 rounded-lg border-t border-white/12 px-4 pb-5 pt-6 transition-all duration-300 hover:-translate-y-1 hover:border-t-[var(--ocp-cyan)]/60 hover:bg-white/[0.03]"
+                  className="reveal-on-scroll group grid gap-5 border-b border-white/10 px-6 py-8 transition-colors last:border-b-0 hover:border-white/20 hover:bg-white/[0.045] focus-visible:border-[var(--ocp-cyan)]/60 focus-visible:bg-white/[0.045] focus-visible:outline-none sm:px-8 lg:px-10 md:grid-cols-[5.5rem_minmax(0,1fr)_9rem] md:items-center"
                   style={{ '--reveal-delay': `${index * 80}ms` } as CSSProperties}
                 >
-                  <Icon className="h-6 w-6 text-[var(--ocp-vermilion)]" />
-                  <h3 className="mt-6 text-lg font-semibold">{label(path.title, locale)}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">{label(path.body, locale)}</p>
-                  <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-muted)] transition-colors group-hover:text-[var(--ocp-cyan)]">
-                    {locale === 'zh' ? '打开' : 'Open'} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  <div className="font-mono text-4xl font-semibold tabular-nums text-white/18">
+                    {String(index + 1).padStart(2, '0')}
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-semibold tracking-tight text-white">{label(path.title, locale)}</h3>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-muted)]">{label(path.body, locale)}</p>
+                  </div>
+                  <span className="inline-flex min-w-[7rem] items-center justify-between justify-self-start font-mono text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-muted)] transition-colors group-hover:text-[var(--ocp-cyan)] md:justify-self-end">
+                    {locale === 'zh' ? '进入' : 'Enter'} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </span>
                 </Link>
               );
@@ -463,14 +461,16 @@ export function HomePage() {
       </section>
 
       {latestUpdate && (
-        <section className="home-panel site-section border-t border-[var(--border-soft)] glass-card">
-          <div className="site-container reveal-on-scroll flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <section className="home-panel site-section immersive-section border-t border-white/10 py-20 lg:py-24">
+          <div className="site-container reveal-on-scroll grid gap-8 border-y border-white/10 py-8 lg:grid-cols-[14rem_1fr_auto] lg:items-center">
+            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--ocp-gold)]">
+              {locale === 'zh' ? '现场笔记' : 'Field note'}
+            </div>
             <div>
-              <div className="text-xs font-semibold uppercase text-[var(--ocp-gold)]">{locale === 'zh' ? '新闻' : 'News'}</div>
-              <h2 className="mt-3 max-w-3xl text-3xl font-semibold">{label(latestUpdate.title, locale)}</h2>
+              <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-white">{label(latestUpdate.title, locale)}</h2>
               <p className="mt-3 max-w-2xl text-[var(--text-muted)]">{label(latestUpdate.summary, locale)}</p>
             </div>
-            <Link to={localizePath(`/updates/${latestUpdate.slug}`)} className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5">
+            <Link to={localizePath(`/updates/${latestUpdate.slug}`)} className="inline-flex items-center justify-center gap-2 border border-white/20 px-5 py-3 text-sm font-semibold text-white transition-colors hover:border-white/40 hover:bg-white/[0.06]">
               {locale === 'zh' ? '查看详情' : 'Read more'}
               <ArrowRight className="h-4 w-4" />
             </Link>
