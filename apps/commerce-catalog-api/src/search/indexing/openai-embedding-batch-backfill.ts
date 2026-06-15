@@ -15,6 +15,8 @@ const BATCH_EMBEDDINGS_ENDPOINT = '/v1/embeddings';
 const OPENAI_BATCH_REQUEST_LIMIT = 50_000;
 const DEFAULT_OPENAI_BATCH_REQUEST_LIMIT = 5_000;
 const INGEST_CHUNK_SIZE = 250;
+const EMBEDDING_JOB_CLEANUP_CHUNK_SIZE = 100;
+const EMBEDDING_JOB_CLEANUP_TIMEOUT_MS = 5_000;
 const ACTIVE_INGESTING_STALE_MS = 15 * 60 * 1000;
 const MAX_STALE_CANDIDATE_SWEEPS = 10;
 
@@ -290,20 +292,34 @@ export class OpenAIEmbeddingBatchBackfillService {
   private async embeddingServiceJobsMarkCompleted(documentIds: string[]) {
     if (documentIds.length === 0) return 0;
     let completedCount = 0;
-    for (const chunk of chunks(unique(documentIds), 1000)) {
-      const rows = await this.db.execute(sql`
-        update catalog_search_index_jobs
-        set
-          status = 'completed',
-          finished_at = now(),
-          updated_at = now()
-        where catalog_id = ${this.config.CATALOG_ID}
-          and job_type = 'refresh_embedding'
-          and status = 'pending'
-          and payload->>'search_document_id' in (${sql.join(chunk.map((documentId) => sql`${documentId}`), sql`, `)})
-        returning id
-      `);
-      completedCount += rows.length;
+    for (const chunk of chunks(unique(documentIds), EMBEDDING_JOB_CLEANUP_CHUNK_SIZE)) {
+      try {
+        const rows = await withTimeout(
+          this.db.execute(sql`
+            update catalog_search_index_jobs
+            set
+              status = 'completed',
+              finished_at = now(),
+              updated_at = now()
+            where catalog_id = ${this.config.CATALOG_ID}
+              and job_type = 'refresh_embedding'
+              and status = 'pending'
+              and payload->>'search_document_id' in (${sql.join(chunk.map((documentId) => sql`${documentId}`), sql`, `)})
+            returning id
+          `),
+          EMBEDDING_JOB_CLEANUP_TIMEOUT_MS,
+        );
+        completedCount += rows.length;
+      } catch (error) {
+        console.warn(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'warn',
+          event: 'embedding_batch_index_job_cleanup_chunk_failed',
+          document_count: chunk.length,
+          error: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
+        }));
+        return completedCount;
+      }
     }
 
     return completedCount;
@@ -761,6 +777,18 @@ function chunks<T>(items: T[], size: number) {
     result.push(items.slice(offset, offset + size));
   }
   return result;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: Timer | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error(`operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
 }
 
 function isRetryableOpenAIError(error: unknown) {
