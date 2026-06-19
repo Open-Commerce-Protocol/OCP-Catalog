@@ -16,6 +16,7 @@ import { SearchIndexWorker } from '../search/indexing/index-worker';
 import { SearchEmbeddingService } from '../search/indexing/search-embedding-service';
 import { SearchIndexJobHandlerService } from '../search/indexing/search-index-job-handler';
 import { OpenAIEmbeddingBatchBackfillService } from '../search/indexing/openai-embedding-batch-backfill';
+import { EmbeddingWorkItemService } from '../search/indexing/embedding-work-item-service';
 import { CatalogSemanticRetrievalService } from '../search/retrieval/catalog-semantic-retrieval-service';
 import { OpenSearchVectorIndexAdapter } from '../search/retrieval/opensearch-vector-index-adapter';
 import { PostgresLocalVectorIndexAdapter } from '../search/retrieval/postgres-local-vector-index-adapter';
@@ -105,10 +106,25 @@ export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatal
   const catalogOutbox = new CatalogOutboxService(base.db, base.searchIndexJobs, base.activityEvents);
   const searchDocumentService = new SearchDocumentUpsertService(base.db, base.writableVectorIndex, base.writableTextIndex);
   const searchEmbeddingService = new SearchEmbeddingService(base.db, base.embeddingProvider, base.writableVectorIndex);
-  const embeddingBatchBackfill = new OpenAIEmbeddingBatchBackfillService(base.db, base.config, searchEmbeddingService);
+  const embeddingWorkItems = new EmbeddingWorkItemService(base.db, {
+    embeddingProvider: base.embeddingProvider.providerId,
+    embeddingModel: base.embeddingProvider.model,
+    embeddingDimension: base.embeddingProvider.dimension,
+  });
+  const embeddingBatchBackfill = new OpenAIEmbeddingBatchBackfillService(
+    base.db,
+    base.config,
+    searchEmbeddingService,
+    embeddingWorkItems,
+  );
   const searchIndexWorker = new SearchIndexWorker(
     base.searchIndexJobs,
-    new SearchIndexJobHandlerService(searchDocumentService, base.searchIndexJobs, searchEmbeddingService),
+    new SearchIndexJobHandlerService(
+      searchDocumentService,
+      base.searchIndexJobs,
+      searchEmbeddingService,
+      embeddingWorkItems,
+    ),
   );
 
   return {
@@ -117,6 +133,7 @@ export function createCommerceCatalogWorkerRuntimeContext(options: CommerceCatal
     catalogOutbox,
     searchDocumentService,
     searchEmbeddingService,
+    embeddingWorkItems,
     embeddingBatchBackfill,
     searchIndexWorker,
   };

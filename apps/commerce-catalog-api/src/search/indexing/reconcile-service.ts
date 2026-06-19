@@ -71,7 +71,7 @@ async function reconcilePage(
     pageSize: number;
   },
 ) {
-  const { config, db, searchDocumentService, searchIndexJobs } = context;
+  const { config, db, searchDocumentService, embeddingWorkItems } = context;
   const conditions = [
     eq(schema.catalogEntries.catalogId, config.CATALOG_ID),
     eq(schema.catalogEntries.entryStatus, 'active'),
@@ -113,7 +113,7 @@ async function reconcilePage(
       .map((row) => [row.catalogEntryId, row] as const),
   );
   const documentIds = [...activeDocumentByEntryId.values()].map((row) => row.id);
-  const [embeddings, activeEmbeddingJobs] = documentIds.length === 0
+  const [embeddings, activeEmbeddingWorkItems] = documentIds.length === 0
     ? [[], []]
     : await Promise.all([
         db
@@ -128,18 +128,18 @@ async function reconcilePage(
           )),
         db
           .select({
-            searchDocumentId: sql<string>`${schema.catalogSearchIndexJobs.payload}->>'search_document_id'`,
+            searchDocumentId: schema.catalogEmbeddingWorkItems.catalogSearchDocumentId,
           })
-          .from(schema.catalogSearchIndexJobs)
+          .from(schema.catalogEmbeddingWorkItems)
           .where(and(
-            eq(schema.catalogSearchIndexJobs.catalogId, config.CATALOG_ID),
-            eq(schema.catalogSearchIndexJobs.jobType, 'refresh_embedding'),
-            inArray(schema.catalogSearchIndexJobs.status, ['pending', 'running']),
-            inArray(sql<string>`${schema.catalogSearchIndexJobs.payload}->>'search_document_id'`, documentIds),
+            eq(schema.catalogEmbeddingWorkItems.catalogId, config.CATALOG_ID),
+            eq(schema.catalogEmbeddingWorkItems.embeddingModel, config.EMBEDDING_MODEL),
+            inArray(schema.catalogEmbeddingWorkItems.status, ['pending', 'submitted'] as const),
+            inArray(schema.catalogEmbeddingWorkItems.catalogSearchDocumentId, documentIds),
           )),
       ]);
   const readyEmbeddingDocumentIds = new Set(embeddings.map((row) => row.catalogSearchDocumentId));
-  const activeEmbeddingJobDocumentIds = new Set(activeEmbeddingJobs.map((row) => row.searchDocumentId).filter(Boolean));
+  const activeEmbeddingJobDocumentIds = new Set(activeEmbeddingWorkItems.map((row) => row.searchDocumentId).filter(Boolean));
 
   let upsertedDocuments = 0;
   let enqueuedEmbeddingJobs = 0;
@@ -151,16 +151,11 @@ async function reconcilePage(
       upsertedDocuments += 1;
 
       if (upserted.documentStatus === 'active' && !activeEmbeddingJobDocumentIds.has(upserted.documentId)) {
-        await searchIndexJobs.enqueueEmbeddingRefresh({
+        await embeddingWorkItems.enqueuePending({
           catalogId: entry.catalogId,
           providerId: entry.providerId,
-          catalogEntryId: entry.id,
-          commercialObjectId: entry.commercialObjectId,
-          dedupeKey: `reconcile:${RECONCILE_KIND}:embedding:${upserted.documentId}`,
-          payload: {
-            reason: 'reconcile_missing_embedding',
-            search_document_id: upserted.documentId,
-          },
+          searchDocumentId: upserted.documentId,
+          reason: 'reconcile_missing_embedding',
         });
         activeEmbeddingJobDocumentIds.add(upserted.documentId);
         enqueuedEmbeddingJobs += 1;
@@ -169,16 +164,11 @@ async function reconcilePage(
     }
 
     if (!readyEmbeddingDocumentIds.has(document.id) && !activeEmbeddingJobDocumentIds.has(document.id)) {
-      await searchIndexJobs.enqueueEmbeddingRefresh({
+      await embeddingWorkItems.enqueuePending({
         catalogId: document.catalogId,
         providerId: document.providerId,
-        catalogEntryId: document.catalogEntryId,
-        commercialObjectId: document.commercialObjectId,
-        dedupeKey: `reconcile:${RECONCILE_KIND}:embedding:${document.id}`,
-        payload: {
-          reason: 'reconcile_missing_embedding',
-          search_document_id: document.id,
-        },
+        searchDocumentId: document.id,
+        reason: 'reconcile_missing_embedding',
       });
       activeEmbeddingJobDocumentIds.add(document.id);
       enqueuedEmbeddingJobs += 1;

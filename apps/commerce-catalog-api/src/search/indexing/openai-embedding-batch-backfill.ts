@@ -9,14 +9,13 @@ import {
   hashEmbeddingText,
   type SearchEmbeddingService,
 } from './search-embedding-service';
+import { EmbeddingWorkItemService } from './embedding-work-item-service';
 import type { BulkWritableVectorIndexAdapter, VectorIndexDocument } from '../retrieval/vector-index-adapter';
 
 const BATCH_EMBEDDINGS_ENDPOINT = '/v1/embeddings';
 const OPENAI_BATCH_REQUEST_LIMIT = 50_000;
 const DEFAULT_OPENAI_BATCH_REQUEST_LIMIT = 5_000;
 const INGEST_CHUNK_SIZE = 250;
-const EMBEDDING_JOB_CLEANUP_CHUNK_SIZE = 100;
-const EMBEDDING_JOB_CLEANUP_TIMEOUT_MS = 5_000;
 const ACTIVE_INGESTING_STALE_MS = 15 * 60 * 1000;
 const MAX_STALE_CANDIDATE_SWEEPS = 10;
 
@@ -68,6 +67,7 @@ export class OpenAIEmbeddingBatchBackfillService {
     private readonly db: Db,
     private readonly config: AppConfig,
     private readonly embeddingService: SearchEmbeddingService,
+    private readonly embeddingWorkItems: EmbeddingWorkItemService,
   ) {
     this.client = new OpenAIBatchClient({
       apiKey: config.OPENAI_API_KEY,
@@ -83,14 +83,30 @@ export class OpenAIEmbeddingBatchBackfillService {
   } = {}) {
     this.assertOpenAIConfigured();
     const limit = Math.min(options.limit ?? DEFAULT_OPENAI_BATCH_REQUEST_LIMIT, OPENAI_BATCH_REQUEST_LIMIT);
+    const jobId = options.dryRun ? null : newId('embbatch');
     const candidates = await this.loadCandidates({
       limit,
       providerId: options.providerId,
+      embeddingBatchJobId: jobId ?? undefined,
+      claimWorkItems: !options.dryRun,
     });
 
     const requests = candidates
       .map((document) => this.toBatchRequest(document))
       .filter((request): request is BatchEmbeddingRequest => request !== null);
+    assertUniqueBatchCustomIds(requests);
+    const requestDocumentIds = new Set(requests.map((request) => request.custom_id));
+    const emptyTextDocumentIds = candidates
+      .map((document) => document.id)
+      .filter((documentId) => !requestDocumentIds.has(documentId));
+    if (!options.dryRun && jobId && emptyTextDocumentIds.length > 0) {
+      await this.embeddingWorkItems.markFailedByDocumentIds({
+        catalogId: this.config.CATALOG_ID,
+        embeddingBatchJobId: jobId,
+        documentIds: emptyTextDocumentIds,
+        error: 'Search document has no embedding text for OpenAI batch request',
+      });
+    }
 
     const inputTextChars = requests.reduce((sum, request) => sum + request.body.input.length, 0);
     if (options.dryRun) {
@@ -109,39 +125,69 @@ export class OpenAIEmbeddingBatchBackfillService {
       };
     }
 
-    const jobId = newId('embbatch');
-    const jsonl = requests.map((request) => JSON.stringify(request)).join('\n') + '\n';
-    const inputFile = await this.client.uploadBatchInput(`${jobId}.jsonl`, jsonl);
-    const batch = await this.client.createBatch({
-      inputFileId: inputFile.id,
-      metadata: {
-        job_id: jobId,
-        catalog_id: this.config.CATALOG_ID,
-        embedding_model: this.config.EMBEDDING_MODEL,
-        embedding_dimension: String(this.config.EMBEDDING_DIMENSION),
-      },
-    });
-
-    const [row] = await this.db.insert(schema.catalogEmbeddingBatchJobs).values({
+    if (!jobId) {
+      throw new Error('Embedding batch job id is required for non-dry-run submission');
+    }
+    const [createdJob] = await this.db.insert(schema.catalogEmbeddingBatchJobs).values({
       id: jobId,
       catalogId: this.config.CATALOG_ID,
-      status: normalizeBatchStatus(batch.status),
-      openaiBatchId: batch.id,
-      inputFileId: inputFile.id,
-      outputFileId: batch.output_file_id ?? null,
-      errorFileId: batch.error_file_id ?? null,
+      status: 'created',
       embeddingProvider: 'openai',
       embeddingModel: this.embeddingModel,
       embeddingDimension: this.config.EMBEDDING_DIMENSION,
       requestedCount: requests.length,
-      completedCount: batch.request_counts?.completed ?? 0,
-      failedCount: batch.request_counts?.failed ?? 0,
       inputTextChars,
       metadata: {
         provider_id: options.providerId ?? null,
       },
       submittedAt: new Date(),
     }).returning();
+
+    const jsonl = requests.map((request) => JSON.stringify(request)).join('\n') + '\n';
+    let inputFile: { id: string } | null = null;
+    let batch: OpenAIBatch | null = null;
+    try {
+      inputFile = await this.client.uploadBatchInput(`${jobId}.jsonl`, jsonl);
+      batch = await this.client.createBatch({
+        inputFileId: inputFile.id,
+        metadata: {
+          job_id: jobId,
+          catalog_id: this.config.CATALOG_ID,
+          embedding_model: this.config.EMBEDDING_MODEL,
+          embedding_dimension: String(this.config.EMBEDDING_DIMENSION),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.slice(0, 4000) : String(error).slice(0, 4000);
+      await this.embeddingWorkItems.markSubmittedBatchFailed({
+        catalogId: this.config.CATALOG_ID,
+        embeddingBatchJobId: jobId,
+        error: message,
+      });
+      await this.db.update(schema.catalogEmbeddingBatchJobs)
+        .set({
+          status: 'failed',
+          inputFileId: inputFile?.id ?? createdJob.inputFileId,
+          error: message,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.catalogEmbeddingBatchJobs.id, jobId));
+      throw error;
+    }
+
+    const [row] = await this.db.update(schema.catalogEmbeddingBatchJobs)
+      .set({
+        status: normalizeBatchStatus(batch.status),
+        openaiBatchId: batch.id,
+        inputFileId: inputFile.id,
+        outputFileId: batch.output_file_id ?? null,
+        errorFileId: batch.error_file_id ?? null,
+        completedCount: batch.request_counts?.completed ?? 0,
+        failedCount: batch.request_counts?.failed ?? 0,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.catalogEmbeddingBatchJobs.id, jobId))
+      .returning();
 
     return {
       status: 'submitted' as const,
@@ -170,24 +216,47 @@ export class OpenAIEmbeddingBatchBackfillService {
       ingestedCount: number;
       failedCount: number;
       skippedCount: number;
+      processedOutputLineCount: number;
     }> = [];
 
     for (const job of jobs) {
-      if (!job.outputFileId) continue;
+      if (!job.outputFileId) {
+        await this.db.update(schema.catalogEmbeddingBatchJobs)
+          .set({
+            status: 'failed',
+            error: 'Embedding batch is ingestible but has no output_file_id',
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
+        results.push({
+          jobId: job.id,
+          ingestedCount: 0,
+          failedCount: 0,
+          skippedCount: 0,
+          processedOutputLineCount: 0,
+        });
+        continue;
+      }
       await this.markJobIngesting(job.id);
       try {
         const content = options.outputFilePath
           ? await readFile(options.outputFilePath, 'utf8')
           : await this.client.downloadFileContent(job.outputFileId);
         const result = await this.ingestOutput(job, content, options.limit);
-        const nextIngestedCount = result.ingestedCount;
-        const nextFailedCount = result.failedCount;
-        const fullyProcessed = !options.limit || nextIngestedCount + nextFailedCount >= job.requestedCount;
+        const nextIngestedCount = job.ingestedCount + result.ingestedCount;
+        const nextFailedCount = job.failedCount + result.failedCount;
+        const nextIngestedOutputLineCount = job.ingestedOutputLineCount + result.processedOutputLineCount;
+        const fullyProcessed = nextIngestedOutputLineCount >= job.requestedCount
+          || nextIngestedCount + nextFailedCount >= job.requestedCount;
+        if (!fullyProcessed && result.processedOutputLineCount === 0) {
+          throw new Error(`Embedding batch ${job.id} output file has no remaining lines but only ${nextIngestedOutputLineCount}/${job.requestedCount} output lines were processed`);
+        }
         await this.db.update(schema.catalogEmbeddingBatchJobs)
           .set({
             status: fullyProcessed ? 'ingested' : 'completed',
             ingestedCount: nextIngestedCount,
             failedCount: nextFailedCount,
+            ingestedOutputLineCount: nextIngestedOutputLineCount,
             ingestedAt: fullyProcessed ? new Date() : job.ingestedAt,
             error: null,
             updatedAt: new Date(),
@@ -197,7 +266,7 @@ export class OpenAIEmbeddingBatchBackfillService {
       } catch (error) {
         await this.db.update(schema.catalogEmbeddingBatchJobs)
           .set({
-            status: 'completed',
+            status: 'failed',
             error: error instanceof Error ? error.message.slice(0, 4000) : String(error).slice(0, 4000),
             updatedAt: new Date(),
           })
@@ -229,15 +298,44 @@ export class OpenAIEmbeddingBatchBackfillService {
     return row?.count ?? 0;
   }
 
-  private async loadCandidates(options: { limit: number; providerId?: string }) {
+  private async loadCandidates(options: {
+    limit: number;
+    providerId?: string;
+    embeddingBatchJobId?: string;
+    claimWorkItems?: boolean;
+  }) {
+    if (options.claimWorkItems && !options.embeddingBatchJobId) {
+      throw new Error('embeddingBatchJobId is required when claiming embedding work items');
+    }
     const candidates: SearchDocument[] = [];
+    const selectedDocumentIds = new Set<string>();
     for (let sweep = 0; sweep < MAX_STALE_CANDIDATE_SWEEPS && candidates.length < options.limit; sweep += 1) {
       const remaining = options.limit - candidates.length;
-      const pendingJobRows = await this.loadPendingEmbeddingDocumentIds({
-        ...options,
+      let pendingWorkItems = await this.loadWorkItemsForBatch({
+        catalogId: this.config.CATALOG_ID,
+        providerId: options.providerId,
+        embeddingBatchJobId: options.embeddingBatchJobId,
+        claimWorkItems: options.claimWorkItems,
         limit: remaining,
       });
-      const documentIds = unique(pendingJobRows.map((row) => row.documentId).filter((value): value is string => Boolean(value)));
+      if (pendingWorkItems.length === 0) {
+        await this.embeddingWorkItems.seedMissingDocuments({
+          catalogId: this.config.CATALOG_ID,
+          providerId: options.providerId,
+          limit: remaining,
+        });
+        pendingWorkItems = await this.loadWorkItemsForBatch({
+          catalogId: this.config.CATALOG_ID,
+          providerId: options.providerId,
+          embeddingBatchJobId: options.embeddingBatchJobId,
+          claimWorkItems: options.claimWorkItems,
+          limit: remaining,
+        });
+      }
+      const documentIds = unique(pendingWorkItems
+        .map((row) => row.documentId)
+        .filter((value): value is string => Boolean(value))
+        .filter((documentId) => !selectedDocumentIds.has(documentId)));
       if (documentIds.length === 0) break;
 
       const existingEmbeddings = await this.loadExistingEmbeddingsByDocumentId(documentIds, this.embeddingModel);
@@ -245,10 +343,10 @@ export class OpenAIEmbeddingBatchBackfillService {
         const existing = existingEmbeddings.get(documentId);
         return existing?.status === 'ready' && existing.embeddingDimension === this.config.EMBEDDING_DIMENSION;
       }));
-      const readyJobIds = pendingJobRows
-        .filter((row) => row.documentId && readyDocumentIds.has(row.documentId))
-        .map((row) => row.jobId);
-      await this.embeddingServiceJobsMarkCompletedById(readyJobIds);
+      await this.embeddingWorkItems.markCompletedByDocumentIds({
+        catalogId: this.config.CATALOG_ID,
+        documentIds: [...readyDocumentIds],
+      });
 
       const candidateDocumentIds = documentIds.filter((documentId) => !readyDocumentIds.has(documentId));
       if (candidateDocumentIds.length === 0) continue;
@@ -267,84 +365,34 @@ export class OpenAIEmbeddingBatchBackfillService {
         .from(schema.catalogSearchDocuments)
         .where(and(...filters))
         .limit(remaining);
+      for (const document of documents) {
+        selectedDocumentIds.add(document.id);
+      }
       candidates.push(...documents);
     }
 
     return candidates;
   }
 
-  private async loadPendingEmbeddingDocumentIds(options: { limit: number; providerId?: string }) {
-    const providerFilter = options.providerId ? sql`and provider_id = ${options.providerId}` : sql``;
-    const rows = await this.db.execute(sql`
-      select id as "jobId", payload->>'search_document_id' as "documentId"
-      from catalog_search_index_jobs
-      where catalog_id = ${this.config.CATALOG_ID}
-        and job_type = 'refresh_embedding'
-        and status = 'pending'
-        ${providerFilter}
-        and payload->>'search_document_id' is not null
-      order by scheduled_at asc, created_at asc, id asc
-      limit ${options.limit}
-    `);
-    return rows as unknown as Array<{ jobId: string; documentId: string | null }>;
-  }
-
-  private async embeddingServiceJobsMarkCompleted(documentIds: string[]) {
-    if (documentIds.length === 0) return 0;
-    let completedCount = 0;
-    for (const chunk of chunks(unique(documentIds), EMBEDDING_JOB_CLEANUP_CHUNK_SIZE)) {
-      try {
-        const rows = await withTimeout(
-          this.db.execute(sql`
-            update catalog_search_index_jobs
-            set
-              status = 'completed',
-              finished_at = now(),
-              updated_at = now()
-            where catalog_id = ${this.config.CATALOG_ID}
-              and job_type = 'refresh_embedding'
-              and status = 'pending'
-              and payload->>'search_document_id' in (${sql.join(chunk.map((documentId) => sql`${documentId}`), sql`, `)})
-            returning id
-          `),
-          EMBEDDING_JOB_CLEANUP_TIMEOUT_MS,
-        );
-        completedCount += rows.length;
-      } catch (error) {
-        console.warn(JSON.stringify({
-          ts: new Date().toISOString(),
-          level: 'warn',
-          event: 'embedding_batch_index_job_cleanup_chunk_failed',
-          document_count: chunk.length,
-          error: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
-        }));
-        return completedCount;
-      }
+  private async loadWorkItemsForBatch(options: {
+    catalogId: string;
+    limit: number;
+    providerId?: string;
+    embeddingBatchJobId?: string;
+    claimWorkItems?: boolean;
+  }) {
+    if (!options.claimWorkItems) {
+      return this.embeddingWorkItems.loadPendingDocumentIds(options);
     }
-
-    return completedCount;
-  }
-
-  private async embeddingServiceJobsMarkCompletedById(jobIds: string[]) {
-    if (jobIds.length === 0) return 0;
-    let completedCount = 0;
-    for (const chunk of chunks(unique(jobIds), 1000)) {
-      const rows = await this.db.execute(sql`
-        update catalog_search_index_jobs
-        set
-          status = 'completed',
-          finished_at = now(),
-          updated_at = now()
-        where catalog_id = ${this.config.CATALOG_ID}
-          and job_type = 'refresh_embedding'
-          and status = 'pending'
-          and id in (${sql.join(chunk.map((jobId) => sql`${jobId}`), sql`, `)})
-        returning id
-      `);
-      completedCount += rows.length;
+    if (!options.embeddingBatchJobId) {
+      throw new Error('embeddingBatchJobId is required when claiming embedding work items');
     }
-
-    return completedCount;
+    return this.embeddingWorkItems.claimPendingDocumentIds({
+      catalogId: options.catalogId,
+      providerId: options.providerId,
+      embeddingBatchJobId: options.embeddingBatchJobId,
+      limit: options.limit,
+    });
   }
 
   private toBatchRequest(document: SearchDocument): BatchEmbeddingRequest | null {
@@ -397,19 +445,35 @@ export class OpenAIEmbeddingBatchBackfillService {
   }
 
   private async updateJobFromBatch(job: BatchBackfillJob, batch: OpenAIBatch) {
+    const normalizedStatus = normalizeBatchStatus(batch.status);
+    const completedWithoutOutput = normalizedStatus === 'completed' && !batch.output_file_id;
+    const terminalFailure = normalizedStatus === 'failed'
+      || normalizedStatus === 'expired'
+      || normalizedStatus === 'cancelled'
+      || completedWithoutOutput;
+    const error = completedWithoutOutput
+      ? 'OpenAI batch completed without output_file_id'
+      : batch.errors ? JSON.stringify(batch.errors).slice(0, 4000) : job.error;
     const [row] = await this.db.update(schema.catalogEmbeddingBatchJobs)
       .set({
-        status: normalizeBatchStatus(batch.status),
+        status: completedWithoutOutput ? 'failed' : normalizedStatus,
         outputFileId: batch.output_file_id ?? job.outputFileId,
         errorFileId: batch.error_file_id ?? job.errorFileId,
         completedCount: batch.request_counts?.completed ?? job.completedCount,
         failedCount: batch.request_counts?.failed ?? job.failedCount,
-        error: batch.errors ? JSON.stringify(batch.errors).slice(0, 4000) : job.error,
+        error,
         completedAt: batch.status === 'completed' ? new Date() : job.completedAt,
         updatedAt: new Date(),
       })
       .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id))
       .returning();
+    if (terminalFailure) {
+      await this.embeddingWorkItems.markSubmittedBatchFailed({
+        catalogId: job.catalogId,
+        embeddingBatchJobId: job.id,
+        error: error ?? `OpenAI batch ended with terminal status ${normalizedStatus}`,
+      });
+    }
     return row;
   }
 
@@ -423,35 +487,43 @@ export class OpenAIEmbeddingBatchBackfillService {
     let ingestedCount = 0;
     let failedCount = 0;
     let skippedCount = 0;
-    const processedDocumentIds: string[] = [];
+    let processedOutputLineCount = 0;
+    const outputDocumentIds = new Set<string>();
     const outputLines = content.split('\n').filter((line) => line.trim());
-    for (let offset = 0; offset < outputLines.length;) {
+    if (job.ingestedOutputLineCount > outputLines.length) {
+      throw new Error(`Embedding batch ${job.id} ingest cursor ${job.ingestedOutputLineCount} exceeds output line count ${outputLines.length}`);
+    }
+    for (let offset = job.ingestedOutputLineCount; offset < outputLines.length;) {
       const remaining = limit ? limit - ingestedCount - failedCount - skippedCount : Number.POSITIVE_INFINITY;
       if (remaining <= 0) break;
       const lines = outputLines.slice(offset, offset + Math.min(INGEST_CHUNK_SIZE, remaining));
       offset += lines.length;
       const parsedLines = lines.map((line) => JSON.parse(line) as OpenAIBatchOutputLine);
+      const chunkStartLine = job.ingestedOutputLineCount + processedOutputLineCount;
+      assertValidOutputCustomIds(job.id, parsedLines, chunkStartLine);
+      processedOutputLineCount += parsedLines.length;
       const documentIds = parsedLines.map((line) => line.custom_id).filter((value): value is string => Boolean(value));
       const documents = await this.loadSearchDocumentsById(documentIds, job.catalogId);
-      const existingEmbeddings = await this.loadExistingEmbeddingsByDocumentId(documentIds, job.embeddingModel);
       const rows: Array<typeof schema.catalogSearchEmbeddings.$inferInsert> = [];
       const vectorDocuments: VectorIndexDocument[] = [];
+      const completedDocumentIds: string[] = [];
+      const failedDocumentIds: string[] = [];
 
       for (const parsed of parsedLines) {
         const documentId = parsed.custom_id;
         const document = documentId ? documents.get(documentId) : undefined;
-        if (!documentId || !document) {
-          skippedCount += 1;
-          continue;
+        if (!documentId) {
+          throw new Error(`Embedding batch ${job.id} output line is missing custom_id`);
         }
+        if (!document) {
+          throw new Error(`Embedding batch ${job.id} output references unknown search document ${documentId}`);
+        }
+        if (outputDocumentIds.has(documentId)) {
+          throw new Error(`Embedding batch ${job.id} output contains duplicate custom_id ${documentId} across chunks`);
+        }
+        outputDocumentIds.add(documentId);
         const embeddingText = buildSearchDocumentEmbeddingText(document);
         const embeddingTextHash = hashEmbeddingText(embeddingText);
-        const existing = existingEmbeddings.get(document.id);
-        if (existing?.status === 'ready' && existing.embeddingTextHash === embeddingTextHash) {
-          ingestedCount += 1;
-          processedDocumentIds.push(document.id);
-          continue;
-        }
         const vector = parsed.response?.body?.data?.[0]?.embedding;
         const failed = parsed.error || parsed.response?.status_code !== 200 || !isNumberVector(vector);
         rows.push({
@@ -472,6 +544,7 @@ export class OpenAIEmbeddingBatchBackfillService {
         });
         if (failed) {
           failedCount += 1;
+          failedDocumentIds.push(document.id);
         } else {
           ingestedCount += 1;
           vectorDocuments.push({
@@ -482,13 +555,34 @@ export class OpenAIEmbeddingBatchBackfillService {
             embeddingVector: vector,
             embeddingTextHash,
           });
+          completedDocumentIds.push(document.id);
         }
-        processedDocumentIds.push(document.id);
       }
 
       await this.bulkRecordEmbeddingRows(rows);
       await this.bulkUpsertVectorDocuments(vectorDocuments);
-      await this.updateIngestProgress(job, { ingestedCount, failedCount });
+      const completedWorkItemCount = await this.embeddingWorkItems.markCompletedByDocumentIds({
+        catalogId: job.catalogId,
+        embeddingBatchJobId: job.id,
+        documentIds: completedDocumentIds,
+      });
+      const failedWorkItemCount = await this.embeddingWorkItems.markFailedByDocumentIds({
+        catalogId: job.catalogId,
+        embeddingBatchJobId: job.id,
+        documentIds: failedDocumentIds,
+        error: `OpenAI batch ${job.id} returned failed embedding output`,
+      });
+      if (completedWorkItemCount !== unique(completedDocumentIds).length) {
+        throw new Error(`Embedding batch ${job.id} completed ${unique(completedDocumentIds).length} documents but updated ${completedWorkItemCount} work items`);
+      }
+      if (failedWorkItemCount !== unique(failedDocumentIds).length) {
+        throw new Error(`Embedding batch ${job.id} failed ${unique(failedDocumentIds).length} documents but updated ${failedWorkItemCount} work items`);
+      }
+      await this.updateIngestProgress(job, {
+        ingestedCount,
+        failedCount,
+        processedOutputLineCount,
+      });
       console.log(JSON.stringify({
         ts: new Date().toISOString(),
         level: 'info',
@@ -500,33 +594,7 @@ export class OpenAIEmbeddingBatchBackfillService {
         skipped_count: skippedCount,
       }));
     }
-    await this.tryEmbeddingServiceJobsMarkCompleted(processedDocumentIds);
-    return { ingestedCount, failedCount, skippedCount };
-  }
-
-  private async tryEmbeddingServiceJobsMarkCompleted(documentIds: string[]) {
-    if (documentIds.length > 5000) {
-      console.warn(JSON.stringify({
-        ts: new Date().toISOString(),
-        level: 'warn',
-        event: 'embedding_batch_index_job_cleanup_skipped',
-        document_count: documentIds.length,
-        reason: 'too_many_documents_for_json_payload_cleanup',
-      }));
-      return 0;
-    }
-    try {
-      return await this.embeddingServiceJobsMarkCompleted(documentIds);
-    } catch (error) {
-      console.warn(JSON.stringify({
-        ts: new Date().toISOString(),
-        level: 'warn',
-        event: 'embedding_batch_index_job_cleanup_failed',
-        document_count: documentIds.length,
-        error: error instanceof Error ? error.message.slice(0, 1000) : String(error).slice(0, 1000),
-      }));
-      return 0;
-    }
+    return { ingestedCount, failedCount, skippedCount, processedOutputLineCount };
   }
 
   private async loadSearchDocumentsById(documentIds: string[], catalogId: string) {
@@ -553,11 +621,15 @@ export class OpenAIEmbeddingBatchBackfillService {
     return new Map(rows.map((row) => [row.catalogSearchDocumentId, row]));
   }
 
-  private async updateIngestProgress(job: BatchBackfillJob, counts: { ingestedCount: number; failedCount: number }) {
+  private async updateIngestProgress(
+    job: BatchBackfillJob,
+    counts: { ingestedCount: number; failedCount: number; processedOutputLineCount: number },
+  ) {
     await this.db.update(schema.catalogEmbeddingBatchJobs)
       .set({
-        ingestedCount: counts.ingestedCount,
-        failedCount: counts.failedCount,
+        ingestedCount: job.ingestedCount + counts.ingestedCount,
+        failedCount: job.failedCount + counts.failedCount,
+        ingestedOutputLineCount: job.ingestedOutputLineCount + counts.processedOutputLineCount,
         updatedAt: new Date(),
       })
       .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
@@ -751,7 +823,7 @@ function normalizeBatchStatus(status: OpenAIBatchStatus | string): typeof schema
   ) {
     return status;
   }
-  return 'submitted';
+  throw new Error(`Unknown OpenAI batch status: ${status}`);
 }
 
 function truncateInput(input: string, maxInputChars: number) {
@@ -771,24 +843,40 @@ function unique<T>(items: T[]) {
   return [...new Set(items)];
 }
 
-function chunks<T>(items: T[], size: number) {
-  const result: T[][] = [];
-  for (let offset = 0; offset < items.length; offset += size) {
-    result.push(items.slice(offset, offset + size));
+function assertUniqueBatchCustomIds(requests: BatchEmbeddingRequest[]) {
+  const customIds = new Set<string>();
+  const duplicates = new Set<string>();
+  for (const request of requests) {
+    if (customIds.has(request.custom_id)) {
+      duplicates.add(request.custom_id);
+      continue;
+    }
+    customIds.add(request.custom_id);
   }
-  return result;
+  if (duplicates.size > 0) {
+    throw new Error(`OpenAI embedding batch request contains duplicate custom_id values: ${[...duplicates].join(', ')}`);
+  }
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeout: Timer | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => {
-      reject(new Error(`operation timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timeout) clearTimeout(timeout);
-  });
+export const __OpenAIEmbeddingBatchBackfillTestOnly = {
+  assertUniqueBatchCustomIds,
+  assertValidOutputCustomIds,
+  normalizeBatchStatus,
+};
+
+function assertValidOutputCustomIds(jobId: string, lines: OpenAIBatchOutputLine[], startLineIndex: number) {
+  const seen = new Set<string>();
+  for (let index = 0; index < lines.length; index += 1) {
+    const customId = lines[index]?.custom_id;
+    const lineNumber = startLineIndex + index + 1;
+    if (!customId) {
+      throw new Error(`Embedding batch ${jobId} output line ${lineNumber} is missing custom_id`);
+    }
+    if (seen.has(customId)) {
+      throw new Error(`Embedding batch ${jobId} output contains duplicate custom_id ${customId} at line ${lineNumber}`);
+    }
+    seen.add(customId);
+  }
 }
 
 function isRetryableOpenAIError(error: unknown) {

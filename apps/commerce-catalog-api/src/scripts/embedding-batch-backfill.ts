@@ -10,6 +10,7 @@ const service = new OpenAIEmbeddingBatchBackfillService(
   context.db,
   context.config,
   context.searchEmbeddingService,
+  context.embeddingWorkItems,
 );
 
 try {

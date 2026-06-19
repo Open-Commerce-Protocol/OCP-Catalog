@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import type { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 import type { SearchEmbeddingService } from './search/indexing/search-embedding-service';
 import { SearchIndexJobHandlerService } from './search/indexing/search-index-job-handler';
+import type { EmbeddingWorkItemService } from './search/indexing/embedding-work-item-service';
 import {
   retryDelayWithBackoff,
   searchIndexJobPriority,
@@ -11,8 +12,9 @@ import {
 import { SearchIndexWorker } from './search/indexing/index-worker';
 
 describe('SearchIndexJobHandlerService', () => {
-  test('enqueues embedding refresh after active document upsert', async () => {
-    const enqueued: unknown[] = [];
+  test('enqueues embedding work item after active document upsert', async () => {
+    const workItems: unknown[] = [];
+    const searchIndexJobs: unknown[] = [];
     const handler = new SearchIndexJobHandlerService(
       {
         async upsertForCatalogEntry(catalogEntryId: string) {
@@ -25,11 +27,17 @@ describe('SearchIndexJobHandlerService', () => {
       } as unknown as SearchDocumentUpsertService,
       {
         async enqueueEmbeddingRefresh(input: unknown) {
-          enqueued.push(input);
+          searchIndexJobs.push(input);
           return {};
         },
       } as unknown as SearchIndexJobService,
       {} as SearchEmbeddingService,
+      {
+        async enqueuePending(input: unknown) {
+          workItems.push(input);
+          return {};
+        },
+      } as unknown as EmbeddingWorkItemService,
     );
 
     await handler.handle(searchIndexJob({
@@ -38,16 +46,13 @@ describe('SearchIndexJobHandlerService', () => {
       jobType: 'upsert_document',
     }));
 
-    expect(enqueued).toEqual([{
+    expect(searchIndexJobs).toEqual([]);
+    expect(workItems).toEqual([{
       catalogId: 'cat_test',
       providerId: 'provider_test',
-      catalogEntryId: 'centry_test',
-      commercialObjectId: 'cobj_test',
-      dedupeKey: 'embedding:sjob_test:sdoc_test',
-      payload: {
-        search_document_id: 'sdoc_test',
-        source_job_id: 'sjob_test',
-      },
+      searchDocumentId: 'sdoc_test',
+      reason: 'document_indexed',
+      sourceSearchIndexJobId: 'sjob_test',
     }]);
   });
 
@@ -119,9 +124,7 @@ describe('SearchIndexJobHandlerService', () => {
 
     await handler.handle(searchIndexJob({
       jobType: 'refresh_embedding',
-      payload: {
-        search_document_id: 'sdoc_test',
-      },
+      searchDocumentId: 'sdoc_test',
     }));
 
     expect(refreshed).toEqual(['sdoc_test']);
@@ -146,9 +149,7 @@ describe('SearchIndexJobHandlerService', () => {
 
     await expect(handler.handle(searchIndexJob({
       jobType: 'refresh_embedding',
-      payload: {
-        search_document_id: 'sdoc_test',
-      },
+      searchDocumentId: 'sdoc_test',
     }))).rejects.toThrow('provider rejected model');
   });
 
@@ -450,6 +451,7 @@ function searchIndexJob(input: Partial<SearchIndexJob>): SearchIndexJob {
     catalogEntryId: null,
     commercialObjectId: null,
     dedupeKey: null,
+    searchDocumentId: null,
     jobType: 'upsert_document',
     status: 'pending',
     attemptCount: 0,

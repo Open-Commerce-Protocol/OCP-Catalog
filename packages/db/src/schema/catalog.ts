@@ -78,6 +78,14 @@ export const catalogEmbeddingBatchJobStatus = pgEnum('catalog_embedding_batch_jo
   'ingested',
 ]);
 
+export const catalogEmbeddingWorkItemStatus = pgEnum('catalog_embedding_work_item_status', [
+  'pending',
+  'submitted',
+  'completed',
+  'failed',
+  'cancelled',
+]);
+
 export const catalogProfiles = pgTable('catalog_profiles', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
@@ -335,6 +343,7 @@ export const catalogEmbeddingBatchJobs = pgTable('catalog_embedding_batch_jobs',
   completedCount: integer('completed_count').notNull().default(0),
   failedCount: integer('failed_count').notNull().default(0),
   ingestedCount: integer('ingested_count').notNull().default(0),
+  ingestedOutputLineCount: integer('ingested_output_line_count').notNull().default(0),
   inputTextChars: integer('input_text_chars').notNull().default(0),
   metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
   error: text('error'),
@@ -348,12 +357,44 @@ export const catalogEmbeddingBatchJobs = pgTable('catalog_embedding_batch_jobs',
   openaiBatchUnique: uniqueIndex('catalog_embedding_batch_jobs_openai_batch_unique').on(table.openaiBatchId),
 }));
 
+export const catalogEmbeddingWorkItems = pgTable('catalog_embedding_work_items', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  providerId: text('provider_id'),
+  catalogSearchDocumentId: text('catalog_search_document_id')
+    .notNull()
+    .references(() => catalogSearchDocuments.id, { onDelete: 'cascade' }),
+  embeddingProvider: text('embedding_provider').notNull(),
+  embeddingModel: text('embedding_model').notNull(),
+  embeddingDimension: integer('embedding_dimension').notNull(),
+  status: catalogEmbeddingWorkItemStatus('status').notNull().default('pending'),
+  reason: text('reason').notNull(),
+  embeddingBatchJobId: text('embedding_batch_job_id'),
+  sourceSearchIndexJobId: text('source_search_index_job_id'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  error: text('error'),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  documentModelUnique: uniqueIndex('catalog_embedding_work_items_document_model_unique')
+    .on(table.catalogId, table.catalogSearchDocumentId, table.embeddingModel),
+  pendingClaimIdx: index('catalog_embedding_work_items_pending_claim_idx')
+    .on(table.catalogId, table.embeddingModel, table.status, table.createdAt, table.id),
+  providerPendingIdx: index('catalog_embedding_work_items_provider_pending_idx')
+    .on(table.catalogId, table.providerId, table.embeddingModel, table.status),
+  batchJobIdx: index('catalog_embedding_work_items_batch_job_idx')
+    .on(table.catalogId, table.embeddingModel, table.embeddingBatchJobId, table.status),
+}));
+
 export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
   providerId: text('provider_id'),
   catalogEntryId: text('catalog_entry_id').references(() => catalogEntries.id, { onDelete: 'set null' }),
   commercialObjectId: text('commercial_object_id').references(() => commercialObjects.id, { onDelete: 'set null' }),
+  searchDocumentId: text('search_document_id'),
   dedupeKey: text('dedupe_key'),
   jobType: catalogSearchIndexJobType('job_type').notNull(),
   status: catalogSearchIndexJobStatus('status').notNull().default('pending'),
@@ -381,9 +422,12 @@ export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {
   pendingEmbeddingCountIdx: index('catalog_search_index_jobs_pending_embedding_count_idx')
     .on(table.catalogId, table.scheduledAt)
     .where(sql`${table.status} = 'pending' and ${table.jobType} = 'refresh_embedding'`),
-  pendingEmbeddingDocumentIdx: index('catalog_search_index_jobs_pending_embedding_document_idx')
-    .on(table.catalogId, sql`(${table.payload}->>'search_document_id')`)
-    .where(sql`${table.status} in ('pending', 'running') and ${table.jobType} = 'refresh_embedding'`),
+  pendingEmbeddingDocumentIdIdx: index('catalog_search_index_jobs_pending_embedding_document_id_idx')
+    .on(table.catalogId, table.searchDocumentId)
+    .where(sql`${table.status} in ('pending', 'running') and ${table.jobType} = 'refresh_embedding' and ${table.searchDocumentId} is not null`),
+  pendingEmbeddingClaimIdx: index('catalog_search_index_jobs_pending_embedding_claim_idx')
+    .on(table.catalogId, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'pending' and ${table.jobType} = 'refresh_embedding' and ${table.searchDocumentId} is not null`),
   dedupeUnique: uniqueIndex('catalog_search_index_jobs_catalog_dedupe_unique').on(table.catalogId, table.dedupeKey),
   queueTrendCreatedIdx: index('catalog_search_index_jobs_queue_trend_created_idx')
     .on(table.catalogId, table.createdAt, table.jobType),
