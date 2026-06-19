@@ -169,6 +169,9 @@ async function runEmbeddingBatchWorker(context: CommerceCatalogWorkerRuntimeCont
     recovered_requeued_count: result.value.recovered.requeuedCount,
     recovered_failed_count: result.value.recovered.failedCount,
     submitted_status: result.value.submitted.status,
+    active_count: result.value.submitted.status === 'skipped_active_limit'
+      ? result.value.submitted.activeCount
+      : undefined,
   }));
 }
 
