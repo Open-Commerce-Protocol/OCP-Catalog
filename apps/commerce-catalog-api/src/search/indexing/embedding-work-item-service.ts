@@ -186,7 +186,7 @@ export class EmbeddingWorkItemService {
           )
         order by work_items.submitted_deadline_at asc, work_items.id asc
         limit ${input.limit}
-        for update skip locked
+        for update of work_items skip locked
       ),
       failed_batch_items as (
         update catalog_embedding_batch_items batch_items

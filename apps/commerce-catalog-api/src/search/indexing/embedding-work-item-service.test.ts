@@ -101,6 +101,8 @@ describe('EmbeddingWorkItemService', () => {
 
     expect(result).toEqual({ failedCount: 2, requeuedCount: 3 });
     expect(executedSql).toHaveLength(1);
+    expect(executedSql[0]).toContain('left join catalog_embedding_batch_jobs batch_jobs');
+    expect(executedSql[0]).toContain('for update of work_items skip locked');
   });
 
   test('markSubmittedBatchFailed terminates submitted batch items with work items', async () => {
