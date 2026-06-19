@@ -52,4 +52,20 @@ describe('loadConfig', () => {
     expect(config.OCP_MCP_HTTP_PORT).toBe(4301);
     expect(config.OCP_MCP_HTTP_PATH).toBe('/custom-mcp');
   });
+
+  test('parses string false as false for runtime boolean env values', () => {
+    const config = loadConfig({
+      REGISTRATION_REFRESH_SCHEDULER_ENABLED: 'false',
+    });
+
+    expect(config.REGISTRATION_REFRESH_SCHEDULER_ENABLED).toBe(false);
+  });
+
+  test('rejects invalid runtime boolean env strings', () => {
+    expect(() =>
+      loadConfig({
+        REGISTRATION_REFRESH_SCHEDULER_ENABLED: 'disabled',
+      }),
+    ).toThrow();
+  });
 });

@@ -2,6 +2,7 @@ import { SearchIndexJobService, type SearchIndexJob } from './index-job-service'
 import type { SearchIndexJobHandler } from './index-worker';
 import { SearchDocumentUpsertService, type SearchDocumentSnapshot } from './document-upsert-service';
 import type { SearchEmbeddingService } from './search-embedding-service';
+import type { EmbeddingWorkItemService } from './embedding-work-item-service';
 
 const REBUILD_PROVIDER_DEFAULT_PAGE_SIZE = 500;
 const REBUILD_PROVIDER_MAX_PAGE_SIZE = 1_000;
@@ -11,6 +12,7 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
     private readonly documents: SearchDocumentUpsertService,
     private readonly jobs?: SearchIndexJobService,
     private readonly embeddings?: SearchEmbeddingService,
+    private readonly embeddingWorkItems?: EmbeddingWorkItemService,
   ) {}
 
   async handle(job: SearchIndexJob): Promise<void> {
@@ -109,35 +111,36 @@ export class SearchIndexJobHandlerService implements SearchIndexJobHandler {
           providerId: job.providerId,
           catalogEntryId: job.catalogEntryId,
           commercialObjectId: job.commercialObjectId,
-          dedupeKey: `embedding:${job.id}:${result.documentId}`,
-          payload: {
-            search_document_id: result.documentId,
-            source_job_id: job.id,
-          },
+          searchDocumentId: result.documentId,
+          sourceSearchIndexJobId: job.id,
         };
       })
       .filter((job): job is NonNullable<typeof job> => job !== null);
-    await this.jobs.enqueueMany(embeddingJobs.map((job) => ({
-      ...job,
-      jobType: 'refresh_embedding',
-    })));
+    if (embeddingJobs.length > 0) {
+      if (!this.embeddingWorkItems) throw new Error('document batch embedding enqueue requires EmbeddingWorkItemService');
+      await this.embeddingWorkItems.enqueuePendingMany(embeddingJobs.map((job) => ({
+        catalogId: job.catalogId,
+        providerId: job.providerId,
+        searchDocumentId: job.searchDocumentId,
+        reason: 'document_indexed',
+        sourceSearchIndexJobId: job.sourceSearchIndexJobId,
+      })));
+    }
 
     return new Set(documentJobs.map((job) => job.id));
   }
 
   private async enqueueEmbeddingRefresh(job: SearchIndexJob, documentId: string) {
-    if (!this.embeddings || !this.jobs) return;
+    if (!this.embeddingWorkItems) {
+      throw new Error('document embedding enqueue requires EmbeddingWorkItemService');
+    }
 
-    await this.jobs.enqueueEmbeddingRefresh({
+    await this.embeddingWorkItems.enqueuePending({
       catalogId: job.catalogId,
       providerId: job.providerId,
-      catalogEntryId: job.catalogEntryId,
-      commercialObjectId: job.commercialObjectId,
-      dedupeKey: `embedding:${job.id}:${documentId}`,
-      payload: {
-        search_document_id: documentId,
-        source_job_id: job.id,
-      },
+      searchDocumentId: documentId,
+      reason: 'document_indexed',
+      sourceSearchIndexJobId: job.id,
     });
   }
 }
@@ -153,9 +156,8 @@ function requireProviderId(job: SearchIndexJob) {
 }
 
 function resolveSearchDocumentId(job: SearchIndexJob) {
-  const value = job.payload.search_document_id;
-  if (typeof value === 'string' && value.trim()) return value;
-  throw new Error(`refresh_embedding job ${job.id} requires payload.search_document_id`);
+  if (job.searchDocumentId?.trim()) return job.searchDocumentId;
+  throw new Error(`refresh_embedding job ${job.id} requires searchDocumentId`);
 }
 
 function resolveSearchDocumentSnapshot(job: SearchIndexJob): SearchDocumentSnapshot | null {

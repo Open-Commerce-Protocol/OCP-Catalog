@@ -25,6 +25,7 @@ export type SearchIndexJob = {
   providerId: string | null;
   catalogEntryId: string | null;
   commercialObjectId: string | null;
+  searchDocumentId: string | null;
   dedupeKey: string | null;
   jobType: SearchIndexJobType;
   status: SearchIndexJobStatus;
@@ -61,6 +62,7 @@ type EnqueueJobInput = {
   providerId?: string | null;
   catalogEntryId?: string | null;
   commercialObjectId?: string | null;
+  searchDocumentId?: string | null;
   dedupeKey?: string | null;
   payload?: SearchIndexJobPayload;
   scheduledAt?: Date;
@@ -175,6 +177,7 @@ export class SearchIndexJobService {
         jobs.provider_id as "providerId",
         jobs.catalog_entry_id as "catalogEntryId",
         jobs.commercial_object_id as "commercialObjectId",
+        jobs.search_document_id as "searchDocumentId",
         jobs.dedupe_key as "dedupeKey",
         jobs.job_type as "jobType",
         jobs.status,
@@ -275,7 +278,7 @@ export class SearchIndexJobService {
       where catalog_id = ${input.catalogId}
         and job_type = 'refresh_embedding'
         and status = 'pending'
-        and payload->>'search_document_id' = any(${input.documentIds}::text[])
+        and search_document_id = any(${input.documentIds}::text[])
       returning id
     `);
 
@@ -364,6 +367,7 @@ function toInsertValue(input: EnqueueJobInput, defaultMaxAttempts: number) {
     providerId: input.providerId ?? null,
     catalogEntryId: input.catalogEntryId ?? null,
     commercialObjectId: input.commercialObjectId ?? null,
+    searchDocumentId: input.searchDocumentId ?? extractSearchDocumentId(input.payload),
     dedupeKey: input.dedupeKey ?? null,
     jobType: input.jobType,
     status: 'pending' as const,
@@ -388,12 +392,18 @@ function toSearchIndexJob(row: typeof schema.catalogSearchIndexJobs.$inferSelect
     providerId: row.providerId ?? null,
     catalogEntryId: row.catalogEntryId ?? null,
     commercialObjectId: row.commercialObjectId ?? null,
+    searchDocumentId: row.searchDocumentId ?? null,
     dedupeKey: row.dedupeKey ?? null,
     startedAt: row.startedAt ?? null,
     finishedAt: row.finishedAt ?? null,
     error: row.error ?? null,
     payload: row.payload,
   };
+}
+
+function extractSearchDocumentId(payload: SearchIndexJobPayload | undefined) {
+  const value = payload?.search_document_id;
+  return typeof value === 'string' && value.trim() ? value : null;
 }
 
 function assertNever(value: never): never {
