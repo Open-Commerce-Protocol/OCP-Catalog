@@ -190,6 +190,13 @@
       "when": 1780873000000,
       "tag": "0026_embedding_work_item_timeouts",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1780873500000,
+      "tag": "0027_embedding_queue_drop_hot_document_fks",
+      "breakpoints": true
     }
   ]
 }

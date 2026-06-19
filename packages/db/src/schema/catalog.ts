@@ -388,9 +388,7 @@ export const catalogEmbeddingWorkItems = pgTable('catalog_embedding_work_items',
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
   providerId: text('provider_id'),
-  catalogSearchDocumentId: text('catalog_search_document_id')
-    .notNull()
-    .references(() => catalogSearchDocuments.id, { onDelete: 'cascade' }),
+  catalogSearchDocumentId: text('catalog_search_document_id').notNull(),
   embeddingProvider: text('embedding_provider').notNull(),
   embeddingModel: text('embedding_model').notNull(),
   embeddingDimension: integer('embedding_dimension').notNull(),
@@ -433,9 +431,7 @@ export const catalogEmbeddingBatchItems = pgTable('catalog_embedding_batch_items
   embeddingWorkItemId: text('embedding_work_item_id')
     .notNull()
     .references(() => catalogEmbeddingWorkItems.id, { onDelete: 'cascade' }),
-  catalogSearchDocumentId: text('catalog_search_document_id')
-    .notNull()
-    .references(() => catalogSearchDocuments.id, { onDelete: 'cascade' }),
+  catalogSearchDocumentId: text('catalog_search_document_id').notNull(),
   inputText: text('input_text').notNull(),
   inputTextHash: text('input_text_hash').notNull(),
   inputTextChars: integer('input_text_chars').notNull(),

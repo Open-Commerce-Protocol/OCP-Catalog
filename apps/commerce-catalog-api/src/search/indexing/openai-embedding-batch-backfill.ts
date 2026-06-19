@@ -446,6 +446,23 @@ export class OpenAIEmbeddingBatchBackfillService {
         .from(schema.catalogSearchDocuments)
         .where(and(...filters))
         .limit(remaining);
+      const activeDocumentIds = new Set(documents.map((document) => document.id));
+      const unavailableDocumentIds = candidateDocumentIds.filter((documentId) => !activeDocumentIds.has(documentId));
+      for (const documentId of unavailableDocumentIds) {
+        selectedDocumentIds.add(documentId);
+      }
+      if (options.claimWorkItems && options.embeddingBatchJobId && unavailableDocumentIds.length > 0) {
+        const failedUnavailableCount = await this.embeddingWorkItems.markFailedByDocumentIds({
+          catalogId: this.config.CATALOG_ID,
+          embeddingBatchJobId: options.embeddingBatchJobId,
+          documentIds: unavailableDocumentIds,
+          error: 'Search document is missing, inactive, or outside the requested provider scope',
+        });
+        const expectedUnavailableCount = unique(unavailableDocumentIds).length;
+        if (failedUnavailableCount !== expectedUnavailableCount) {
+          throw new Error(`Embedding batch ${options.embeddingBatchJobId} failed ${expectedUnavailableCount} unavailable documents but updated ${failedUnavailableCount} work items`);
+        }
+      }
       for (const document of documents) {
         selectedDocumentIds.add(document.id);
         const inputText = truncateInput(

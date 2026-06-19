@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS "catalog_embedding_batch_items" (
   "catalog_id" text NOT NULL,
   "embedding_batch_job_id" text NOT NULL REFERENCES "catalog_embedding_batch_jobs" ("id") ON DELETE CASCADE,
   "embedding_work_item_id" text NOT NULL REFERENCES "catalog_embedding_work_items" ("id") ON DELETE CASCADE,
-  "catalog_search_document_id" text NOT NULL REFERENCES "catalog_search_documents" ("id") ON DELETE CASCADE,
+  "catalog_search_document_id" text NOT NULL,
   "input_text" text NOT NULL,
   "input_text_hash" text NOT NULL,
   "input_text_chars" integer NOT NULL,

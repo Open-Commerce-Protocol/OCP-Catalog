@@ -138,6 +138,77 @@ describe('OpenAIEmbeddingBatchBackfillService', () => {
     }));
   });
 
+  test('marks claimed work items failed when search documents are unavailable', async () => {
+    const failedDocuments: unknown[] = [];
+    const service = new OpenAIEmbeddingBatchBackfillService(
+      submitDb({
+        selectResults: [
+          [],
+          [],
+        ],
+        insertedJobs: [],
+        updatedJobs: [],
+      }),
+      testConfig(),
+      {} as SearchEmbeddingService,
+      {
+        async claimPendingDocumentIds() {
+          return [{ workItemId: 'embwork_missing', documentId: 'sdoc_missing' }];
+        },
+        async markCompletedByDocumentIds() {
+          return 0;
+        },
+        async markFailedByDocumentIds(input: unknown) {
+          failedDocuments.push(input);
+          return 1;
+        },
+      } as unknown as EmbeddingWorkItemService,
+    );
+
+    const result = await service.submit({ limit: 1 });
+
+    expect(result).toEqual({
+      status: 'empty',
+      requestedCount: 0,
+      inputTextChars: 0,
+    });
+    expect(failedDocuments).toEqual([expect.objectContaining({
+      catalogId: 'cat_test',
+      documentIds: ['sdoc_missing'],
+      error: 'Search document is missing, inactive, or outside the requested provider scope',
+    })]);
+  });
+
+  test('fails loud when unavailable claimed work items are not marked failed', async () => {
+    const service = new OpenAIEmbeddingBatchBackfillService(
+      submitDb({
+        selectResults: [
+          [],
+          [],
+        ],
+        insertedJobs: [],
+        updatedJobs: [],
+      }),
+      testConfig(),
+      {} as SearchEmbeddingService,
+      {
+        async claimPendingDocumentIds() {
+          return [{ workItemId: 'embwork_missing', documentId: 'sdoc_missing' }];
+        },
+        async markCompletedByDocumentIds() {
+          return 0;
+        },
+        async markFailedByDocumentIds() {
+          return 0;
+        },
+      } as unknown as EmbeddingWorkItemService,
+    );
+
+    await expect(service.submit({ limit: 1 })).rejects.toThrow(
+      /Embedding batch embbatch_[a-f0-9]+ failed 1 unavailable documents but updated 0 work items/,
+    );
+  });
+
   test('stores immutable batch item inputs and uses batch item ids as OpenAI custom ids', async () => {
     const document = searchDocument({ id: 'sdoc_claimed', title: 'Snapshot title' });
     const uploaded: string[] = [];

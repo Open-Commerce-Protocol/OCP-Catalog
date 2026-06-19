@@ -6,6 +6,8 @@ Move embedding backlog ownership from `catalog_search_index_jobs` to `catalog_em
 
 The invariant is: every active `catalog_search_documents` row without a ready embedding for the configured model must be discoverable by the bounded reconcile/repair producer. The embedding batch submitter only consumes existing work items; it must not run a full-catalog anti-join.
 
+`catalog_embedding_work_items` and `catalog_embedding_batch_items` are queue/state tables. They intentionally do not keep foreign keys to `catalog_search_documents`; high-volume enqueue and legacy job migration must not take parent-table key-share locks on the hot document table. Document existence is checked explicitly when work is claimed. Claimed items whose search document is missing, inactive, or outside the requested provider scope are marked `failed` with a visible error.
+
 ## Production State
 
 Long-running migration service:
@@ -27,6 +29,8 @@ bun scripts/migrate-refresh-embedding-jobs-to-work-items.ts \
   --mode=payload-null-column \
   --batch-delay-ms=2000
 ```
+
+The migration script only creates work items for active search documents. Old `refresh_embedding` jobs that reference missing or inactive search documents are marked `failed`; they are not silently cancelled and no orphan work item is created.
 
 ## Migration Execution
 
