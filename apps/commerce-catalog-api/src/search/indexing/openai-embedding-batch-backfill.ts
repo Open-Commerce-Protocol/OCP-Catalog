@@ -249,10 +249,11 @@ export class OpenAIEmbeddingBatchBackfillService {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 4000) : String(error).slice(0, 4000);
-      await this.embeddingWorkItems.markSubmittedBatchFailed({
+      await this.embeddingWorkItems.releaseSubmittedBatchForRetry({
         catalogId: this.config.CATALOG_ID,
         embeddingBatchJobId: jobId,
         error: message,
+        retryDelayMs: this.config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
       });
       await this.db.update(schema.catalogEmbeddingBatchJobs)
         .set({
@@ -354,13 +355,20 @@ export class OpenAIEmbeddingBatchBackfillService {
           .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
         results.push({ jobId: job.id, ...result });
       } catch (error) {
+        const message = error instanceof Error ? error.message.slice(0, 4000) : String(error).slice(0, 4000);
         await this.db.update(schema.catalogEmbeddingBatchJobs)
           .set({
             status: 'failed',
-            error: error instanceof Error ? error.message.slice(0, 4000) : String(error).slice(0, 4000),
+            error: message,
             updatedAt: new Date(),
           })
           .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id));
+        await this.embeddingWorkItems.releaseSubmittedBatchForRetry({
+          catalogId: job.catalogId,
+          embeddingBatchJobId: job.id,
+          error: message,
+          retryDelayMs: this.config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
+        });
         throw error;
       }
     }
@@ -573,10 +581,11 @@ export class OpenAIEmbeddingBatchBackfillService {
       .where(eq(schema.catalogEmbeddingBatchJobs.id, job.id))
       .returning();
     if (terminalFailure) {
-      await this.embeddingWorkItems.markSubmittedBatchFailed({
+      await this.embeddingWorkItems.releaseSubmittedBatchForRetry({
         catalogId: job.catalogId,
         embeddingBatchJobId: job.id,
         error: error ?? `OpenAI batch ended with terminal status ${normalizedStatus}`,
+        retryDelayMs: this.config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
       });
     }
     return row;

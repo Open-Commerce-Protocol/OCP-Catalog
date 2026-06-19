@@ -396,20 +396,57 @@ export class EmbeddingWorkItemService {
     return rows.length;
   }
 
-  async markSubmittedBatchFailed(input: { catalogId: string; embeddingBatchJobId: string; error: string }) {
+  async releaseSubmittedBatchForRetry(input: {
+    catalogId: string;
+    embeddingBatchJobId: string;
+    error: string;
+    retryDelayMs: number;
+  }) {
     const message = input.error.slice(0, 4000);
+    if (!Number.isFinite(input.retryDelayMs) || input.retryDelayMs < 0) {
+      throw new Error(`retryDelayMs must be a non-negative finite number, got ${input.retryDelayMs}`);
+    }
+    const now = new Date();
+    const retryAt = new Date(now.getTime() + input.retryDelayMs).toISOString();
     const rows = await this.db.execute(sql`
-      with failed_work_items as (
-        update catalog_embedding_work_items work_items
-        set
-          status = 'failed',
-          error = ${message},
-          last_error_at = now(),
-          updated_at = now()
+      with submitted as (
+        select
+          work_items.id,
+          work_items.attempt_count,
+          work_items.max_attempts
+        from catalog_embedding_work_items work_items
         where work_items.catalog_id = ${input.catalogId}
           and work_items.embedding_model = ${this.profile.embeddingModel}
           and work_items.embedding_batch_job_id = ${input.embeddingBatchJobId}
           and work_items.status = 'submitted'
+        for update of work_items
+      ),
+      failed_work_items as (
+        update catalog_embedding_work_items work_items
+        set
+          status = 'failed',
+          error = ${message},
+          last_error_at = ${now.toISOString()}::timestamptz,
+          updated_at = now()
+        from submitted
+        where work_items.id = submitted.id
+          and submitted.attempt_count >= submitted.max_attempts
+        returning work_items.id
+      ),
+      requeued_work_items as (
+        update catalog_embedding_work_items work_items
+        set
+          status = 'pending',
+          embedding_batch_job_id = null,
+          submitted_at = null,
+          submitted_deadline_at = null,
+          scheduled_at = ${retryAt}::timestamptz,
+          error = ${message},
+          last_error_at = ${now.toISOString()}::timestamptz,
+          updated_at = now()
+        from submitted
+        where work_items.id = submitted.id
+          and submitted.attempt_count < submitted.max_attempts
         returning work_items.id
       ),
       failed_batch_items as (
@@ -424,11 +461,15 @@ export class EmbeddingWorkItemService {
           and batch_items.status = 'submitted'
         returning batch_items.id
       )
-      select count(*)::int as "failedCount"
-      from failed_work_items
+      select
+        (select count(*)::int from failed_work_items) as "failedCount",
+        (select count(*)::int from requeued_work_items) as "requeuedCount"
     `);
-    const [row] = rows as unknown as Array<{ failedCount: number }>;
-    return row?.failedCount ?? 0;
+    const [row] = rows as unknown as Array<{ failedCount: number; requeuedCount: number }>;
+    return {
+      failedCount: row?.failedCount ?? 0,
+      requeuedCount: row?.requeuedCount ?? 0,
+    };
   }
 
 }

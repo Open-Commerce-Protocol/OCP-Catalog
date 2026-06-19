@@ -105,13 +105,13 @@ describe('EmbeddingWorkItemService', () => {
     expect(executedSql[0]).toContain('for update of work_items skip locked');
   });
 
-  test('markSubmittedBatchFailed terminates submitted batch items with work items', async () => {
+  test('releaseSubmittedBatchForRetry requeues retryable work items and fails exhausted work items', async () => {
     const executedSql: string[] = [];
     const service = new EmbeddingWorkItemService(
       {
         execute(query: unknown) {
           executedSql.push(sqlText(query));
-          return Promise.resolve([{ failedCount: 1 }]);
+          return Promise.resolve([{ failedCount: 1, requeuedCount: 2 }]);
         },
       } as never,
       {
@@ -121,17 +121,45 @@ describe('EmbeddingWorkItemService', () => {
       },
     );
 
-    const result = await service.markSubmittedBatchFailed({
+    const result = await service.releaseSubmittedBatchForRetry({
       catalogId: 'cat_test',
       embeddingBatchJobId: 'embbatch_test',
       error: 'OpenAI create failed',
+      retryDelayMs: 5000,
     });
 
-    expect(result).toBe(1);
+    expect(result).toEqual({ failedCount: 1, requeuedCount: 2 });
     expect(executedSql).toHaveLength(1);
     expect(executedSql[0]).toContain('update catalog_embedding_work_items');
     expect(executedSql[0]).toContain('update catalog_embedding_batch_items');
-    expect(executedSql[0]).toContain("status = 'failed'");
+    expect(executedSql[0]).toContain('submitted.attempt_count >= submitted.max_attempts');
+    expect(executedSql[0]).toContain('submitted.attempt_count < submitted.max_attempts');
+    expect(executedSql[0]).toContain('embedding_batch_job_id = null');
+    expect(executedSql[0]).toContain('submitted_at = null');
+    expect(executedSql[0]).toContain('submitted_deadline_at = null');
+    expect(executedSql[0]).toContain("batch_items.status = 'submitted'");
+  });
+
+  test('releaseSubmittedBatchForRetry rejects invalid retry delay', async () => {
+    const service = new EmbeddingWorkItemService(
+      {
+        execute() {
+          throw new Error('query must not run for invalid retry delay');
+        },
+      } as never,
+      {
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+        embeddingDimension: 1536,
+      },
+    );
+
+    await expect(service.releaseSubmittedBatchForRetry({
+      catalogId: 'cat_test',
+      embeddingBatchJobId: 'embbatch_test',
+      error: 'OpenAI create failed',
+      retryDelayMs: -1,
+    })).rejects.toThrow('retryDelayMs must be a non-negative finite number');
   });
 });
 

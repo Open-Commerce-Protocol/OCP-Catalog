@@ -269,9 +269,9 @@ describe('OpenAIEmbeddingBatchBackfillService', () => {
     expect(request.body.input).toBe('Snapshot title');
   });
 
-  test('marks claimed work items failed when OpenAI batch creation fails', async () => {
+  test('releases claimed work items for retry when OpenAI batch creation fails', async () => {
     const document = searchDocument({ id: 'sdoc_claimed' });
-    const failedBatches: unknown[] = [];
+    const releasedBatches: unknown[] = [];
     const service = new OpenAIEmbeddingBatchBackfillService(
       submitDb({ selectResults: [[], [document]], insertedJobs: [], updatedJobs: [] }),
       testConfig(),
@@ -296,9 +296,12 @@ describe('OpenAIEmbeddingBatchBackfillService', () => {
             status: 'submitted',
           }];
         },
-        async markSubmittedBatchFailed(input: unknown) {
-          failedBatches.push(input);
-          return 1;
+        async releaseSubmittedBatchForRetry(input: unknown) {
+          releasedBatches.push(input);
+          return { failedCount: 0, requeuedCount: 1 };
+        },
+        async markSubmittedBatchFailed() {
+          throw new Error('permanent fail path must not be used for batch creation failure');
         },
       } as unknown as EmbeddingWorkItemService,
     );
@@ -312,12 +315,107 @@ describe('OpenAIEmbeddingBatchBackfillService', () => {
     };
 
     await expect(service.submit({ limit: 1 })).rejects.toThrow('OpenAI create failed');
-    expect(failedBatches).toHaveLength(1);
-    expect(failedBatches[0]).toMatchObject({
+    expect(releasedBatches).toHaveLength(1);
+    expect(releasedBatches[0]).toMatchObject({
       catalogId: 'cat_test',
       error: 'OpenAI create failed',
+      retryDelayMs: 1000,
     });
-    expect((failedBatches[0] as { embeddingBatchJobId: string }).embeddingBatchJobId).toStartWith('embbatch_');
+    expect((releasedBatches[0] as { embeddingBatchJobId: string }).embeddingBatchJobId).toStartWith('embbatch_');
+  });
+
+  test('releases submitted work items for retry when OpenAI batch reaches terminal failed, expired, or cancelled status', async () => {
+    const releasedBatches: unknown[] = [];
+    const service = new OpenAIEmbeddingBatchBackfillService(
+      submitDb({ selectResults: [], insertedJobs: [], updatedJobs: [] }),
+      testConfig(),
+      {} as SearchEmbeddingService,
+      {
+        async releaseSubmittedBatchForRetry(input: unknown) {
+          releasedBatches.push(input);
+          return { failedCount: 0, requeuedCount: 1 };
+        },
+        async markSubmittedBatchFailed() {
+          throw new Error('permanent fail path must not be used for terminal batch failure');
+        },
+      } as unknown as EmbeddingWorkItemService,
+    );
+
+    for (const status of ['failed', 'expired', 'cancelled'] as const) {
+      await (service as never as {
+        updateJobFromBatch(job: unknown, batch: unknown): Promise<unknown>;
+      }).updateJobFromBatch(batchJob({
+        status: 'in_progress',
+        outputFileId: null,
+        error: null,
+      }), {
+        id: `batch_${status}`,
+        status,
+        request_counts: { completed: 0, failed: 1 },
+        errors: { message: `batch ${status}` },
+      });
+    }
+
+    expect(releasedBatches).toEqual([
+      expect.objectContaining({
+        catalogId: 'cat_test',
+        embeddingBatchJobId: 'embbatch_test',
+        error: JSON.stringify({ message: 'batch failed' }),
+        retryDelayMs: 1000,
+      }),
+      expect.objectContaining({
+        catalogId: 'cat_test',
+        embeddingBatchJobId: 'embbatch_test',
+        error: JSON.stringify({ message: 'batch expired' }),
+        retryDelayMs: 1000,
+      }),
+      expect.objectContaining({
+        catalogId: 'cat_test',
+        embeddingBatchJobId: 'embbatch_test',
+        error: JSON.stringify({ message: 'batch cancelled' }),
+        retryDelayMs: 1000,
+      }),
+    ]);
+  });
+
+  test('releases submitted work items for retry on ingest failure while preserving fail-loud throw', async () => {
+    const updates: unknown[] = [];
+    const releasedBatches: unknown[] = [];
+    const service = new OpenAIEmbeddingBatchBackfillService(
+      ingestFailureDb({
+        jobs: [batchJob({ status: 'completed', outputFileId: 'file_output' })],
+        updates,
+      }),
+      testConfig(),
+      {} as SearchEmbeddingService,
+      {
+        async releaseSubmittedBatchForRetry(input: unknown) {
+          releasedBatches.push(input);
+          return { failedCount: 0, requeuedCount: 1 };
+        },
+        async markSubmittedBatchFailed() {
+          throw new Error('permanent fail path must not be used for ingest failure');
+        },
+      } as unknown as EmbeddingWorkItemService,
+    );
+    (service as unknown as { client: unknown }).client = {
+      async downloadFileContent() {
+        throw new Error('OpenAI output download failed');
+      },
+    };
+
+    await expect(service.ingest({ jobId: 'embbatch_test' })).rejects.toThrow('OpenAI output download failed');
+    expect(updates).toContainEqual(expect.objectContaining({ status: 'ingesting' }));
+    expect(updates).toContainEqual(expect.objectContaining({
+      status: 'failed',
+      error: 'OpenAI output download failed',
+    }));
+    expect(releasedBatches).toEqual([expect.objectContaining({
+      catalogId: 'cat_test',
+      embeddingBatchJobId: 'embbatch_test',
+      error: 'OpenAI output download failed',
+      retryDelayMs: 1000,
+    })]);
   });
 
   test('fails loudly on unknown OpenAI batch status', () => {
@@ -785,6 +883,44 @@ function ingestDb(state: { updates: unknown[]; insertedEmbeddingRows: unknown[] 
   } as unknown as Db;
 }
 
+function ingestFailureDb(state: { jobs: unknown[]; updates: unknown[] }) {
+  return {
+    select() {
+      return {
+        from(table: unknown) {
+          return {
+            where() {
+              if (table !== schema.catalogEmbeddingBatchJobs) throw new Error('unexpected select table');
+              return {
+                orderBy() {
+                  return {
+                    limit() {
+                      return Promise.resolve(state.jobs);
+                    },
+                  };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+    update(table: unknown) {
+      return {
+        set(values: unknown) {
+          if (table !== schema.catalogEmbeddingBatchJobs) throw new Error('unexpected update table');
+          state.updates.push(values);
+          return {
+            where() {
+              return Promise.resolve();
+            },
+          };
+        },
+      };
+    },
+  } as unknown as Db;
+}
+
 function outputLine(customId: string, embedding: number[], statusCode = 200) {
   return JSON.stringify({
     custom_id: customId,
@@ -857,6 +993,7 @@ function testConfig() {
     EMBEDDING_MODEL: 'text-embedding-3-small',
     EMBEDDING_DIMENSION: 1536,
     OPENAI_EMBEDDING_MAX_INPUT_CHARS: 1000,
+    CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS: 1000,
   } as AppConfig;
 }
 
