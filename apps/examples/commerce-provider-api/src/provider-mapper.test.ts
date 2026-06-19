@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AppConfig } from '@ocp-catalog/config';
-import { schema } from '@ocp-catalog/db';
+import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import { buildObjectSyncRequest, buildProviderRegistration, mapProductToCommercialObject } from './provider-mapper';
 
 const config = {

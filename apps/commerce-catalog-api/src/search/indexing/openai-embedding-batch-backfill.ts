@@ -1,6 +1,6 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { readFile } from 'node:fs/promises';

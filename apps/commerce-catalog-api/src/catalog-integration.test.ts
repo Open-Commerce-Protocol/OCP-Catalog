@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import postgres from 'postgres';
 import { loadConfig, type AppConfig } from '@ocp-catalog/config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
-import { createDb, schema } from '@ocp-catalog/db';
+import { createCatalogDb, catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { and, eq } from 'drizzle-orm';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 import { CommerceQueryService } from './query/commerce-query-service';
@@ -10,7 +10,7 @@ import { SearchDocumentUpsertService } from './search/indexing/document-upsert-s
 import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
 const baseConfig = loadConfig();
-const db = createDb(baseConfig.DATABASE_URL);
+const db = createCatalogDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
 const services = createCatalogServices(db, baseConfig, scenario);

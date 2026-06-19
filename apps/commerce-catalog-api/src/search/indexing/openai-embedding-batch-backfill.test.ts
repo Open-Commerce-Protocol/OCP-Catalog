@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AppConfig } from '@ocp-catalog/config';
-import { schema, type Db } from '@ocp-catalog/db';
+import { catalogSchema as schema, type CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import type { SearchEmbeddingService } from './search-embedding-service';
 import type { EmbeddingWorkItemService } from './embedding-work-item-service';
 import {

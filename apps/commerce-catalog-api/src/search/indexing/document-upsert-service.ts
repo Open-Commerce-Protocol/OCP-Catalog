@@ -1,5 +1,5 @@
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import { and, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 import type {

@@ -1,5 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { Db } from '@ocp-catalog/db';
+import type { RegistrationDb as Db } from '@ocp-catalog/registration-db';
 import { CatalogRegistryService } from './catalog-registry-service';
 
 export { buildRegistrationDiscovery, buildRegistrationManifest } from './manifest';

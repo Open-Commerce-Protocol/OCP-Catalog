@@ -3,7 +3,7 @@ import {
   buildCatalogManifest,
   buildWellKnownDiscovery,
 } from '@ocp-catalog/catalog-core';
-import { schema } from '@ocp-catalog/db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import type { ObjectSyncStreamResult } from '@ocp-catalog/ocp-schema';
 import { AppError } from '@ocp-catalog/shared';

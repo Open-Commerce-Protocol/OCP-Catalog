@@ -1,6 +1,6 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import {
   commercialObjectSchema,
   objectSyncRequestSchema,

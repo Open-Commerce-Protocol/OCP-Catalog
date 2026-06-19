@@ -1,5 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import { schema, type Db } from '@ocp-catalog/db';
+import { catalogSchema as schema, type CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { AppError } from '@ocp-catalog/shared';
 import { and, eq, inArray } from 'drizzle-orm';
 

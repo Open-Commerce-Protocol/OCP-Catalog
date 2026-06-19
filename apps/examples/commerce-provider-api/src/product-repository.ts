@@ -1,6 +1,6 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { ProviderDemoDb as Db } from '@ocp-catalog/provider-demo-db';
+import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq } from 'drizzle-orm';
 import type { ProductCreateInput, ProductPatchInput } from './product-schema';

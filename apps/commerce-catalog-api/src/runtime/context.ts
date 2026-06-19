@@ -3,8 +3,10 @@ import {
   buildCatalogManifest,
   createCatalogServices,
 } from '@ocp-catalog/catalog-core';
+import { createActivityDb } from '@ocp-catalog/activity-db';
+import { createCatalogDb } from '@ocp-catalog/catalog-db';
 import { loadConfig } from '@ocp-catalog/config';
-import { createDb, PostgresAdvisoryLockService } from '@ocp-catalog/db';
+import { PostgresAdvisoryLockService } from '@ocp-catalog/db';
 import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { createCommerceCatalogScenario } from '../commerce-scenario';
@@ -30,10 +32,13 @@ export type CommerceCatalogRuntimeContextOptions = {
 
 function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions = {}) {
   const config = loadConfig();
-  const db = createDb(config.DATABASE_URL, {
+  const db = createCatalogDb(config.DATABASE_URL, {
     maxConnections: options.databasePoolMax ?? config.DATABASE_POOL_MAX,
   });
-  const activityEvents = new ActivityEventService(db);
+  const activityDb = createActivityDb(config.DATABASE_URL, {
+    maxConnections: options.databasePoolMax ?? config.DATABASE_POOL_MAX,
+  });
+  const activityEvents = new ActivityEventService(activityDb);
   const embeddingProvider = createCommerceEmbeddingProvider(config);
   const commerceCatalogScenario = createCommerceCatalogScenario({
     semanticSearchEnabled: true,

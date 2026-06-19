@@ -1,6 +1,6 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { RegistrationDb as Db } from '@ocp-catalog/registration-db';
+import { registrationSchema as schema } from '@ocp-catalog/registration-db';
 import { catalogHealthResponseSchema, catalogManifestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
 import {
   catalogRegistrationSchema,

@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, inArray, or, sql } from 'drizzle-orm';
-import { schema } from '@ocp-catalog/db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import type { CommerceCatalogWorkerRuntimeContext } from '../../runtime/context';
 

@@ -1,6 +1,6 @@
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildCatalogManifest } from '@ocp-catalog/catalog-core';
-import { schema } from '@ocp-catalog/db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { AppError } from '@ocp-catalog/shared';
 import { and, desc, eq, lt, or, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
