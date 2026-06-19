@@ -98,11 +98,8 @@ export function buildCatalogManifest(cfg: PddConfig) {
     ],
     object_contracts: [],
     federation: {
-      upstream_catalogs: [],
-      routing_strategy: 'single_source',
-      delegated_resolution: true,
-      fallback_policy: 'return_empty_result',
-      provenance_required: true,
+      mode: 'disabled' as const,
+      node_role: 'source_catalog' as const,
     },
   };
 }

@@ -89,7 +89,7 @@ test('queries catalog products with filter pack and structured filters', async (
       brand: '',
     },
     limit: 10,
-    offset: 20,
+    offset: 0,
   }, async (_input, init) => {
     requests.push(JSON.parse(String(init?.body)));
     return Response.json({ entries: [] });
@@ -103,8 +103,23 @@ test('queries catalog products with filter pack and structured filters', async (
       in_stock_only: true,
     },
     limit: 10,
-    offset: 20,
+    offset: 0,
   });
+});
+
+test('rejects deep offset before calling catalog', async () => {
+  let called = false;
+  await expect(listCatalogProducts(createCatalog(), {
+    searchMode: 'filter',
+    filters: { category: 'electronics' },
+    limit: 10,
+    offset: 20,
+  }, async () => {
+    called = true;
+    return Response.json({ entries: [] });
+  })).rejects.toThrow('only support offset 0');
+
+  expect(called).toBe(false);
 });
 
 test('rejects unsupported requested query packs before calling catalog', async () => {

@@ -96,11 +96,11 @@ describe('PDD Duoduojinbao Catalog Node routes', () => {
       }),
     );
     const body = catalogQueryResultSchema.parse(await json(res));
-    expect(body.items.length).toBe(3);
-    expect(body.items[0]!.entry_id).toMatch(/^entry_pdd_/);
-    expect(body.items[0]!.provider_id).toBe('pdd');
-    expect((body.items[0]!.attributes as any).source_id).toBe('pdd');
-    expect((body.items[0]!.attributes as any).platform).toBe('pdd');
+    expect(body.entries.length).toBe(3);
+    expect(body.entries[0]!.entry.entry_id).toMatch(/^entry_pdd_/);
+    expect(body.entries[0]!.entry.provider_id).toBe('pdd');
+    expect((body.entries[0]!.entry.attributes as any).source_id).toBe('pdd');
+    expect((body.entries[0]!.entry.attributes as any).platform).toBe('pdd');
   });
 
   test('query 价格已经转成元 number (不是分)', async () => {
@@ -117,7 +117,7 @@ describe('PDD Duoduojinbao Catalog Node routes', () => {
       }),
     );
     const body = catalogQueryResultSchema.parse(await json(res));
-    const price = (body.items[0]!.attributes as any).price;
+    const price = (body.entries[0]!.entry.attributes as any).price;
     // 索尼耳机 fixture: min_group_price=249900 fen → amount=2499 yuan
     expect(price.amount).toBe(2499);
     expect(price.list_amount).toBe(2799);

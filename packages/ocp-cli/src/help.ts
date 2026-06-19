@@ -332,7 +332,7 @@ export const CLI_HELP: CliHelp = {
         },
         {
           name: '--offset',
-          description: 'Pagination offset. Defaults to 0.',
+          description: 'Must be 0. Deep offset pagination is disabled.',
         },
         {
           name: '--explain',
@@ -421,7 +421,7 @@ export const CLI_HELP: CliHelp = {
         },
         {
           name: '--offset',
-          description: 'Pagination offset requested. Must satisfy protocol schema limits.',
+          description: 'Must be 0. Deep offset pagination is disabled.',
         },
         {
           name: '--explain',

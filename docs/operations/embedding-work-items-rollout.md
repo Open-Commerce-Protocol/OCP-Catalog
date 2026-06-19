@@ -4,7 +4,7 @@
 
 Move embedding backlog ownership from `catalog_search_index_jobs` to `catalog_embedding_work_items`.
 
-The invariant is: every active `catalog_search_documents` row without a ready embedding for the configured model must be discoverable by the embedding batch submitter.
+The invariant is: every active `catalog_search_documents` row without a ready embedding for the configured model must be discoverable by the bounded reconcile/repair producer. The embedding batch submitter only consumes existing work items; it must not run a full-catalog anti-join.
 
 ## Production State
 
@@ -28,14 +28,32 @@ bun scripts/migrate-refresh-embedding-jobs-to-work-items.ts \
   --batch-delay-ms=2000
 ```
 
-## Verification
+## Migration Execution
+
+Do not apply production online index migrations with `drizzle-kit migrate`. Migrations containing `CREATE INDEX CONCURRENTLY` must run outside a transaction. Execute them through `psql`, split on `--> statement-breakpoint`, with explicit timeouts:
 
 ```sql
-select status, count(*)::bigint
-from catalog_embedding_work_items
-where catalog_id = 'cat_ocp_commerce_prod'
-group by status
-order by status;
+set statement_timeout = '5s';
+set lock_timeout = '500ms';
+```
+
+For long `CREATE INDEX CONCURRENTLY` statements, raise `statement_timeout` for that statement only after checking the target query with `EXPLAIN`.
+
+## Verification
+
+Avoid exact `count(*)` and `group by` on live backlog tables. Check bounded samples and worker movement instead:
+
+```sql
+select status, count(*) as capped_count
+from (
+  select status
+  from catalog_embedding_work_items
+  where catalog_id = 'cat_ocp_commerce_prod'
+    and status in ('pending', 'submitted')
+  order by scheduled_at asc, created_at asc, id asc
+  limit 10000
+) s
+group by status;
 
 select id, status, requested_count, completed_count, failed_count, ingested_count, submitted_at, updated_at
 from catalog_embedding_batch_jobs

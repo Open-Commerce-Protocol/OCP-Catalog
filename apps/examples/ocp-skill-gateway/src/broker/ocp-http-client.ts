@@ -88,7 +88,9 @@ export class OcpHttpBrokerClient implements BrokerClient {
     page_size?: number;
   }): Promise<FanoutSearchResult> {
     const limit = opts.page_size ?? 10;
-    const offset = ((opts.page ?? 1) - 1) * limit;
+    if ((opts.page ?? 1) !== 1) {
+      throw new Error('Only the first search page is supported until cursor pagination is available');
+    }
 
     let catalogs: RegisteredCatalog[];
     try {
@@ -109,7 +111,7 @@ export class OcpHttpBrokerClient implements BrokerClient {
       };
     }
 
-    const calls = catalogs.map((c) => this.queryOne(c, opts.query, limit, offset));
+    const calls = catalogs.map((c) => this.queryOne(c, opts.query, limit));
     const settled = await Promise.allSettled(calls);
     const hits: SearchHit[] = [];
     const per_catalog: FanoutSearchResult['per_catalog'] = [];
@@ -143,7 +145,6 @@ export class OcpHttpBrokerClient implements BrokerClient {
     cat: RegisteredCatalog,
     query: string,
     limit: number,
-    offset: number,
   ): Promise<{ hits: SearchHit[]; elapsed_ms: number }> {
     const t0 = Date.now();
     const supportsKeyword = cat.route_hint.supported_query_packs.includes(KEYWORD_PACK);
@@ -157,7 +158,7 @@ export class OcpHttpBrokerClient implements BrokerClient {
       query,
       filters: {},
       limit,
-      offset,
+      offset: 0,
       explain: false,
     };
     const result = await this.client.queryCatalog(cat.route_hint.query_url, body);

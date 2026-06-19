@@ -134,12 +134,18 @@ export function startSearchIndexWorkerScheduler(context: CommerceCatalogWorkerRu
 }
 
 async function runEmbeddingBatchWorker(context: CommerceCatalogWorkerRuntimeContext, reason: string) {
-  const { config, embeddingBatchBackfill } = context;
+  const { config, embeddingBatchBackfill, embeddingWorkItems } = context;
   const lockName = `ocp:catalog:${config.CATALOG_ID}:embedding-batch-worker`;
   const result = await context.coordination.withLock(lockName, async () => {
     const polled = await embeddingBatchBackfill.poll();
     const ingested = await embeddingBatchBackfill.ingest({
       limit: config.CATALOG_EMBEDDING_BATCH_WORKER_INGEST_LIMIT,
+    });
+    const recovered = await embeddingWorkItems.requeueTimedOutSubmitted({
+      catalogId: config.CATALOG_ID,
+      limit: config.CATALOG_EMBEDDING_BATCH_WORKER_SUBMIT_LIMIT,
+      error: 'Embedding batch did not complete before submitted work item recovery deadline',
+      retryDelayMs: config.CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS,
     });
     const activeCount = await embeddingBatchBackfill.countActiveJobs();
     const submitted = activeCount >= config.CATALOG_EMBEDDING_BATCH_MAX_ACTIVE_JOBS
@@ -147,7 +153,7 @@ async function runEmbeddingBatchWorker(context: CommerceCatalogWorkerRuntimeCont
       : await embeddingBatchBackfill.submit({
         limit: config.CATALOG_EMBEDDING_BATCH_WORKER_SUBMIT_LIMIT,
       });
-    return { polled, ingested, submitted };
+    return { polled, ingested, recovered, submitted };
   });
 
   if (!result.acquired) return;
@@ -160,6 +166,8 @@ async function runEmbeddingBatchWorker(context: CommerceCatalogWorkerRuntimeCont
     polled_count: result.value.polled.length,
     ingested_count: result.value.ingested.reduce((sum, item) => sum + item.ingestedCount, 0),
     failed_count: result.value.ingested.reduce((sum, item) => sum + item.failedCount, 0),
+    recovered_requeued_count: result.value.recovered.requeuedCount,
+    recovered_failed_count: result.value.recovered.failedCount,
     submitted_status: result.value.submitted.status,
   }));
 }

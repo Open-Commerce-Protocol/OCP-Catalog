@@ -162,7 +162,6 @@ export type CatalogQueryResult = {
     limit: number;
     offset: number;
     has_more: boolean;
-    next_offset?: number;
   };
   entries: CatalogQueryMatch[];
   explain: string[];
@@ -284,13 +283,11 @@ export async function fetchCatalogAdminEntries(apiKey: string, filters?: {
   providerId?: string;
   entryStatus?: string;
   qualityTier?: string;
-  search?: string;
 }) {
   const params = new URLSearchParams();
   if (filters?.providerId) params.set('provider_id', filters.providerId);
   if (filters?.entryStatus) params.set('entry_status', filters.entryStatus);
   if (filters?.qualityTier) params.set('quality_tier', filters.qualityTier);
-  if (filters?.search) params.set('search', filters.search);
   const suffix = params.size > 0 ? `?${params.toString()}` : '';
   const payload = await request<{ catalog_id: string; entries: CatalogAdminEntry[]; page: CatalogAdminPage }>(`${adminPrefix}/entries${suffix}`, {
     method: 'GET',

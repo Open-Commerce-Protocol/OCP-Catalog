@@ -450,7 +450,6 @@ function ObjectsEntriesPage({
 }) {
   const [providerFilter, setProviderFilter] = useState('all');
   const [qualityFilter, setQualityFilter] = useState('all');
-  const [searchText, setSearchText] = useState('');
   const [entries, setEntries] = useState<CatalogAdminEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -462,7 +461,6 @@ function ObjectsEntriesPage({
         const next = await fetchCatalogAdminEntries(apiKey, {
           ...(providerFilter !== 'all' ? { providerId: providerFilter } : {}),
           ...(qualityFilter !== 'all' ? { qualityTier: qualityFilter } : {}),
-          ...(searchText.trim() ? { search: searchText.trim() } : {}),
         });
         if (!cancelled) setEntries(next);
       } catch (error) {
@@ -475,7 +473,7 @@ function ObjectsEntriesPage({
     return () => {
       cancelled = true;
     };
-  }, [apiKey, onError, providerFilter, qualityFilter, searchText]);
+  }, [apiKey, onError, providerFilter, qualityFilter]);
 
   const providerOptions = useMemo(
     () => ['all', ...new Set(entries.map((entry) => entry.provider_id).filter(Boolean))],
@@ -502,7 +500,7 @@ function ObjectsEntriesPage({
         </p>
       </header>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2">
         <label className="space-y-2 text-sm">
           <span className="text-xs uppercase tracking-wider text-operator-muted">Provider</span>
           <select value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)} className="w-full rounded-sm border border-operator-border bg-operator-surface px-3 py-2">
@@ -518,10 +516,6 @@ function ObjectsEntriesPage({
             <option value="basic">basic</option>
           </select>
         </label>
-        <label className="space-y-2 text-sm">
-          <span className="text-xs uppercase tracking-wider text-operator-muted">Search</span>
-          <input value={searchText} onChange={(event) => setSearchText(event.target.value)} className="w-full rounded-sm border border-operator-border bg-operator-surface px-3 py-2" placeholder="title, object id, provider..." />
-        </label>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
@@ -531,7 +525,7 @@ function ObjectsEntriesPage({
           </div>
           <div className="space-y-3">
             {!loading && entries.length === 0 ? (
-              <EmptyState title="No entries matched." body="Adjust the provider, quality, or search filters to inspect a different set of objects." compact />
+              <EmptyState title="No entries matched." body="Adjust the provider or quality filters to inspect a different set of objects." compact />
             ) : (
               entries.map((entry) => {
                 const qualityTier = typeof entry.search_projection.quality_tier === 'string' ? entry.search_projection.quality_tier : 'basic';
@@ -621,12 +615,11 @@ function QueryLabPage({
   const [queryPack, setQueryPack] = useState('');
   const [providerId, setProviderId] = useState('');
   const [category, setCategory] = useState('');
-  const [offset, setOffset] = useState(0);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<CatalogQueryResult | null>(null);
   const [resolved, setResolved] = useState<ResolvedEntry | null>(null);
 
-  async function handleRunQuery(nextOffset = 0) {
+  async function handleRunQuery() {
     try {
       setBusy(true);
       setResolved(null);
@@ -639,9 +632,8 @@ function QueryLabPage({
           ...(providerId ? { provider_id: providerId } : {}),
           ...(category ? { category } : {}),
         },
-        offset: nextOffset,
+        offset: 0,
       });
-      setOffset(nextOffset);
       setResult(next);
     } catch (error) {
       onError(error instanceof Error ? error.message : 'Query failed');
@@ -695,7 +687,7 @@ function QueryLabPage({
           <input value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-sm border border-operator-border bg-operator-bg px-3 py-2" />
         </label>
         <div className="flex items-end">
-          <button onClick={() => void handleRunQuery(0)} disabled={busy} className="w-full rounded-sm border border-operator-text bg-operator-text px-4 py-2 text-sm text-operator-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+          <button onClick={() => void handleRunQuery()} disabled={busy} className="w-full rounded-sm border border-operator-text bg-operator-text px-4 py-2 text-sm text-operator-surface transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
             {busy ? 'Running...' : 'Run Query'}
           </button>
         </div>
@@ -711,22 +703,11 @@ function QueryLabPage({
               <div className="rounded-sm border border-operator-border bg-operator-bg p-3 text-xs text-operator-muted operator-mono">
                 results: {result.result_count} · offset: {result.page.offset} · limit: {result.page.limit} · has_more: {String(result.page.has_more)} · pack: {queryPack || 'default'}
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => void handleRunQuery(Math.max(offset - (result.page.limit || 12), 0))}
-                  disabled={busy || result.page.offset === 0}
-                  className="rounded-sm border border-operator-border px-3 py-1 text-xs transition-colors hover:bg-operator-surface disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Previous Page
-                </button>
-                <button
-                  onClick={() => void handleRunQuery(result.page.next_offset ?? result.page.offset + result.page.limit)}
-                  disabled={busy || !result.page.has_more}
-                  className="rounded-sm border border-operator-border px-3 py-1 text-xs transition-colors hover:bg-operator-surface disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next Page
-                </button>
-              </div>
+              {result.page.has_more ? (
+                <div className="rounded-sm border border-operator-border bg-operator-surface px-3 py-2 text-xs text-operator-muted">
+                  More results exist. Narrow the query or filters; deep offset pagination is disabled for production catalogs.
+                </div>
+              ) : null}
               {result.explain.length > 0 ? (
                 <div className="rounded-sm border border-operator-border bg-operator-bg p-3">
                   <div className="mb-2 text-xs uppercase tracking-wider text-operator-muted">Explain</div>

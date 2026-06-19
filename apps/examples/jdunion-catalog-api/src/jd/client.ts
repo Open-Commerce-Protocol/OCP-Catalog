@@ -3,7 +3,7 @@
  *
  * 两种模式 (由 cfg.JDUNION_MOCK 控制):
  *   - mock 模式: 从 fixture 读静态响应,**不调网络**。本地开发 / CI 默认走这个。
- *   - real 模式: HTTP POST 到 router.jd.com/api,带 jdSign 签名。
+ *   - real 模式: HTTP POST 到配置的 JD 网关地址,带 jdSign 签名。
  *
  * 暴露 4 个核心方法:
  *   - listGoods()                调 jd.union.open.goods.query                       拉商品池

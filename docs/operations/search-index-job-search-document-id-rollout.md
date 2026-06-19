@@ -39,15 +39,20 @@ bun scripts/backfill-search-index-job-search-document-id.ts --batch-size=5000 --
 
 ## Verification
 
-Check malformed/missing column debt:
+Check malformed/missing column debt with a capped sample:
 
 ```sql
-SELECT count(*) AS missing_search_document_id
-FROM catalog_search_index_jobs
-WHERE job_type = 'refresh_embedding'
-  AND status IN ('pending', 'running')
-  AND payload->>'search_document_id' IS NOT NULL
-  AND search_document_id IS NULL;
+SELECT count(*) AS missing_search_document_id_capped_10000
+FROM (
+  SELECT 1
+  FROM catalog_search_index_jobs
+  WHERE job_type = 'refresh_embedding'
+    AND status IN ('pending', 'running')
+    AND payload->>'search_document_id' IS NOT NULL
+    AND search_document_id IS NULL
+  ORDER BY id
+  LIMIT 10000
+) s;
 ```
 
 Check that workers use the new index:
@@ -71,14 +76,18 @@ WHERE state <> 'idle'
 ORDER BY query_start;
 ```
 
-Check embedding progress:
+Check embedding progress with statistics and newest indexed row. Do not run exact table-wide embedding counts on the hot path.
 
 ```sql
 SELECT now() AS sampled_at,
-       count(*) AS total_embeddings,
-       count(*) FILTER (WHERE status = 'ready') AS ready_embeddings,
-       max(updated_at) AS newest_embedding_update
-FROM catalog_search_embeddings;
+       reltuples::bigint AS estimated_embeddings
+FROM pg_class
+WHERE oid = 'public.catalog_search_embeddings'::regclass;
+
+SELECT updated_at AS newest_embedding_update
+FROM catalog_search_embeddings
+ORDER BY updated_at DESC
+LIMIT 1;
 ```
 
 ## Rollback

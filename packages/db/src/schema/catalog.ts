@@ -86,6 +86,12 @@ export const catalogEmbeddingWorkItemStatus = pgEnum('catalog_embedding_work_ite
   'cancelled',
 ]);
 
+export const catalogEmbeddingBatchItemStatus = pgEnum('catalog_embedding_batch_item_status', [
+  'submitted',
+  'completed',
+  'failed',
+]);
+
 export const catalogProfiles = pgTable('catalog_profiles', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
@@ -247,6 +253,9 @@ export const catalogEntries = pgTable('catalog_entries', {
   categoryStatusIdx: index('catalog_entries_catalog_category_status_idx').on(table.catalogId, table.category, table.entryStatus),
   brandStatusIdx: index('catalog_entries_catalog_brand_status_idx').on(table.catalogId, table.brand, table.entryStatus),
   availabilityStatusIdx: index('catalog_entries_catalog_availability_status_idx').on(table.catalogId, table.availabilityStatus, table.entryStatus),
+  reconcilePageIdx: index('catalog_entries_reconcile_page_idx').on(table.catalogId, table.entryStatus, table.updatedAt, table.id),
+  adminUpdatedIdx: index('catalog_entries_admin_updated_idx').on(table.catalogId, table.updatedAt, table.id),
+  providerAdminUpdatedIdx: index('catalog_entries_provider_admin_updated_idx').on(table.catalogId, table.providerId, table.updatedAt, table.id),
   commercialObjectUnique: uniqueIndex('catalog_entries_commercial_object_unique').on(table.commercialObjectId),
 }));
 
@@ -304,6 +313,12 @@ export const catalogSearchDocuments = pgTable('catalog_search_documents', {
   amountStatusIdx: index('catalog_search_documents_catalog_amount_status_idx').on(table.catalogId, table.amount, table.documentStatus),
   qualityStatusIdx: index('catalog_search_documents_catalog_quality_status_idx').on(table.catalogId, table.qualityTier, table.documentStatus),
   updatedAtIdx: index('catalog_search_documents_catalog_updated_idx').on(table.catalogId, table.documentStatus, table.updatedAt),
+  activeUpdatedIdx: index('catalog_search_documents_active_updated_idx')
+    .on(table.catalogId, table.updatedAt, table.id)
+    .where(sql`${table.documentStatus} = 'active'`),
+  providerActiveUpdatedIdx: index('catalog_search_documents_provider_active_updated_idx')
+    .on(table.catalogId, table.providerId, table.updatedAt, table.id)
+    .where(sql`${table.documentStatus} = 'active'`),
 }));
 
 export const catalogSearchEmbeddings = pgTable('catalog_search_embeddings', {
@@ -326,6 +341,9 @@ export const catalogSearchEmbeddings = pgTable('catalog_search_embeddings', {
 }, (table) => ({
   documentModelUnique: uniqueIndex('catalog_search_embeddings_document_model_unique').on(table.catalogSearchDocumentId, table.embeddingModel),
   catalogModelStatusIdx: index('catalog_search_embeddings_catalog_model_status_idx').on(table.catalogId, table.embeddingModel, table.status),
+  readyDocumentLookupIdx: index('catalog_search_embeddings_ready_document_lookup_idx')
+    .on(table.catalogId, table.embeddingModel, table.catalogSearchDocumentId)
+    .where(sql`${table.status} = 'ready'`),
 }));
 
 export const catalogEmbeddingBatchJobs = pgTable('catalog_embedding_batch_jobs', {
@@ -354,6 +372,15 @@ export const catalogEmbeddingBatchJobs = pgTable('catalog_embedding_batch_jobs',
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   catalogStatusCreatedIdx: index('catalog_embedding_batch_jobs_catalog_status_created_idx').on(table.catalogId, table.status, table.createdAt),
+  pollableIdx: index('catalog_embedding_batch_jobs_pollable_idx')
+    .on(table.catalogId, table.createdAt, table.id)
+    .where(sql`${table.status} in ('submitted','validating','in_progress','finalizing')`),
+  completedIngestIdx: index('catalog_embedding_batch_jobs_completed_ingest_idx')
+    .on(table.catalogId, table.createdAt, table.id)
+    .where(sql`${table.status} = 'completed'`),
+  staleIngestingIdx: index('catalog_embedding_batch_jobs_stale_ingesting_idx')
+    .on(table.catalogId, table.updatedAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'ingesting'`),
   openaiBatchUnique: uniqueIndex('catalog_embedding_batch_jobs_openai_batch_unique').on(table.openaiBatchId),
 }));
 
@@ -372,20 +399,57 @@ export const catalogEmbeddingWorkItems = pgTable('catalog_embedding_work_items',
   embeddingBatchJobId: text('embedding_batch_job_id'),
   sourceSearchIndexJobId: text('source_search_index_job_id'),
   attemptCount: integer('attempt_count').notNull().default(0),
+  maxAttempts: integer('max_attempts').notNull().default(5),
   error: text('error'),
+  scheduledAt: timestamp('scheduled_at', { withTimezone: true }).notNull().defaultNow(),
   submittedAt: timestamp('submitted_at', { withTimezone: true }),
+  submittedDeadlineAt: timestamp('submitted_deadline_at', { withTimezone: true }),
+  lastErrorAt: timestamp('last_error_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   documentModelUnique: uniqueIndex('catalog_embedding_work_items_document_model_unique')
     .on(table.catalogId, table.catalogSearchDocumentId, table.embeddingModel),
-  pendingClaimIdx: index('catalog_embedding_work_items_pending_claim_idx')
-    .on(table.catalogId, table.embeddingModel, table.status, table.createdAt, table.id),
-  providerPendingIdx: index('catalog_embedding_work_items_provider_pending_idx')
-    .on(table.catalogId, table.providerId, table.embeddingModel, table.status),
+  pendingScheduledClaimIdx: index('catalog_embedding_work_items_pending_scheduled_claim_idx')
+    .on(table.catalogId, table.embeddingModel, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'pending'`),
+  providerScheduledPendingIdx: index('catalog_embedding_work_items_provider_scheduled_pending_idx')
+    .on(table.catalogId, table.providerId, table.embeddingModel, table.scheduledAt, table.createdAt, table.id)
+    .where(sql`${table.status} = 'pending' and ${table.providerId} is not null`),
+  submittedDeadlineIdx: index('catalog_embedding_work_items_submitted_deadline_idx')
+    .on(table.catalogId, table.embeddingModel, table.submittedDeadlineAt, table.id)
+    .where(sql`${table.status} = 'submitted'`),
   batchJobIdx: index('catalog_embedding_work_items_batch_job_idx')
     .on(table.catalogId, table.embeddingModel, table.embeddingBatchJobId, table.status),
+}));
+
+export const catalogEmbeddingBatchItems = pgTable('catalog_embedding_batch_items', {
+  id: text('id').primaryKey(),
+  catalogId: text('catalog_id').notNull(),
+  embeddingBatchJobId: text('embedding_batch_job_id')
+    .notNull()
+    .references(() => catalogEmbeddingBatchJobs.id, { onDelete: 'cascade' }),
+  embeddingWorkItemId: text('embedding_work_item_id')
+    .notNull()
+    .references(() => catalogEmbeddingWorkItems.id, { onDelete: 'cascade' }),
+  catalogSearchDocumentId: text('catalog_search_document_id')
+    .notNull()
+    .references(() => catalogSearchDocuments.id, { onDelete: 'cascade' }),
+  inputText: text('input_text').notNull(),
+  inputTextHash: text('input_text_hash').notNull(),
+  inputTextChars: integer('input_text_chars').notNull(),
+  status: catalogEmbeddingBatchItemStatus('status').notNull().default('submitted'),
+  outputLineNumber: integer('output_line_number'),
+  error: text('error'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => ({
+  batchStatusIdx: index('catalog_embedding_batch_items_batch_status_idx')
+    .on(table.catalogId, table.embeddingBatchJobId, table.status, table.id),
+  batchDocumentUnique: uniqueIndex('catalog_embedding_batch_items_batch_document_unique')
+    .on(table.embeddingBatchJobId, table.catalogSearchDocumentId),
 }));
 
 export const catalogSearchIndexJobs = pgTable('catalog_search_index_jobs', {

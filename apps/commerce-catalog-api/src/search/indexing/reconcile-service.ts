@@ -87,7 +87,12 @@ async function reconcilePage(
   }
 
   const rows = await db
-    .select()
+    .select({
+      id: schema.catalogEntries.id,
+      catalogId: schema.catalogEntries.catalogId,
+      providerId: schema.catalogEntries.providerId,
+      updatedAt: schema.catalogEntries.updatedAt,
+    })
     .from(schema.catalogEntries)
     .where(and(...conditions))
     .orderBy(asc(schema.catalogEntries.updatedAt), asc(schema.catalogEntries.id))
@@ -100,7 +105,13 @@ async function reconcilePage(
 
   const entryIds = entries.map((entry) => entry.id);
   const documents = await db
-    .select()
+    .select({
+      id: schema.catalogSearchDocuments.id,
+      catalogId: schema.catalogSearchDocuments.catalogId,
+      catalogEntryId: schema.catalogSearchDocuments.catalogEntryId,
+      providerId: schema.catalogSearchDocuments.providerId,
+      documentStatus: schema.catalogSearchDocuments.documentStatus,
+    })
     .from(schema.catalogSearchDocuments)
     .where(and(
       eq(schema.catalogSearchDocuments.catalogId, config.CATALOG_ID),

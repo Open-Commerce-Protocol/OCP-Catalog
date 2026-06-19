@@ -47,7 +47,6 @@ export class AffiliateCatalogQueryService {
         limit: pageSize,
         offset: request.offset,
         has_more: request.offset + objects.length < total,
-        ...(request.offset + objects.length < total ? { next_offset: request.offset + objects.length } : {}),
       },
       entries: objects.map((object, index) => {
         const item = queryItemFromObject(object, materials[index], this.cfg.ALIMAMA_CATALOG_ID, request.query);

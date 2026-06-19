@@ -74,7 +74,7 @@ export class CommerceQueryService {
 
     const fullTextQuery = terms.length > 0 && queryMode !== 'semantic' ? request.query : undefined;
 
-    const pageEnd = request.offset + request.limit;
+    const pageEnd = request.limit;
     const candidatePageEnd = pageEnd + 1;
     const usesSemanticScore = Boolean(this.retrieval && request.query.trim() && (queryMode === 'semantic' || queryMode === 'hybrid'));
     const usesOpenSearchText = Boolean(this.retrieval?.searchText && fullTextQuery);
@@ -131,7 +131,6 @@ export class CommerceQueryService {
       : await this.selectCandidateRows({
         conditions: baseConditions,
         limit: usesDatabasePagination ? request.limit + 1 : computeCandidateLimit(candidatePageEnd, queryMode, terms.length),
-        offset: usesDatabasePagination ? request.offset : 0,
         fullTextQuery: usesOpenSearchText ? undefined : fullTextQuery,
       });
     timings.keyword_rows_ms = elapsedMs(keywordStartedAt);
@@ -207,7 +206,7 @@ export class CommerceQueryService {
       .sort((left, right) => right.score - left.score || left.entry.title.localeCompare(right.entry.title));
     const entries = usesDatabasePagination
       ? rankedMatches.slice(0, request.limit)
-      : rankedMatches.slice(request.offset, pageEnd);
+      : rankedMatches.slice(0, pageEnd);
     const hasMore = usesDatabasePagination
       ? rankedMatches.length > request.limit
       : rankedMatches.length > pageEnd;
@@ -227,7 +226,6 @@ export class CommerceQueryService {
         limit: request.limit,
         offset: request.offset,
         has_more: hasMore,
-        ...(hasMore ? { next_offset: pageEnd } : {}),
       },
       entries,
       policy_summary: queryPlan.policySummary,
@@ -242,7 +240,7 @@ export class CommerceQueryService {
           ...(semanticSearchFailed ? ['Semantic retrieval failed; used keyword/text results only.'] : []),
           ...(usesSemanticScore && semanticScores.size === 0 ? ['Semantic retrieval ran but found no ready embedding candidates. Check embedding readiness and pending index jobs.'] : []),
           `Applied filters: ${Object.keys(request.filters).length ? Object.keys(request.filters).join(', ') : 'none'}.`,
-          `Returned ${entries.length} result(s) at offset ${request.offset}.`,
+          `Returned ${entries.length} result(s).`,
         ]
         : [],
     };
@@ -278,7 +276,6 @@ export class CommerceQueryService {
   private async selectCandidateRows(input: {
     conditions: SQL<unknown>[];
     limit: number;
-    offset?: number;
     fullTextQuery?: string;
     rankByDocumentId?: Map<string, number>;
   }): Promise<CandidateRow[]> {
@@ -312,7 +309,6 @@ export class CommerceQueryService {
       .from(schema.catalogSearchDocuments)
       .where(and(...conditions))
       .orderBy(...orderBy)
-      .offset(input.offset ?? 0)
       .limit(input.limit)
       .then((rows) => input.rankByDocumentId
         ? rows.map((row) => ({ ...row, fullTextRank: input.rankByDocumentId!.get(row.documentId) ?? 0 }))

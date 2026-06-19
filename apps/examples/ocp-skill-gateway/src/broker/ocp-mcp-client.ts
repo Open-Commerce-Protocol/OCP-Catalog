@@ -134,7 +134,9 @@ export class OcpMcpBrokerClient implements BrokerClient {
     page_size?: number;
   }): Promise<FanoutSearchResult> {
     const limit = opts.page_size ?? 10;
-    const offset = ((opts.page ?? 1) - 1) * limit;
+    if ((opts.page ?? 1) !== 1) {
+      throw new Error('Only the first search page is supported until cursor pagination is available');
+    }
 
     let catalogs: RegisteredCatalog[];
     try {
@@ -155,7 +157,7 @@ export class OcpMcpBrokerClient implements BrokerClient {
       };
     }
 
-    const calls = catalogs.map((c) => this.queryOne(c, opts.query, limit, offset));
+    const calls = catalogs.map((c) => this.queryOne(c, opts.query, limit));
     const settled = await Promise.allSettled(calls);
     const hits: SearchHit[] = [];
     const per_catalog: FanoutSearchResult['per_catalog'] = [];
@@ -189,7 +191,6 @@ export class OcpMcpBrokerClient implements BrokerClient {
     cat: RegisteredCatalog,
     query: string,
     limit: number,
-    offset: number,
   ): Promise<{ hits: SearchHit[]; elapsed_ms: number }> {
     const t0 = Date.now();
     const inner = await this.callTool<{
@@ -201,7 +202,7 @@ export class OcpMcpBrokerClient implements BrokerClient {
       ...(cat.route_hint ? { route_hint: cat.route_hint } : { catalog_id: cat.catalog_id }),
       query,
       limit,
-      offset,
+      offset: 0,
     });
     const entries = inner.entries ?? [];
     // entries[].entry 才是真正的 CatalogEntry(MCP 在外层包了一层元信息)
