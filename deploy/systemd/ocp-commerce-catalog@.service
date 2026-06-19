@@ -1,5 +1,5 @@
 [Unit]
-Description=OCP Commerce Catalog API
+Description=OCP Commerce Catalog API instance %i
 After=network-online.target
 Wants=network-online.target
 
@@ -9,11 +9,17 @@ User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/workspace/OCP-Catalog
 EnvironmentFile=/home/ubuntu/workspace/OCP-Catalog/.env
+# Keep CATALOG_API_PORT out of the shared .env. Bun auto-loads .env and would
+# overwrite the per-instance port before the application reads config.
+ExecStartPre=/bin/sh -c '! /usr/bin/grep -qE "^CATALOG_API_PORT=" /home/ubuntu/workspace/OCP-Catalog/.env'
+Environment=CATALOG_API_PORT=%i
 ExecStart=/home/ubuntu/.bun/bin/bun run commerce:catalog:api
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
 LimitNOFILE=524288
+MemoryMax=2G
+MemoryHigh=1536M
 
 [Install]
 WantedBy=multi-user.target
