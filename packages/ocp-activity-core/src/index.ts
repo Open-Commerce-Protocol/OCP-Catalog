@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { ActivityDb as Db } from '@ocp-catalog/activity-db';
+import { activitySchema as schema } from '@ocp-catalog/activity-db';
 import {
   ocpActivityBatchInputSchema,
   ocpActivityEventInputSchema,

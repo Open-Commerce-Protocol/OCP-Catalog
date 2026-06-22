@@ -53,14 +53,14 @@ describe('ShopifyCatalogQueryService.query', () => {
 
   test('rejects unsupported filters into policy_summary', async () => {
     const { service } = makeService();
-    const result: any = await service.query({ query: 'sweater', filters: { brand: 'acme' } });
+    const result: any = await service.query({ query: '', filters: { brand: 'acme' } });
     expect(result.policy_summary.rejected_filters).toContain('brand');
     expect(result.policy_summary.warnings.length).toBeGreaterThan(0);
   });
 
   test('accepts in_stock_only', async () => {
     const { service } = makeService();
-    const result: any = await service.query({ query: 'sweater', filters: { in_stock_only: true } });
+    const result: any = await service.query({ query: '', filters: { in_stock_only: true } });
     expect(result.policy_summary.accepted_filters).toContain('in_stock_only');
   });
 
@@ -70,25 +70,13 @@ describe('ShopifyCatalogQueryService.query', () => {
     expect(result.query_mode).toBe('filter');
   });
 
-  test('returns an empty page for unsupported offset pagination', async () => {
+  test('rejects unsupported offset pagination at schema boundary', async () => {
     const { service } = makeService();
     const firstPage: any = await service.query({ query: 'sweater', limit: 1, offset: 0 });
-    const secondPage: any = await service.query({ query: 'sweater', limit: 1, offset: 1 });
 
     expect(firstPage.entries.length).toBe(1);
-    expect(secondPage.entries).toEqual([]);
-    expect(secondPage.result_count).toBe(0);
-    expect(secondPage.page).toEqual({
-      limit: 1,
-      offset: 1,
-      has_more: false,
-    });
-    expect(secondPage.page.next_offset).toBeUndefined();
-    expect(secondPage.entries[0]?.entry.entry_id).not.toBe(firstPage.entries[0].entry.entry_id);
-    expect(secondPage.policy_summary.warnings).toContain(
-      'Shopify Catalog pagination is cursor-based and is not yet bridged to OCP offset pagination.',
-    );
-    expect(secondPage.explain.join(' ')).toContain('empty page instead of replaying');
+    await expect(service.query({ query: 'sweater', limit: 1, offset: 1 }))
+      .rejects.toThrow();
   });
 
   test('does not expose Shopify cursor pagination as OCP next_offset', async () => {
@@ -111,10 +99,10 @@ describe('ShopifyCatalogQueryService.query', () => {
     expect(result.page.has_more).toBe(false);
     expect(result.page.next_offset).toBeUndefined();
     expect(result.policy_summary.warnings).toContain(
-      'Shopify Catalog pagination is cursor-based and is not yet bridged to OCP offset pagination.',
+      'Shopify Catalog pagination is cursor-based and is not yet exposed through OCP cursor pagination.',
     );
     expect(result.explain).toContain(
-      'Shopify Catalog pagination is cursor-based and is not yet bridged to OCP offset pagination.',
+      'Shopify Catalog pagination is cursor-based and is not yet exposed through OCP cursor pagination.',
     );
   });
 });

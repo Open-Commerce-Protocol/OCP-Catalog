@@ -61,7 +61,7 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
         type: 'object',
         properties: {
           limit: { type: 'number', description: 'Maximum number of products to return. Defaults to 24.' },
-          offset: { type: 'number', description: 'Zero-based pagination offset. Defaults to 0.' },
+          offset: { type: 'number', description: 'Must be 0. Deep offset pagination is disabled; narrow filters instead.' },
         },
       },
       handler: async (input) => runPageTool(context, 'ocp.mall.list_products', parseToolInput(input), context.listProducts),
@@ -88,7 +88,7 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
             description: 'Structured Catalog filters for filter or hybrid searches, such as category, brand, currency, availability_status, provider_id, sku, min_amount, max_amount, in_stock_only, or has_image.',
           },
           limit: { type: 'number', description: 'Maximum number of products to return. Defaults to 24.' },
-          offset: { type: 'number', description: 'Zero-based pagination offset. Defaults to 0.' },
+          offset: { type: 'number', description: 'Must be 0. Deep offset pagination is disabled; narrow filters instead.' },
         },
         required: ['query'],
       },

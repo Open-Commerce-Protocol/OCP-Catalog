@@ -60,11 +60,13 @@
     "smoke:pdd": "bun scripts/pdd-mock-smoke.ts",
     "smoke:skill-gateway": "bun scripts/skill-gateway-smoke.ts",
     "smoke:mcp-skill": "bun scripts/mcp-skill-smoke.ts",
-    "db:generate": "bun run --cwd packages/db generate",
-    "db:migrate": "bun run --cwd packages/db migrate",
-    "db:reset": "bun run --cwd packages/db reset",
-    "db:recreate": "bun run db:reset",
-    "db:studio": "bun run --cwd packages/db studio"
+    "db:check-boundaries": "bun scripts/check-db-boundaries.ts",
+    "db:catalog:generate": "bun run --cwd packages/catalog-db generate",
+    "db:registration:generate": "bun run --cwd packages/registration-db generate",
+    "db:activity:generate": "bun run --cwd packages/activity-db generate",
+    "db:provider-demo:generate": "bun run --cwd packages/provider-demo-db generate",
+    "db:shopify-app:generate": "bun run --cwd packages/shopify-app-db generate",
+    "db:generate": "bun run db:catalog:generate && bun run db:registration:generate && bun run db:activity:generate && bun run db:provider-demo:generate && bun run db:shopify-app:generate"
   },
   "devDependencies": {
     "@apidevtools/swagger-parser": "^12.1.0",

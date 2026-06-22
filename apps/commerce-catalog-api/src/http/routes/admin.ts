@@ -1,6 +1,6 @@
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildCatalogManifest } from '@ocp-catalog/catalog-core';
-import { schema } from '@ocp-catalog/db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { AppError } from '@ocp-catalog/shared';
 import { and, desc, eq, lt, or, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
@@ -17,8 +17,73 @@ const FAST_COUNT_TABLES = [
   'commercial_objects',
   'catalog_entries',
   'catalog_search_documents',
+  'catalog_search_embeddings',
   'query_audit_records',
 ] as const;
+
+const providerContractStateAdminSelect = {
+  id: schema.providerContractStates.id,
+  providerId: schema.providerContractStates.providerId,
+  status: schema.providerContractStates.status,
+  activeRegistrationVersion: schema.providerContractStates.activeRegistrationVersion,
+  guaranteedFields: schema.providerContractStates.guaranteedFields,
+  declaredPacks: schema.providerContractStates.declaredPacks,
+  updatedAt: schema.providerContractStates.updatedAt,
+};
+
+const providerRegistrationAdminSelect = {
+  registrationVersion: schema.providerRegistrations.registrationVersion,
+  status: schema.providerRegistrations.status,
+  updatedAt: schema.providerRegistrations.updatedAt,
+};
+
+const objectSyncRunAdminSelect = {
+  providerId: schema.objectSyncRuns.providerId,
+  syncRunId: schema.objectSyncRuns.syncRunId,
+  runMode: schema.objectSyncRuns.runMode,
+  status: schema.objectSyncRuns.status,
+  batchCount: schema.objectSyncRuns.batchCount,
+  acceptedCount: schema.objectSyncRuns.acceptedCount,
+  rejectedCount: schema.objectSyncRuns.rejectedCount,
+  errorCount: schema.objectSyncRuns.errorCount,
+  createdAt: schema.objectSyncRuns.createdAt,
+  finishedAt: schema.objectSyncRuns.finishedAt,
+};
+
+const objectSyncChunkAdminSelect = {
+  providerId: schema.objectSyncChunks.providerId,
+  status: schema.objectSyncChunks.status,
+  acceptedCount: schema.objectSyncChunks.acceptedCount,
+  rejectedCount: schema.objectSyncChunks.rejectedCount,
+  createdAt: schema.objectSyncChunks.createdAt,
+  finishedAt: schema.objectSyncChunks.finishedAt,
+};
+
+const catalogEntryAdminSelect = {
+  id: schema.catalogEntries.id,
+  commercialObjectId: schema.catalogEntries.commercialObjectId,
+  providerId: schema.catalogEntries.providerId,
+  objectId: schema.catalogEntries.objectId,
+  objectType: schema.catalogEntries.objectType,
+  entryStatus: schema.catalogEntries.entryStatus,
+  contractMatchStatus: schema.catalogEntries.contractMatchStatus,
+  title: schema.catalogEntries.title,
+  summary: schema.catalogEntries.summary,
+  brand: schema.catalogEntries.brand,
+  category: schema.catalogEntries.category,
+  currency: schema.catalogEntries.currency,
+  availabilityStatus: schema.catalogEntries.availabilityStatus,
+  searchProjection: schema.catalogEntries.searchProjection,
+  explainProjection: schema.catalogEntries.explainProjection,
+  updatedAt: schema.catalogEntries.updatedAt,
+};
+
+const commercialObjectAdminSelect = {
+  rawObject: schema.commercialObjects.rawObject,
+  status: schema.commercialObjects.status,
+  sourceUrl: schema.commercialObjects.sourceUrl,
+  updatedAt: schema.commercialObjects.updatedAt,
+};
 
 export function catalogAdminApiRoutes(context: CommerceCatalogRuntimeContext) {
   return new Elysia()
@@ -143,6 +208,7 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
       latest_failed_embedding_error: embeddingMetrics.latestFailedEmbeddingError,
       active_documents_missing_embedding_count: activeDocumentsMissingEmbeddingCount,
       embedding_readiness_ratio: embeddingReadinessRatio,
+      embedding_counts_estimated: embeddingMetrics.estimated,
       pending_job_count: searchJobMetrics.pendingJobCount,
       running_job_count: searchJobMetrics.runningJobCount,
       failed_job_count: searchJobMetrics.failedJobCount,
@@ -200,6 +266,7 @@ async function getFastTableCounts(context: CommerceCatalogRuntimeContext) {
     commercial_objects: 0,
     catalog_entries: 0,
     catalog_search_documents: 0,
+    catalog_search_embeddings: 0,
     query_audit_records: 0,
   };
   for (const row of rows) {
@@ -208,14 +275,22 @@ async function getFastTableCounts(context: CommerceCatalogRuntimeContext) {
   return counts;
 }
 
+async function estimateTableRows(context: CommerceCatalogRuntimeContext, tableName: typeof FAST_COUNT_TABLES[number]) {
+  const [row] = await context.db.execute(sql`
+    select greatest(n_live_tup, 0)::bigint as count
+    from pg_stat_user_tables
+    where schemaname = 'public'
+      and relname = ${tableName}
+  `) as Array<{ count: number | string }>;
+  if (!row) {
+    throw new AppError('internal_error', `Missing pg_stat_user_tables estimate for ${tableName}`, 500, { tableName });
+  }
+  return Number(row.count);
+}
+
 async function getEmbeddingMetrics(context: CommerceCatalogRuntimeContext) {
-  const [metrics] = await context.db
-    .select({
-      readyEmbeddingCount: sql<number>`count(*) filter (where ${schema.catalogSearchEmbeddings.status} = 'ready')::int`,
-      failedEmbeddingCount: sql<number>`count(*) filter (where ${schema.catalogSearchEmbeddings.status} = 'failed')::int`,
-    })
-    .from(schema.catalogSearchEmbeddings)
-    .where(eq(schema.catalogSearchEmbeddings.catalogId, context.config.CATALOG_ID));
+  const estimatedEmbeddingRows = await estimateTableRows(context, 'catalog_search_embeddings');
+  const failedEmbeddingCount = await countEmbeddingsByStatusCapped(context, 'failed');
   const [latestFailed] = await context.db
     .select({ error: schema.catalogSearchEmbeddings.error })
     .from(schema.catalogSearchEmbeddings)
@@ -224,10 +299,25 @@ async function getEmbeddingMetrics(context: CommerceCatalogRuntimeContext) {
     .limit(1);
 
   return {
-    readyEmbeddingCount: metrics?.readyEmbeddingCount ?? 0,
-    failedEmbeddingCount: metrics?.failedEmbeddingCount ?? 0,
+    readyEmbeddingCount: Math.max(estimatedEmbeddingRows - failedEmbeddingCount, 0),
+    failedEmbeddingCount,
     latestFailedEmbeddingError: latestFailed?.error ?? null,
+    estimated: true,
   };
+}
+
+async function countEmbeddingsByStatusCapped(context: CommerceCatalogRuntimeContext, status: 'failed') {
+  const [row] = await context.db.execute(sql`
+    select count(*)::int as value
+    from (
+      select 1
+      from catalog_search_embeddings
+      where catalog_id = ${context.config.CATALOG_ID}
+        and status = ${status}
+      limit ${ADMIN_QUEUE_COUNT_CAP}
+    ) counted
+  `) as Array<{ value: number }>;
+  return row?.value ?? 0;
 }
 
 async function getSearchJobMetrics(context: CommerceCatalogRuntimeContext) {
@@ -293,92 +383,17 @@ async function countOutboxEventsByStatus(context: CommerceCatalogRuntimeContext,
 }
 
 async function getCatalogAdminQueueTrends(context: CommerceCatalogRuntimeContext, query: Record<string, string | undefined>) {
-  const hours = parseTrendHours(query.hours);
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-  const rows = (await Promise.all([
-    context.db.execute(sql`
-      select
-        'search_index_jobs'::text as queue_name,
-        date_trunc('hour', created_at) as "bucketAt",
-        'created'::text as status,
-        job_type::text as type,
-        count(*)::int as count
-      from catalog_search_index_jobs
-      where catalog_id = ${context.config.CATALOG_ID}
-        and created_at >= ${since.toISOString()}::timestamptz
-      group by "bucketAt", job_type
-    `),
-    context.db.execute(sql`
-      select
-        'search_index_jobs'::text as queue_name,
-        date_trunc('hour', finished_at) as "bucketAt",
-        status::text as status,
-        job_type::text as type,
-        count(*)::int as count
-      from catalog_search_index_jobs
-      where catalog_id = ${context.config.CATALOG_ID}
-        and finished_at is not null
-        and finished_at >= ${since.toISOString()}::timestamptz
-        and status in ('completed', 'failed', 'cancelled')
-      group by "bucketAt", status, job_type
-    `),
-    context.db.execute(sql`
-      select
-        'catalog_outbox'::text as queue_name,
-        date_trunc('hour', created_at) as "bucketAt",
-        'created'::text as status,
-        event_type::text as type,
-        count(*)::int as count
-      from catalog_outbox_events
-      where catalog_id = ${context.config.CATALOG_ID}
-        and created_at >= ${since.toISOString()}::timestamptz
-      group by "bucketAt", event_type
-    `),
-    context.db.execute(sql`
-      select
-        'catalog_outbox'::text as queue_name,
-        date_trunc('hour', finished_at) as "bucketAt",
-        status::text as status,
-        event_type::text as type,
-        count(*)::int as count
-      from catalog_outbox_events
-      where catalog_id = ${context.config.CATALOG_ID}
-        and finished_at is not null
-        and finished_at >= ${since.toISOString()}::timestamptz
-        and status in ('completed', 'failed')
-      group by "bucketAt", status, event_type
-    `),
-  ])).flat() as Array<{
-    queue_name: string;
-    bucketAt: Date;
-    status: string;
-    type: string;
-    count: number;
-  }>;
-
-  return {
-    catalog_id: context.config.CATALOG_ID,
-    window_hours: hours,
-    buckets: rows
-      .sort((left, right) => (
-        toIsoTimestamp(left.bucketAt).localeCompare(toIsoTimestamp(right.bucketAt))
-        || left.queue_name.localeCompare(right.queue_name)
-        || left.status.localeCompare(right.status)
-        || left.type.localeCompare(right.type)
-      ))
-      .map((row) => ({
-        queue_name: row.queue_name,
-        bucket_at: toIsoTimestamp(row.bucketAt),
-        status: row.status,
-        type: row.type,
-        count: row.count,
-      })),
-  };
+  parseTrendHours(query.hours);
+  throw new AppError(
+    'internal_error',
+    'Queue trends require precomputed metrics; live GROUP BY on production queue tables is disabled',
+    501,
+  );
 }
 
 async function getLatestSyncRun(context: CommerceCatalogRuntimeContext) {
   const [row] = await context.db
-    .select()
+    .select(objectSyncRunAdminSelect)
     .from(schema.objectSyncRuns)
     .where(eq(schema.objectSyncRuns.catalogId, context.config.CATALOG_ID))
     .orderBy(desc(schema.objectSyncRuns.createdAt))
@@ -389,7 +404,7 @@ async function getLatestSyncRun(context: CommerceCatalogRuntimeContext) {
 
 async function getLatestSyncChunk(context: CommerceCatalogRuntimeContext) {
   const [row] = await context.db
-    .select()
+    .select(objectSyncChunkAdminSelect)
     .from(schema.objectSyncChunks)
     .where(eq(schema.objectSyncChunks.catalogId, context.config.CATALOG_ID))
     .orderBy(desc(schema.objectSyncChunks.createdAt))
@@ -412,7 +427,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
   }
 
   const rows = await context.db
-    .select()
+    .select(providerContractStateAdminSelect)
     .from(schema.providerContractStates)
     .where(and(...conditions))
     .orderBy(desc(schema.providerContractStates.updatedAt), desc(schema.providerContractStates.id))
@@ -422,7 +437,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
   const providers = await Promise.all(catalogStates.map(async (state) => {
     const [latestRegistrationRows, latestRunRows, latestChunkRows] = await Promise.all([
       context.db
-        .select()
+        .select(providerRegistrationAdminSelect)
         .from(schema.providerRegistrations)
         .where(and(
           eq(schema.providerRegistrations.catalogId, context.config.CATALOG_ID),
@@ -431,7 +446,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
         .orderBy(desc(schema.providerRegistrations.registrationVersion))
         .limit(1),
       context.db
-        .select()
+        .select(objectSyncRunAdminSelect)
         .from(schema.objectSyncRuns)
         .where(and(
           eq(schema.objectSyncRuns.catalogId, context.config.CATALOG_ID),
@@ -440,7 +455,7 @@ async function getCatalogAdminProviders(context: CommerceCatalogRuntimeContext, 
         .orderBy(desc(schema.objectSyncRuns.createdAt), desc(schema.objectSyncRuns.id))
         .limit(1),
       context.db
-        .select()
+        .select(objectSyncChunkAdminSelect)
         .from(schema.objectSyncChunks)
         .where(and(
           eq(schema.objectSyncChunks.catalogId, context.config.CATALOG_ID),
@@ -527,14 +542,12 @@ async function getCatalogAdminEntries(context: CommerceCatalogRuntimeContext, qu
       : sql`${schema.catalogEntries.searchProjection}->>'quality_tier' = ${query.quality_tier}`);
   }
   if (query.search?.trim()) {
-    const pattern = `%${query.search.trim().toLowerCase()}%`;
-    conditions.push(sql`lower(concat_ws(' ',
-      ${schema.catalogEntries.title},
-      ${schema.catalogEntries.objectId},
-      ${schema.catalogEntries.providerId},
-      ${schema.catalogEntries.brand},
-      ${schema.catalogEntries.category}
-    )) like ${pattern}`);
+    throw new AppError(
+      'validation_error',
+      'Admin entry text search requires a dedicated search index; unindexed LIKE scans are disabled on production tables',
+      400,
+      { field: 'search' },
+    );
   }
   if (page.cursor) {
     conditions.push(or(
@@ -548,8 +561,8 @@ async function getCatalogAdminEntries(context: CommerceCatalogRuntimeContext, qu
 
   const rows = await context.db
     .select({
-      entry: schema.catalogEntries,
-      object: schema.commercialObjects,
+      entry: catalogEntryAdminSelect,
+      object: commercialObjectAdminSelect,
     })
     .from(schema.catalogEntries)
     .leftJoin(schema.commercialObjects, eq(schema.commercialObjects.id, schema.catalogEntries.commercialObjectId))

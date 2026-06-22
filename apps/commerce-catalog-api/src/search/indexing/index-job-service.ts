@@ -1,5 +1,5 @@
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import { and, asc, eq, inArray, lte, sql } from 'drizzle-orm';
 
@@ -38,6 +38,27 @@ export type SearchIndexJob = {
   payload: SearchIndexJobPayload;
   createdAt: Date;
   updatedAt: Date;
+};
+
+const searchIndexJobSelect = {
+  id: schema.catalogSearchIndexJobs.id,
+  catalogId: schema.catalogSearchIndexJobs.catalogId,
+  providerId: schema.catalogSearchIndexJobs.providerId,
+  catalogEntryId: schema.catalogSearchIndexJobs.catalogEntryId,
+  commercialObjectId: schema.catalogSearchIndexJobs.commercialObjectId,
+  searchDocumentId: schema.catalogSearchIndexJobs.searchDocumentId,
+  dedupeKey: schema.catalogSearchIndexJobs.dedupeKey,
+  jobType: schema.catalogSearchIndexJobs.jobType,
+  status: schema.catalogSearchIndexJobs.status,
+  attemptCount: schema.catalogSearchIndexJobs.attemptCount,
+  maxAttempts: schema.catalogSearchIndexJobs.maxAttempts,
+  scheduledAt: schema.catalogSearchIndexJobs.scheduledAt,
+  startedAt: schema.catalogSearchIndexJobs.startedAt,
+  finishedAt: schema.catalogSearchIndexJobs.finishedAt,
+  error: schema.catalogSearchIndexJobs.error,
+  payload: schema.catalogSearchIndexJobs.payload,
+  createdAt: schema.catalogSearchIndexJobs.createdAt,
+  updatedAt: schema.catalogSearchIndexJobs.updatedAt,
 };
 
 export function searchIndexJobPriority(jobType: SearchIndexJobType) {
@@ -207,7 +228,7 @@ export class SearchIndexJobService {
     if (input.catalogId) conditions.push(eq(schema.catalogSearchIndexJobs.catalogId, input.catalogId));
 
     const rows = await this.db
-      .select()
+      .select(searchIndexJobSelect)
       .from(schema.catalogSearchIndexJobs)
       .where(and(...conditions))
       .orderBy(
@@ -230,36 +251,21 @@ export class SearchIndexJobService {
   async countPendingEmbeddingRefresh(input: {
     catalogId?: string;
     now?: Date;
-    maxCount?: number;
-  } = {}) {
-    const conditions = [
-      eq(schema.catalogSearchIndexJobs.jobType, 'refresh_embedding'),
-      eq(schema.catalogSearchIndexJobs.status, 'pending'),
-      lte(schema.catalogSearchIndexJobs.scheduledAt, input.now ?? new Date()),
-    ];
-    if (input.catalogId) conditions.push(eq(schema.catalogSearchIndexJobs.catalogId, input.catalogId));
-
-    if (input.maxCount !== undefined) {
-      const nowIso = (input.now ?? new Date()).toISOString();
-      const [row] = await this.db.execute(sql`
-        select count(*)::int as count
-        from (
-          select 1
-          from catalog_search_index_jobs
-          where job_type = 'refresh_embedding'
-            and status = 'pending'
-            and scheduled_at <= ${nowIso}::timestamptz
-            ${input.catalogId ? sql`and catalog_id = ${input.catalogId}` : sql``}
-          limit ${input.maxCount}
-        ) pending_embedding_jobs
-      `) as Array<{ count: number }>;
-      return row?.count ?? 0;
-    }
-
-    const [row] = await this.db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(schema.catalogSearchIndexJobs)
-      .where(and(...conditions));
+    maxCount: number;
+  }) {
+    const nowIso = (input.now ?? new Date()).toISOString();
+    const [row] = await this.db.execute(sql`
+      select count(*)::int as count
+      from (
+        select 1
+        from catalog_search_index_jobs
+        where job_type = 'refresh_embedding'
+          and status = 'pending'
+          and scheduled_at <= ${nowIso}::timestamptz
+          ${input.catalogId ? sql`and catalog_id = ${input.catalogId}` : sql``}
+        limit ${input.maxCount}
+      ) pending_embedding_jobs
+    `) as Array<{ count: number }>;
 
     return row?.count ?? 0;
   }

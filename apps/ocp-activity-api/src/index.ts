@@ -1,14 +1,14 @@
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { loadConfig } from '@ocp-catalog/config';
-import { createDb } from '@ocp-catalog/db';
+import { createActivityDb } from '@ocp-catalog/activity-db';
 import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import { AppError } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 
 const config = loadConfig();
-const db = createDb(config.DATABASE_URL);
+const db = createActivityDb(config.DATABASE_URL);
 const activity = new ActivityEventService(db);
 
 const app = new Elysia()

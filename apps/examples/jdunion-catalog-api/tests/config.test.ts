@@ -23,7 +23,7 @@ describe('loadJdUnionConfig', () => {
     const cfg = loadJdUnionConfig({} as any);
     expect(cfg.JDUNION_CATALOG_ID).toBe('cat_jdunion_affiliate');
     expect(cfg.JDUNION_CATALOG_PUBLIC_BASE_URL).toBe('http://localhost:4320');
-    expect(cfg.JDUNION_BASE_URL).toBe('https://router.jd.com/api');
+    expect(cfg.JDUNION_BASE_URL).toBe('https://api.jd.com/routerjson');
   });
 
   test('JDUNION_CATALOG_PUBLIC_BASE_URL must be a URL', () => {

@@ -1,7 +1,9 @@
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import { and, eq, inArray, sql } from 'drizzle-orm';
+
+const DEFAULT_SUBMITTED_TIMEOUT_MS = 30 * 60 * 60 * 1000;
 
 export type EnqueueEmbeddingWorkItemInput = {
   catalogId: string;
@@ -14,6 +16,27 @@ export type EnqueueEmbeddingWorkItemInput = {
 export type PendingEmbeddingWorkItem = {
   workItemId: string;
   documentId: string;
+};
+
+export type EmbeddingBatchItemInput = {
+  workItemId: string;
+  documentId: string;
+  inputText: string;
+  inputTextHash: string;
+};
+
+export type EmbeddingBatchItem = {
+  id: string;
+  workItemId: string;
+  documentId: string;
+  inputText: string;
+  inputTextHash: string;
+  status: 'submitted' | 'completed' | 'failed';
+};
+
+export type EmbeddingWorkItemTerminalStatus = {
+  id: string;
+  status: 'pending' | 'submitted' | 'completed' | 'failed' | 'cancelled';
 };
 
 export class EmbeddingWorkItemService {
@@ -60,8 +83,11 @@ export class EmbeddingWorkItemService {
           providerId: sql`excluded.provider_id`,
           sourceSearchIndexJobId: sql`excluded.source_search_index_job_id`,
           embeddingBatchJobId: null,
+          scheduledAt: new Date(),
           submittedAt: null,
+          submittedDeadlineAt: null,
           completedAt: null,
+          lastErrorAt: null,
           error: null,
           updatedAt: new Date(),
         },
@@ -85,6 +111,7 @@ export class EmbeddingWorkItemService {
         options.providerId ? eq(schema.catalogEmbeddingWorkItems.providerId, options.providerId) : undefined,
       ))
       .orderBy(
+        schema.catalogEmbeddingWorkItems.scheduledAt,
         schema.catalogEmbeddingWorkItems.createdAt,
         schema.catalogEmbeddingWorkItems.id,
       )
@@ -97,8 +124,10 @@ export class EmbeddingWorkItemService {
     embeddingBatchJobId: string;
     limit: number;
     providerId?: string;
+    submittedTimeoutMs?: number;
   }) {
     const providerFilter = options.providerId ? sql`and provider_id = ${options.providerId}` : sql``;
+    const submittedDeadline = new Date(Date.now() + (options.submittedTimeoutMs ?? DEFAULT_SUBMITTED_TIMEOUT_MS)).toISOString();
     const rows = await this.db.execute(sql`
       with claimed as (
         select id
@@ -106,8 +135,9 @@ export class EmbeddingWorkItemService {
         where catalog_id = ${options.catalogId}
           and embedding_model = ${this.profile.embeddingModel}
           and status = 'pending'
+          and scheduled_at <= now()
           ${providerFilter}
-        order by created_at asc, id asc
+        order by scheduled_at asc, created_at asc, id asc
         limit ${options.limit}
         for update skip locked
       )
@@ -118,6 +148,7 @@ export class EmbeddingWorkItemService {
         attempt_count = work_items.attempt_count + 1,
         error = null,
         submitted_at = now(),
+        submitted_deadline_at = ${submittedDeadline}::timestamptz,
         updated_at = now()
       from claimed
       where work_items.id = claimed.id
@@ -126,6 +157,192 @@ export class EmbeddingWorkItemService {
         work_items.catalog_search_document_id as "documentId"
     `);
     return rows as unknown as PendingEmbeddingWorkItem[];
+  }
+
+  async requeueTimedOutSubmitted(input: {
+    catalogId: string;
+    limit: number;
+    now?: Date;
+    error: string;
+    retryDelayMs?: number;
+  }) {
+    const now = (input.now ?? new Date()).toISOString();
+    const retryAt = new Date((input.now ?? new Date()).getTime() + (input.retryDelayMs ?? 0)).toISOString();
+    const rows = await this.db.execute(sql`
+      with timed_out as (
+        select work_items.id, work_items.attempt_count, work_items.max_attempts
+        from catalog_embedding_work_items work_items
+        left join catalog_embedding_batch_jobs batch_jobs
+          on batch_jobs.id = work_items.embedding_batch_job_id
+          and batch_jobs.catalog_id = work_items.catalog_id
+        where work_items.catalog_id = ${input.catalogId}
+          and work_items.embedding_model = ${this.profile.embeddingModel}
+          and work_items.status = 'submitted'
+          and work_items.submitted_deadline_at <= ${now}::timestamptz
+          and (
+            work_items.embedding_batch_job_id is null
+            or batch_jobs.id is null
+            or batch_jobs.status in ('failed', 'expired', 'cancelled')
+          )
+        order by work_items.submitted_deadline_at asc, work_items.id asc
+        limit ${input.limit}
+        for update of work_items skip locked
+      ),
+      failed_batch_items as (
+        update catalog_embedding_batch_items batch_items
+        set
+          status = 'failed',
+          error = ${input.error.slice(0, 4000)},
+          completed_at = ${now}::timestamptz,
+          updated_at = now()
+        from timed_out
+        where batch_items.embedding_work_item_id = timed_out.id
+          and batch_items.status = 'submitted'
+        returning batch_items.id
+      ),
+      failed as (
+        update catalog_embedding_work_items work_items
+        set
+          status = 'failed',
+          error = ${input.error.slice(0, 4000)},
+          last_error_at = ${now}::timestamptz,
+          updated_at = now()
+        from timed_out
+        where work_items.id = timed_out.id
+          and timed_out.attempt_count >= timed_out.max_attempts
+        returning work_items.id
+      ),
+      requeued as (
+        update catalog_embedding_work_items work_items
+        set
+          status = 'pending',
+          embedding_batch_job_id = null,
+          submitted_at = null,
+          submitted_deadline_at = null,
+          scheduled_at = ${retryAt}::timestamptz,
+          error = ${input.error.slice(0, 4000)},
+          last_error_at = ${now}::timestamptz,
+          updated_at = now()
+        from timed_out
+        where work_items.id = timed_out.id
+          and timed_out.attempt_count < timed_out.max_attempts
+        returning work_items.id
+      )
+      select
+        (select count(*)::int from failed) as "failedCount",
+        (select count(*)::int from requeued) as "requeuedCount"
+    `);
+    const [row] = rows as unknown as Array<{ failedCount: number; requeuedCount: number }>;
+    return {
+      failedCount: row?.failedCount ?? 0,
+      requeuedCount: row?.requeuedCount ?? 0,
+    };
+  }
+
+  async createBatchItems(input: {
+    catalogId: string;
+    embeddingBatchJobId: string;
+    items: EmbeddingBatchItemInput[];
+  }) {
+    if (input.items.length === 0) return [];
+    const rows = await this.db
+      .insert(schema.catalogEmbeddingBatchItems)
+      .values(input.items.map((item) => ({
+        id: newId('embitem'),
+        catalogId: input.catalogId,
+        embeddingBatchJobId: input.embeddingBatchJobId,
+        embeddingWorkItemId: item.workItemId,
+        catalogSearchDocumentId: item.documentId,
+        inputText: item.inputText,
+        inputTextHash: item.inputTextHash,
+        inputTextChars: item.inputText.length,
+        status: 'submitted' as const,
+        updatedAt: new Date(),
+      })))
+      .returning({
+        id: schema.catalogEmbeddingBatchItems.id,
+        workItemId: schema.catalogEmbeddingBatchItems.embeddingWorkItemId,
+        documentId: schema.catalogEmbeddingBatchItems.catalogSearchDocumentId,
+        inputText: schema.catalogEmbeddingBatchItems.inputText,
+        inputTextHash: schema.catalogEmbeddingBatchItems.inputTextHash,
+        status: schema.catalogEmbeddingBatchItems.status,
+      });
+    return rows satisfies EmbeddingBatchItem[];
+  }
+
+  async loadBatchItemsById(input: { catalogId: string; embeddingBatchJobId: string; batchItemIds: string[] }) {
+    if (input.batchItemIds.length === 0) return new Map<string, EmbeddingBatchItem>();
+    const rows = await this.db
+      .select({
+        id: schema.catalogEmbeddingBatchItems.id,
+        workItemId: schema.catalogEmbeddingBatchItems.embeddingWorkItemId,
+        documentId: schema.catalogEmbeddingBatchItems.catalogSearchDocumentId,
+        inputText: schema.catalogEmbeddingBatchItems.inputText,
+        inputTextHash: schema.catalogEmbeddingBatchItems.inputTextHash,
+        status: schema.catalogEmbeddingBatchItems.status,
+      })
+      .from(schema.catalogEmbeddingBatchItems)
+      .where(and(
+        eq(schema.catalogEmbeddingBatchItems.catalogId, input.catalogId),
+        eq(schema.catalogEmbeddingBatchItems.embeddingBatchJobId, input.embeddingBatchJobId),
+        inArray(schema.catalogEmbeddingBatchItems.id, input.batchItemIds),
+      ));
+    return new Map(rows.map((row) => [row.id, row satisfies EmbeddingBatchItem]));
+  }
+
+  async loadWorkItemStatusesById(input: { catalogId: string; workItemIds: string[] }) {
+    if (input.workItemIds.length === 0) return new Map<string, EmbeddingWorkItemTerminalStatus>();
+    const rows = await this.db
+      .select({
+        id: schema.catalogEmbeddingWorkItems.id,
+        status: schema.catalogEmbeddingWorkItems.status,
+      })
+      .from(schema.catalogEmbeddingWorkItems)
+      .where(and(
+        eq(schema.catalogEmbeddingWorkItems.catalogId, input.catalogId),
+        inArray(schema.catalogEmbeddingWorkItems.id, input.workItemIds),
+      ));
+    return new Map(rows.map((row) => [row.id, row satisfies EmbeddingWorkItemTerminalStatus]));
+  }
+
+  async markBatchItemsCompleted(input: { catalogId: string; embeddingBatchJobId: string; batchItemIds: string[]; outputLineStart: number }) {
+    if (input.batchItemIds.length === 0) return 0;
+    const rows = await this.db
+      .update(schema.catalogEmbeddingBatchItems)
+      .set({
+        status: 'completed',
+        error: null,
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(schema.catalogEmbeddingBatchItems.catalogId, input.catalogId),
+        eq(schema.catalogEmbeddingBatchItems.embeddingBatchJobId, input.embeddingBatchJobId),
+        eq(schema.catalogEmbeddingBatchItems.status, 'submitted'),
+        inArray(schema.catalogEmbeddingBatchItems.id, input.batchItemIds),
+      ))
+      .returning({ id: schema.catalogEmbeddingBatchItems.id });
+    return rows.length;
+  }
+
+  async markBatchItemsFailed(input: { catalogId: string; embeddingBatchJobId: string; batchItemIds: string[]; error: string }) {
+    if (input.batchItemIds.length === 0) return 0;
+    const rows = await this.db
+      .update(schema.catalogEmbeddingBatchItems)
+      .set({
+        status: 'failed',
+        error: input.error.slice(0, 4000),
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(schema.catalogEmbeddingBatchItems.catalogId, input.catalogId),
+        eq(schema.catalogEmbeddingBatchItems.embeddingBatchJobId, input.embeddingBatchJobId),
+        eq(schema.catalogEmbeddingBatchItems.status, 'submitted'),
+        inArray(schema.catalogEmbeddingBatchItems.id, input.batchItemIds),
+      ))
+      .returning({ id: schema.catalogEmbeddingBatchItems.id });
+    return rows.length;
   }
 
   async markCompletedByDocumentIds(input: { catalogId: string; documentIds: string[]; embeddingBatchJobId?: string }) {
@@ -163,6 +380,7 @@ export class EmbeddingWorkItemService {
       .set({
         status: 'failed',
         error: input.error.slice(0, 4000),
+        lastErrorAt: new Date(),
         updatedAt: new Date(),
       })
       .where(and(
@@ -178,88 +396,80 @@ export class EmbeddingWorkItemService {
     return rows.length;
   }
 
-  async markSubmittedBatchFailed(input: { catalogId: string; embeddingBatchJobId: string; error: string }) {
-    const rows = await this.db
-      .update(schema.catalogEmbeddingWorkItems)
-      .set({
-        status: 'failed',
-        error: input.error.slice(0, 4000),
-        updatedAt: new Date(),
-      })
-      .where(and(
-        eq(schema.catalogEmbeddingWorkItems.catalogId, input.catalogId),
-        eq(schema.catalogEmbeddingWorkItems.embeddingModel, this.profile.embeddingModel),
-        eq(schema.catalogEmbeddingWorkItems.embeddingBatchJobId, input.embeddingBatchJobId),
-        eq(schema.catalogEmbeddingWorkItems.status, 'submitted'),
-      ))
-      .returning({ id: schema.catalogEmbeddingWorkItems.id });
-    return rows.length;
-  }
-
-  async seedMissingDocuments(input: { catalogId: string; limit: number; providerId?: string }) {
-    const providerFilter = input.providerId ? sql`and docs.provider_id = ${input.providerId}` : sql``;
+  async releaseSubmittedBatchForRetry(input: {
+    catalogId: string;
+    embeddingBatchJobId: string;
+    error: string;
+    retryDelayMs: number;
+  }) {
+    const message = input.error.slice(0, 4000);
+    if (!Number.isFinite(input.retryDelayMs) || input.retryDelayMs < 0) {
+      throw new Error(`retryDelayMs must be a non-negative finite number, got ${input.retryDelayMs}`);
+    }
+    const now = new Date();
+    const retryAt = new Date(now.getTime() + input.retryDelayMs).toISOString();
     const rows = await this.db.execute(sql`
-      with missing_documents as (
+      with submitted as (
         select
-          docs.id as document_id,
-          docs.provider_id
-        from catalog_search_documents docs
-        left join catalog_search_embeddings embeddings
-          on embeddings.catalog_search_document_id = docs.id
-         and embeddings.embedding_model = ${this.profile.embeddingModel}
-         and embeddings.status = 'ready'
-        left join catalog_embedding_work_items work_items
-          on work_items.catalog_id = docs.catalog_id
-         and work_items.catalog_search_document_id = docs.id
-         and work_items.embedding_model = ${this.profile.embeddingModel}
-         and work_items.status in ('pending', 'submitted')
-        where docs.catalog_id = ${input.catalogId}
-          and docs.document_status = 'active'
-          ${providerFilter}
-          and embeddings.id is null
-          and work_items.id is null
-        order by docs.updated_at desc, docs.id asc
-        limit ${input.limit}
-      )
-      insert into catalog_embedding_work_items (
-        id,
-        catalog_id,
-        provider_id,
-        catalog_search_document_id,
-        embedding_provider,
-        embedding_model,
-        embedding_dimension,
-        status,
-        reason,
-        created_at,
-        updated_at
+          work_items.id,
+          work_items.attempt_count,
+          work_items.max_attempts
+        from catalog_embedding_work_items work_items
+        where work_items.catalog_id = ${input.catalogId}
+          and work_items.embedding_model = ${this.profile.embeddingModel}
+          and work_items.embedding_batch_job_id = ${input.embeddingBatchJobId}
+          and work_items.status = 'submitted'
+        for update of work_items
+      ),
+      failed_work_items as (
+        update catalog_embedding_work_items work_items
+        set
+          status = 'failed',
+          error = ${message},
+          last_error_at = ${now.toISOString()}::timestamptz,
+          updated_at = now()
+        from submitted
+        where work_items.id = submitted.id
+          and submitted.attempt_count >= submitted.max_attempts
+        returning work_items.id
+      ),
+      requeued_work_items as (
+        update catalog_embedding_work_items work_items
+        set
+          status = 'pending',
+          embedding_batch_job_id = null,
+          submitted_at = null,
+          submitted_deadline_at = null,
+          scheduled_at = ${retryAt}::timestamptz,
+          error = ${message},
+          last_error_at = ${now.toISOString()}::timestamptz,
+          updated_at = now()
+        from submitted
+        where work_items.id = submitted.id
+          and submitted.attempt_count < submitted.max_attempts
+        returning work_items.id
+      ),
+      failed_batch_items as (
+        update catalog_embedding_batch_items batch_items
+        set
+          status = 'failed',
+          error = ${message},
+          completed_at = now(),
+          updated_at = now()
+        where batch_items.catalog_id = ${input.catalogId}
+          and batch_items.embedding_batch_job_id = ${input.embeddingBatchJobId}
+          and batch_items.status = 'submitted'
+        returning batch_items.id
       )
       select
-        ${newId('embseed') || ''} || '_' || row_number() over (),
-        ${input.catalogId},
-        missing_documents.provider_id,
-        missing_documents.document_id,
-        ${this.profile.embeddingProvider},
-        ${this.profile.embeddingModel},
-        ${this.profile.embeddingDimension},
-        'pending',
-        'missing_ready_embedding',
-        now(),
-        now()
-      from missing_documents
-      on conflict (catalog_id, catalog_search_document_id, embedding_model)
-      do update set
-        status = 'pending',
-        reason = 'missing_ready_embedding',
-        provider_id = excluded.provider_id,
-        embedding_batch_job_id = null,
-        submitted_at = null,
-        completed_at = null,
-        error = null,
-        updated_at = now()
-      where catalog_embedding_work_items.status not in ('pending', 'submitted')
-      returning id
+        (select count(*)::int from failed_work_items) as "failedCount",
+        (select count(*)::int from requeued_work_items) as "requeuedCount"
     `);
-    return rows.length;
+    const [row] = rows as unknown as Array<{ failedCount: number; requeuedCount: number }>;
+    return {
+      failedCount: row?.failedCount ?? 0,
+      requeuedCount: row?.requeuedCount ?? 0,
+    };
   }
+
 }

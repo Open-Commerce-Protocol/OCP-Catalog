@@ -1,5 +1,5 @@
 import { and, asc, eq, gt, sql } from 'drizzle-orm';
-import { schema } from '@ocp-catalog/db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { createCommerceCatalogWorkerRuntimeContext } from '../runtime/context';
 import type { BulkWritableTextSearchIndexAdapter, TextIndexDocument } from '../search/retrieval/vector-index-adapter';
 

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import postgres from 'postgres';
 import { loadConfig, type AppConfig } from '@ocp-catalog/config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
-import { createDb, schema } from '@ocp-catalog/db';
+import { createCatalogDb, catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { and, eq } from 'drizzle-orm';
 import { createCommerceCatalogScenario } from './commerce-scenario';
 import { CommerceQueryService } from './query/commerce-query-service';
@@ -10,7 +10,7 @@ import { SearchDocumentUpsertService } from './search/indexing/document-upsert-s
 import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
 const baseConfig = loadConfig();
-const db = createDb(baseConfig.DATABASE_URL);
+const db = createCatalogDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
 const services = createCatalogServices(db, baseConfig, scenario);
@@ -323,25 +323,20 @@ describe('commerce catalog integration', () => {
       limit: 1,
       explain: true,
     });
-    const secondListPage = await commerceQueryService.query({
+    expect(firstListPage.entries).toHaveLength(1);
+    expect(firstListPage.page).toEqual({
+      limit: 1,
+      offset: 0,
+      has_more: true,
+    });
+    await expect(commerceQueryService.query({
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: baseConfig.CATALOG_ID,
       limit: 1,
       offset: 1,
       explain: true,
-    });
-
-    expect(firstListPage.entries).toHaveLength(1);
-    expect(firstListPage.page).toEqual({
-      limit: 1,
-      offset: 0,
-      has_more: true,
-      next_offset: 1,
-    });
-    expect(secondListPage.entries).toHaveLength(1);
-    expect(secondListPage.page.offset).toBe(1);
-    expect(secondListPage.entries[0]?.entry.entry_id).not.toBe(firstListPage.entries[0]?.entry.entry_id);
+    })).rejects.toThrow();
 
     const filteredQuery = await commerceQueryService.query({
       ocp_version: '1.0',

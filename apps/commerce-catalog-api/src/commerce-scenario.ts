@@ -310,7 +310,7 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
         { name: 'query_pack', type: 'string', required: false, description: 'Optional pack id from query_packs. Omit when unsure.' },
         { name: 'query', type: 'string', required: false, description: 'Free-text or semantic search phrase. Omit for clean list/filter browsing.' },
         { name: 'limit', type: 'number', required: false, default: 20, maximum: 50, description: 'Page size.' },
-        { name: 'offset', type: 'number', required: false, default: 0, description: 'Zero-based offset for pagination.' },
+        { name: 'offset', type: 'number', required: false, default: 0, description: 'Must be 0. Deep offset pagination is disabled.' },
         { name: 'filters.category', type: 'string', required: false, description: 'Exact normalized category match, for example electronics.' },
         { name: 'filters.brand', type: 'string', required: false, description: 'Exact normalized brand match.' },
         { name: 'filters.currency', type: 'string', required: false, description: 'Currency code such as USD.' },
@@ -342,11 +342,11 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
       metadata: {
         usage_guide: {
           summary: 'Call endpoints.query.url with CatalogQueryRequest. Use query_pack only when it exactly matches one of the declared pack ids.',
-          clean_list: 'For a plain product list, omit query, query_pack, and filters; send only catalog_id, limit, and offset.',
+          clean_list: 'For a plain product list, omit query, query_pack, and filters; send only catalog_id and limit. Offset is restricted to 0.',
           keyword_search: 'For text search, use ocp.query.keyword.v1 when declared and set query to the user search phrase.',
           filter_search: 'For category, brand, price, stock, image, provider, or SKU constraints, use filters. Query text is optional.',
           semantic_search: 'Use ocp.query.semantic.v1 only when declared. Semantic results depend on asynchronous embedding readiness.',
-          pagination: 'Use limit and offset. Continue with page.next_offset while page.has_more is true.',
+          pagination: 'Use limit for the first result page. Offset pagination is intentionally disabled for this catalog.',
           resolve: 'Use endpoints.resolve.url only after selecting one returned entry_id. The request kind is ResolveRequest.',
           request_field_policy: 'Do not send fields that are not listed in input_fields unless this catalog documents them elsewhere.',
         },
@@ -401,9 +401,8 @@ function buildCommerceQueryCapabilities(options: { semanticSearchEnabled?: boole
             result_count: 'Number of items in the current page.',
             page: {
               limit: 'Requested page size.',
-              offset: 'Requested zero-based offset.',
-              has_more: 'Whether another page is available.',
-              next_offset: 'Offset to use for the next page when has_more is true.',
+              offset: 'Always 0. Deep offset pagination is intentionally disabled.',
+              has_more: 'Whether more results exist beyond the returned first page.',
             },
           },
           item: {

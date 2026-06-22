@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { loadConfig } from '@ocp-catalog/config';
-import { createDb } from '@ocp-catalog/db';
+import { createProviderDemoDb } from '@ocp-catalog/provider-demo-db';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
@@ -13,7 +13,7 @@ import { ProductRepository } from './product-repository';
 import { ProviderService } from './provider-service';
 
 const config = loadConfig();
-const db = createDb(config.DATABASE_URL);
+const db = createProviderDemoDb(config.DATABASE_URL);
 const products = new ProductRepository(db, config);
 const provider = new ProviderService(db, config, products, new CatalogClient(config));
 const providerAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));

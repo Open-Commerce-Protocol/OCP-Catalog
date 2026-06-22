@@ -2,7 +2,7 @@
  * Postgres-backed per-shop installation store (drizzle). One row per installed
  * myshopify shop, holding the OAuth access token + sync cursor + last run.
  */
-import { schema, type Db } from '@ocp-catalog/db';
+import { shopifyAppSchema as schema, type ShopifyAppDb as Db } from '@ocp-catalog/shopify-app-db';
 import { and, eq, notInArray } from 'drizzle-orm';
 import { providerIdForShop } from '../mapper/product-to-commercial-object';
 import type { TokenVault } from './token-vault';

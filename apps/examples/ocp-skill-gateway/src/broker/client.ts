@@ -148,13 +148,15 @@ export class LocalCatalogsBrokerClient implements BrokerClient {
   ): Promise<{ hits: SearchHit[]; elapsed_ms: number }> {
     const t0 = Date.now();
     const limit = opts.page_size ?? 10;
-    const offset = ((opts.page ?? 1) - 1) * limit;
+    if ((opts.page ?? 1) !== 1) {
+      throw new Error('Only the first search page is supported until cursor pagination is available');
+    }
     const body = {
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       query: opts.query,
       limit,
-      offset,
+      offset: 0,
       filters: {},
       explain: false,
     };

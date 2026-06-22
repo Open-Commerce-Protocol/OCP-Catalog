@@ -52,12 +52,9 @@ export class PddCatalogQueryService {
         limit: pageSize,
         offset: request.offset,
         has_more: request.offset + objects.length < total,
-        ...(request.offset + objects.length < total
-          ? { next_offset: request.offset + objects.length }
-          : {}),
       },
-      items: objects.map((object, index) =>
-        queryItemFromObject(object, goods[index]!, request.query),
+      entries: objects.map((object, index) =>
+        queryItemFromObject(object, goods[index]!, this.cfg.PDD_CATALOG_ID, request.query),
       ),
       policy_summary: {
         selected_capability_id: 'ocp.affiliate.product.search.v1',
@@ -79,6 +76,7 @@ export class PddCatalogQueryService {
 function queryItemFromObject(
   object: CommercialObject,
   goods: PddGoodsItem,
+  catalogId: string,
   query: string,
 ) {
   const product = descriptor(object, 'ocp.commerce.product.core.v1');
@@ -105,13 +103,17 @@ function queryItemFromObject(
   };
 
   return {
-    entry_id: `entry_${sourceId()}_${object.object_id}`,
-    provider_id: sourceId(),
-    object_id: object.object_id,
-    title: object.title,
-    summary: couponSummary ?? 'Affiliate offer from PDD Duoduojinbao.',
     score: query ? 1 : 0.8,
-    attributes,
+    entry: {
+      kind: 'CatalogEntry',
+      catalog_id: catalogId,
+      entry_id: `entry_${sourceId()}_${object.object_id}`,
+      provider_id: sourceId(),
+      object_id: object.object_id,
+      title: object.title,
+      summary: couponSummary ?? 'Affiliate offer from PDD Duoduojinbao.',
+      attributes,
+    },
     explain: [
       'Mapped from PDD pdd.ddk.goods.search response.',
       'Resolve this entry to mint PID-attributed purchase URLs (p.pinduoduo.com).',

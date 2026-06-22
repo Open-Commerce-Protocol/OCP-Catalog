@@ -31,41 +31,8 @@ export class ShopifyCatalogQueryService {
       shipsToCountry: SHIPS_TO_COUNTRY_FROM_ENV,
     });
 
-    const offsetPaginationWarning =
-      'Shopify Catalog pagination is cursor-based and is not yet bridged to OCP offset pagination.';
-
-    if (request.offset > 0) {
-      return {
-        ocp_version: '1.0',
-        kind: 'CatalogQueryResult',
-        id: `qry_${crypto.randomUUID()}`,
-        catalog_id: this.cfg.SHOPIFY_CATALOG_ID,
-        query_pack: queryPlan.selectedQueryPack,
-        query_mode: queryPlan.queryMode,
-        query: request.query,
-        result_count: 0,
-        page: {
-          limit: request.limit,
-          offset: request.offset,
-          has_more: false,
-        },
-        entries: [],
-        policy_summary: {
-          selected_capability_id: 'ocp.shopify.product.search.v1',
-          selected_query_pack: queryPlan.selectedQueryPack,
-          query_mode: queryPlan.queryMode,
-          supports_explain: true,
-          accepted_filters: filterResult.acceptedFilters,
-          rejected_filters: filterResult.rejectedFilters,
-          warnings: [...filterResult.warnings, offsetPaginationWarning],
-        },
-        explain: [
-          'OCP offset pagination was requested after the first page.',
-          offsetPaginationWarning,
-          'Returned an empty page instead of replaying the Shopify first page.',
-        ],
-      };
-    }
+    const cursorPaginationWarning =
+      'Shopify Catalog pagination is cursor-based and is not yet exposed through OCP cursor pagination.';
 
     const upstream = await this.shopify.search({
       query: request.query,
@@ -111,14 +78,14 @@ export class ShopifyCatalogQueryService {
         accepted_filters: filterResult.acceptedFilters,
         rejected_filters: filterResult.rejectedFilters,
         warnings: hasUnbridgedCursorPage
-          ? [...filterResult.warnings, offsetPaginationWarning]
+          ? [...filterResult.warnings, cursorPaginationWarning]
           : filterResult.warnings,
       },
       explain: [
         `Forwarded keyword to Shopify search_catalog (mode=${this.cfg.SHOPIFY_CATALOG_MODE}).`,
         'Products are not persisted by this Catalog Node before query.',
         ...(hasUnbridgedCursorPage
-          ? [offsetPaginationWarning]
+          ? [cursorPaginationWarning]
           : []),
       ],
     };

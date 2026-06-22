@@ -1,20 +1,24 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { loadConfig } from '@ocp-catalog/config';
-import * as schema from './schema/index';
-
-export type Db = ReturnType<typeof createDb>;
 
 export type DbOptions = {
   maxConnections?: number;
 };
 
-export function createDb(databaseUrl = loadConfig().DATABASE_URL, options: DbOptions = {}) {
-  const client = postgres(databaseUrl, { max: options.maxConnections ?? 10 });
+export function createPostgresClient(databaseUrl = loadConfig().DATABASE_URL, options: DbOptions = {}) {
+  return postgres(databaseUrl, { max: options.maxConnections ?? 10 });
+}
+
+export function createSchemaDb<TSchema extends Record<string, unknown>>(
+  schema: TSchema,
+  databaseUrl = loadConfig().DATABASE_URL,
+  options: DbOptions = {},
+) {
+  const client = createPostgresClient(databaseUrl, options);
   return drizzle(client, { schema });
 }
 
-export { schema };
 export {
   PostgresAdvisoryLockService,
   type AdvisoryLockResult,

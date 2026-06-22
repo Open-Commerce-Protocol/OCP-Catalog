@@ -17,6 +17,7 @@ export async function queryCatalogTool(input: QueryCatalogInput, deps: ToolDeps)
   assertSupportedFilters(manifest, input.filters ?? {});
   const queryPolicy = negotiateQueryPolicy(manifest, {
     query_pack: input.query_pack,
+    query_mode: input.query_mode,
     query: input.query ?? '',
     filters: input.filters ?? {},
   });
@@ -26,6 +27,7 @@ export async function queryCatalogTool(input: QueryCatalogInput, deps: ToolDeps)
     kind: 'CatalogQueryRequest',
     catalog_id: manifest.catalog_id,
     query_pack: queryPolicy.queryPack,
+    ...(input.query_mode ? { query_mode: queryPolicy.queryMode } : {}),
     query: input.query ?? '',
     filters: input.filters ?? {},
     limit: input.limit ?? 10,
@@ -38,6 +40,7 @@ export async function queryCatalogTool(input: QueryCatalogInput, deps: ToolDeps)
     catalog_name: manifest.catalog_name,
     query_url: routeHint.query_url,
     requested_query_pack: input.query_pack ?? null,
+    requested_query_mode: input.query_mode ?? null,
     query_pack: result.query_pack ?? queryPolicy.queryPack,
     query_mode: result.query_mode ?? queryPolicy.queryMode,
     query: result.query,

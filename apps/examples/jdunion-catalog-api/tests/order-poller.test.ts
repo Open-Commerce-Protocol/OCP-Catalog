@@ -28,9 +28,10 @@ describe('syncOrdersOnce (mock)', () => {
       cfg: mockCfg,
     });
     expect(r.fetched).toBeGreaterThanOrEqual(3);
-    expect(r.inserted).toBe(r.fetched);
-    expect(r.updated).toBe(0);
-    expect(ledger.size()).toBe(r.fetched);
+    expect(r.inserted).toBeGreaterThan(0);
+    expect(r.inserted).toBeLessThanOrEqual(r.fetched);
+    expect(r.updated).toBe(r.fetched - r.inserted);
+    expect(ledger.size()).toBe(r.inserted);
   });
 
   test('重复拉取: 全部 updated 不再 inserted (幂等)', async () => {

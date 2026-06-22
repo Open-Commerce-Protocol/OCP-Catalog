@@ -39,6 +39,7 @@ try {
 async function run() {
   let totalMigrated = 0;
   let totalCancelled = 0;
+  let totalFailed = 0;
   for (let batch = 1; batch <= maxBatches; batch += 1) {
     const result = migrateBatch();
     console.log(JSON.stringify({
@@ -51,17 +52,19 @@ async function run() {
       batch_delay_ms: batchDelayMs,
       migrated_count: result.migratedCount,
       cancelled_count: result.cancelledCount,
+      failed_count: result.failedCount,
     }));
     totalMigrated += result.migratedCount;
     totalCancelled += result.cancelledCount;
-    if (result.cancelledCount === 0) {
-      return { batches: batch, migrated_count: totalMigrated, cancelled_count: totalCancelled };
+    totalFailed += result.failedCount;
+    if (result.cancelledCount === 0 && result.failedCount === 0) {
+      return { batches: batch, migrated_count: totalMigrated, cancelled_count: totalCancelled, failed_count: totalFailed };
     }
     if (batchDelayMs > 0 && batch < maxBatches) {
       await Bun.sleep(batchDelayMs);
     }
   }
-  return { batches: maxBatches, migrated_count: totalMigrated, cancelled_count: totalCancelled };
+  return { batches: maxBatches, migrated_count: totalMigrated, cancelled_count: totalCancelled, failed_count: totalFailed };
 }
 
 function migrateBatch() {
@@ -88,6 +91,21 @@ function migrateBatch() {
       ORDER BY id
       LIMIT ${batchSize}
       FOR UPDATE SKIP LOCKED
+    ),
+    valid_candidate_jobs AS (
+      SELECT candidate_jobs.*
+      FROM candidate_jobs
+      JOIN catalog_search_documents docs
+        ON docs.id = candidate_jobs.document_id
+       AND docs.catalog_id = '${sqlLiteral(catalogId)}'
+       AND docs.document_status = 'active'
+    ),
+    invalid_candidate_jobs AS (
+      SELECT candidate_jobs.*
+      FROM candidate_jobs
+      LEFT JOIN valid_candidate_jobs valid_jobs
+        ON valid_jobs.id = candidate_jobs.id
+      WHERE valid_jobs.id IS NULL
     ),
     inserted_work_items AS (
       INSERT INTO catalog_embedding_work_items (
@@ -117,7 +135,7 @@ function migrateBatch() {
         candidate_jobs.id,
         now(),
         now()
-      FROM candidate_jobs
+      FROM valid_candidate_jobs candidate_jobs
       ON CONFLICT (catalog_id, catalog_search_document_id, embedding_model)
       DO UPDATE SET
         status = 'pending',
@@ -138,22 +156,34 @@ function migrateBatch() {
         status = 'cancelled',
         finished_at = now(),
         updated_at = now()
-      FROM candidate_jobs
+      FROM valid_candidate_jobs candidate_jobs
+      WHERE jobs.id = candidate_jobs.id
+      RETURNING jobs.id
+    ),
+    failed_invalid_jobs AS (
+      UPDATE catalog_search_index_jobs jobs
+      SET
+        status = 'failed',
+        error = 'refresh_embedding job references missing or inactive search document',
+        finished_at = now(),
+        updated_at = now()
+      FROM invalid_candidate_jobs candidate_jobs
       WHERE jobs.id = candidate_jobs.id
       RETURNING jobs.id
     )
     SELECT
       (SELECT count(*)::int FROM inserted_work_items) AS migrated_count,
-      (SELECT count(*)::int FROM cancelled_jobs) AS cancelled_count;
+      (SELECT count(*)::int FROM cancelled_jobs) AS cancelled_count,
+      (SELECT count(*)::int FROM failed_invalid_jobs) AS failed_count;
     COMMIT;
   `);
   const [line] = rows;
   if (!line) throw new Error('Expected migration batch to return counts');
-  const [migratedCount, cancelledCount] = line.split('|').map((value) => Number(value));
-  if (!Number.isInteger(migratedCount) || !Number.isInteger(cancelledCount)) {
+  const [migratedCount, cancelledCount, failedCount] = line.split('|').map((value) => Number(value));
+  if (!Number.isInteger(migratedCount) || !Number.isInteger(cancelledCount) || !Number.isInteger(failedCount)) {
     throw new Error(`Expected integer counts, got ${JSON.stringify(line)}`);
   }
-  return { migratedCount, cancelledCount };
+  return { migratedCount, cancelledCount, failedCount };
 }
 
 function runRowsSql(statement: string) {

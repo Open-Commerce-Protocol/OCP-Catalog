@@ -23,6 +23,7 @@ export function negotiateQueryPolicy(
   manifest: CatalogManifest,
   input: {
     query_pack?: string;
+    query_mode?: QueryMode;
     query?: string;
     filters?: CatalogQueryRequest['filters'];
   },
@@ -48,7 +49,7 @@ export function negotiateQueryPolicy(
     });
   }
 
-  const queryMode = inferBaseMode(input.query ?? '', input.filters ?? {});
+  const queryMode = input.query_mode ?? inferBaseMode(input.query ?? '', input.filters ?? {});
   const selected = requestedDescriptor
     ?? descriptors.find((descriptor) => descriptor.query_modes.includes(queryMode));
 
@@ -59,7 +60,7 @@ export function negotiateQueryPolicy(
       });
     }
 
-    throw new McpToolError('invalid_query_pack', `catalog manifest does not support query mode ${queryMode}`, {
+    throw new McpToolError('invalid_query_mode', `catalog manifest does not support query mode ${queryMode}`, {
       query_mode: queryMode,
       supported_query_modes: unique(descriptors.flatMap((descriptor) => descriptor.query_modes)),
       supported_query_packs: supportedPacks,
@@ -67,10 +68,17 @@ export function negotiateQueryPolicy(
   }
 
   if (!selected.query_modes.includes(queryMode)) {
-    throw new McpToolError('invalid_query_pack', `query_pack ${selected.pack_id} does not support query mode ${queryMode}`, {
+    throw new McpToolError('invalid_query_mode', `query_pack ${selected.pack_id} does not support query mode ${queryMode}`, {
       query_pack: selected.pack_id,
       query_mode: queryMode,
       supported_query_modes: selected.query_modes,
+    });
+  }
+
+  if (queryMode === 'semantic' && !(input.query ?? '').trim()) {
+    throw new McpToolError('invalid_query', 'semantic query requires a non-empty query', {
+      query_pack: selected.pack_id,
+      query_mode: queryMode,
     });
   }
 

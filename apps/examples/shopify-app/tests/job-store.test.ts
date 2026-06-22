@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { schema } from '@ocp-catalog/db';
+import { shopifyAppSchema as schema } from '@ocp-catalog/shopify-app-db';
 import { ShopifyAppWebhookEventStore } from '../src/store/job-store';
 
 describe('ShopifyAppWebhookEventStore', () => {

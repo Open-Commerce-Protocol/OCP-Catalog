@@ -552,7 +552,7 @@ export const catalogQueryRequestSchema = z.object({
   query: z.string().max(500).optional().default(''),
   filters: catalogQueryFiltersSchema.optional().default({}),
   limit: z.number().int().min(1).max(50).optional().default(20),
-  offset: z.number().int().min(0).optional().default(0),
+  offset: z.literal(0).optional().default(0),
   explain: z.boolean().optional().default(true),
 }).strict();
 
@@ -597,9 +597,8 @@ export const catalogQueryResultSchema = z.object({
   result_count: z.number().int().min(0),
   page: z.object({
     limit: z.number().int().min(1),
-    offset: z.number().int().min(0),
+    offset: z.literal(0),
     has_more: z.boolean(),
-    next_offset: z.number().int().min(0).optional(),
   }),
   entries: z.array(catalogEntryMatchSchema),
   policy_summary: queryPolicySummarySchema.optional(),

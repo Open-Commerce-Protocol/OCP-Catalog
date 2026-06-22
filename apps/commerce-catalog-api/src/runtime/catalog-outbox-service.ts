@@ -1,6 +1,6 @@
 import type { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { sql, eq, type SQL } from 'drizzle-orm';
 import type { SearchIndexJobService, SearchIndexJobType } from '../search/indexing/index-job-service';
 

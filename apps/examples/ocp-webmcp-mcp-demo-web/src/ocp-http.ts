@@ -18,7 +18,6 @@ export type CatalogQueryResponse = {
     limit?: number;
     offset?: number;
     has_more?: boolean;
-    next_offset?: number;
   };
 };
 
@@ -65,6 +64,10 @@ export async function listCatalogProducts(catalog: CatalogOption, input: Catalog
   const query = input.query?.trim();
   const filters = cleanFilters(input.filters);
   const queryPack = pickQueryPack(catalog, input);
+  const offset = input.offset ?? 0;
+  if (offset !== 0) {
+    throw new Error('Catalog product queries only support offset 0; narrow filters instead of requesting deep offset pages');
+  }
   const response = await fetchImpl(catalog.queryUrl, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -74,7 +77,7 @@ export async function listCatalogProducts(catalog: CatalogOption, input: Catalog
       ...(query ? { query } : {}),
       ...(Object.keys(filters).length ? { filters } : {}),
       limit: input.limit,
-      offset: input.offset ?? 0,
+      offset,
     }),
   });
 

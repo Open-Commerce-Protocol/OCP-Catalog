@@ -178,7 +178,7 @@ describe('commerce-scenario', () => {
     const keywordPack = capability?.query_packs.find((pack) => pack.pack_id === 'ocp.query.keyword.v1');
 
     expect(usageGuide.clean_list).toContain('omit query');
-    expect(usageGuide.pagination).toContain('page.next_offset');
+    expect(usageGuide.pagination).toContain('Offset pagination is intentionally disabled');
     expect(requestExamples.clean_list).toMatchObject({
       catalog_id: '<catalog_id>',
       limit: 20,

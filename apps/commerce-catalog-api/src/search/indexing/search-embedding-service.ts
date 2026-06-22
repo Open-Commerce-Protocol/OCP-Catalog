@@ -1,5 +1,5 @@
-import type { Db } from '@ocp-catalog/db';
-import { schema } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import { and, eq } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
@@ -31,6 +31,46 @@ export type SearchEmbeddingRefreshResult =
     embeddingTextHash: string;
     error?: string;
   };
+
+const searchDocumentEmbeddingSelect = {
+  id: schema.catalogSearchDocuments.id,
+  catalogId: schema.catalogSearchDocuments.catalogId,
+  catalogEntryId: schema.catalogSearchDocuments.catalogEntryId,
+  commercialObjectId: schema.catalogSearchDocuments.commercialObjectId,
+  providerId: schema.catalogSearchDocuments.providerId,
+  objectId: schema.catalogSearchDocuments.objectId,
+  objectType: schema.catalogSearchDocuments.objectType,
+  documentStatus: schema.catalogSearchDocuments.documentStatus,
+  title: schema.catalogSearchDocuments.title,
+  normalizedTitle: schema.catalogSearchDocuments.normalizedTitle,
+  summary: schema.catalogSearchDocuments.summary,
+  brand: schema.catalogSearchDocuments.brand,
+  normalizedBrand: schema.catalogSearchDocuments.normalizedBrand,
+  category: schema.catalogSearchDocuments.category,
+  normalizedCategory: schema.catalogSearchDocuments.normalizedCategory,
+  sku: schema.catalogSearchDocuments.sku,
+  normalizedSku: schema.catalogSearchDocuments.normalizedSku,
+  currency: schema.catalogSearchDocuments.currency,
+  availabilityStatus: schema.catalogSearchDocuments.availabilityStatus,
+  amount: schema.catalogSearchDocuments.amount,
+  listAmount: schema.catalogSearchDocuments.listAmount,
+  hasImage: schema.catalogSearchDocuments.hasImage,
+  hasProductUrl: schema.catalogSearchDocuments.hasProductUrl,
+  discountPresent: schema.catalogSearchDocuments.discountPresent,
+  qualityTier: schema.catalogSearchDocuments.qualityTier,
+  availabilityRank: schema.catalogSearchDocuments.availabilityRank,
+  qualityRank: schema.catalogSearchDocuments.qualityRank,
+  searchText: schema.catalogSearchDocuments.searchText,
+  searchVector: schema.catalogSearchDocuments.searchVector,
+  facetPayload: schema.catalogSearchDocuments.facetPayload,
+  rankingFeatures: schema.catalogSearchDocuments.rankingFeatures,
+  visibleAttributesPayload: schema.catalogSearchDocuments.visibleAttributesPayload,
+  explainPayload: schema.catalogSearchDocuments.explainPayload,
+  sourceUpdatedAt: schema.catalogSearchDocuments.sourceUpdatedAt,
+  indexedAt: schema.catalogSearchDocuments.indexedAt,
+  createdAt: schema.catalogSearchDocuments.createdAt,
+  updatedAt: schema.catalogSearchDocuments.updatedAt,
+};
 
 export class SearchEmbeddingService {
   constructor(
@@ -147,7 +187,7 @@ export class SearchEmbeddingService {
 
   private async loadDocument(documentId: string) {
     const [document] = await this.db
-      .select()
+      .select(searchDocumentEmbeddingSelect)
       .from(schema.catalogSearchDocuments)
       .where(eq(schema.catalogSearchDocuments.id, documentId))
       .limit(1);
@@ -157,7 +197,11 @@ export class SearchEmbeddingService {
 
   private async findExisting(documentId: string) {
     const [row] = await this.db
-      .select()
+      .select({
+        id: schema.catalogSearchEmbeddings.id,
+        embeddingTextHash: schema.catalogSearchEmbeddings.embeddingTextHash,
+        status: schema.catalogSearchEmbeddings.status,
+      })
       .from(schema.catalogSearchEmbeddings)
       .where(and(
         eq(schema.catalogSearchEmbeddings.catalogSearchDocumentId, documentId),

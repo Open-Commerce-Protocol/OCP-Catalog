@@ -25,8 +25,9 @@ export const queryCatalogInput = {
   query: z.string().min(1).describe('Natural language or keyword query for entries inside the selected catalog, such as a product, service, supplier, opportunity, SKU, or category.').optional(),
   filters: z.record(z.string(), z.unknown()).describe('Structured filters supported by the selected catalog only, such as category or in_stock_only when advertised. Do not invent fields. Inspect the catalog first when uncertain.').optional(),
   query_pack: z.string().min(1).describe('Exact query pack id declared by inspect_catalog or the route hint. Omit when uncertain.').optional(),
+  query_mode: z.enum(['keyword', 'filter', 'semantic', 'hybrid']).describe('Exact query mode supported by the selected query_pack. Use semantic only when the catalog declares semantic support.').optional(),
   limit: z.number().int().min(1).max(50).describe('Maximum number of catalog entries to return. Omit for the catalog default.').optional(),
-  offset: z.number().int().min(0).describe('Pagination offset for catalog entries. Omit for the first page.').optional(),
+  offset: z.literal(0).describe('Only the first page is supported. Cursor pagination will replace offset pagination.').optional(),
   explain: z.boolean().describe('When true, include query planning, validation, and capability details.').optional(),
 };
 
@@ -48,7 +49,7 @@ export const findAndQueryCatalogInput = {
   filters: z.record(z.string(), z.unknown()).describe('Structured filters supported by the selected catalog only, such as category or in_stock_only when advertised. Do not invent fields. Omit when unsupported or uncertain.').optional(),
   query_pack: z.string().min(1).describe('Exact query pack id declared by the selected catalog. Omit when uncertain.').optional(),
   limit: z.number().int().min(1).max(50).describe('Maximum number of catalog entries to return. Omit for the catalog default.').optional(),
-  offset: z.number().int().min(0).describe('Pagination offset for catalog entries. Omit for the first page.').optional(),
+  offset: z.literal(0).describe('Only the first page is supported. Cursor pagination will replace offset pagination.').optional(),
 };
 
 export const skillSearchInput = {

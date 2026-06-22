@@ -1,5 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import { schema } from '@ocp-catalog/db';
+import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import type { CommercialObject } from '@ocp-catalog/ocp-schema';
 
 type ProviderProduct = typeof schema.providerProducts.$inferSelect;

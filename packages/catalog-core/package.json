@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@ocp-catalog/config": "workspace:*",
-    "@ocp-catalog/db": "workspace:*",
+    "@ocp-catalog/catalog-db": "workspace:*",
     "@ocp-catalog/ocp-schema": "workspace:*",
     "@ocp-catalog/shared": "workspace:*",
     "drizzle-orm": "^0.44.7",

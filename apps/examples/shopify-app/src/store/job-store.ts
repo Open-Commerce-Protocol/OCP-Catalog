@@ -1,4 +1,4 @@
-import { schema, type Db } from '@ocp-catalog/db';
+import { shopifyAppSchema as schema, type ShopifyAppDb as Db } from '@ocp-catalog/shopify-app-db';
 import { and, eq, inArray, lte, or } from 'drizzle-orm';
 
 export type ShopifyAppJobType =

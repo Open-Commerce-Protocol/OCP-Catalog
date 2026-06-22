@@ -13,7 +13,7 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@ocp-catalog/db": "workspace:*",
+    "@ocp-catalog/activity-db": "workspace:*",
     "@ocp-catalog/ocp-activity-schema": "workspace:*",
     "@ocp-catalog/shared": "workspace:*",
     "drizzle-orm": "^0.44.7"

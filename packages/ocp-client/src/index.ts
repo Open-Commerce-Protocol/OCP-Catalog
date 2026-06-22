@@ -634,11 +634,10 @@ function normalizeCatalogQueryResult(payload: unknown, request: CatalogQueryRequ
   if (record.page) return payload;
 
   const limit = request.limit ?? 20;
-  const offset = request.offset ?? 0;
+  const offset = 0;
   const entries = Array.isArray(record.entries) ? record.entries : [];
   const resultCount = typeof record.result_count === 'number' ? record.result_count : entries.length;
-  const nextOffset = offset + entries.length;
-  const hasMore = nextOffset < resultCount;
+  const hasMore = entries.length < resultCount;
 
   return {
     ...record,
@@ -646,7 +645,6 @@ function normalizeCatalogQueryResult(payload: unknown, request: CatalogQueryRequ
       limit,
       offset,
       has_more: hasMore,
-      ...(hasMore ? { next_offset: nextOffset } : {}),
     },
   };
 }

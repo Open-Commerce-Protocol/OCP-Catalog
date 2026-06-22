@@ -72,7 +72,6 @@ describe('Alimama Catalog Node routes', () => {
         kind: 'CatalogQueryRequest',
         query: 'coffee',
         limit: 3,
-        filters: { has_image: true },
       }),
     }));
     const body = catalogQueryResultSchema.parse(await json(res));

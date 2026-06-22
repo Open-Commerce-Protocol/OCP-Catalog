@@ -243,12 +243,12 @@ Do not invent aliases such as `price_min`, `price_max`, `merchant`, `seller`, `i
 
 ## Pagination
 
-Use `limit` and `offset` for page navigation.
+Use `limit` for the first result page. Offset pagination is disabled for production catalogs because deep OFFSET is not allowed on large tables.
 
 - First page: `offset: 0`
-- Next page: use `page.next_offset` from `CatalogQueryResult` when present
-- Stop when `page.has_more` is false
-- A query with only `catalog_id`, `limit`, and `offset` is a valid list request
+- Do not request deeper pages with offset
+- Treat `page.has_more: true` as a signal to narrow the query or use a catalog-specific cursor API when one is documented
+- A query with only `catalog_id` and `limit` is a valid list request
 
 ## Resolve Rules
 

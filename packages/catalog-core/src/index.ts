@@ -1,5 +1,5 @@
 import type { AppConfig } from '@ocp-catalog/config';
-import type { Db } from '@ocp-catalog/db';
+import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { buildCatalogManifest, buildWellKnownDiscovery } from './contracts';
 import { ObjectSyncService } from './object-sync-service';
 import { ProviderLifecycleService } from './provider-lifecycle-service';

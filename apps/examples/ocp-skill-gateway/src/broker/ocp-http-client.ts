@@ -31,14 +31,12 @@ import {
   type SearchHit,
   normalizeEntry,
 } from './client';
+import { selectSearchQueryPolicy } from './query-pack';
 
 /** search 结果里我们实际用到的字段(route_hint 携带 query_url / resolve_url 用于直连)。 */
 type RegisteredCatalog = CatalogSearchResult['items'][number];
 
 const CATALOG_CACHE_TTL_MS = 60_000;
-/** 直连 catalog 时,若 route_hint 声明了 keyword 包就用它,否则交给 catalog 自己选默认。 */
-const KEYWORD_PACK = 'ocp.query.keyword.v1';
-
 export class OcpHttpBrokerClient implements BrokerClient {
   private readonly client: OcpClient;
   /** 注册中心 base url,searchCatalogs 会在其后拼 `/ocp/catalogs/search`。 */
@@ -88,7 +86,9 @@ export class OcpHttpBrokerClient implements BrokerClient {
     page_size?: number;
   }): Promise<FanoutSearchResult> {
     const limit = opts.page_size ?? 10;
-    const offset = ((opts.page ?? 1) - 1) * limit;
+    if ((opts.page ?? 1) !== 1) {
+      throw new Error('Only the first search page is supported until cursor pagination is available');
+    }
 
     let catalogs: RegisteredCatalog[];
     try {
@@ -109,7 +109,7 @@ export class OcpHttpBrokerClient implements BrokerClient {
       };
     }
 
-    const calls = catalogs.map((c) => this.queryOne(c, opts.query, limit, offset));
+    const calls = catalogs.map((c) => this.queryOne(c, opts.query, limit));
     const settled = await Promise.allSettled(calls);
     const hits: SearchHit[] = [];
     const per_catalog: FanoutSearchResult['per_catalog'] = [];
@@ -143,21 +143,23 @@ export class OcpHttpBrokerClient implements BrokerClient {
     cat: RegisteredCatalog,
     query: string,
     limit: number,
-    offset: number,
   ): Promise<{ hits: SearchHit[]; elapsed_ms: number }> {
     const t0 = Date.now();
-    const supportsKeyword = cat.route_hint.supported_query_packs.includes(KEYWORD_PACK);
+    const queryPolicy = selectSearchQueryPolicy({
+      query,
+      supportedQueryPacks: cat.route_hint.supported_query_packs,
+    });
     const body: CatalogQueryRequest = {
       ocp_version: '1.0',
       kind: 'CatalogQueryRequest',
       catalog_id: cat.catalog_id,
-      // 只在 catalog 明确声明 keyword 包且有关键词时才指定,否则省略让 catalog 选默认包
-      // (遵循 ocp-catalog skill 的 "don't invent query_pack" 规则)。
-      ...(query.trim() && supportsKeyword ? { query_pack: KEYWORD_PACK } : {}),
+      // 只发送 catalog 明确声明的 query_pack;semantic 优先以触发向量检索。
+      ...(queryPolicy ? { query_pack: queryPolicy.queryPack } : {}),
+      ...(queryPolicy?.queryMode ? { query_mode: queryPolicy.queryMode } : {}),
       query,
       filters: {},
       limit,
-      offset,
+      offset: 0,
       explain: false,
     };
     const result = await this.client.queryCatalog(cat.route_hint.query_url, body);

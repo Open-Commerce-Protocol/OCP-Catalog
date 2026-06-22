@@ -1,5 +1,5 @@
 import { cors } from '@elysiajs/cors';
-import { createDb } from '@ocp-catalog/db';
+import { createShopifyAppDb } from '@ocp-catalog/shopify-app-db';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import type { ShopifyAppConfig } from './config';
@@ -18,7 +18,7 @@ import { ShopifyAppJobWorker } from './workers/shopify-app-job-worker';
 
 export async function createShopifyApp(deps: { cfg: ShopifyAppConfig }) {
   const { cfg } = deps;
-  const db = createDb(cfg.DATABASE_URL);
+  const db = createShopifyAppDb(cfg.DATABASE_URL);
   const tokenVault = new TokenVault(db, cfg);
   const store = new InstallationStore(db, cfg.SHOPIFY_APP_CATALOG_ID, cfg.SHOPIFY_APP_API_VERSION, tokenVault);
   const oauthStates = new OAuthStateStore(db);

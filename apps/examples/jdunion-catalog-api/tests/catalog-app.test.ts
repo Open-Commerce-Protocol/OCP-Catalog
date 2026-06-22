@@ -90,11 +90,11 @@ describe('JD Union Catalog Node routes', () => {
       }),
     );
     const body = catalogQueryResultSchema.parse(await json(res));
-    expect(body.items.length).toBe(3);
-    expect(body.items[0]!.entry_id).toMatch(/^entry_jdunion_/);
-    expect(body.items[0]!.provider_id).toBe('jdunion');
-    expect((body.items[0]!.attributes as any).source_id).toBe('jdunion');
-    expect((body.items[0]!.attributes as any).platform).toBe('jd');
+    expect(body.entries.length).toBe(3);
+    expect(body.entries[0]!.entry.entry_id).toMatch(/^entry_jdunion_/);
+    expect(body.entries[0]!.entry.provider_id).toBe('jdunion');
+    expect((body.entries[0]!.entry.attributes as any).source_id).toBe('jdunion');
+    expect((body.entries[0]!.entry.attributes as any).platform).toBe('jd');
   });
 
   test('resolve(strategy=goods_promotion) 返回 u.jd.com 短链', async () => {
