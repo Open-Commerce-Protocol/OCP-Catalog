@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "bin": {
-    "ocp": "./dist/index.js"
+    "ocp": "dist/index.js"
   },
   "exports": {
     ".": "./dist/index.js"
