@@ -10,7 +10,7 @@ describe('query policy', () => {
       query: 'wireless headphones',
       filters: {},
     })).toThrowError(expect.objectContaining({
-      code: 'invalid_query_pack',
+      code: 'invalid_query_mode',
       details: expect.objectContaining({
         query_pack: 'ocp.query.filter.v1',
         query_mode: 'keyword',
@@ -40,11 +40,41 @@ describe('query policy', () => {
         category: 'electronics',
       },
     })).toThrowError(expect.objectContaining({
-      code: 'invalid_query_pack',
+      code: 'invalid_query_mode',
       details: expect.objectContaining({
         query_mode: 'hybrid',
         supported_query_modes: ['keyword'],
         supported_query_packs: ['ocp.query.keyword.v1'],
+      }),
+    }));
+  });
+
+  test('rejects semantic mode without query text', () => {
+    const semanticManifest: CatalogManifest = {
+      ...manifest,
+      query_capabilities: manifest.query_capabilities.map((capability) => ({
+        ...capability,
+        query_packs: [
+          ...capability.query_packs,
+          {
+            pack_id: 'ocp.query.semantic.v1',
+            query_modes: ['semantic'],
+            metadata: {},
+          },
+        ],
+      })),
+    };
+
+    expect(() => negotiateQueryPolicy(semanticManifest, {
+      query_pack: 'ocp.query.semantic.v1',
+      query_mode: 'semantic',
+      query: '',
+      filters: {},
+    })).toThrowError(expect.objectContaining({
+      code: 'invalid_query',
+      details: expect.objectContaining({
+        query_pack: 'ocp.query.semantic.v1',
+        query_mode: 'semantic',
       }),
     }));
   });

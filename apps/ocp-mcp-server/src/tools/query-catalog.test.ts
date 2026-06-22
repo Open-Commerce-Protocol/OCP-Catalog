@@ -82,6 +82,59 @@ describe('query and resolve tools', () => {
     expect(result.audit_id).toBe('qaudit_1');
   });
 
+  test('query_catalog forwards explicit semantic query mode', async () => {
+    let forwardedQueryPack: string | undefined;
+    let forwardedQueryMode: string | undefined;
+    const semanticManifest = {
+      ...manifest,
+      query_capabilities: manifest.query_capabilities.map((capability) => ({
+        ...capability,
+        query_packs: [
+          ...capability.query_packs,
+          {
+            pack_id: 'ocp.query.semantic.v1',
+            query_modes: ['semantic' as const],
+            metadata: {},
+          },
+        ],
+      })),
+    };
+    const deps = createToolDeps();
+    deps.catalogClient.getManifest = async () => semanticManifest;
+    deps.catalogClient.query = async (_url, body) => {
+      forwardedQueryPack = body.query_pack;
+      forwardedQueryMode = body.query_mode;
+      return {
+        ...queryResult,
+        query_pack: body.query_pack,
+        query_mode: body.query_mode ?? 'semantic',
+        policy_summary: {
+          query_mode: body.query_mode ?? 'semantic',
+          selected_query_pack: body.query_pack,
+          supports_explain: true,
+          accepted_filters: [],
+          rejected_filters: [],
+          warnings: [],
+        },
+      };
+    };
+
+    const result = await queryCatalogTool({
+      route_hint: {
+        ...validRouteHint,
+        manifest_url: 'http://localhost:4000/ocp/manifest-semantic',
+      },
+      query_pack: 'ocp.query.semantic.v1',
+      query_mode: 'semantic',
+      query: 'comfortable wireless headphones for travel',
+    }, deps);
+
+    expect(forwardedQueryPack).toBe('ocp.query.semantic.v1');
+    expect(forwardedQueryMode).toBe('semantic');
+    expect(result.query_pack).toBe('ocp.query.semantic.v1');
+    expect(result.query_mode).toBe('semantic');
+  });
+
   test('query_catalog disables explain when the selected capability does not support it', async () => {
     let forwardedExplain: boolean | undefined;
     const noExplainManifest = {

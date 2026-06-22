@@ -25,6 +25,7 @@ import {
   type SearchHit,
   normalizeEntry,
 } from './client';
+import { routeSupportedQueryPacks, selectSearchQueryPolicy } from './query-pack';
 
 interface McpJsonRpcResponse<T = unknown> {
   jsonrpc: '2.0';
@@ -48,6 +49,18 @@ interface RegisteredCatalog {
 }
 
 const CATALOG_CACHE_TTL_MS = 60_000;
+
+function requireToolArray<T>(
+  toolName: string,
+  fieldName: string,
+  value: unknown,
+  context?: string,
+): T[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`mcp ${toolName} returned invalid ${fieldName}${context ? ` for ${context}` : ''}`);
+  }
+  return value;
+}
 
 export class OcpMcpBrokerClient implements BrokerClient {
   private readonly endpoint: string;
@@ -121,7 +134,7 @@ export class OcpMcpBrokerClient implements BrokerClient {
     const inner = await this.callTool<{ catalogs?: RegisteredCatalog[] }>('search_catalogs', {
       limit: 20,
     });
-    const all = inner.catalogs ?? [];
+    const all = requireToolArray<RegisteredCatalog>('search_catalogs', 'catalogs', inner.catalogs);
     // 只保留健康节点;其余 catalog 即使列出来也查不到东西
     const healthy = all.filter((c) => c.health_status === 'healthy');
     this.catalogCache = { at: Date.now(), list: healthy };
@@ -193,6 +206,10 @@ export class OcpMcpBrokerClient implements BrokerClient {
     limit: number,
   ): Promise<{ hits: SearchHit[]; elapsed_ms: number }> {
     const t0 = Date.now();
+    const queryPolicy = selectSearchQueryPolicy({
+      query,
+      supportedQueryPacks: routeSupportedQueryPacks(cat.route_hint, cat.catalog_id),
+    });
     const inner = await this.callTool<{
       catalog_id?: string;
       catalog_name?: string;
@@ -200,11 +217,13 @@ export class OcpMcpBrokerClient implements BrokerClient {
     }>('query_catalog', {
       // route_hint 优先,MCP server 文档推荐这么传
       ...(cat.route_hint ? { route_hint: cat.route_hint } : { catalog_id: cat.catalog_id }),
+      ...(queryPolicy ? { query_pack: queryPolicy.queryPack } : {}),
+      ...(queryPolicy?.queryMode ? { query_mode: queryPolicy.queryMode } : {}),
       query,
       limit,
       offset: 0,
     });
-    const entries = inner.entries ?? [];
+    const entries = requireToolArray<any>('query_catalog', 'entries', inner.entries, `catalog ${cat.catalog_id}`);
     // entries[].entry 才是真正的 CatalogEntry(MCP 在外层包了一层元信息)
     const hits = entries.map((item: any) =>
       normalizeEntry(

@@ -4,6 +4,8 @@ export type McpGatewayErrorCode =
   | 'catalog_not_found'
   | 'catalog_manifest_unavailable'
   | 'invalid_query_pack'
+  | 'invalid_query_mode'
+  | 'invalid_query'
   | 'invalid_filter_field'
   | 'catalog_query_failed'
   | 'catalog_resolve_failed';
