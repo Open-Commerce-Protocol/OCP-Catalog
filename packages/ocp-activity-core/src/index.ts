@@ -136,6 +136,46 @@ export class ActivityEventService {
     };
   }
 
+  /**
+   * Per-provider rollup for provider-facing dashboards (e.g. a merchant seeing
+   * how often agents resolved their catalog entries). Counts bucket by
+   * event_type so callers read e.g. `catalog.resolved` (opens).
+   *
+   * Reads the RAW events table (not the public feed): the public feed nulls
+   * provider_id for `aggregate_only` events by design, so per-provider rollups
+   * must come from raw. A provider sees only their OWN attributed counts.
+   */
+  async getProviderRollups(providerId: string, hours = 168) {
+    const safeHours = Math.max(1, Math.min(Math.trunc(hours), 720));
+    const since = new Date(Date.now() - safeHours * 60 * 60 * 1000).toISOString();
+    const rows = await this.db
+      .select()
+      .from(schema.ocpActivityRawEvents)
+      .where(sql`${schema.ocpActivityRawEvents.providerId} = ${providerId}
+        AND ${schema.ocpActivityRawEvents.occurredAt} >= ${since}::timestamptz`);
+
+    const byType: Record<string, number> = {};
+    let success = 0;
+    let error = 0;
+    for (const row of rows) {
+      byType[row.eventType] = (byType[row.eventType] ?? 0) + 1;
+      if (typeof row.statusCode === 'number' && row.statusCode >= 200 && row.statusCode < 400) success += 1;
+      else if (typeof row.statusCode === 'number') error += 1;
+    }
+
+    return {
+      provider_id: providerId,
+      window_hours: safeHours,
+      event_count: rows.length,
+      // Convenience aliases for the common dashboard metrics.
+      queried: byType['catalog.queried'] ?? 0,
+      resolved: byType['catalog.resolved'] ?? 0,
+      object_synced: byType['catalog.object_synced'] ?? 0,
+      by_event_type: byType,
+      by_status_class: { success, error },
+    };
+  }
+
   private async findRawEvent(event: OcpActivityEvent) {
     const conditions = event.idempotency_key
       ? or(

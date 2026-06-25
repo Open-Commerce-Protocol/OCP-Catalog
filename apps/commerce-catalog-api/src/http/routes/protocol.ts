@@ -162,6 +162,7 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
         path_template: '/ocp/resolve',
         status_code: 200,
         catalog_id: config.CATALOG_ID,
+        provider_id: result.provider_id,
         object_type: result.object_type,
         public_visibility: 'aggregate_only',
       });
