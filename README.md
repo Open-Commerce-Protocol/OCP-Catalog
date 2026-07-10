@@ -387,3 +387,7 @@ bun run test
 - [docs/architecture/system-design.md](./docs/architecture/system-design.md)
 - [docs/specs/registration/v1.md](./docs/specs/registration/v1.md)
 - [docs/specs/handshake/v1.md](./docs/specs/handshake/v1.md)
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE).
