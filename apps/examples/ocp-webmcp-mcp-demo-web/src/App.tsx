@@ -1,30 +1,47 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { findLatestCatalogSummary, summarizeCatalogResponse, type CatalogSearchSummary, type ProductCard } from './catalog-results';
 import { agentPromptExample, chromeSetupSteps, puppeteerSetupSteps } from './help-content';
-import { listCatalogProducts, searchCatalogOptions, type CatalogOption } from './ocp-http';
+import {
+  listCatalogProducts,
+  loadCatalogManifestOptionsIsolated,
+  queryModesForPack,
+  queryPackIds,
+  searchCatalogOptions,
+  selectLoadedCatalog,
+  type CatalogManifestFailure,
+  type CatalogOption,
+  type CatalogQueryMode,
+} from './ocp-http';
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
 import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, OpenProductInput, ProductSearchInput } from './webmcp/tools';
 
 const defaultRegistrationBaseUrl = 'https://ocp.deeplumen.io/registry';
-const defaultSearchPack = 'ocp.query.keyword.v1';
 
 export function App() {
   const [history, setHistory] = useState<DemoCallRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchQueryPack, setSearchQueryPack] = useState(defaultSearchPack);
+  const [searchQueryPack, setSearchQueryPack] = useState('');
   const [registrationBaseUrl, setRegistrationBaseUrl] = useState(defaultRegistrationBaseUrl);
   const [catalogs, setCatalogs] = useState<CatalogOption[]>([]);
+  const [catalogFailures, setCatalogFailures] = useState<CatalogManifestFailure[]>([]);
   const [selectedCatalogId, setSelectedCatalogId] = useState('');
   const [productSummary, setProductSummary] = useState<CatalogSearchSummary | null>(null);
   const [loadingCatalogs, setLoadingCatalogs] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const catalogLoadGeneration = useRef(0);
+  const productLoadGeneration = useRef(0);
+  const productCatalogId = useRef<string | null>(null);
+  const skipNextSelectionLoad = useRef(false);
+  const selectedCatalog = catalogs.find((catalog) => catalog.catalogId === selectedCatalogId);
   const latestWebMcpSummary = findLatestCatalogSummary(history);
-  const summary = latestWebMcpSummary ?? productSummary;
+  const summary = latestWebMcpSummary?.catalogName === selectedCatalog?.catalogName
+    ? latestWebMcpSummary
+    : productSummary;
   const products = summary?.products ?? [];
-  const selectedCatalog = catalogs.find((catalog) => catalog.catalogId === selectedCatalogId) ?? catalogs[0];
   const selectedQueryPack = resolveQueryPackForCatalog(selectedCatalog, searchQueryPack);
+  const selectedCatalogHasQueryPacks = Boolean(selectedCatalog?.queryPackOptions.length);
 
   useEffect(() => {
     void refreshCatalogs();
@@ -36,6 +53,10 @@ export function App() {
   // array identity change. Reset the search box so the new catalog browses cleanly.
   useEffect(() => {
     if (!selectedCatalog) return;
+    if (skipNextSelectionLoad.current) {
+      skipNextSelectionLoad.current = false;
+      return;
+    }
     setSearchQuery('');
     void loadProducts(selectedCatalog, '', resolveQueryPackForCatalog(selectedCatalog, searchQueryPack));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -47,6 +68,8 @@ export function App() {
       registrationBaseUrl,
       selectedCatalogId: selectedCatalog?.catalogId,
       selectedCatalogName: selectedCatalog?.catalogName,
+      queryPackOptions: selectedCatalog?.queryPackOptions ?? [],
+      catalogFailures,
       productCount: products.length,
       history,
     }),
@@ -61,34 +84,46 @@ export function App() {
         ...record,
       }, ...current].slice(0, 20));
     },
-  }), [history, products, registrationBaseUrl, selectedCatalog]);
+  }), [catalogFailures, history, products, registrationBaseUrl, selectedCatalog]);
 
   const webMcp = useOcpMcpDemoWebMcp(context);
 
   async function refreshCatalogs() {
+    const generation = ++catalogLoadGeneration.current;
+    productLoadGeneration.current += 1;
     setLoadingCatalogs(true);
     setPageError(null);
     try {
       const nextCatalogs = await searchCatalogOptions(registrationBaseUrl);
-      setCatalogs(nextCatalogs);
-      const firstCatalog = nextCatalogs[0];
-      const nextCatalogId = nextCatalogs.some((catalog) => catalog.catalogId === selectedCatalogId) ? selectedCatalogId : firstCatalog?.catalogId ?? '';
+      const manifestResult = await loadCatalogManifestOptionsIsolated(nextCatalogs);
+      if (generation !== catalogLoadGeneration.current) return;
+      const catalogOptions = manifestResult.catalogs;
+      setCatalogs(catalogOptions);
+      setCatalogFailures(manifestResult.failures);
+      const firstCatalog = catalogOptions[0];
+      const nextCatalogId = catalogOptions.some((catalog) => catalog.catalogId === selectedCatalogId) ? selectedCatalogId : firstCatalog?.catalogId ?? '';
       setSelectedCatalogId(nextCatalogId);
       if (!firstCatalog) {
         setProductSummary(null);
-        setPageError('这个注册中心没有返回可用的商品目录。');
+        setPageError(manifestResult.failures.length
+          ? `Registration search succeeded, but all ${manifestResult.failures.length} Catalog manifests failed to load.`
+          : '这个注册中心没有返回可用的商品目录。');
       } else if (nextCatalogId === selectedCatalogId) {
         // Same catalog id (e.g. manual refresh): the catalog-switch effect won't
         // fire, so reload products explicitly here.
-        const catalog = nextCatalogs.find((item) => item.catalogId === nextCatalogId) ?? firstCatalog;
+        const catalog = catalogOptions.find((item) => item.catalogId === nextCatalogId) ?? firstCatalog;
         await loadProducts(catalog, searchQuery, resolveQueryPackForCatalog(catalog, searchQueryPack));
       }
       // Otherwise the selected catalog id changed; the catalog-switch effect loads it.
     } catch (error) {
+      if (generation !== catalogLoadGeneration.current) return;
+      setCatalogs([]);
+      setCatalogFailures([]);
+      setSelectedCatalogId('');
       setProductSummary(null);
       setPageError(error instanceof Error ? error.message : '注册中心连接失败');
     } finally {
-      setLoadingCatalogs(false);
+      if (generation === catalogLoadGeneration.current) setLoadingCatalogs(false);
     }
   }
 
@@ -98,6 +133,11 @@ export function App() {
       return;
     }
 
+    const generation = ++productLoadGeneration.current;
+    if (productCatalogId.current !== catalog.catalogId) {
+      productCatalogId.current = null;
+      setProductSummary(null);
+    }
     setLoadingProducts(true);
     setPageError(null);
     try {
@@ -107,67 +147,90 @@ export function App() {
         limit: 24,
         offset: 0,
       });
+      if (generation !== productLoadGeneration.current) return;
+      productCatalogId.current = catalog.catalogId;
       setProductSummary(summarizeCatalogResponse(response, catalog.catalogName));
     } catch (error) {
-      setProductSummary(null);
+      if (generation !== productLoadGeneration.current) return;
       setPageError(error instanceof Error ? error.message : '商品加载失败');
     } finally {
-      setLoadingProducts(false);
+      if (generation === productLoadGeneration.current) setLoadingProducts(false);
     }
   }
 
   async function runPageListProducts(input: ProductSearchInput) {
     const catalog = selectedCatalog;
     if (!catalog) throw new Error('No selected Catalog');
+    const generation = ++productLoadGeneration.current;
     const response = await listCatalogProducts(catalog, {
       queryPack: normalizeQueryPack(input.query_pack),
-      searchMode: normalizeSearchMode(input.search_mode),
+      queryMode: normalizeQueryMode(input.query_mode),
       filters: normalizeFilters(input.filters),
       limit: normalizeLimit(input.limit),
       offset: normalizeOffset(input.offset),
     });
     const nextSummary = summarizeCatalogResponse(response, catalog.catalogName);
-    setSearchQuery('');
-    setProductSummary(nextSummary);
+    if (generation === productLoadGeneration.current) {
+      productCatalogId.current = catalog.catalogId;
+      setSearchQuery('');
+      setProductSummary(nextSummary);
+    }
     return nextSummary;
   }
 
   async function runPageSearchProducts(input: ProductSearchInput) {
     const catalog = selectedCatalog;
     if (!catalog) throw new Error('No selected Catalog');
+    const generation = ++productLoadGeneration.current;
     const query = typeof input.query === 'string' ? input.query : '';
     const queryPack = normalizeQueryPack(input.query_pack);
-    const searchMode = normalizeSearchMode(input.search_mode);
+    const queryMode = normalizeQueryMode(input.query_mode);
     const response = await listCatalogProducts(catalog, {
       query,
       queryPack,
-      searchMode,
+      queryMode,
       filters: normalizeFilters(input.filters),
       limit: normalizeLimit(input.limit),
       offset: normalizeOffset(input.offset),
     });
     const nextSummary = summarizeCatalogResponse(response, catalog.catalogName);
-    setSearchQuery(query);
-    if (queryPack) setSearchQueryPack(queryPack);
-    else if (searchMode) setSearchQueryPack(packForSearchMode(searchMode));
-    setProductSummary(nextSummary);
+    if (generation === productLoadGeneration.current) {
+      productCatalogId.current = catalog.catalogId;
+      setSearchQuery(query);
+      if (queryPack) setSearchQueryPack(queryPack);
+      else if (queryMode) setSearchQueryPack(packForQueryMode(catalog, queryMode));
+      setProductSummary(nextSummary);
+    }
     return nextSummary;
   }
 
   async function runPageSetDataSource(input: DataSourceInput) {
+    const generation = ++catalogLoadGeneration.current;
+    productLoadGeneration.current += 1;
     const nextRegistrationBaseUrl = typeof input.registration_base_url === 'string' && input.registration_base_url.trim()
       ? input.registration_base_url.trim()
       : registrationBaseUrl;
     const nextCatalogs = await searchCatalogOptions(nextRegistrationBaseUrl);
+    const manifestResult = await loadCatalogManifestOptionsIsolated(nextCatalogs);
+    const catalogOptions = manifestResult.catalogs;
     const requestedCatalogId = typeof input.catalog_id === 'string' ? input.catalog_id : undefined;
-    const nextCatalog = nextCatalogs.find((catalog) => catalog.catalogId === requestedCatalogId) ?? nextCatalogs[0];
-    setRegistrationBaseUrl(nextRegistrationBaseUrl);
-    setCatalogs(nextCatalogs);
-    setSelectedCatalogId(nextCatalog?.catalogId ?? '');
-    if (!nextCatalog) throw new Error('Registration node returned no selectable Catalog');
+    const nextCatalog = selectLoadedCatalog(manifestResult, requestedCatalogId);
+    if (!nextCatalog) {
+      throw new Error(manifestResult.failures.length
+        ? `Registration search succeeded, but all ${manifestResult.failures.length} Catalog manifests failed to load`
+        : 'Registration node returned no selectable Catalog');
+    }
     const response = await listCatalogProducts(nextCatalog, { limit: 24, offset: 0 });
     const nextSummary = summarizeCatalogResponse(response, nextCatalog.catalogName);
-    setProductSummary(nextSummary);
+    if (generation === catalogLoadGeneration.current) {
+      skipNextSelectionLoad.current = nextCatalog.catalogId !== selectedCatalogId;
+      productCatalogId.current = nextCatalog.catalogId;
+      setRegistrationBaseUrl(nextRegistrationBaseUrl);
+      setCatalogs(catalogOptions);
+      setCatalogFailures(manifestResult.failures);
+      setSelectedCatalogId(nextCatalog.catalogId);
+      setProductSummary(nextSummary);
+    }
     return {
       registrationBaseUrl: nextRegistrationBaseUrl,
       selectedCatalog: nextCatalog,
@@ -213,14 +276,14 @@ export function App() {
           <label className="search-type" htmlFor="mall-search-pack">模式</label>
           <select
             id="mall-search-pack"
-            value={selectedQueryPack}
+            value={selectedQueryPack ?? ''}
             onChange={(event) => setSearchQueryPack(event.target.value)}
-            disabled={!selectedCatalog}
+            disabled={!selectedCatalog || !selectedCatalogHasQueryPacks}
             aria-label="搜索模式"
           >
-            {(selectedCatalog?.supportedQueryPacks.length ? selectedCatalog.supportedQueryPacks : [defaultSearchPack]).map((queryPack) => (
+            {queryPackIds(selectedCatalog ?? { queryPackOptions: [] }).map((queryPack) => (
               <option key={queryPack} value={queryPack}>
-                {labelQueryPack(queryPack)}
+                {labelQueryPack(selectedCatalog, queryPack)}
               </option>
             ))}
           </select>
@@ -244,7 +307,7 @@ export function App() {
                 <input value={registrationBaseUrl} onChange={(event) => setRegistrationBaseUrl(event.target.value)} />
               </label>
               <button type="button" onClick={() => void refreshCatalogs()} disabled={loadingCatalogs}>
-                {loadingCatalogs ? '加载中' : '刷新 Catalog'}
+                {loadingCatalogs ? '加载中' : catalogFailures.length ? '重新加载数据源' : '刷新 Catalog'}
               </button>
               <label>
                 商品目录
@@ -262,8 +325,26 @@ export function App() {
               {selectedCatalog ? (
                 <p>
                   当前使用 <strong>{selectedCatalog.catalogName}</strong>。
-                  支持 {selectedCatalog.supportedQueryPacks.map(labelQueryPack).join('、')}。
+                  支持 {selectedCatalog.queryPackOptions.map((option) => labelQueryPack(selectedCatalog, option.packId)).join('、')}。
                 </p>
+              ) : null}
+              {catalogFailures.length ? (
+                <section className="source-failures" aria-labelledby="catalog-failure-title" aria-live="polite">
+                  <div className="source-failure-heading">
+                    <strong id="catalog-failure-title">{catalogFailures.length} 个 Catalog 加载失败</strong>
+                    <span>{catalogs.length ? '其余数据源仍可使用' : '当前没有可用数据源'}</span>
+                  </div>
+                  <ul>
+                    {catalogFailures.map((failure) => (
+                      <li key={failure.catalogId}>
+                        <strong>{failure.catalogName}</strong>
+                        <span>{failure.catalogId}</span>
+                        <code>{failure.manifestUrl ?? '未提供 manifest URL'}</code>
+                        <p>{failure.error}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ) : null}
             </div>
           </details>
@@ -274,7 +355,7 @@ export function App() {
         </div>
       </header>
 
-      {pageError ? <p className="banner-error">{pageError}</p> : null}
+      {pageError ? <p className="banner-error" role="alert">{pageError}</p> : null}
 
       <section className="shelf" aria-label="商品结果">
         {loadingProducts || loadingCatalogs ? (
@@ -371,36 +452,45 @@ function normalizeOffset(value: unknown) {
 }
 
 function normalizeQueryPack(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string') throw new Error(`query_pack must be a string`);
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
-function normalizeSearchMode(value: unknown) {
-  if (value === 'keyword' || value === 'filter' || value === 'semantic') return value;
-  return undefined;
+function normalizeQueryMode(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (value === 'keyword' || value === 'filter' || value === 'semantic' || value === 'hybrid') return value;
+  throw new Error(`Unsupported query_mode ${String(value)}`);
 }
 
 function normalizeFilters(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('filters must be an object');
   return value as Record<string, unknown>;
 }
 
-function packForSearchMode(mode: 'keyword' | 'filter' | 'semantic') {
-  if (mode === 'semantic') return 'ocp.query.semantic.v1';
-  if (mode === 'filter') return 'ocp.query.filter.v1';
-  return defaultSearchPack;
+function packForQueryMode(catalog: CatalogOption, mode: CatalogQueryMode) {
+  const option = catalog.queryPackOptions.find((candidate) => candidate.queryModes.includes(mode));
+  if (!option) {
+    throw new Error(`Catalog ${catalog.catalogName} does not support query_mode ${mode}`);
+  }
+  return option.packId;
 }
 
-function labelQueryPack(queryPack: string) {
-  if (queryPack === 'ocp.query.semantic.v1') return 'Semantic';
-  if (queryPack === 'ocp.query.filter.v1') return 'Filter';
-  if (queryPack === 'ocp.query.keyword.v1') return 'Keyword';
-  return queryPack;
+function labelQueryPack(catalog: CatalogOption | undefined, queryPack: string) {
+  const modes = catalog ? queryModesForPack(catalog, queryPack) : [];
+  const modeLabel = modes.length ? ` (${modes.join('/')})` : '';
+  if (queryPack === 'ocp.query.semantic.v1') return `Semantic${modeLabel}`;
+  if (queryPack === 'ocp.query.filter.v1') return `Filter${modeLabel}`;
+  if (queryPack === 'ocp.query.keyword.v1') return `Keyword${modeLabel}`;
+  return `${queryPack}${modeLabel}`;
 }
 
 function resolveQueryPackForCatalog(catalog: CatalogOption | undefined, preferredQueryPack: string) {
-  if (catalog?.supportedQueryPacks.includes(preferredQueryPack)) return preferredQueryPack;
-  if (catalog?.supportedQueryPacks.includes(defaultSearchPack)) return defaultSearchPack;
-  return catalog?.supportedQueryPacks[0] ?? defaultSearchPack;
+  const supportedQueryPacks = catalog ? queryPackIds(catalog) : [];
+  if (supportedQueryPacks.includes(preferredQueryPack)) return preferredQueryPack;
+  if (supportedQueryPacks.includes('ocp.query.keyword.v1')) return 'ocp.query.keyword.v1';
+  return supportedQueryPacks[0];
 }
 
 function findProduct(products: readonly ProductCard[], input: OpenProductInput) {

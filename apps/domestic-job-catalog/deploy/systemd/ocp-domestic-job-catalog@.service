@@ -1,0 +1,27 @@
+[Unit]
+Description=OCP Domestic Job Catalog API instance %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/workspace/OCP-Catalog/apps/domestic-job-catalog
+EnvironmentFile=/etc/ocp-domestic-job-catalog.env
+ExecStartPre=/usr/bin/test "$CATALOG_ID" = "cat_ocp_domestic_jobs_prod"
+ExecStartPre=/usr/bin/test "$CATALOG_PUBLIC_BASE_URL" = "https://domesticjobs.catalog.pageflux.net"
+ExecStartPre=/usr/bin/grep -qE '(=|,)https://ocp[.]deeplumen[.]io(,|$)' /etc/ocp-domestic-job-catalog.env
+Environment=PORT=%i
+ExecStart=/home/ubuntu/.bun/bin/bun --env-file=/etc/ocp-domestic-job-catalog.env src/index.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+LimitNOFILE=524288
+MemoryMax=2G
+MemoryHigh=1536M
+
+[Install]
+WantedBy=multi-user.target

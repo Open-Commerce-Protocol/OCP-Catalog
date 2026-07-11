@@ -14,10 +14,10 @@ test('registers page-native WebMCP tools without MCP server metadata', () => {
   expect(tools.find((tool) => tool.name === 'ocp.mall.search_products')?.inputSchema).toMatchObject({
     properties: {
       query_pack: {
-        enum: ['ocp.query.keyword.v1', 'ocp.query.filter.v1', 'ocp.query.semantic.v1'],
+        type: 'string',
       },
-      search_mode: {
-        enum: ['keyword', 'filter', 'semantic'],
+      query_mode: {
+        type: 'string',
       },
     },
   });
@@ -43,6 +43,7 @@ test('forwards WebMCP product search to page logic and records the result', asyn
   const result = await tool.handler({
     query: 'shoes',
     query_pack: 'ocp.query.semantic.v1',
+    query_mode: 'semantic',
     filters: { in_stock_only: true },
     limit: 5,
   });
@@ -51,6 +52,7 @@ test('forwards WebMCP product search to page logic and records the result', asyn
   expect(calls).toEqual([{
     query: 'shoes',
     query_pack: 'ocp.query.semantic.v1',
+    query_mode: 'semantic',
     filters: { in_stock_only: true },
     limit: 5,
   }]);
@@ -59,6 +61,7 @@ test('forwards WebMCP product search to page logic and records the result', asyn
     input: {
       query: 'shoes',
       query_pack: 'ocp.query.semantic.v1',
+      query_mode: 'semantic',
       filters: { in_stock_only: true },
       limit: 5,
     },
@@ -72,6 +75,8 @@ test('page state summary exposes selected data source and call history', async (
     registrationBaseUrl: 'https://ocp.deeplumen.io/registry',
     selectedCatalogId: 'cat_local_dev',
     selectedCatalogName: 'Commerce Product Search Catalog',
+    queryPackOptions: [{ packId: 'ocp.query.keyword.v1', queryModes: ['keyword'] }],
+    catalogFailures: [],
     productCount: 12,
     history: [{
       id: 'call-1',
@@ -123,6 +128,8 @@ function createContext(overrides: Partial<OcpMcpDemoContext> = {}): OcpMcpDemoCo
       registrationBaseUrl: 'https://ocp.deeplumen.io/registry',
       selectedCatalogId: 'cat_local_dev',
       selectedCatalogName: 'Commerce Product Search Catalog',
+      queryPackOptions: [{ packId: 'ocp.query.keyword.v1', queryModes: ['keyword'] }],
+      catalogFailures: [],
       productCount: 0,
       history: [],
     }),

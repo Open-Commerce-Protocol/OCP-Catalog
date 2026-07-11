@@ -198,6 +198,66 @@ button:disabled {
   line-height: 1.55;
 }
 
+.source-failures {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(191, 45, 17, 0.22);
+}
+
+.source-failure-heading {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+  color: #9e2d13;
+}
+
+.source-failure-heading span {
+  color: #76513f;
+  font-size: 12px;
+}
+
+.source-failures ul {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.source-failures li {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-left: 3px solid #bf2d11;
+  border-radius: 8px;
+  background: #fff1ec;
+}
+
+.source-failures li > span {
+  color: #76513f;
+  font-size: 12px;
+}
+
+.source-failures li code {
+  font-size: 11px;
+}
+
+.source-failures li p {
+  color: #8f2610;
+  font-weight: 700;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 3px solid #165dff;
+  outline-offset: 3px;
+}
+
 code,
 pre {
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;

@@ -1,4 +1,5 @@
 import type { WebMcpTool } from '@ocp-catalog/webmcp-adapter';
+import type { CatalogManifestFailure, QueryPackOption } from '../ocp-http';
 
 export type DemoCallRecord = {
   id: string;
@@ -14,6 +15,8 @@ export type OcpMcpDemoState = {
   registrationBaseUrl: string;
   selectedCatalogId?: string;
   selectedCatalogName?: string;
+  queryPackOptions: QueryPackOption[];
+  catalogFailures: CatalogManifestFailure[];
   productCount: number;
   history: DemoCallRecord[];
 };
@@ -21,7 +24,7 @@ export type OcpMcpDemoState = {
 export type ProductSearchInput = {
   query?: string;
   query_pack?: string;
-  search_mode?: 'keyword' | 'filter' | 'semantic';
+  query_mode?: 'keyword' | 'filter' | 'semantic' | 'hybrid';
   filters?: Record<string, unknown>;
   limit?: number;
   offset?: number;
@@ -75,13 +78,11 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
           query: { type: 'string', description: 'Product search phrase such as shoes, jacket, lipstick, or chocolate.' },
           query_pack: {
             type: 'string',
-            enum: ['ocp.query.keyword.v1', 'ocp.query.filter.v1', 'ocp.query.semantic.v1'],
-            description: 'Exact OCP query pack to use when the selected Catalog supports it.',
+            description: 'Exact OCP query pack from ocp.mall.get_page_state queryPackOptions for the selected Catalog.',
           },
-          search_mode: {
+          query_mode: {
             type: 'string',
-            enum: ['keyword', 'filter', 'semantic'],
-            description: 'Search mode shortcut. keyword uses text search, filter uses structured filters, semantic uses meaning-based retrieval.',
+            description: 'Exact OCP query mode from the selected query_pack option in ocp.mall.get_page_state.',
           },
           filters: {
             type: 'object',
@@ -90,7 +91,6 @@ export function createOcpMcpDemoWebMcpTools(context: OcpMcpDemoContext): WebMcpT
           limit: { type: 'number', description: 'Maximum number of products to return. Defaults to 24.' },
           offset: { type: 'number', description: 'Must be 0. Deep offset pagination is disabled; narrow filters instead.' },
         },
-        required: ['query'],
       },
       handler: async (input) => runPageTool(context, 'ocp.mall.search_products', parseToolInput(input), context.searchProducts),
     },
@@ -128,6 +128,8 @@ export function summarizeDemoState(state: OcpMcpDemoState) {
     registrationBaseUrl: state.registrationBaseUrl,
     selectedCatalogId: state.selectedCatalogId,
     selectedCatalogName: state.selectedCatalogName,
+    queryPackOptions: state.queryPackOptions,
+    catalogFailures: state.catalogFailures,
     productCount: state.productCount,
     history: state.history.map((record) => ({
       id: record.id,
@@ -161,6 +163,9 @@ function parseToolInput(input: unknown): Record<string, unknown> {
   if (input === undefined || input === null) return {};
   if (typeof input !== 'object' || Array.isArray(input)) {
     throw new Error('WebMCP tool input must be an object');
+  }
+  if ('search_mode' in input) {
+    throw new Error('WebMCP product search uses OCP query_mode; replace search_mode with query_mode');
   }
   return input as Record<string, unknown>;
 }

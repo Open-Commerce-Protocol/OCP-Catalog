@@ -1,0 +1,24 @@
+[Unit]
+Description=OCP Domestic Job Catalog Worker instance %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/workspace/OCP-Catalog/apps/domestic-job-catalog
+EnvironmentFile=/etc/ocp-domestic-job-catalog.env
+ExecStartPre=/usr/bin/test "$CATALOG_ID" = "cat_ocp_domestic_jobs_prod"
+ExecStart=/home/ubuntu/.bun/bin/bun --env-file=/etc/ocp-domestic-job-catalog.env src/worker.ts
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+NoNewPrivileges=true
+LimitNOFILE=524288
+MemoryMax=1G
+MemoryHigh=768M
+
+[Install]
+WantedBy=multi-user.target

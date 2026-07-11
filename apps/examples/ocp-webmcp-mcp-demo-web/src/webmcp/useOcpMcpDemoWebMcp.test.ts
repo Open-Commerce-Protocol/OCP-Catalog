@@ -6,6 +6,8 @@ test('page WebMCP tools are available without MCP gateway tools/list metadata', 
     getState: () => ({
       webMcpAvailable: true,
       registrationBaseUrl: 'https://ocp.deeplumen.io/registry',
+      queryPackOptions: [{ packId: 'ocp.query.keyword.v1', queryModes: ['keyword'] }],
+      catalogFailures: [],
       productCount: 0,
       history: [],
     }),
