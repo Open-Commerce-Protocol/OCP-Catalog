@@ -1,10 +1,10 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import type { CommercialObject } from '@ocp-catalog/ocp-schema';
+import type { CommerceProviderConfig } from './config';
 
 type ProviderProduct = typeof schema.providerProducts.$inferSelect;
 
-export function buildProviderRegistration(config: AppConfig, registrationVersion: number) {
+export function buildProviderRegistration(config: CommerceProviderConfig, registrationVersion: number) {
   return {
     ocp_version: '1.0',
     kind: 'ProviderRegistration',
@@ -50,7 +50,7 @@ export function buildProviderRegistration(config: AppConfig, registrationVersion
 }
 
 export function buildObjectSyncRequest(
-  config: AppConfig,
+  config: CommerceProviderConfig,
   registrationVersion: number,
   products: ProviderProduct[],
   options?: { batchId?: string; now?: number },
@@ -67,7 +67,7 @@ export function buildObjectSyncRequest(
   };
 }
 
-export function mapProductToCommercialObject(config: AppConfig, product: ProviderProduct): CommercialObject {
+export function mapProductToCommercialObject(config: CommerceProviderConfig, product: ProviderProduct): CommercialObject {
   return {
     ocp_version: '1.0',
     kind: 'CommercialObject',

@@ -1,13 +1,13 @@
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
-import { loadConfig } from '@ocp-catalog/config';
 import { createActivityDb } from '@ocp-catalog/activity-db';
 import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import { AppError } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
+import { loadActivityApiConfig } from './config';
 
-const config = loadConfig();
+const config = loadActivityApiConfig();
 const db = createActivityDb(config.DATABASE_URL);
 const activity = new ActivityEventService(db);
 

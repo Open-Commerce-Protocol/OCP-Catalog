@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { AppConfig } from '@ocp-catalog/config';
+import type { CommerceProviderConfig } from './config';
 import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import { buildObjectSyncRequest, buildProviderRegistration, mapProductToCommercialObject } from './provider-mapper';
 
@@ -10,7 +10,7 @@ const config = {
   COMMERCE_PROVIDER_CONTACT_EMAIL: 'ops@example.test',
   COMMERCE_PROVIDER_DOMAIN: 'localhost',
   PROVIDER_PUBLIC_BASE_URL: 'http://localhost:4200',
-} as AppConfig;
+} as CommerceProviderConfig;
 
 const product: typeof schema.providerProducts.$inferSelect = {
   id: 'pprod_1',

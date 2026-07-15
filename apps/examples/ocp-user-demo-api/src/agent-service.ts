@@ -1,4 +1,4 @@
-import type { AppConfig } from '@ocp-catalog/config';
+import type { UserDemoApiConfig } from './config';
 import { z } from 'zod';
 import { AgentError } from './errors';
 import { OpenAiCompatibleClient } from './openai-compatible-client';
@@ -240,7 +240,7 @@ export class UserDemoAgentService {
   private readonly model: OpenAiCompatibleClient;
   private registrationDiscoveryPromise: Promise<z.infer<typeof registrationDiscoverySchema>> | null = null;
 
-  constructor(private readonly config: AppConfig) {
+  constructor(private readonly config: UserDemoApiConfig) {
     this.model = new OpenAiCompatibleClient(config, config.USER_DEMO_AGENT_MODEL);
   }
 
@@ -680,7 +680,7 @@ async function requestJson<T>(url: string, body: unknown) {
   return payload as T;
 }
 
-async function fetchRegistrationDiscovery(config: AppConfig) {
+async function fetchRegistrationDiscovery(config: UserDemoApiConfig) {
   const configuredDiscoveryUrl = config.REGISTRATION_DISCOVERY_URL?.trim();
   const baseUrl = (config.REGISTRATION_PUBLIC_BASE_URL || config.REGISTRATION_PUBLIC_BASE_URL).replace(/\/$/, '');
   const discoveryUrl = configuredDiscoveryUrl || `${baseUrl}/.well-known/ocp-registration`;

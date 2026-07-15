@@ -1,5 +1,5 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import { AppError } from '@ocp-catalog/shared';
+import type { CommerceProviderConfig } from './config';
 
 export type CatalogProviderState = {
   provider_id: string;
@@ -25,7 +25,7 @@ export type CatalogProviderState = {
 export class CatalogClient {
   private readonly catalogBaseUrl: string;
 
-  constructor(private readonly config: AppConfig) {
+  constructor(private readonly config: Pick<CommerceProviderConfig, 'CATALOG_PUBLIC_BASE_URL' | 'API_KEY_DEV'>) {
     this.catalogBaseUrl = config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '');
   }
 

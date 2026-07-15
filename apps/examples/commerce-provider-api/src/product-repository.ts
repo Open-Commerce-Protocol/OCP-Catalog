@@ -1,14 +1,14 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { ProviderDemoDb as Db } from '@ocp-catalog/provider-demo-db';
 import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq } from 'drizzle-orm';
+import type { CommerceProviderConfig } from './config';
 import type { ProductCreateInput, ProductPatchInput } from './product-schema';
 
 export class ProductRepository {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: Pick<CommerceProviderConfig, 'COMMERCE_PROVIDER_ID' | 'PROVIDER_PUBLIC_BASE_URL'>,
   ) {}
 
   async listProducts() {

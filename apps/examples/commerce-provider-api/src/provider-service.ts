@@ -1,9 +1,9 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { ProviderDemoDb as Db } from '@ocp-catalog/provider-demo-db';
 import { providerDemoSchema as schema } from '@ocp-catalog/provider-demo-db';
 import { AppError, newId } from '@ocp-catalog/shared';
 import { desc, eq } from 'drizzle-orm';
 import type { CatalogClient } from './catalog-client';
+import type { CommerceProviderConfig } from './config';
 import type { ProductRepository } from './product-repository';
 import { buildObjectSyncRequest, buildProviderRegistration } from './provider-mapper';
 
@@ -12,7 +12,7 @@ const DEFAULT_SYNC_BATCH_SIZE = 25;
 export class ProviderService {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: CommerceProviderConfig,
     private readonly products: ProductRepository,
     private readonly catalog: CatalogClient,
   ) {}
