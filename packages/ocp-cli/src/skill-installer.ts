@@ -21,6 +21,7 @@ export type SkillInstallPlan = {
   skill_name: string;
   source_dir: string;
   target_dirs: string[];
+  planned_install_dirs: string[];
 };
 
 export type SkillInstallResult = SkillInstallPlan & {
@@ -72,6 +73,7 @@ export async function installOcpSkill(options: SkillInstallOptions = {}): Promis
     skill_name: OCP_SKILL_NAME,
     source_dir: sourceDir,
     target_dirs: targetDirs,
+    planned_install_dirs: targetDirs.map(resolveInstallDir),
   };
 
   if (options.dryRun) {

@@ -77,6 +77,18 @@ function writeManifestFile() {
 }
 
 describe('CLI help', () => {
+  test('prints package identity for version checks', () => {
+    expect(runCli('--version')).toEqual({
+      name: '@ocp-catalog/ocp-cli',
+      version: '0.1.3',
+    });
+
+    expect(runCli('version')).toEqual({
+      name: '@ocp-catalog/ocp-cli',
+      version: '0.1.3',
+    });
+  });
+
   test('describes every command with intent, options, and examples', () => {
     const help = runCli('--help');
 
@@ -92,6 +104,11 @@ describe('CLI help', () => {
 
     expect(help.commands).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          command: 'ocp version',
+          summary: expect.stringContaining('package identity'),
+          description: expect.stringContaining('structured JSON'),
+        }),
         expect.objectContaining({
           command: 'ocp registration discover <discovery-url>',
           summary: expect.stringContaining('Registration'),
@@ -149,7 +166,9 @@ describe('CLI help', () => {
     for (const command of help.commands) {
       expect(command.summary).toBeString();
       expect(command.description).toBeString();
-      expect(command.options.length).toBeGreaterThan(0);
+      if (command.command !== 'ocp version') {
+        expect(command.options.length).toBeGreaterThan(0);
+      }
       expect(command.examples.length).toBeGreaterThan(0);
     }
   });

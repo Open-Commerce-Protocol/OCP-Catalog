@@ -33,7 +33,7 @@ const clientOptions: CliOptionHelp[] = [
   },
   {
     name: '--user-agent',
-    description: 'User-Agent header sent to OCP endpoints. Defaults to ocp-cli/0.1.0.',
+    description: 'User-Agent header sent to OCP endpoints. Defaults to ocp-cli/0.1.3.',
   },
   {
     name: '--api-key',
@@ -84,6 +84,17 @@ export const CLI_HELP: CliHelp = {
     'Resolve a selected entry when details or actions are needed',
   ],
   commands: [
+    {
+      command: 'ocp version',
+      domain: 'version',
+      summary: 'Print the installed CLI package identity.',
+      description: 'Returns the npm package name and version as structured JSON so agents can verify which CLI they are running.',
+      options: [],
+      examples: [
+        'ocp version',
+        'ocp --version',
+      ],
+    },
     {
       command: 'ocp setup [--target auto|codex|agents|both|<skills-dir>] [--dry-run]',
       domain: 'setup',

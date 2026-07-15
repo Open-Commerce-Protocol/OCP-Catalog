@@ -20,6 +20,8 @@ import { doctorOcpSkill, installOcpSkill, uninstallOcpSkill, type SkillTarget } 
 import { CLI_HELP, FULL_CLI_HELP, findCommandHelp, findDomainHelp } from './help';
 import { redactSavedProviderApiKey } from './provider-output';
 
+const CLI_PACKAGE_NAME = '@ocp-catalog/ocp-cli';
+const CLI_VERSION = '0.1.3';
 const args = process.argv.slice(2);
 
 try {
@@ -39,6 +41,12 @@ try {
 
 async function run(argv: string[]) {
   const [domain, command, ...rest] = argv;
+  if (domain === 'version' || domain === '--version' || domain === '-v') {
+    return {
+      name: CLI_PACKAGE_NAME,
+      version: CLI_VERSION,
+    };
+  }
   if (!domain || domain === 'help' || domain === '--help' || domain === '-h') {
     return help(domain === 'help' ? [command, ...rest].filter((item): item is string => !!item) : []);
   }
@@ -91,7 +99,7 @@ async function run(argv: string[]) {
   const flags = parseFlags(rest);
   const client = new OcpClient({
     timeoutMs: numberFlag(flags, 'timeout-ms', 10_000),
-    userAgent: stringFlag(flags, 'user-agent', 'ocp-cli/0.1.0'),
+    userAgent: stringFlag(flags, 'user-agent', `ocp-cli/${CLI_VERSION}`),
     apiKey: stringFlag(flags, 'api-key'),
     correlationId: stringFlag(flags, 'correlation-id', createCorrelationId('cli')),
   });

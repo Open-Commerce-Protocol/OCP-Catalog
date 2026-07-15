@@ -30,7 +30,7 @@ describe('OCP skill installer', () => {
     const marker = JSON.parse(await readFile(path.join(target, 'ocp-catalog', OCP_SKILL_MARKER), 'utf8'));
     expect(marker).toMatchObject({
       package_name: '@ocp-catalog/ocp-cli',
-      package_version: '0.1.0',
+      package_version: '0.1.3',
       skill_name: 'ocp-catalog',
     });
     expect(marker.content_hash).toBeString();
@@ -42,6 +42,7 @@ describe('OCP skill installer', () => {
     const result = await installOcpSkill({ target, dryRun: true });
 
     expect(result.dry_run).toBe(true);
+    expect(result.planned_install_dirs).toEqual([path.join(path.resolve(target), 'ocp-catalog')]);
     expect(result.installed_dirs).toEqual([]);
     expect(existsSync(path.join(target, 'ocp-catalog'))).toBe(false);
   });

@@ -15,6 +15,7 @@ bun scripts/ocp-skill-runner.ts catalog query --help
 Installed CLI:
 
 ```bash
+npm install -g @ocp-catalog/ocp-cli
 ocp help
 ocp registration --help
 ocp catalog query --help
