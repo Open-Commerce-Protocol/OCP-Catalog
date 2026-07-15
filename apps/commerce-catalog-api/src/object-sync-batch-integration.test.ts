@@ -1,18 +1,18 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import postgres from 'postgres';
-import { loadCommerceCatalogConfig, toCatalogCoreConfig } from './config';
+import { toCatalogCoreConfig } from './config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
 import { createCatalogDb, catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { and, eq } from 'drizzle-orm';
 import { createCommerceCatalogScenario } from './commerce-scenario';
-import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
+import { assertIntegrationDatabaseReady, integrationPostgresOptions, loadIntegrationConfig } from './test/integration-db';
 
 // Exercises the batched `syncChunk` write path in
 // packages/catalog-core/src/object-sync-service.ts. Covers the three semantics
 // that were previously untested and are most at risk from the per-object ->
 // batch rewrite: unchanged-skip, descriptor hash-skip, and mixed batches.
 
-const baseConfig = loadCommerceCatalogConfig();
+const baseConfig = loadIntegrationConfig();
 const db = createCatalogDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
