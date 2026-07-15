@@ -1,14 +1,14 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import { catalogSchema as schema, type CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { AppError } from '@ocp-catalog/shared';
 import { and, eq, inArray } from 'drizzle-orm';
+import type { CatalogIdentityConfig } from './config';
 
 export class ProviderLifecycleService {
-  constructor(private readonly db: Db, private readonly config: AppConfig) {}
+  constructor(private readonly db: Db, private readonly config: CatalogIdentityConfig) {}
 
   async deactivateProvider(providerId: string) {
     const providerWhere = and(
-      eq(schema.providerContractStates.catalogId, this.config.CATALOG_ID),
+      eq(schema.providerContractStates.catalogId, this.config.catalogId),
       eq(schema.providerContractStates.providerId, providerId),
     );
     const [state] = await this.db.select().from(schema.providerContractStates).where(providerWhere).limit(1);
@@ -24,23 +24,23 @@ export class ProviderLifecycleService {
       this.db
         .update(schema.commercialObjects)
         .set({ status: 'inactive', updatedAt: now })
-        .where(and(eq(schema.commercialObjects.catalogId, this.config.CATALOG_ID), eq(schema.commercialObjects.providerId, providerId)))
+        .where(and(eq(schema.commercialObjects.catalogId, this.config.catalogId), eq(schema.commercialObjects.providerId, providerId)))
         .returning({ id: schema.commercialObjects.id }),
       this.db
         .update(schema.catalogEntries)
         .set({ entryStatus: 'inactive', updatedAt: now })
-        .where(and(eq(schema.catalogEntries.catalogId, this.config.CATALOG_ID), eq(schema.catalogEntries.providerId, providerId)))
+        .where(and(eq(schema.catalogEntries.catalogId, this.config.catalogId), eq(schema.catalogEntries.providerId, providerId)))
         .returning({ id: schema.catalogEntries.id }),
       this.db
         .update(schema.catalogSearchDocuments)
         .set({ documentStatus: 'inactive', updatedAt: now })
-        .where(and(eq(schema.catalogSearchDocuments.catalogId, this.config.CATALOG_ID), eq(schema.catalogSearchDocuments.providerId, providerId)))
+        .where(and(eq(schema.catalogSearchDocuments.catalogId, this.config.catalogId), eq(schema.catalogSearchDocuments.providerId, providerId)))
         .returning({ id: schema.catalogSearchDocuments.id }),
       this.db
         .update(schema.catalogSearchIndexJobs)
         .set({ status: 'cancelled', updatedAt: now })
         .where(and(
-          eq(schema.catalogSearchIndexJobs.catalogId, this.config.CATALOG_ID),
+          eq(schema.catalogSearchIndexJobs.catalogId, this.config.catalogId),
           eq(schema.catalogSearchIndexJobs.providerId, providerId),
           inArray(schema.catalogSearchIndexJobs.status, ['pending', 'running']),
         ))
@@ -49,7 +49,7 @@ export class ProviderLifecycleService {
 
     return {
       provider_id: providerId,
-      catalog_id: this.config.CATALOG_ID,
+      catalog_id: this.config.catalogId,
       action: 'deactivated',
       provider_state_count: stateRow.length,
       object_count: objects.length,
@@ -61,7 +61,7 @@ export class ProviderLifecycleService {
 
   async eraseProvider(providerId: string) {
     const providerWhere = and(
-      eq(schema.providerContractStates.catalogId, this.config.CATALOG_ID),
+      eq(schema.providerContractStates.catalogId, this.config.catalogId),
       eq(schema.providerContractStates.providerId, providerId),
     );
     const [state] = await this.db.select().from(schema.providerContractStates).where(providerWhere).limit(1);
@@ -69,15 +69,15 @@ export class ProviderLifecycleService {
 
     const chunks = await this.db
       .delete(schema.objectSyncChunks)
-      .where(and(eq(schema.objectSyncChunks.catalogId, this.config.CATALOG_ID), eq(schema.objectSyncChunks.providerId, providerId)))
+      .where(and(eq(schema.objectSyncChunks.catalogId, this.config.catalogId), eq(schema.objectSyncChunks.providerId, providerId)))
       .returning({ id: schema.objectSyncChunks.id });
     const jobs = await this.db
       .delete(schema.catalogSearchIndexJobs)
-      .where(and(eq(schema.catalogSearchIndexJobs.catalogId, this.config.CATALOG_ID), eq(schema.catalogSearchIndexJobs.providerId, providerId)))
+      .where(and(eq(schema.catalogSearchIndexJobs.catalogId, this.config.catalogId), eq(schema.catalogSearchIndexJobs.providerId, providerId)))
       .returning({ id: schema.catalogSearchIndexJobs.id });
     const objects = await this.db
       .delete(schema.commercialObjects)
-      .where(and(eq(schema.commercialObjects.catalogId, this.config.CATALOG_ID), eq(schema.commercialObjects.providerId, providerId)))
+      .where(and(eq(schema.commercialObjects.catalogId, this.config.catalogId), eq(schema.commercialObjects.providerId, providerId)))
       .returning({ id: schema.commercialObjects.id });
     const states = await this.db
       .delete(schema.providerContractStates)
@@ -85,12 +85,12 @@ export class ProviderLifecycleService {
       .returning({ id: schema.providerContractStates.id });
     const registrations = await this.db
       .delete(schema.providerRegistrations)
-      .where(and(eq(schema.providerRegistrations.catalogId, this.config.CATALOG_ID), eq(schema.providerRegistrations.providerId, providerId)))
+      .where(and(eq(schema.providerRegistrations.catalogId, this.config.catalogId), eq(schema.providerRegistrations.providerId, providerId)))
       .returning({ id: schema.providerRegistrations.id });
 
     return {
       provider_id: providerId,
-      catalog_id: this.config.CATALOG_ID,
+      catalog_id: this.config.catalogId,
       action: 'erased',
       object_count: objects.length,
       provider_state_count: states.length,

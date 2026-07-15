@@ -10,7 +10,7 @@ import {
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq } from 'drizzle-orm';
-import type { AppConfig } from '@ocp-catalog/config';
+import type { CatalogIdentityConfig } from './config';
 import type { CatalogScenarioModule } from './scenario';
 import { asProjection } from './projection';
 import { createHash, randomBytes } from 'node:crypto';
@@ -31,7 +31,7 @@ type DeclarationMatch = {
 export class RegistrationService {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: CatalogIdentityConfig,
     private readonly scenario: CatalogScenarioModule,
   ) {}
 
@@ -161,7 +161,7 @@ export class RegistrationService {
       .select()
       .from(schema.providerApiKeys)
       .where(and(
-        eq(schema.providerApiKeys.catalogId, this.config.CATALOG_ID),
+        eq(schema.providerApiKeys.catalogId, this.config.catalogId),
         eq(schema.providerApiKeys.providerId, providerId),
         eq(schema.providerApiKeys.keyHash, keyHash),
         eq(schema.providerApiKeys.status, 'active'),
@@ -195,7 +195,7 @@ export class RegistrationService {
       })
       .from(schema.catalogEntries)
       .where(and(
-        eq(schema.catalogEntries.catalogId, this.config.CATALOG_ID),
+        eq(schema.catalogEntries.catalogId, this.config.catalogId),
         eq(schema.catalogEntries.providerId, providerId),
       ));
 
@@ -220,7 +220,7 @@ export class RegistrationService {
       .select()
       .from(schema.providerRegistrations)
       .where(and(
-        eq(schema.providerRegistrations.catalogId, this.config.CATALOG_ID),
+        eq(schema.providerRegistrations.catalogId, this.config.catalogId),
         eq(schema.providerRegistrations.providerId, providerId),
       ))
       .orderBy(desc(schema.providerRegistrations.registrationVersion));
@@ -231,7 +231,7 @@ export class RegistrationService {
       .select()
       .from(schema.providerContractStates)
       .where(and(
-        eq(schema.providerContractStates.catalogId, this.config.CATALOG_ID),
+        eq(schema.providerContractStates.catalogId, this.config.catalogId),
         eq(schema.providerContractStates.providerId, providerId),
       ))
       .limit(1);
@@ -246,18 +246,18 @@ export class RegistrationService {
     const selectedSyncCapabilities: SelectedSyncCapability[] = [];
     const catalogSyncCapabilities = this.scenario.providerSyncCapabilities?.() ?? [];
 
-    if (registration.catalog_id !== this.config.CATALOG_ID) {
+    if (registration.catalog_id !== this.config.catalogId) {
       return {
         ocp_version: '1.0',
         kind: 'RegistrationResult',
         id: newId('regres'),
-        catalog_id: this.config.CATALOG_ID,
+        catalog_id: this.config.catalogId,
         provider_id: registration.provider.provider_id,
         status: 'rejected',
         matched_object_contract_count: 0,
         effective_registration_version: activeVersion,
         missing_required_fields: [],
-        warnings: [`Registration catalog_id ${registration.catalog_id} does not match ${this.config.CATALOG_ID}`],
+        warnings: [`Registration catalog_id ${registration.catalog_id} does not match ${this.config.catalogId}`],
         message: 'Registration rejected.',
       };
     }
@@ -336,7 +336,7 @@ export class RegistrationService {
       .insert(schema.providerApiKeys)
       .values({
         id: newId('pkey'),
-        catalogId: this.config.CATALOG_ID,
+        catalogId: this.config.catalogId,
         providerId,
         keyHash: hashProviderApiKey(key),
         status: 'active',

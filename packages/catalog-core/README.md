@@ -55,15 +55,16 @@ src/
 
 ```ts
 import { buildCatalogManifest, createCatalogServices } from '@ocp-catalog/catalog-core';
-import { loadConfig } from '@ocp-catalog/config';
-import { createDb } from '@ocp-catalog/db';
+import { createCatalogDb } from '@ocp-catalog/catalog-db';
 import { commerceCatalogScenario } from './commerce-scenario';
+import { loadCommerceCatalogConfig, toCatalogCoreConfig } from './config';
 
-const config = loadConfig();
-const db = createDb(config.DATABASE_URL);
-const services = createCatalogServices(db, config, commerceCatalogScenario);
+const config = loadCommerceCatalogConfig();
+const db = createCatalogDb(config.DATABASE_URL);
+const catalogCoreConfig = toCatalogCoreConfig(config);
+const services = createCatalogServices(db, catalogCoreConfig, commerceCatalogScenario);
 
-const manifest = buildCatalogManifest(config, commerceCatalogScenario);
+const manifest = buildCatalogManifest(catalogCoreConfig, commerceCatalogScenario);
 const resolved = await services.resolve.resolve({ entry_id: 'entry_...' });
 ```
 

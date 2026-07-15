@@ -1,9 +1,9 @@
-import { loadConfig } from '@ocp-catalog/config';
 import { fileURLToPath } from 'node:url';
 import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
+import { loadSiteWebConfig } from './config';
 
-const config = loadConfig();
+const config = loadSiteWebConfig();
 const ocpSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../dist', import.meta.url)));
 
 const app = new Elysia()

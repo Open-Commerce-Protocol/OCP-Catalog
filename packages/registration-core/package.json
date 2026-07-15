@@ -17,7 +17,6 @@
   "dependencies": {
     "@ocp-catalog/registration-db": "workspace:*",
     "@ocp-catalog/registration-schema": "workspace:*",
-    "@ocp-catalog/config": "workspace:*",
     "@ocp-catalog/db": "workspace:*",
     "@ocp-catalog/ocp-schema": "workspace:*",
     "@ocp-catalog/shared": "workspace:*",

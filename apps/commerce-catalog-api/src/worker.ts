@@ -1,11 +1,11 @@
-import { loadConfig } from '@ocp-catalog/config';
+import { loadCommerceCatalogConfig } from './config';
 import {
   createCommerceCatalogWorkerRuntimeContext,
   logEmbeddingProviderConfig,
 } from './runtime/context';
 import { startSearchIndexWorkerScheduler } from './runtime/search-index-scheduler';
 
-const config = loadConfig();
+const config = loadCommerceCatalogConfig();
 if (!config.CATALOG_SEARCH_INDEX_WORKER_ENABLED) {
   throw new Error('commerce catalog worker requires CATALOG_SEARCH_INDEX_WORKER_ENABLED=true');
 }

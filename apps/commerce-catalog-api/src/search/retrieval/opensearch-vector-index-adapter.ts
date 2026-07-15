@@ -1,4 +1,4 @@
-import type { AppConfig } from '@ocp-catalog/config';
+import type { CommerceCatalogConfig } from '../../config';
 import type {
   TextIndexDocument,
   TextIndexQueryInput,
@@ -50,7 +50,16 @@ export class OpenSearchVectorIndexAdapter implements BulkWritableVectorIndexAdap
   private readonly efConstruction: number;
   private ensureIndexPromise: Promise<void> | null = null;
 
-  constructor(config: AppConfig, profile: VectorIndexProfile) {
+  constructor(config: Pick<
+    CommerceCatalogConfig,
+    | 'OPENSEARCH_URL'
+    | 'OPENSEARCH_USERNAME'
+    | 'OPENSEARCH_PASSWORD'
+    | 'OPENSEARCH_TIMEOUT_MS'
+    | 'OPENSEARCH_KNN_ENGINE'
+    | 'OPENSEARCH_KNN_M'
+    | 'OPENSEARCH_KNN_EF_CONSTRUCTION'
+  >, profile: VectorIndexProfile) {
     this.profile = profile;
     this.baseUrl = config.OPENSEARCH_URL.replace(/\/$/, '');
     this.username = config.OPENSEARCH_USERNAME;

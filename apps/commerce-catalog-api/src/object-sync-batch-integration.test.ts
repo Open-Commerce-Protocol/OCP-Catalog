@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import postgres from 'postgres';
-import { loadConfig, type AppConfig } from '@ocp-catalog/config';
+import { loadCommerceCatalogConfig, toCatalogCoreConfig } from './config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
 import { createCatalogDb, catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { and, eq } from 'drizzle-orm';
@@ -12,11 +12,11 @@ import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './te
 // that were previously untested and are most at risk from the per-object ->
 // batch rewrite: unchanged-skip, descriptor hash-skip, and mixed batches.
 
-const baseConfig = loadConfig();
+const baseConfig = loadCommerceCatalogConfig();
 const db = createCatalogDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
-const services = createCatalogServices(db, baseConfig, scenario);
+const services = createCatalogServices(db, toCatalogCoreConfig(baseConfig), scenario);
 
 const providerId = `itest_batch_provider_${Date.now()}`;
 let integrationDatabaseReady = false;
@@ -39,10 +39,12 @@ describe('object sync batch write path', () => {
     await cleanupProviderData(providerId);
 
     const registrationResult = await services.registrations.register(buildRegistration({
-      ...baseConfig,
-      COMMERCE_PROVIDER_ID: providerId,
-      COMMERCE_PROVIDER_NAME: 'Batch Integration Provider',
-      COMMERCE_PROVIDER_CONTACT_EMAIL: 'batch-itest@example.test',
+      catalogId: baseConfig.CATALOG_ID,
+      providerId,
+      providerName: 'Batch Integration Provider',
+      providerBaseUrl: 'https://provider.example',
+      providerContactEmail: 'batch-itest@example.test',
+      providerDomain: 'provider.example',
     }));
     expect(registrationResult.status).toBe('accepted_full');
   });
@@ -240,21 +242,30 @@ async function cleanupProviderData(provider: string) {
   await sql`delete from commercial_objects where provider_id = ${provider}`;
 }
 
-function buildRegistration(config: AppConfig) {
+type TestProviderRegistrationConfig = {
+  catalogId: string;
+  providerId: string;
+  providerName: string;
+  providerBaseUrl: string;
+  providerContactEmail: string;
+  providerDomain: string;
+};
+
+function buildRegistration(config: TestProviderRegistrationConfig) {
   return {
     ocp_version: '1.0' as const,
     kind: 'ProviderRegistration' as const,
-    id: `reg_${config.COMMERCE_PROVIDER_ID}_1`,
-    catalog_id: config.CATALOG_ID,
+    id: `reg_${config.providerId}_1`,
+    catalog_id: config.catalogId,
     registration_version: 1,
     updated_at: new Date().toISOString(),
     provider: {
-      provider_id: config.COMMERCE_PROVIDER_ID,
+      provider_id: config.providerId,
       entity_type: 'merchant' as const,
-      display_name: config.COMMERCE_PROVIDER_NAME,
-      homepage: config.PROVIDER_PUBLIC_BASE_URL,
-      contact_email: config.COMMERCE_PROVIDER_CONTACT_EMAIL,
-      domains: [config.COMMERCE_PROVIDER_DOMAIN],
+      display_name: config.providerName,
+      homepage: config.providerBaseUrl,
+      contact_email: config.providerContactEmail,
+      domains: [config.providerDomain],
     },
     object_declarations: [
       {

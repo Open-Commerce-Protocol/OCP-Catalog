@@ -1,5 +1,5 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { AdvisoryLockService } from '@ocp-catalog/db';
+import type { RegistrationRefreshSchedulerConfig } from './config';
 import type { CatalogRegistryService } from './catalog-registry-service';
 
 export type RefreshScheduler = {
@@ -8,20 +8,20 @@ export type RefreshScheduler = {
 
 export function startCatalogRefreshScheduler(
   catalogs: CatalogRegistryService,
-  config: AppConfig,
+  config: RegistrationRefreshSchedulerConfig,
   coordination: AdvisoryLockService,
   log: Pick<Console, 'log' | 'error'> = console,
 ): RefreshScheduler | null {
-  if (!config.REGISTRATION_REFRESH_SCHEDULER_ENABLED) return null;
+  if (!config.refreshSchedulerEnabled) return null;
 
-  const intervalMs = config.REGISTRATION_REFRESH_INTERVAL_SECONDS * 1000;
+  const intervalMs = config.refreshIntervalSeconds * 1000;
   let running = false;
 
   const run = async () => {
     if (running) return;
     running = true;
     try {
-      const lockName = `ocp:registration:${config.REGISTRATION_ID}:catalog-refresh`;
+      const lockName = `ocp:registration:${config.registrationId}:catalog-refresh`;
       const lockedResult = await coordination.withLock(lockName, () => catalogs.refreshDueCatalogs());
       if (!lockedResult.acquired) {
         log.log(`OCP Catalog Registration refresh skipped because another instance owns ${lockName}`);

@@ -2,7 +2,6 @@ import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
 import { buildRegistrationDiscovery, buildRegistrationManifest, createRegistrationServices, startCatalogRefreshScheduler } from '@ocp-catalog/registration-core';
-import { loadConfig } from '@ocp-catalog/config';
 import { createActivityDb } from '@ocp-catalog/activity-db';
 import { createRegistrationDb, registrationSchema as schema } from '@ocp-catalog/registration-db';
 import { PostgresAdvisoryLockService } from '@ocp-catalog/db';
@@ -11,14 +10,21 @@ import type { OcpActivityEventInput } from '@ocp-catalog/ocp-activity-schema';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
+import {
+  loadRegistrationApiConfig,
+  toRegistrationIdentityConfig,
+  toRegistrationRefreshSchedulerConfig,
+  toRegistrationRegistryConfig,
+} from './config';
 
-const config = loadConfig();
+const config = loadRegistrationApiConfig();
 const db = createRegistrationDb(config.DATABASE_URL);
 const activityDb = createActivityDb(config.DATABASE_URL);
-const services = createRegistrationServices(db, config);
+const registrationIdentityConfig = toRegistrationIdentityConfig(config);
+const services = createRegistrationServices(db, toRegistrationRegistryConfig(config));
 const activityEvents = new ActivityEventService(activityDb);
 const coordination = new PostgresAdvisoryLockService(config.DATABASE_URL);
-const refreshScheduler = startCatalogRefreshScheduler(services.catalogs, config, coordination);
+const refreshScheduler = startCatalogRefreshScheduler(services.catalogs, toRegistrationRefreshSchedulerConfig(config), coordination);
 const registrationAdminSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 
 const app = new Elysia()
@@ -63,8 +69,8 @@ const app = new Elysia()
     assertAdminAuth(headers);
     return getRegistrationAdminSearchAudits();
   })
-  .get('/.well-known/ocp-registration', () => buildRegistrationDiscovery(config))
-  .get('/ocp/registration/manifest', () => buildRegistrationManifest(config))
+  .get('/.well-known/ocp-registration', () => buildRegistrationDiscovery(registrationIdentityConfig))
+  .get('/ocp/registration/manifest', () => buildRegistrationManifest(registrationIdentityConfig))
   .post('/ocp/catalogs/register', async ({ body, headers }) => {
     const result = await services.catalogs.register(body, {
       sourceIp: firstHeader(headers['x-forwarded-for']) ?? firstHeader(headers['x-real-ip']),

@@ -13,7 +13,6 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@ocp-catalog/config": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "postgres": "^3.4.7"
   }

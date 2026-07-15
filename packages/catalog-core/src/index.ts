@@ -1,5 +1,5 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
+import type { CatalogCoreConfig } from './config';
 import { buildCatalogManifest, buildWellKnownDiscovery } from './contracts';
 import { ObjectSyncService } from './object-sync-service';
 import { ProviderLifecycleService } from './provider-lifecycle-service';
@@ -8,6 +8,7 @@ import { ResolveService } from './resolve-service';
 import type { CatalogScenarioModule } from './scenario';
 
 export { buildCatalogManifest, buildWellKnownDiscovery };
+export type { CatalogCoreConfig, CatalogIdentityConfig, CatalogRuntimePolicyConfig } from './config';
 export { parseFieldRef, readDescriptorField } from './field-ref';
 export { asProjection, numberField, stringField, visibleAttributes } from './projection';
 export { RegistrationService } from './registration-service';
@@ -21,7 +22,7 @@ export type { CatalogScenarioModule, DescriptorValidationResult, SearchProjectio
 
 export function createCatalogServices(
   db: Db,
-  config: AppConfig,
+  config: CatalogCoreConfig,
   scenario: CatalogScenarioModule,
 ) {
   const registrationService = new RegistrationService(db, config, scenario);

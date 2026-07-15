@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { AppConfig } from '@ocp-catalog/config';
+import type { RegistrationRefreshSchedulerConfig } from './config';
 import type { AdvisoryLockService } from '@ocp-catalog/db';
 import { startCatalogRefreshScheduler } from './refresh-scheduler';
 
@@ -63,12 +63,12 @@ describe('startCatalogRefreshScheduler', () => {
   });
 });
 
-function schedulerConfig(): AppConfig {
+function schedulerConfig(): RegistrationRefreshSchedulerConfig {
   return {
-    REGISTRATION_REFRESH_SCHEDULER_ENABLED: true,
-    REGISTRATION_REFRESH_INTERVAL_SECONDS: 60,
-    REGISTRATION_ID: 'reg_test',
-  } as AppConfig;
+    refreshSchedulerEnabled: true,
+    refreshIntervalSeconds: 60,
+    registrationId: 'reg_test',
+  } as RegistrationRefreshSchedulerConfig;
 }
 
 type RefreshDueCatalogsResult = {

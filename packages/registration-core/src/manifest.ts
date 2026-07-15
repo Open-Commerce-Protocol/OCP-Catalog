@@ -1,13 +1,13 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import { registrationDiscoverySchema, registrationManifestSchema, type RegistrationDiscovery, type RegistrationManifest } from '@ocp-catalog/registration-schema';
+import type { RegistrationIdentityConfig } from './config';
 
-export function buildRegistrationDiscovery(config: AppConfig): RegistrationDiscovery {
-  const baseUrl = config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '');
+export function buildRegistrationDiscovery(config: RegistrationIdentityConfig): RegistrationDiscovery {
+  const baseUrl = config.publicBaseUrl.replace(/\/$/, '');
   return registrationDiscoverySchema.parse({
     ocp_version: '1.0',
     kind: 'RegistrationDiscovery',
-    registration_id: config.REGISTRATION_ID,
-    registration_name: config.REGISTRATION_NAME,
+    registration_id: config.registrationId,
+    registration_name: config.registrationName,
     registration_protocol: 'ocp.catalog.registration.v1',
     registration_protocol_version: '1.0.0',
     manifest_url: `${baseUrl}/ocp/registration/manifest`,
@@ -16,13 +16,13 @@ export function buildRegistrationDiscovery(config: AppConfig): RegistrationDisco
   });
 }
 
-export function buildRegistrationManifest(config: AppConfig): RegistrationManifest {
-  const baseUrl = config.REGISTRATION_PUBLIC_BASE_URL.replace(/\/$/, '');
+export function buildRegistrationManifest(config: RegistrationIdentityConfig): RegistrationManifest {
+  const baseUrl = config.publicBaseUrl.replace(/\/$/, '');
   return registrationManifestSchema.parse({
     ocp_version: '1.0',
     kind: 'RegistrationManifest',
-    registration_id: config.REGISTRATION_ID,
-    registration_name: config.REGISTRATION_NAME,
+    registration_id: config.registrationId,
+    registration_name: config.registrationName,
     supported_protocols: ['ocp.catalog.registration.v1', 'ocp.catalog.handshake.v1'],
     endpoints: {
       catalog_registration: `${baseUrl}/ocp/catalogs/register`,

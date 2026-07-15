@@ -1,9 +1,9 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { newId } from '@ocp-catalog/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { readFile } from 'node:fs/promises';
+import type { CommerceCatalogConfig } from '../../config';
 import {
   buildSearchDocumentEmbeddingText,
   hashEmbeddingText,
@@ -141,7 +141,18 @@ export class OpenAIEmbeddingBatchBackfillService {
 
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: Pick<
+      CommerceCatalogConfig,
+      | 'OPENAI_API_KEY'
+      | 'OPENAI_BASE_URL'
+      | 'OPENAI_TIMEOUT_MS'
+      | 'CATALOG_ID'
+      | 'EMBEDDING_MODEL'
+      | 'EMBEDDING_DIMENSION'
+      | 'OPENAI_EMBEDDING_MAX_INPUT_CHARS'
+      | 'CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS'
+      | 'CATALOG_EMBEDDING_BATCH_MAX_ACTIVE_JOBS'
+    >,
     private readonly embeddingService: SearchEmbeddingService,
     private readonly embeddingWorkItems: EmbeddingWorkItemService,
   ) {

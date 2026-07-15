@@ -1,5 +1,4 @@
 import postgres from 'postgres';
-import { loadConfig } from '@ocp-catalog/config';
 
 export type AdvisoryLockResult<T> =
   | {
@@ -18,7 +17,7 @@ export class PostgresAdvisoryLockService implements AdvisoryLockService {
   private readonly sql: postgres.Sql;
   private readonly locallyHeldLocks = new Set<string>();
 
-  constructor(databaseUrl = loadConfig().DATABASE_URL) {
+  constructor(databaseUrl: string) {
     this.sql = postgres(databaseUrl, { max: 1 });
   }
 

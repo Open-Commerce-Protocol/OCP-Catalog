@@ -5,11 +5,11 @@ import {
 } from '@ocp-catalog/catalog-core';
 import { createActivityDb } from '@ocp-catalog/activity-db';
 import { createCatalogDb } from '@ocp-catalog/catalog-db';
-import { loadConfig } from '@ocp-catalog/config';
 import { PostgresAdvisoryLockService } from '@ocp-catalog/db';
 import { ActivityEventService } from '@ocp-catalog/ocp-activity-core';
 import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { createCommerceCatalogScenario } from '../commerce-scenario';
+import { loadCommerceCatalogConfig, toCatalogCoreConfig } from '../config';
 import { createCommerceEmbeddingProvider } from '../embedding-provider';
 import { CommerceQueryService } from '../query/commerce-query-service';
 import { SearchDocumentUpsertService } from '../search/indexing/document-upsert-service';
@@ -31,7 +31,7 @@ export type CommerceCatalogRuntimeContextOptions = {
 };
 
 function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions = {}) {
-  const config = loadConfig();
+  const config = loadCommerceCatalogConfig();
   const db = createCatalogDb(config.DATABASE_URL, {
     maxConnections: options.databasePoolMax ?? config.DATABASE_POOL_MAX,
   });
@@ -43,7 +43,7 @@ function createBaseRuntimeContext(options: CommerceCatalogRuntimeContextOptions 
   const commerceCatalogScenario = createCommerceCatalogScenario({
     semanticSearchEnabled: true,
   });
-  const services = createCatalogServices(db, config, commerceCatalogScenario);
+  const services = createCatalogServices(db, toCatalogCoreConfig(config), commerceCatalogScenario);
   const vectorIndexProfile = {
     vectorProviderId: config.CATALOG_VECTOR_INDEX_PROVIDER === 'opensearch'
       ? 'opensearch-knn'
@@ -181,5 +181,5 @@ function isWritableTextIndex(value: unknown): value is WritableTextSearchIndexAd
 }
 
 export function buildCurrentCatalogManifest(context: CommerceCatalogApiRuntimeContext) {
-  return buildCatalogManifest(context.config, context.commerceCatalogScenario);
+  return buildCatalogManifest(toCatalogCoreConfig(context.config), context.commerceCatalogScenario);
 }

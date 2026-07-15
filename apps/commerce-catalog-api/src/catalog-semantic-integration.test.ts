@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { createHash } from 'node:crypto';
 import postgres from 'postgres';
-import { loadConfig } from '@ocp-catalog/config';
+import { loadCommerceCatalogConfig, toCatalogCoreConfig } from './config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
 import { createCatalogDb } from '@ocp-catalog/catalog-db';
 import { createCommerceCatalogScenario } from './commerce-scenario';
@@ -12,7 +12,7 @@ import { CatalogSemanticRetrievalService, type CatalogSemanticRetriever } from '
 import { PostgresLocalVectorIndexAdapter } from './search/retrieval/postgres-local-vector-index-adapter';
 import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
-const baseConfig = loadConfig();
+const baseConfig = loadCommerceCatalogConfig();
 const db = createCatalogDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: true });
@@ -323,7 +323,7 @@ const localVectorIndex = new PostgresLocalVectorIndexAdapter(db, {
 });
 const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
 const searchEmbeddingService = new SearchEmbeddingService(db, embeddingProvider);
-const services = createCatalogServices(db, baseConfig, scenario);
+    const services = createCatalogServices(db, toCatalogCoreConfig(baseConfig), scenario);
 const commerceQueryService = new CommerceQueryService(
   db,
   baseConfig,

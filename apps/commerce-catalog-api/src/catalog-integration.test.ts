@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import postgres from 'postgres';
-import { loadConfig, type AppConfig } from '@ocp-catalog/config';
+import { loadCommerceCatalogConfig, toCatalogCoreConfig } from './config';
 import { createCatalogServices } from '@ocp-catalog/catalog-core';
 import { createCatalogDb, catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import { and, eq } from 'drizzle-orm';
@@ -9,11 +9,11 @@ import { CommerceQueryService } from './query/commerce-query-service';
 import { SearchDocumentUpsertService } from './search/indexing/document-upsert-service';
 import { assertIntegrationDatabaseReady, integrationPostgresOptions } from './test/integration-db';
 
-const baseConfig = loadConfig();
+const baseConfig = loadCommerceCatalogConfig();
 const db = createCatalogDb(baseConfig.DATABASE_URL);
 const sql = postgres(baseConfig.DATABASE_URL, integrationPostgresOptions);
 const scenario = createCommerceCatalogScenario({ semanticSearchEnabled: false });
-const services = createCatalogServices(db, baseConfig, scenario);
+const services = createCatalogServices(db, toCatalogCoreConfig(baseConfig), scenario);
 const searchDocumentUpsertService = new SearchDocumentUpsertService(db);
 const commerceQueryService = new CommerceQueryService(db, baseConfig, scenario);
 
@@ -37,10 +37,12 @@ describe('commerce catalog integration', () => {
 
   test('registers provider, syncs products, queries ranked results, resolves entry, and reports provider quality', async () => {
     const registration = buildRegistration({
-      ...baseConfig,
-      COMMERCE_PROVIDER_ID: providerId,
-      COMMERCE_PROVIDER_NAME: 'Integration Test Provider',
-      COMMERCE_PROVIDER_CONTACT_EMAIL: 'itest@example.test',
+      catalogId: baseConfig.CATALOG_ID,
+      providerId,
+      providerName: 'Integration Test Provider',
+      providerBaseUrl: 'https://provider.example',
+      providerContactEmail: 'itest@example.test',
+      providerDomain: 'provider.example',
     });
 
     const registrationResult = await services.registrations.register(registration);
@@ -408,21 +410,30 @@ async function cleanupProviderData(providerId: string, queryText: string) {
   await sql`delete from commercial_objects where provider_id = ${providerId}`;
 }
 
-function buildRegistration(config: AppConfig) {
+type TestProviderRegistrationConfig = {
+  catalogId: string;
+  providerId: string;
+  providerName: string;
+  providerBaseUrl: string;
+  providerContactEmail: string;
+  providerDomain: string;
+};
+
+function buildRegistration(config: TestProviderRegistrationConfig) {
   return {
     ocp_version: '1.0' as const,
     kind: 'ProviderRegistration' as const,
-    id: `reg_${config.COMMERCE_PROVIDER_ID}_1`,
-    catalog_id: config.CATALOG_ID,
+    id: `reg_${config.providerId}_1`,
+    catalog_id: config.catalogId,
     registration_version: 1,
     updated_at: new Date().toISOString(),
     provider: {
-      provider_id: config.COMMERCE_PROVIDER_ID,
+      provider_id: config.providerId,
       entity_type: 'merchant' as const,
-      display_name: config.COMMERCE_PROVIDER_NAME,
-      homepage: config.PROVIDER_PUBLIC_BASE_URL,
-      contact_email: config.COMMERCE_PROVIDER_CONTACT_EMAIL,
-      domains: [config.COMMERCE_PROVIDER_DOMAIN],
+      display_name: config.providerName,
+      homepage: config.providerBaseUrl,
+      contact_email: config.providerContactEmail,
+      domains: [config.providerDomain],
     },
     object_declarations: [
       {

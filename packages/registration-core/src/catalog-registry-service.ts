@@ -1,4 +1,3 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { RegistrationDb as Db } from '@ocp-catalog/registration-db';
 import { registrationSchema as schema } from '@ocp-catalog/registration-db';
 import { catalogHealthResponseSchema, catalogManifestSchema, type CatalogManifest } from '@ocp-catalog/ocp-schema';
@@ -32,6 +31,7 @@ import {
   supportsResolve,
   contentLanguages,
 } from './projection';
+import type { RegistrationRegistryConfig } from './config';
 import { hashCatalogToken, issueCatalogToken, verifyCatalogToken } from './tokens';
 
 export type RequestMeta = {
@@ -44,13 +44,13 @@ export type RequestMeta = {
 export class CatalogRegistryService {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: RegistrationRegistryConfig,
   ) {}
 
   async register(input: unknown, meta: RequestMeta = {}): Promise<CatalogRegistrationResult> {
     const registration = catalogRegistrationSchema.parse(input);
-    if (registration.registration_id !== this.config.REGISTRATION_ID) {
-      throw new AppError('validation_error', `registration_id must be ${this.config.REGISTRATION_ID}`, 400);
+    if (registration.registration_id !== this.config.registrationId) {
+      throw new AppError('validation_error', `registration_id must be ${this.config.registrationId}`, 400);
     }
 
     const active = await this.findRegisteredCatalog(registration.catalog_id);
@@ -59,7 +59,7 @@ export class CatalogRegistryService {
         ocp_version: '1.0',
         kind: 'CatalogRegistrationResult',
         id: newId('catregres'),
-        registration_id: this.config.REGISTRATION_ID,
+        registration_id: this.config.registrationId,
         catalog_id: registration.catalog_id,
         status: 'stale_ignored',
         effective_registration_version: active.activeRegistrationVersion,
@@ -94,7 +94,7 @@ export class CatalogRegistryService {
       ocp_version: '1.0',
       kind: 'CatalogRegistrationResult',
       id: newId('catregres'),
-      registration_id: this.config.REGISTRATION_ID,
+      registration_id: this.config.registrationId,
       catalog_id: registration.catalog_id,
       status,
       effective_registration_version: registration.registration_version,
@@ -114,7 +114,7 @@ export class CatalogRegistryService {
     const snapshotId = newId('catsnap');
     await this.db.insert(schema.catalogManifestSnapshots).values({
       id: snapshotId,
-      registrationId: this.config.REGISTRATION_ID,
+      registrationId: this.config.registrationId,
       catalogId: registration.catalog_id,
       catalogRegistrationId: registrationRecord.id,
       manifestUrl,
@@ -131,7 +131,7 @@ export class CatalogRegistryService {
       .insert(schema.registeredCatalogs)
       .values({
         id: newId('regcat'),
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId: registration.catalog_id,
         activeRegistrationId: registrationRecord.id,
         activeRegistrationVersion: registration.registration_version,
@@ -194,7 +194,7 @@ export class CatalogRegistryService {
         updatedAt: new Date(),
       })
       .where(and(
-        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.registrationId, this.config.registrationId),
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
@@ -204,7 +204,7 @@ export class CatalogRegistryService {
       ocp_version: '1.0',
       kind: 'CatalogVerificationResult',
       id: newId('catverres'),
-      registration_id: this.config.REGISTRATION_ID,
+      registration_id: this.config.registrationId,
       catalog_id: catalogId,
       verification_status: 'not_required',
       indexed: Boolean(catalog.activeSnapshotId) && isCatalogIndexVisible(entryStatus),
@@ -227,7 +227,7 @@ export class CatalogRegistryService {
       .select()
       .from(schema.registeredCatalogs)
       .where(and(
-        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.registrationId, this.config.registrationId),
         eq(schema.registeredCatalogs.status, 'accepted_indexed'),
       ));
 
@@ -265,7 +265,7 @@ export class CatalogRegistryService {
         updatedAt: new Date(),
       })
       .where(and(
-        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.registrationId, this.config.registrationId),
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
@@ -273,7 +273,7 @@ export class CatalogRegistryService {
       ocp_version: '1.0',
       kind: 'CatalogTokenRotationResult',
       id: newId('cattoken'),
-      registration_id: this.config.REGISTRATION_ID,
+      registration_id: this.config.registrationId,
       catalog_id: catalogId,
       catalog_access_token: token,
       token_issued_at: issuedAt.toISOString(),
@@ -286,7 +286,7 @@ export class CatalogRegistryService {
       .select()
       .from(schema.catalogIndexEntries)
       .where(and(
-        eq(schema.catalogIndexEntries.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.catalogIndexEntries.registrationId, this.config.registrationId),
         eq(schema.catalogIndexEntries.entryStatus, 'active'),
       ));
 
@@ -318,7 +318,7 @@ export class CatalogRegistryService {
 
     await this.db.insert(schema.catalogSearchAuditRecords).values({
       id: newId('cataudit'),
-      registrationId: this.config.REGISTRATION_ID,
+      registrationId: this.config.registrationId,
       requestPayload: request as unknown as Record<string, unknown>,
       resultCount: items.length,
       requesterKeyHash: meta.requesterKey ? hashText(meta.requesterKey) : null,
@@ -328,7 +328,7 @@ export class CatalogRegistryService {
       ocp_version: '1.0',
       kind: 'CatalogSearchResult',
       id: newId('catsearch'),
-      registration_id: this.config.REGISTRATION_ID,
+      registration_id: this.config.registrationId,
       result_count: items.length,
       items,
       explain: request.explain
@@ -343,7 +343,7 @@ export class CatalogRegistryService {
       .select()
       .from(schema.catalogIndexEntries)
       .where(and(
-        eq(schema.catalogIndexEntries.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.catalogIndexEntries.registrationId, this.config.registrationId),
         eq(schema.catalogIndexEntries.catalogId, request.catalog_id),
         eq(schema.catalogIndexEntries.entryStatus, 'active'),
       ))
@@ -376,7 +376,7 @@ export class CatalogRegistryService {
       .select()
       .from(schema.catalogHealthChecks)
       .where(and(
-        eq(schema.catalogHealthChecks.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.catalogHealthChecks.registrationId, this.config.registrationId),
         eq(schema.catalogHealthChecks.catalogId, catalogId),
       ));
   }
@@ -404,7 +404,7 @@ export class CatalogRegistryService {
 
     await this.db.insert(schema.catalogManifestSnapshots).values({
       id: snapshotId,
-      registrationId: this.config.REGISTRATION_ID,
+      registrationId: this.config.registrationId,
       catalogId,
       catalogRegistrationId: catalog.activeRegistrationId ?? registration.id,
       manifestUrl,
@@ -427,7 +427,7 @@ export class CatalogRegistryService {
         updatedAt: new Date(),
       })
       .where(and(
-        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.registrationId, this.config.registrationId),
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
 
@@ -440,7 +440,7 @@ export class CatalogRegistryService {
       ocp_version: '1.0',
       kind: 'CatalogRefreshResult',
       id: newId('catrefresh'),
-      registration_id: this.config.REGISTRATION_ID,
+      registration_id: this.config.registrationId,
       catalog_id: catalogId,
       status: 'refreshed',
       snapshot_id: snapshotId,
@@ -457,7 +457,7 @@ export class CatalogRegistryService {
       .select()
       .from(schema.catalogVerificationRecords)
       .where(and(
-        eq(schema.catalogVerificationRecords.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.catalogVerificationRecords.registrationId, this.config.registrationId),
         eq(schema.catalogVerificationRecords.catalogId, catalogId),
       ));
   }
@@ -502,7 +502,7 @@ export class CatalogRegistryService {
         updatedAt: new Date(),
       })
       .where(and(
-        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.registrationId, this.config.registrationId),
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ));
     const projection = buildCatalogSearchProjection(registration, manifest, verificationStatus, trustTier, health.status);
@@ -515,7 +515,7 @@ export class CatalogRegistryService {
       .select()
       .from(schema.registeredCatalogs)
       .where(and(
-        eq(schema.registeredCatalogs.registrationId, this.config.REGISTRATION_ID),
+        eq(schema.registeredCatalogs.registrationId, this.config.registrationId),
         eq(schema.registeredCatalogs.catalogId, catalogId),
       ))
       .limit(1);
@@ -527,7 +527,7 @@ export class CatalogRegistryService {
       .insert(schema.catalogRegistrationRecords)
       .values({
         id: registration.id,
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId: registration.catalog_id,
         registrationVersion: registration.registration_version,
         status: result.status,
@@ -568,7 +568,7 @@ export class CatalogRegistryService {
       const response = await fetch(healthUrl, {
         method: 'GET',
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(this.config.REGISTRATION_HEALTH_CHECK_TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.config.healthCheckTimeoutMs),
       });
       const latencyMs = Date.now() - started;
       const payload = await response.json().catch(() => null);
@@ -585,7 +585,7 @@ export class CatalogRegistryService {
         : `${response.status} ${response.statusText}`;
       await this.db.insert(schema.catalogHealthChecks).values({
         id: newId('cathealth'),
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId,
         checkedUrl: healthUrl,
         checkType: 'health_endpoint',
@@ -599,7 +599,7 @@ export class CatalogRegistryService {
       const latencyMs = Date.now() - started;
       await this.db.insert(schema.catalogHealthChecks).values({
         id: newId('cathealth'),
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId,
         checkedUrl: healthUrl,
         checkType: 'health_endpoint',
@@ -618,13 +618,13 @@ export class CatalogRegistryService {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ query: '', limit: 1, explain: false }),
-        signal: AbortSignal.timeout(this.config.REGISTRATION_HEALTH_CHECK_TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.config.healthCheckTimeoutMs),
       });
       const latencyMs = Date.now() - started;
       const status = response.ok ? 'healthy' : 'unhealthy';
       await this.db.insert(schema.catalogHealthChecks).values({
         id: newId('cathealth'),
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId,
         checkedUrl: queryUrl,
         checkType: 'query_probe',
@@ -636,7 +636,7 @@ export class CatalogRegistryService {
     } catch (error) {
       await this.db.insert(schema.catalogHealthChecks).values({
         id: newId('cathealth'),
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId,
         checkedUrl: queryUrl,
         checkType: 'query_probe',
@@ -659,7 +659,7 @@ export class CatalogRegistryService {
     return catalogIndexEntryStatus(
       healthStatus,
       healthFailureCount,
-      this.config.REGISTRATION_HEALTH_FAILURE_STALE_THRESHOLD,
+      this.config.healthFailureStaleThreshold,
     );
   }
 
@@ -679,7 +679,7 @@ export class CatalogRegistryService {
       .insert(schema.catalogIndexEntries)
       .values({
         id: newId('catidx'),
-        registrationId: this.config.REGISTRATION_ID,
+        registrationId: this.config.registrationId,
         catalogId: registration.catalog_id,
         activeSnapshotId: snapshotId,
         entryStatus,

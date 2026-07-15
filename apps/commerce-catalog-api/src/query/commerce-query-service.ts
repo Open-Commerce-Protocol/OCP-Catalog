@@ -1,4 +1,3 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogScenarioModule } from '@ocp-catalog/catalog-core';
 import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
@@ -12,6 +11,7 @@ import {
 import { AppError, newId } from '@ocp-catalog/shared';
 import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm';
 import { createHash } from 'node:crypto';
+import type { CommerceCatalogConfig } from '../config';
 import type { CatalogSemanticRetriever } from '../search/retrieval/catalog-semantic-retrieval-service';
 import type { TextIndexStoredDocument } from '../search/retrieval/vector-index-adapter';
 import { planCommerceQuery } from './commerce-query-planner';
@@ -38,7 +38,7 @@ export type CommerceQueryMeta = {
 export class CommerceQueryService {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: Pick<CommerceCatalogConfig, 'CATALOG_ID'>,
     private readonly scenario: CatalogScenarioModule,
     private readonly retrieval?: CatalogSemanticRetriever,
   ) {}

@@ -72,7 +72,7 @@ function createOcpClientOptions(config: McpGatewayConfig): OcpClientOptions {
     userAgent: config.OCP_MCP_USER_AGENT,
     activity: {
       apiUrl: optionalConfigString(config.OCP_ACTIVITY_PUBLIC_BASE_URL),
-      apiKey: optionalConfigString(config.OCP_ACTIVITY_API_KEY) ?? optionalConfigString(config.API_KEY_DEV),
+      apiKey: optionalConfigString(config.OCP_ACTIVITY_API_KEY),
       sourceKind: 'mcp_gateway',
       clientKind: 'mcp',
       sourceName: 'ocp-mcp-server',

@@ -1,18 +1,18 @@
 import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
 import { requireApiKey } from '@ocp-catalog/auth-core';
-import { loadConfig } from '@ocp-catalog/config';
 import { createProviderDemoDb } from '@ocp-catalog/provider-demo-db';
 import { AppError, createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { Elysia } from 'elysia';
 import { ZodError } from 'zod';
 import { CatalogClient } from './catalog-client';
+import { loadCommerceProviderConfig } from './config';
 import { demoProducts } from './demo-products';
 import { productCreateSchema, productPatchSchema, syncRequestSchema } from './product-schema';
 import { ProductRepository } from './product-repository';
 import { ProviderService } from './provider-service';
 
-const config = loadConfig();
+const config = loadCommerceProviderConfig();
 const db = createProviderDemoDb(config.DATABASE_URL);
 const products = new ProductRepository(db, config);
 const provider = new ProviderService(db, config, products, new CatalogClient(config));

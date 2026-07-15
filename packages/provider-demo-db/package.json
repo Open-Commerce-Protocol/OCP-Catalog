@@ -15,7 +15,6 @@
     "generate": "drizzle-kit generate --config drizzle.config.ts"
   },
   "dependencies": {
-    "@ocp-catalog/config": "workspace:*",
     "@ocp-catalog/db": "workspace:*",
     "drizzle-orm": "^0.44.7"
   },

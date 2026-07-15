@@ -1,28 +1,13 @@
+import { loadEnv, runtimeBoolean, type LoadEnvOptions } from '@ocp-catalog/config';
+import type { CatalogCoreConfig } from '@ocp-catalog/catalog-core';
 import { z } from 'zod';
 
-const runtimeBoolean = z.union([
-  z.boolean(),
-  z.enum(['true', '1', 'false', '0']).transform((value) => value === 'true' || value === '1'),
-]);
-
-export const envSchema = z.object({
-  DATABASE_URL: z.string().default('postgres://ocp:ocp@localhost:5432/ocp_catalog'),
+export const commerceCatalogConfigSchema = z.object({
+  DATABASE_URL: z.string().min(1),
   DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(10),
   CATALOG_WORKER_DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(200).default(4),
-  CATALOG_API_PORT: z.coerce.number().default(4000),
-  CATALOG_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4000'),
-  PROVIDER_API_PORT: z.coerce.number().default(4200),
-  PROVIDER_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4200'),
-  USER_DEMO_API_PORT: z.coerce.number().default(4230),
-  OCP_SITE_PORT: z.coerce.number().default(5173),
-  REGISTRATION_API_PORT: z.coerce.number().default(4100),
-  REGISTRATION_ADMIN_UI_PORT: z.coerce.number().default(4250),
-  REGISTRATION_PUBLIC_BASE_URL: z.string().url().default('https://ocp.deeplumen.io/registry'),
-  REGISTRATION_DISCOVERY_URL: z.string().url().default('https://ocp.deeplumen.io/.well-known/ocp-registration'),
-  REGISTRATION_REFRESH_SCHEDULER_ENABLED: runtimeBoolean.default(true),
-  REGISTRATION_REFRESH_INTERVAL_SECONDS: z.coerce.number().int().min(30).default(300),
-  REGISTRATION_HEALTH_CHECK_TIMEOUT_MS: z.coerce.number().int().min(100).default(5000),
-  REGISTRATION_HEALTH_FAILURE_STALE_THRESHOLD: z.coerce.number().int().min(1).default(3),
+  CATALOG_API_PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+  CATALOG_PUBLIC_BASE_URL: z.string().url(),
   CATALOG_SEARCH_INDEX_WORKER_ENABLED: runtimeBoolean.default(true),
   CATALOG_SEARCH_INDEX_WORKER_INTERVAL_SECONDS: z.coerce.number().int().min(5).default(30),
   CATALOG_SEARCH_INDEX_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(200).default(25),
@@ -42,24 +27,17 @@ export const envSchema = z.object({
   CATALOG_EMBEDDING_BATCH_WORKER_INGEST_LIMIT: z.coerce.number().int().min(1).max(50000).default(5000),
   CATALOG_EMBEDDING_BATCH_MAX_ACTIVE_JOBS: z.coerce.number().int().min(1).max(100).default(2),
   CATALOG_PROVIDER_THROTTLE_ENABLED: runtimeBoolean.default(true),
-  CATALOG_PROVIDER_THROTTLE_PENDING_JOB_LIMIT: z.coerce.number().int().min(0).default(50000),
-  CATALOG_PROVIDER_THROTTLE_RUNNING_JOB_LIMIT: z.coerce.number().int().min(0).default(5000),
-  CATALOG_PROVIDER_THROTTLE_FAILED_JOB_LIMIT: z.coerce.number().int().min(0).default(10000),
   QUERY_EMBEDDING_CACHE_REDIS_URL: z.string().default(''),
   QUERY_EMBEDDING_CACHE_TTL_SECONDS: z.coerce.number().int().min(1).default(600),
   QUERY_EMBEDDING_CACHE_MAX_ENTRIES: z.coerce.number().int().min(1).default(5000),
-  API_KEY_DEV: z.string().default('dev-api-key'),
+  API_KEY_DEV: z.string().min(1),
   API_KEYS: z.string().default(''),
-  CATALOG_ADMIN_API_KEY: z.string().default('dev-admin-key'),
+  CATALOG_ADMIN_API_KEY: z.string().min(1),
   CATALOG_ADMIN_API_KEYS: z.string().default(''),
-  CATALOG_ID: z.string().default('cat_local_dev'),
-  CATALOG_NAME: z.string().default('Commerce Product Search Catalog'),
-  COMMERCE_PROVIDER_ID: z.string().default('commerce_provider_local_dev'),
-  COMMERCE_PROVIDER_NAME: z.string().default('Local Commerce Provider'),
-  COMMERCE_PROVIDER_CONTACT_EMAIL: z.string().email().default('ops@example.test'),
-  COMMERCE_PROVIDER_DOMAIN: z.string().default('localhost'),
+  CATALOG_ID: z.string().min(1),
+  CATALOG_NAME: z.string().min(1),
   REGISTRATION_ID: z.string().default('ocp_registry_public'),
-  REGISTRATION_NAME: z.string().default('Open Commerce Protocol Registry'),
+  REGISTRATION_PUBLIC_BASE_URL: z.string().url().default('https://ocp.deeplumen.io/registry'),
   EMBEDDING_MODEL: z.string().default('local-hash-v1'),
   EMBEDDING_DIMENSION: z.coerce.number().int().min(1).default(64),
   CATALOG_VECTOR_INDEX_PROVIDER: z.enum(['postgres', 'opensearch']).default('postgres'),
@@ -71,22 +49,26 @@ export const envSchema = z.object({
   OPENSEARCH_KNN_ENGINE: z.enum(['lucene', 'faiss']).default('lucene'),
   OPENSEARCH_KNN_M: z.coerce.number().int().min(2).max(2048).default(16),
   OPENSEARCH_KNN_EF_CONSTRUCTION: z.coerce.number().int().min(4).max(4096).default(128),
-  USER_DEMO_AGENT_MODEL: z.string().default('qwen-plus'),
   OPENAI_API_KEY: z.string().default(''),
   OPENAI_BASE_URL: z.string().url().default('https://api.openai.com/v1'),
   OPENAI_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30000),
   OPENAI_EMBEDDING_MAX_INPUT_CHARS: z.coerce.number().int().min(100).default(12000),
-  OCP_MCP_DEFAULT_REGISTRATION_URL: z.string().url().default('https://ocp.deeplumen.io/registry'),
-  OCP_MCP_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).default(10000),
-  OCP_MCP_USER_AGENT: z.string().default('ocp-mcp-server/0.1.0'),
-  OCP_MCP_API_KEY: z.string().default(''),
-  OCP_MCP_HTTP_PORT: z.coerce.number().int().min(1).max(65535).default(4300),
-  OCP_MCP_HTTP_PATH: z.string().regex(/^\/[A-Za-z0-9._~/-]*$/).default('/mcp'),
-  OCP_ACTIVITY_API_PORT: z.coerce.number().int().min(1).max(65535).default(4400),
-  OCP_ACTIVITY_PUBLIC_BASE_URL: z.string().url().default('http://localhost:4400'),
-  OCP_ACTIVITY_API_KEY: z.string().default(''),
-  OCP_MCP_SKILL_GATEWAY_URL: z.string().url().default('http://localhost:4330'),
-  OCP_MCP_SKILL_GATEWAY_KEY: z.string().default(''),
 });
 
-export type AppConfig = z.infer<typeof envSchema>;
+export type CommerceCatalogConfig = z.infer<typeof commerceCatalogConfigSchema>;
+
+export function loadCommerceCatalogConfig(
+  env: Record<string, string | undefined> = process.env,
+  options: LoadEnvOptions = {},
+): CommerceCatalogConfig {
+  return commerceCatalogConfigSchema.parse(loadEnv(env, options));
+}
+
+export function toCatalogCoreConfig(config: CommerceCatalogConfig): CatalogCoreConfig {
+  return {
+    catalogId: config.CATALOG_ID,
+    catalogName: config.CATALOG_NAME,
+    publicBaseUrl: config.CATALOG_PUBLIC_BASE_URL,
+    providerThrottleEnabled: config.CATALOG_PROVIDER_THROTTLE_ENABLED,
+  };
+}

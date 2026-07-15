@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { AppConfig } from '@ocp-catalog/config';
+import type { CommerceCatalogConfig } from '../../config';
 import { catalogSchema as schema, type CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import type { SearchEmbeddingService } from './search-embedding-service';
 import type { EmbeddingWorkItemService } from './embedding-work-item-service';
@@ -994,7 +994,7 @@ function testConfig() {
     EMBEDDING_DIMENSION: 1536,
     OPENAI_EMBEDDING_MAX_INPUT_CHARS: 1000,
     CATALOG_SEARCH_INDEX_RETRY_BASE_DELAY_MS: 1000,
-  } as AppConfig;
+  } as CommerceCatalogConfig;
 }
 
 function searchDocument(input: { id: string; title?: string }) {

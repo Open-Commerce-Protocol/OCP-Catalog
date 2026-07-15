@@ -1,4 +1,3 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import {
@@ -8,6 +7,7 @@ import {
 import { AppError, newId, nowIso } from '@ocp-catalog/shared';
 import { and, eq } from 'drizzle-orm';
 import { asProjection, visibleAttributes } from './projection';
+import type { CatalogIdentityConfig } from './config';
 import type { CatalogScenarioModule, ResolveContext } from './scenario';
 
 const REFERENCE_TTL_MS = 15 * 60 * 1000;
@@ -15,15 +15,15 @@ const REFERENCE_TTL_MS = 15 * 60 * 1000;
 export class ResolveService {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: CatalogIdentityConfig,
     private readonly scenario: CatalogScenarioModule,
   ) {}
 
   async resolve(input: unknown): Promise<ResolvableReference> {
     const request = resolveRequestSchema.parse(input);
-    const catalogId = request.catalog_id ?? this.config.CATALOG_ID;
-    if (catalogId !== this.config.CATALOG_ID) {
-      throw new AppError('validation_error', `catalog_id must be ${this.config.CATALOG_ID}`, 400);
+    const catalogId = request.catalog_id ?? this.config.catalogId;
+    if (catalogId !== this.config.catalogId) {
+      throw new AppError('validation_error', `catalog_id must be ${this.config.catalogId}`, 400);
     }
 
     const [row] = await this.db

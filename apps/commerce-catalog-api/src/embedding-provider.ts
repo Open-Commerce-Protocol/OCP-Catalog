@@ -1,8 +1,8 @@
-import type { AppConfig } from '@ocp-catalog/config';
+import type { CommerceCatalogConfig } from './config';
 import type { EmbeddingProvider, EmbeddingResult } from './search/indexing/search-embedding-service';
 import { createHash } from 'node:crypto';
 
-export function createCommerceEmbeddingProvider(config: AppConfig): EmbeddingProvider {
+export function createCommerceEmbeddingProvider(config: CommerceCatalogConfig): EmbeddingProvider {
   if (!config.OPENAI_API_KEY) {
     return new LocalHashEmbeddingProvider(config.EMBEDDING_MODEL, config.EMBEDDING_DIMENSION);
   }

@@ -1,16 +1,16 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import { catalogManifestSchema, type CatalogDataProfile, type CatalogManifest } from '@ocp-catalog/ocp-schema';
+import type { CatalogIdentityConfig } from './config';
 import type { CatalogScenarioModule } from './scenario';
 import { defaultProviderFieldRules, defaultProviderSyncCapabilities } from './scenario';
 
-export function buildWellKnownDiscovery(config: AppConfig) {
-  const baseUrl = config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '');
+export function buildWellKnownDiscovery(config: CatalogIdentityConfig) {
+  const baseUrl = config.publicBaseUrl.replace(/\/$/, '');
 
   return {
     ocp_version: '1.0',
     kind: 'WellKnownCatalogDiscovery',
-    catalog_id: config.CATALOG_ID,
-    catalog_name: config.CATALOG_NAME,
+    catalog_id: config.catalogId,
+    catalog_name: config.catalogName,
     handshake_package: 'ocp.catalog.handshake.v1',
     handshake_package_version: '1.0.0',
     manifest_url: `${baseUrl}/ocp/manifest`,
@@ -31,18 +31,18 @@ export type BuildCatalogManifestOptions = {
 };
 
 export function buildCatalogManifest(
-  config: AppConfig,
+  config: CatalogIdentityConfig,
   scenario: CatalogScenarioModule,
   options: BuildCatalogManifestOptions = {},
 ): CatalogManifest {
-  const baseUrl = config.CATALOG_PUBLIC_BASE_URL.replace(/\/$/, '');
+  const baseUrl = config.publicBaseUrl.replace(/\/$/, '');
   const objectContracts = scenario.objectContracts();
   const manifest: CatalogManifest = {
     ocp_version: '1.0',
     kind: 'CatalogManifest',
-    id: `manifest_${config.CATALOG_ID}`,
-    catalog_id: config.CATALOG_ID,
-    catalog_name: config.CATALOG_NAME,
+    id: `manifest_${config.catalogId}`,
+    catalog_id: config.catalogId,
+    catalog_name: config.catalogName,
     description: scenario.description ?? 'Protocol-first OCP Catalog node.',
     registry_visibility: scenario.registryVisibility ?? 'public',
     endpoints: {

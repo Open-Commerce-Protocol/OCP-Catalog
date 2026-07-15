@@ -10,6 +10,7 @@ import { AppError } from '@ocp-catalog/shared';
 import { and, eq, sql } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import type { CommerceCatalogRuntimeContext } from '../../runtime/context';
+import { toCatalogCoreConfig } from '../../config';
 import { firstHeader } from '../request-context';
 
 const DATA_PROFILE_CACHE_TTL_MS = 60_000;
@@ -33,13 +34,13 @@ export function protocolRoutes(context: CommerceCatalogRuntimeContext) {
 
   return new Elysia()
     .get('/ocp/health', async () => getCatalogHealth())
-    .get('/.well-known/ocp-catalog', () => buildWellKnownDiscovery(config))
+    .get('/.well-known/ocp-catalog', () => buildWellKnownDiscovery(toCatalogCoreConfig(config)))
     .get('/ocp/manifest', async () => {
       const dataProfile = await getCatalogDataProfile();
-      return buildCatalogManifest(config, commerceCatalogScenario, { dataProfile });
+      return buildCatalogManifest(toCatalogCoreConfig(config), commerceCatalogScenario, { dataProfile });
     })
     .get('/ocp/contracts', () => {
-      const contracts = buildCatalogManifest(config, commerceCatalogScenario).object_contracts;
+      const contracts = buildCatalogManifest(toCatalogCoreConfig(config), commerceCatalogScenario).object_contracts;
 
       return {
         ocp_version: '1.0',

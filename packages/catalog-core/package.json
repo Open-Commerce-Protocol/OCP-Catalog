@@ -28,7 +28,6 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@ocp-catalog/config": "workspace:*",
     "@ocp-catalog/catalog-db": "workspace:*",
     "@ocp-catalog/ocp-schema": "workspace:*",
     "@ocp-catalog/shared": "workspace:*",

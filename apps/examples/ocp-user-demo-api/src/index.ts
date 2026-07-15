@@ -1,13 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { cors } from '@elysiajs/cors';
-import { loadConfig } from '@ocp-catalog/config';
 import { Elysia } from 'elysia';
 import { createSpaStaticSiteHandler } from '@ocp-catalog/shared';
 import { ZodError } from 'zod';
 import { UserDemoAgentService } from './agent-service';
+import { loadUserDemoApiConfig } from './config';
 import { AgentError } from './errors';
 
-const config = loadConfig();
+const config = loadUserDemoApiConfig();
 const agent = new UserDemoAgentService(config);
 const userDemoSite = createSpaStaticSiteHandler(fileURLToPath(new URL('../public/dist', import.meta.url)));
 

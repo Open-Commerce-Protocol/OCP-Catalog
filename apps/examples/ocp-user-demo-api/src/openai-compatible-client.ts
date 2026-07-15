@@ -1,4 +1,4 @@
-import type { AppConfig } from '@ocp-catalog/config';
+import type { UserDemoApiConfig } from './config';
 import { AgentError } from './errors';
 
 export class OpenAiCompatibleClient {
@@ -6,7 +6,7 @@ export class OpenAiCompatibleClient {
   private readonly timeoutMs = 180000;
 
   constructor(
-    private readonly config: AppConfig,
+    private readonly config: Pick<UserDemoApiConfig, 'OPENAI_API_KEY' | 'OPENAI_BASE_URL'>,
     private readonly model: string,
   ) {
     this.baseUrl = config.OPENAI_BASE_URL.replace(/\/$/, '');

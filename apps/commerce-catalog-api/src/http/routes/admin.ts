@@ -5,6 +5,7 @@ import { AppError } from '@ocp-catalog/shared';
 import { and, desc, eq, lt, or, sql, type SQL } from 'drizzle-orm';
 import { Elysia } from 'elysia';
 import type { CommerceCatalogRuntimeContext } from '../../runtime/context';
+import { toCatalogCoreConfig } from '../../config';
 import { firstHeader } from '../request-context';
 
 type Db = CommerceCatalogRuntimeContext['db'];
@@ -177,7 +178,7 @@ async function getCatalogAdminOverview(context: CommerceCatalogRuntimeContext) {
     catalog_id: context.config.CATALOG_ID,
     catalog_name: context.config.CATALOG_NAME,
     semantic_search_enabled: true,
-    query_packs: buildCatalogManifest(context.config, context.commerceCatalogScenario).query_capabilities.flatMap((capability) => (
+    query_packs: buildCatalogManifest(toCatalogCoreConfig(context.config), context.commerceCatalogScenario).query_capabilities.flatMap((capability) => (
       capability.query_packs.map((pack) => pack.pack_id)
     )),
     metrics: {
