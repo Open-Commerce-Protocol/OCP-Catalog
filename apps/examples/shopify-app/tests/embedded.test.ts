@@ -12,6 +12,9 @@ describe('createEmbeddedRoutes', () => {
     const app = createEmbeddedRoutes({
       cfg: { SHOPIFY_APP_API_KEY: 'key' } as any,
       store: { get: async () => null } as any,
+      // No installation for the malicious shop → dashboard returns null →
+      // page renders the "not connected" branch with the shop escaped.
+      dashboard: { build: async () => null } as any,
     });
 
     const res = await app.handle(new Request('http://localhost/app?shop=%3Cscript%3Ealert(1)%3C/script%3E'));

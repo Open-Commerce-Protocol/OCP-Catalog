@@ -49,6 +49,8 @@ const app = new Elysia()
     events: await activity.listRecentPublicEvents(numberQuery(query.limit, 50)),
   }))
   .get('/api/activity/rollups', async ({ query }) => activity.getRollups(numberQuery(query.hours, 24)))
+  .get('/api/activity/providers/:providerId/rollups', async ({ params, query }) =>
+    activity.getProviderRollups(params.providerId, numberQuery(query.hours, 168)))
   .listen(config.OCP_ACTIVITY_API_PORT);
 
 console.log(`OCP Activity API listening on http://localhost:${app.server?.port}`);

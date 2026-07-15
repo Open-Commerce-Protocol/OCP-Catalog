@@ -56,6 +56,11 @@ const configSchema = z.object({
   SHOPIFY_APP_CATALOG_ID: z.string().min(1).default('cat_local_dev'),
   SHOPIFY_APP_CATALOG_API_KEY: z.string().min(1).default('dev-api-key'),
 
+  // ── OCP activity service (merchant dashboard metrics: views/resolves) ──
+  // Optional. If unset, the dashboard still renders P1 cards (sync/quality)
+  // and shows null for view/resolve counts.
+  SHOPIFY_APP_ACTIVITY_BASE_URL: optionalStringFromEnv,
+
   DATABASE_URL: z.string().default('postgres://ocp:ocp@localhost:5432/ocp_catalog'),
 });
 
