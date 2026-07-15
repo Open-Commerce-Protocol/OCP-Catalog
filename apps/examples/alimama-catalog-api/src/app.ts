@@ -21,10 +21,31 @@ export function createAlimamaCatalogApp(deps: AlimamaCatalogAppDeps) {
   const resolveCache = new MaterialResolveCache();
   const queryService = new AffiliateCatalogQueryService(deps.alimama, deps.cfg, resolveCache);
   const resolveService = new AffiliateCatalogResolveService(deps.alimama, deps.cfg, resolveCache);
+  const rootDescription = () => ({
+    service: 'alimama-catalog-api',
+    catalog_id: deps.cfg.ALIMAMA_CATALOG_ID,
+    catalog_name: deps.cfg.ALIMAMA_CATALOG_NAME,
+    endpoints: {
+      well_known: `${deps.cfg.ALIMAMA_CATALOG_PUBLIC_BASE_URL}/.well-known/ocp-catalog`,
+      manifest: `${deps.cfg.ALIMAMA_CATALOG_PUBLIC_BASE_URL}/ocp/manifest`,
+      health: `${deps.cfg.ALIMAMA_CATALOG_PUBLIC_BASE_URL}/ocp/health`,
+      query: `${deps.cfg.ALIMAMA_CATALOG_PUBLIC_BASE_URL}/ocp/query`,
+      resolve: `${deps.cfg.ALIMAMA_CATALOG_PUBLIC_BASE_URL}/ocp/resolve`,
+    },
+  });
 
   return new Elysia()
     .use(cors())
-    .onError(({ error, set }) => {
+    .onError(({ code, error, set }) => {
+      if (code === 'NOT_FOUND') {
+        set.status = 404;
+        return {
+          error: {
+            code: 'not_found',
+            message: 'Route not found',
+          },
+        };
+      }
       if (error instanceof ZodError) {
         set.status = 400;
         return {
@@ -54,6 +75,7 @@ export function createAlimamaCatalogApp(deps: AlimamaCatalogAppDeps) {
         },
       };
     })
+    .get('/', rootDescription)
     .get('/health', () => ({
       ok: true,
       service: 'alimama-catalog-api',

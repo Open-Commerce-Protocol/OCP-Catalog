@@ -22,10 +22,31 @@ export interface ShopifyCatalogAppDeps {
 export function createShopifyCatalogApp(deps: ShopifyCatalogAppDeps) {
   const queryService = new ShopifyCatalogQueryService(deps.shopify, deps.cfg);
   const resolveService = new ShopifyCatalogResolveService(deps.shopify, deps.cfg);
+  const rootDescription = () => ({
+    service: 'shopify-catalog-api',
+    catalog_id: deps.cfg.SHOPIFY_CATALOG_ID,
+    catalog_name: deps.cfg.SHOPIFY_CATALOG_NAME,
+    endpoints: {
+      well_known: `${deps.cfg.SHOPIFY_CATALOG_PUBLIC_BASE_URL}/.well-known/ocp-catalog`,
+      manifest: `${deps.cfg.SHOPIFY_CATALOG_PUBLIC_BASE_URL}/ocp/manifest`,
+      health: `${deps.cfg.SHOPIFY_CATALOG_PUBLIC_BASE_URL}/ocp/health`,
+      query: `${deps.cfg.SHOPIFY_CATALOG_PUBLIC_BASE_URL}/ocp/query`,
+      resolve: `${deps.cfg.SHOPIFY_CATALOG_PUBLIC_BASE_URL}/ocp/resolve`,
+    },
+  });
 
   return new Elysia()
     .use(cors())
-    .onError(({ error, set }) => {
+    .onError(({ code, error, set }) => {
+      if (code === 'NOT_FOUND') {
+        set.status = 404;
+        return {
+          error: {
+            code: 'not_found',
+            message: 'Route not found',
+          },
+        };
+      }
       if (error instanceof ZodError) {
         set.status = 400;
         return {
@@ -63,6 +84,7 @@ export function createShopifyCatalogApp(deps: ShopifyCatalogAppDeps) {
         },
       };
     })
+    .get('/', rootDescription)
     .get('/health', () => ({
       ok: true,
       service: 'shopify-catalog-api',
