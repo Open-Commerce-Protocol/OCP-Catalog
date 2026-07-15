@@ -1,4 +1,5 @@
 import { planCatalogQuery } from '@ocp-catalog/catalog-core';
+import { AppError } from '@ocp-catalog/shared';
 import { catalogQueryRequestSchema, type CatalogEntry } from '@ocp-catalog/ocp-schema';
 import type { AlimamaClient } from '../alimama/client';
 import type { AlimamaMaterialItem } from '../alimama/types';
@@ -20,9 +21,20 @@ export class AffiliateCatalogQueryService {
       retrievalAvailable: false,
     });
     const category = typeof request.filters.category === 'string' ? request.filters.category : undefined;
+    const keyword = request.query?.trim() || undefined;
+    // The Alimama/Taobao Union material API rejects a request whose q and cat are
+    // both empty ("参数q与cat不能都为空"). Guard here so a text-less keyword query
+    // surfaces as a clean 400 instead of an upstream-driven 500.
+    if (!keyword && !category) {
+      throw new AppError(
+        'validation_error',
+        'Alimama catalog requires a non-empty query or a category filter.',
+        400,
+      );
+    }
     const pageSize = Math.min(request.limit, this.cfg.ALIMAMA_DEFAULT_PAGE_SIZE);
     const upstream = await this.alimama.listMaterial({
-      q: request.query || undefined,
+      q: keyword,
       cat: category,
       pageNo: Math.floor(request.offset / pageSize) + 1,
       pageSize,

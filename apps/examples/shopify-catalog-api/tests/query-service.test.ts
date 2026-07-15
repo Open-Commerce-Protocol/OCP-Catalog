@@ -51,6 +51,12 @@ describe('ShopifyCatalogQueryService.query', () => {
       });
   });
 
+  test('rejects a query with neither text nor any filter as a 400', async () => {
+    const { service } = makeService();
+    await expect(service.query({ query: '' }))
+      .rejects.toMatchObject({ code: 'validation_error', status: 400 });
+  });
+
   test('rejects unsupported filters into policy_summary', async () => {
     const { service } = makeService();
     const result: any = await service.query({ query: '', filters: { brand: 'acme' } });

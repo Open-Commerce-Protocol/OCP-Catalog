@@ -38,6 +38,24 @@ async function json(res: Response) {
 }
 
 describe('Alimama Catalog Node routes', () => {
+  test('root route describes the Catalog instead of surfacing an internal error', async () => {
+    const res = await app().handle(new Request('http://localhost/'));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.service).toBe('alimama-catalog-api');
+    expect(body.catalog_id).toBe('cat_alimama_test');
+    expect(body.endpoints.query).toBe('http://localhost:4310/ocp/query');
+  });
+
+  test('unknown routes return a structured 404 instead of an internal error', async () => {
+    const res = await app().handle(new Request('http://localhost/not-found'));
+    const body = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(body.error.code).toBe('not_found');
+  });
+
   test('well-known discovery points to Catalog endpoints', async () => {
     const body = await json(await app().handle(new Request('http://localhost/.well-known/ocp-catalog')));
     expect(body.kind).toBe('WellKnownCatalogDiscovery');
@@ -80,6 +98,21 @@ describe('Alimama Catalog Node routes', () => {
     expect(body.entries[0]!.entry.entry_id).toMatch(/^entry_alimama_taobao_union_/);
     expect(body.entries[0]!.entry.provider_id).toBe('alimama_taobao_union');
     expect(body.entries[0]!.entry.attributes.source_id).toBe('alimama_taobao_union');
+  });
+
+  test('query with neither query text nor category is rejected as a 400', async () => {
+    const res = await app().handle(new Request('http://localhost/ocp/query', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'CatalogQueryRequest',
+        query: '',
+        limit: 3,
+      }),
+    }));
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('validation_error');
   });
 
   test('query rejects query packs not declared in the manifest', async () => {

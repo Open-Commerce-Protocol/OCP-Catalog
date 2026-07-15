@@ -1,4 +1,5 @@
 import { planCatalogQuery } from '@ocp-catalog/catalog-core';
+import { AppError } from '@ocp-catalog/shared';
 import { catalogQueryRequestSchema, type CatalogEntry } from '@ocp-catalog/ocp-schema';
 import type { ShopifyConfig } from '../config';
 import { bridgeFilters } from '../mapper/filter-bridge';
@@ -33,6 +34,20 @@ export class ShopifyCatalogQueryService {
 
     const cursorPaginationWarning =
       'Shopify Catalog pagination is cursor-based and is not yet exposed through OCP cursor pagination.';
+
+    const keyword = request.query?.trim() || undefined;
+    // Shopify search_catalog rejects a request with neither query text nor any
+    // filter. Guard the fully-empty case so it returns a clean 400 rather than
+    // surfacing an upstream 5xx. Requests that carry filters (even unsupported
+    // ones) still flow through so they are reported in policy_summary.
+    const hasAnyFilter = Object.keys(request.filters ?? {}).length > 0;
+    if (!keyword && !hasAnyFilter) {
+      throw new AppError(
+        'validation_error',
+        'Shopify catalog requires a non-empty query or a supported filter.',
+        400,
+      );
+    }
 
     const upstream = await this.shopify.search({
       query: request.query,
