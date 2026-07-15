@@ -12,6 +12,7 @@ import {
   type CatalogOption,
   type CatalogQueryMode,
 } from './ocp-http';
+import { toUserFacingError } from './presentation-errors';
 import { useOcpMcpDemoWebMcp } from './webmcp/useOcpMcpDemoWebMcp';
 import type { DataSourceInput, DemoCallRecord, OcpMcpDemoContext, OpenProductInput, ProductSearchInput } from './webmcp/tools';
 
@@ -106,7 +107,7 @@ export function App() {
       if (!firstCatalog) {
         setProductSummary(null);
         setPageError(manifestResult.failures.length
-          ? `Registration search succeeded, but all ${manifestResult.failures.length} Catalog manifests failed to load.`
+          ? toUserFacingError(new Error(`Registration search succeeded, but all ${manifestResult.failures.length} Catalog manifests failed to load.`)).userMessage
           : '这个注册中心没有返回可用的商品目录。');
       } else if (nextCatalogId === selectedCatalogId) {
         // Same catalog id (e.g. manual refresh): the catalog-switch effect won't
@@ -121,7 +122,7 @@ export function App() {
       setCatalogFailures([]);
       setSelectedCatalogId('');
       setProductSummary(null);
-      setPageError(error instanceof Error ? error.message : '注册中心连接失败');
+      setPageError(toUserFacingError(error).userMessage);
     } finally {
       if (generation === catalogLoadGeneration.current) setLoadingCatalogs(false);
     }
@@ -152,7 +153,7 @@ export function App() {
       setProductSummary(summarizeCatalogResponse(response, catalog.catalogName));
     } catch (error) {
       if (generation !== productLoadGeneration.current) return;
-      setPageError(error instanceof Error ? error.message : '商品加载失败');
+      setPageError(toUserFacingError(error).userMessage);
     } finally {
       if (generation === productLoadGeneration.current) setLoadingProducts(false);
     }
@@ -340,7 +341,7 @@ export function App() {
                         <strong>{failure.catalogName}</strong>
                         <span>{failure.catalogId}</span>
                         <code>{failure.manifestUrl ?? '未提供 manifest URL'}</code>
-                        <p>{failure.error}</p>
+                        <p>{toUserFacingError(new Error(failure.error)).userMessage}</p>
                       </li>
                     ))}
                   </ul>

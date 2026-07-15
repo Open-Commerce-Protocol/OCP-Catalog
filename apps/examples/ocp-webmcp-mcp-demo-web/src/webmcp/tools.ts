@@ -1,5 +1,6 @@
 import type { WebMcpTool } from '@ocp-catalog/webmcp-adapter';
 import type { CatalogManifestFailure, QueryPackOption } from '../ocp-http';
+import { toUserFacingError } from '../presentation-errors';
 
 export type DemoCallRecord = {
   id: string;
@@ -7,6 +8,7 @@ export type DemoCallRecord = {
   input: unknown;
   result?: unknown;
   error?: string;
+  diagnosticError?: string;
   createdAt: string;
 };
 
@@ -137,6 +139,7 @@ export function summarizeDemoState(state: OcpMcpDemoState) {
       input: record.input,
       result: record.result,
       error: record.error,
+      diagnosticError: record.diagnosticError,
       createdAt: record.createdAt,
     })),
   };
@@ -153,8 +156,13 @@ async function runPageTool(
     context.recordCall({ toolName, input, result });
     return result;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown WebMCP page tool failure';
-    context.recordCall({ toolName, input, error: message });
+    const presentation = toUserFacingError(error);
+    context.recordCall({
+      toolName,
+      input,
+      error: presentation.userMessage,
+      diagnosticError: presentation.diagnosticMessage,
+    });
     throw error;
   }
 }
