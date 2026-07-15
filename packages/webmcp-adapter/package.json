@@ -1,6 +1,6 @@
 {
   "name": "@ocp-catalog/webmcp-adapter",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "WebMCP adapter utilities for exposing OCP Catalog tools in the browser.",
   "license": "MIT",
   "repository": {
@@ -20,7 +20,10 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src/index.ts",
+    "src/adapter.ts",
+    "src/types.ts"
   ],
   "publishConfig": {
     "access": "public"

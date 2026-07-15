@@ -1,6 +1,6 @@
 {
   "name": "@ocp-catalog/ocp-schema",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Zod schemas for the Open Commerce Protocol (OCP) Catalog: manifest, query, resolve, commercial objects, and health.",
   "license": "MIT",
   "repository": {
@@ -20,7 +20,8 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src/index.ts"
   ],
   "publishConfig": {
     "access": "public"
