@@ -1,20 +1,39 @@
 {
   "name": "@ocp-catalog/ocp-client",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
+  "description": "Typed client helpers and validators for the Open Commerce Protocol (OCP) Catalog.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Open-Commerce-Protocol/OCP-Catalog.git",
+    "directory": "packages/ocp-client"
+  },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "bun": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build": "bun ../../scripts/build-protocol-package.ts",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@ocp-catalog/ocp-activity-schema": "workspace:*",
-    "@ocp-catalog/ocp-schema": "workspace:*",
-    "@ocp-catalog/registration-schema": "workspace:*"
+    "@ocp-catalog/ocp-activity-schema": "^0.2.0",
+    "@ocp-catalog/ocp-schema": "^0.2.0",
+    "@ocp-catalog/registration-schema": "^0.2.0"
   }
 }

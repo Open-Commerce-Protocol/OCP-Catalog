@@ -8,7 +8,8 @@
   "workspaces": [
     "apps/*",
     "apps/examples/*",
-    "packages/*"
+    "packages/*",
+    "examples/typescript"
   ],
   "scripts": {
     "dev": "turbo dev",

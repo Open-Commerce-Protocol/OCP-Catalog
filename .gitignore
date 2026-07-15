@@ -3,6 +3,7 @@
 .turbo
 .env
 .env.local
+.npmrc
 *.log
 .DS_Store
 coverage
