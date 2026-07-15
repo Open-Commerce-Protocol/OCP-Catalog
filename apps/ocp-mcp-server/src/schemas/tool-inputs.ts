@@ -48,6 +48,7 @@ export const findAndQueryCatalogInput = {
   query: z.string().min(1).describe('Natural language or keyword query to run inside the selected catalog, such as wireless headphones, CRM partner program, supplier name, SKU, or product category.').optional(),
   filters: z.record(z.string(), z.unknown()).describe('Structured filters supported by the selected catalog only, such as category or in_stock_only when advertised. Do not invent fields. Omit when unsupported or uncertain.').optional(),
   query_pack: z.string().min(1).describe('Exact query pack id declared by the selected catalog. Omit when uncertain.').optional(),
+  query_mode: z.enum(['keyword', 'filter', 'semantic', 'hybrid']).describe('Exact query mode supported by the selected query_pack. Use semantic only when the catalog declares semantic support.').optional(),
   limit: z.number().int().min(1).max(50).describe('Maximum number of catalog entries to return. Omit for the catalog default.').optional(),
   offset: z.literal(0).describe('Only the first page is supported. Cursor pagination will replace offset pagination.').optional(),
 };

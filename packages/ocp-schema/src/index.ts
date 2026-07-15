@@ -553,6 +553,7 @@ export const catalogQueryRequestSchema = z.object({
   filters: catalogQueryFiltersSchema.optional().default({}),
   limit: z.number().int().min(1).max(50).optional().default(20),
   offset: z.literal(0).optional().default(0),
+  cursor: z.string().min(1).max(512).optional(),
   explain: z.boolean().optional().default(true),
 }).strict();
 
@@ -599,6 +600,7 @@ export const catalogQueryResultSchema = z.object({
     limit: z.number().int().min(1),
     offset: z.literal(0),
     has_more: z.boolean(),
+    next_cursor: z.string().min(1).optional(),
   }),
   entries: z.array(catalogEntryMatchSchema),
   policy_summary: queryPolicySummarySchema.optional(),
