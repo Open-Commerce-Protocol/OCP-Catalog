@@ -138,8 +138,8 @@ export function RoadmapPage() {
             </h2>
             <p className="mt-3 max-w-2xl text-white/62">
               {locale === 'zh'
-                ? '协议契约、接入示例，以及即将推出的 CLI 与 Skill，都可以在文档中找到入口。'
-                : 'Protocol contracts, integration examples, and the upcoming CLI and skill all have an entry point in the docs.'}
+                ? '协议契约、接入示例，以及已发布的 CLI 与 Skill，都可以在文档中找到入口。'
+                : 'Protocol contracts, integration examples, and the published CLI and skill all have an entry point in the docs.'}
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -147,7 +147,7 @@ export function RoadmapPage() {
               to={localizePath('/docs/cli-and-skill')}
               className="inline-flex items-center justify-center gap-2 rounded-md bg-white px-5 py-3 text-sm font-semibold text-[#050608] transition-transform hover:-translate-y-0.5"
             >
-              {locale === 'zh' ? 'CLI 与 Skill（即将推出）' : 'CLI & skill (coming soon)'}
+              {locale === 'zh' ? 'CLI 与 Skill' : 'CLI & skill'}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link

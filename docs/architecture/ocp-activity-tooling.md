@@ -36,8 +36,8 @@ The source skill lives in `skills/ocp-catalog`, but users should install it thro
 
 ```bash
 ocp setup
-ocp skill install --agent agents
-ocp skill install --scope project
+ocp skill install --target agents
+ocp skill install --target both
 ocp skill update
 ocp update
 ```
@@ -67,7 +67,7 @@ Do not add repository-relative CLI paths back into the skill.
 
 `@ocp-catalog/ocp-cli` is the stable executable boundary for users and skills. It builds to `dist/index.js` and exposes the `ocp` binary.
 
-Before publishing the CLI as a standalone npm package, keep dependencies either bundled into the executable or published as compatible public packages.
+When publishing the CLI as a standalone npm package, keep dependencies either bundled into the executable or published as compatible public packages.
 
 ## MCP Gateway
 

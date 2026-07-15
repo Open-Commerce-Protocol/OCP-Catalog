@@ -31,7 +31,7 @@ const entryCards = [
   {
     icon: Terminal,
     href: '/docs/cli-and-skill',
-    title: { en: 'CLI & Skill (Coming soon)', zh: 'CLI 与 Skill（即将推出）' },
+    title: { en: 'CLI & Skill', zh: 'CLI 与 Skill' },
     body: { en: 'Drive the OCP workflow from the CLI and agent skill, with manifest-based request validation.', zh: '用 CLI 和 Agent skill 驱动 OCP 工作流，并带 manifest 请求校验。' },
   },
 ];

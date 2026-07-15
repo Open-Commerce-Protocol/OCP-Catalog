@@ -1,8 +1,9 @@
-# CLI 与 Skill（即将推出）
+# CLI 与 Skill
 
-> **状态：即将推出。** OCP CLI 与 Agent skill 还没有发布到 npm，因此 `@ocp-catalog/ocp-cli`
-> 这个包名已预留、但暂时还不能直接安装。不过下面的能力**现在已经可用**——想尝鲜的用户可以
-> 直接从 GitHub 仓库运行。
+> **状态：已发布。** OCP CLI 与内置的 `ocp-catalog` Agent skill 已经通过 npm 包
+> [`@ocp-catalog/ocp-cli`](https://www.npmjs.com/package/@ocp-catalog/ocp-cli) 发布。
+> 可以用 `npm install -g @ocp-catalog/ocp-cli` 全局安装，也可以直接用
+> `npx @ocp-catalog/ocp-cli@latest` 运行。
 
 OCP CLI 与 `ocp-catalog` Agent skill，为 Agent 提供了一种正确、可复用的方式来驱动协议。
 CLI 的 help 和结果都返回结构化 JSON，因此 Agent 不需要解析终端文本，就能查看命令并基于输出行动。
@@ -20,9 +21,25 @@ CLI 的 help 和结果都返回结构化 JSON，因此 Agent 不需要解析终�
   在不触碰审计载荷的前提下，看到 query / resolve / sync / tooling 事件。
 - **Skill 管理。** 为你的 Agent 环境安装、更新、检查或移除本地的 `ocp-catalog` skill。
 
-## 从 GitHub 尝鲜（早期体验）
+## 从 npm 安装
 
-克隆仓库，通过 skill runner 运行内置 CLI：
+需要稳定的 `ocp` 命令时，可以全局安装：
+
+```bash
+npm install -g @ocp-catalog/ocp-cli
+ocp help
+```
+
+也可以不全局安装，直接运行：
+
+```bash
+npx @ocp-catalog/ocp-cli@latest help
+npx @ocp-catalog/ocp-cli@latest skill doctor --target both
+```
+
+## 从 GitHub 运行
+
+如果你在参与仓库开发，仍然可以通过 skill runner 运行源码内置 CLI：
 
 ```bash
 git clone https://github.com/Open-Commerce-Protocol/OCP-Catalog
@@ -42,13 +59,10 @@ runner 按以下顺序解析 CLI：`OCP_CLI_COMMAND` → `OCP_CLI_BIN` → 内�
 
 ## 把 Skill 安装到你的 Agent
 
-如果想在 Agent 中使用 OCP 工作流、又不想保留整个 monorepo，可以导出独立 skill 并安装到
-Agent 的 skill 目录：
+如果想在 Agent 中使用 OCP 工作流、又不想保留整个 monorepo，可以直接安装 npm 包内置的
+独立 skill：
 
 ```bash
-# 从仓库导出独立 skill 包
-bun run skill:ocp:export
-
 # 在本地 Agent skill 目录中 安装 / 更新 / 检查 / 移除 skill
 ocp skill install --target both
 ocp skill update --target auto
@@ -57,6 +71,12 @@ ocp skill doctor --target both
 
 `--target` 可取 `auto`、`codex`、`agents`、`both`，或一个明确的 skills 目录。安装之后，
 Agent 就会遵循上面所说的 CLI 优先工作流。
+
+仓库贡献者也可以直接从源码导出 skill：
+
+```bash
+bun run skill:ocp:export
+```
 
 ## 请求校验的实际用法
 

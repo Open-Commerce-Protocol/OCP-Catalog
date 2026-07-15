@@ -35,16 +35,16 @@ export const updates: SiteUpdate[] = [
     slug: 'ocp-cli-and-skill-coming-soon',
     publishedAt: '2026-05-29',
     category: 'Implementation',
-    version: 'cli-preview',
+    version: 'cli-0.1.2',
     breaking: false,
     tags: ['cli', 'skill', 'tooling', 'manifest-validation'],
     title: {
-      en: 'An OCP CLI and agent skill are coming soon — available now from GitHub',
-      zh: 'OCP CLI 与 Agent skill 即将推出，现可从 GitHub 尝鲜',
+      en: 'OCP CLI and agent skill are now published on npm',
+      zh: 'OCP CLI 与 Agent skill 已发布到 npm',
     },
     summary: {
-      en: 'A CLI and an agent skill give agents a correct, repeatable way to drive the OCP workflow, including manifest-based request validation. They are not on npm yet, but early adopters can run them from the repository today.',
-      zh: 'CLI 与 Agent skill 让 Agent 以正确、可复用的方式驱动 OCP 工作流，并带 manifest 请求校验。它们还没上 npm，但尝鲜用户现在已经可以从仓库运行。',
+      en: 'A CLI and an agent skill give agents a correct, repeatable way to drive the OCP workflow, including manifest-based request validation. Install them from npm or run the CLI directly with npx.',
+      zh: 'CLI 与 Agent skill 让 Agent 以正确、可复用的方式驱动 OCP 工作流，并带 manifest 请求校验。现在可以从 npm 安装，也可以用 npx 直接运行。',
     },
   },
   {

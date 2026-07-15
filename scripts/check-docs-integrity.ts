@@ -9,6 +9,7 @@ import { registrationArtifacts } from '../apps/ocp-site-web/src/content/artifact
 import { navigation } from '../apps/ocp-site-web/src/content/navigation';
 import { docsContentIdToPublicPath, docsPublicPathToContentId, docsPublicPathToContentModule } from '../apps/ocp-site-web/src/content/routing';
 import { updates } from '../apps/ocp-site-web/src/content/updates';
+import { updateContentCandidates } from '../apps/ocp-site-web/src/content/updates-content';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const contentRoot = path.join(repoRoot, 'apps/ocp-site-web/src/content');
@@ -223,9 +224,10 @@ for (const update of updates) {
 
   previousUpdateDate = update.publishedAt;
 
-  for (const paragraph of update.body) {
-    if (!paragraph.en || !paragraph.zh) {
-      errors.push(`Update ${update.slug} has a body paragraph missing bilingual text`);
+  for (const locale of ['en', 'zh'] as const) {
+    const candidates = updateContentCandidates(update.slug, locale);
+    if (!candidates.some((candidate) => existsSync(path.join(contentRoot, candidate.replace(/^\.\//, ''))))) {
+      errors.push(`Update ${update.slug} is missing ${locale} markdown body`);
     }
   }
 }

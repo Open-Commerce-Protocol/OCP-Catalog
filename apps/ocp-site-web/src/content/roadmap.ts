@@ -95,8 +95,8 @@ export const roadmap: RoadmapPhase[] = [
       {
         title: { en: 'CLI & skill public release', zh: 'CLI 与 Skill 公开发布' },
         body: {
-          en: 'The CLI and agent skill are being prepared for public release, so teams can install them without a monorepo checkout. Available now for early adopters from GitHub.',
-          zh: 'CLI 与 Agent skill 正在准备公开发布，让团队无需克隆 monorepo 即可安装。现已可从 GitHub 供尝鲜用户使用。',
+          en: 'The CLI and agent skill are published on npm, so teams can install them without a monorepo checkout. Current work focuses on agent-platform integration and documentation polish.',
+          zh: 'CLI 与 Agent skill 已发布到 npm，团队无需克隆 monorepo 即可安装。当前工作聚焦于智能体平台接入和文档打磨。',
         },
         tag: 'tooling',
       },

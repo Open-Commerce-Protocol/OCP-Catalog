@@ -28,7 +28,7 @@ const builderPaths = [
   { title: { en: 'For merchants', zh: '商家与服务方' }, href: '/docs/examples/minimal-provider', body: { en: 'Connect existing product, inventory, quote, or booking systems.', zh: '接入已有商品、库存、报价或预订系统。' } },
   { title: { en: 'For agent teams', zh: 'Agent 团队' }, href: '/docs/examples/user-agent-flow', body: { en: 'Discover catalogs, compare candidates, and keep action consent explicit.', zh: '发现 Catalog、比较候选，并保持动作确认清晰。' } },
   { title: { en: 'For protocol readers', zh: '协议读者' }, href: '/docs/protocols/handshake-v1/catalog-manifest', body: { en: 'Read the contracts behind discovery, query, resolve, and action binding.', zh: '阅读发现、查询、解析和动作绑定背后的契约。' } },
-  { title: { en: 'For tool builders', zh: '工具构建者' }, href: '/docs/cli-and-skill', body: { en: 'Drive the workflow from the CLI and skill, with manifest-based validation. Coming soon.', zh: '用 CLI 和 skill 驱动工作流，带 manifest 校验。即将推出。' } },
+  { title: { en: 'For tool builders', zh: '工具构建者' }, href: '/docs/cli-and-skill', body: { en: 'Install the CLI and skill from npm, then validate requests against manifests before they leave the machine.', zh: '从 npm 安装 CLI 和 skill，并在请求离开本机前用 manifest 校验。' } },
 ];
 
 const layers = [

@@ -1,8 +1,9 @@
-# CLI & Skill (Coming soon)
+# CLI & Skill
 
-> **Status: coming soon.** The OCP CLI and the agent skill are not on npm yet, so the
-> published `@ocp-catalog/ocp-cli` package name is reserved but not installable. Everything
-> below already works today — early adopters can run it straight from the GitHub repository.
+> **Status: published.** The OCP CLI and bundled `ocp-catalog` agent skill are available
+> on npm as [`@ocp-catalog/ocp-cli`](https://www.npmjs.com/package/@ocp-catalog/ocp-cli).
+> Use `npm install -g @ocp-catalog/ocp-cli` for a global install, or run commands directly
+> with `npx @ocp-catalog/ocp-cli@latest`.
 
 The OCP CLI and the `ocp-catalog` agent skill give an agent a correct, repeatable way to
 drive the protocol. The CLI returns structured JSON for both help and results, so an agent can
@@ -23,9 +24,26 @@ inspect a command and act on its output without parsing terminal prose.
 - **Skill management.** Install, update, check, or remove the local `ocp-catalog` skill for your
   agent environment.
 
-## Try It From GitHub (early access)
+## Install From npm
 
-Clone the repository and run the bundled CLI through the skill runner:
+Install the CLI globally when you want a stable `ocp` command on `PATH`:
+
+```bash
+npm install -g @ocp-catalog/ocp-cli
+ocp help
+```
+
+Or run it without a global install:
+
+```bash
+npx @ocp-catalog/ocp-cli@latest help
+npx @ocp-catalog/ocp-cli@latest skill doctor --target both
+```
+
+## Try It From GitHub
+
+If you are contributing to the repository, you can still run the bundled CLI through the
+skill runner:
 
 ```bash
 git clone https://github.com/Open-Commerce-Protocol/OCP-Catalog
@@ -45,13 +63,10 @@ CLI, then an `ocp` binary on `PATH`, then `bunx @ocp-catalog/ocp-cli`, then `npx
 
 ## Install The Skill Into Your Agent
 
-To use the OCP workflow from an agent without keeping this monorepo around, export the standalone
-skill and install it into your agent's skill directory:
+To use the OCP workflow from an agent without keeping this monorepo around, install the
+standalone skill shipped inside the npm package:
 
 ```bash
-# Export the standalone skill bundle from the repo
-bun run skill:ocp:export
-
 # Install / update / check / remove the skill in a local agent skill directory
 ocp skill install --target both
 ocp skill update --target auto
@@ -60,6 +75,12 @@ ocp skill doctor --target both
 
 `--target` accepts `auto`, `codex`, `agents`, `both`, or an explicit skills directory. Once
 installed, the agent follows the same CLI-first workflow described above.
+
+Repository contributors can also export the skill directly from source:
+
+```bash
+bun run skill:ocp:export
+```
 
 ## Request Validation In Practice
 
