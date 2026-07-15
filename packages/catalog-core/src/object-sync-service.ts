@@ -1,4 +1,3 @@
-import type { AppConfig } from '@ocp-catalog/config';
 import type { CatalogDb as Db } from '@ocp-catalog/catalog-db';
 import { catalogSchema as schema } from '@ocp-catalog/catalog-db';
 import {
@@ -10,8 +9,9 @@ import {
   type ObjectSyncResult,
 } from '@ocp-catalog/ocp-schema';
 import { AppError, newId } from '@ocp-catalog/shared';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { isPresent, readDescriptorField } from './field-ref';
+import type { CatalogCoreConfig } from './config';
 import type { CatalogScenarioModule, SearchProjection } from './scenario';
 import type { RegistrationService } from './registration-service';
 
@@ -48,7 +48,7 @@ export type ObjectSyncOptions = {
 export class ObjectSyncService {
   constructor(
     private readonly db: Db,
-    private readonly config: AppConfig,
+    private readonly config: CatalogCoreConfig,
     private readonly registrations: RegistrationService,
     private readonly scenario: CatalogScenarioModule,
   ) {}
@@ -58,8 +58,8 @@ export class ObjectSyncService {
     const timings: Record<string, number> = {};
     const request = objectSyncRequestSchema.parse(input);
     timings.parse_ms = elapsedMs(startedAt);
-    if (request.catalog_id !== this.config.CATALOG_ID) {
-      throw new AppError('validation_error', `catalog_id must be ${this.config.CATALOG_ID}`, 400);
+    if (request.catalog_id !== this.config.catalogId) {
+      throw new AppError('validation_error', `catalog_id must be ${this.config.catalogId}`, 400);
     }
     if (request.objects.length > MAX_OBJECT_SYNC_BATCH_SIZE) {
       throw new AppError('validation_error', `Object sync batch exceeds ${MAX_OBJECT_SYNC_BATCH_SIZE} objects`, 413, {
@@ -226,8 +226,20 @@ export class ObjectSyncService {
     return result;
   }
 
-  async listProviderObjects(providerId: string) {
-    return this.db
+  async listProviderObjects(providerId: string, options: { limit?: number; cursor?: string } = {}) {
+    const limit = options.limit ?? 100;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+      throw new AppError('validation_error', 'limit must be an integer from 1 to 500', 400, { limit });
+    }
+    const conditions: SQL<unknown>[] = [
+      eq(schema.commercialObjects.catalogId, this.config.catalogId),
+      eq(schema.commercialObjects.providerId, providerId),
+    ];
+    if (options.cursor) {
+      const cursor = decodeObjectListCursor(options.cursor);
+      conditions.push(sql`(${schema.commercialObjects.updatedAt}, ${schema.commercialObjects.id}) < (${cursor.updatedAt}, ${cursor.id})`);
+    }
+    const objects = await this.db
       .select({
         id: schema.commercialObjects.id,
         catalog_id: schema.commercialObjects.catalogId,
@@ -241,10 +253,19 @@ export class ObjectSyncService {
         updated_at: schema.commercialObjects.updatedAt,
       })
       .from(schema.commercialObjects)
-      .where(and(
-        eq(schema.commercialObjects.catalogId, this.config.CATALOG_ID),
-        eq(schema.commercialObjects.providerId, providerId),
-      ));
+      .where(and(...conditions))
+      .orderBy(sql`${schema.commercialObjects.updatedAt} desc`, sql`${schema.commercialObjects.id} desc`)
+      .limit(limit + 1);
+    const hasMore = objects.length > limit;
+    const pageObjects = objects.slice(0, limit);
+    return {
+      objects: pageObjects,
+      page: {
+        limit,
+        has_more: hasMore,
+        ...(hasMore && pageObjects.length > 0 ? { next_cursor: encodeObjectListCursor(pageObjects[pageObjects.length - 1]!) } : {}),
+      },
+    };
   }
 
   async getObject(objectId: string) {
@@ -263,7 +284,7 @@ export class ObjectSyncService {
       .select()
       .from(schema.objectSyncRuns)
       .where(and(
-        eq(schema.objectSyncRuns.catalogId, this.config.CATALOG_ID),
+        eq(schema.objectSyncRuns.catalogId, this.config.catalogId),
         eq(schema.objectSyncRuns.syncRunId, syncRunId),
         ...(providerId ? [eq(schema.objectSyncRuns.providerId, providerId)] : []),
       ))
@@ -278,7 +299,7 @@ export class ObjectSyncService {
       .select()
       .from(schema.objectSyncRuns)
       .where(and(
-        eq(schema.objectSyncRuns.catalogId, this.config.CATALOG_ID),
+        eq(schema.objectSyncRuns.catalogId, this.config.catalogId),
         eq(schema.objectSyncRuns.syncRunId, syncRunId),
         ...(providerId ? [eq(schema.objectSyncRuns.providerId, providerId)] : []),
       ))
@@ -1013,12 +1034,12 @@ export class ObjectSyncService {
   }
 
   private async assertProviderSyncAllowed(providerId: string) {
-    if (!this.config.CATALOG_PROVIDER_THROTTLE_ENABLED) return;
+    if (!this.config.providerThrottleEnabled) return;
     const [control] = await this.db
       .select()
       .from(schema.providerSyncControls)
       .where(and(
-        eq(schema.providerSyncControls.catalogId, this.config.CATALOG_ID),
+        eq(schema.providerSyncControls.catalogId, this.config.catalogId),
         eq(schema.providerSyncControls.providerId, providerId),
       ))
       .limit(1);
@@ -1278,4 +1299,24 @@ function stableStringify(value: unknown): string {
 function syncRunStatusFromCounts(acceptedCount: number, rejectedCount: number) {
   if (acceptedCount === 0) return 'rejected';
   return rejectedCount > 0 ? 'partial' : 'accepted';
+}
+
+type ObjectListCursor = { updatedAt: string; id: string };
+
+function encodeObjectListCursor(row: { updated_at: Date; id: string }) {
+  return Buffer.from(JSON.stringify({ updatedAt: row.updated_at.toISOString(), id: row.id } satisfies ObjectListCursor)).toString('base64url');
+}
+
+function decodeObjectListCursor(value: string): ObjectListCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    if (!parsed || typeof parsed !== 'object') throw new Error('cursor must be an object');
+    const cursor = parsed as Record<string, unknown>;
+    if (typeof cursor.updatedAt !== 'string' || Number.isNaN(Date.parse(cursor.updatedAt)) || typeof cursor.id !== 'string' || !cursor.id) {
+      throw new Error('cursor fields are invalid');
+    }
+    return { updatedAt: cursor.updatedAt, id: cursor.id };
+  } catch (error) {
+    throw new AppError('validation_error', `Invalid cursor: ${error instanceof Error ? error.message : String(error)}`, 400);
+  }
 }

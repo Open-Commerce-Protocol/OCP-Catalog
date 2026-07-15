@@ -33,6 +33,12 @@ export const catalogProfiles = pgTable('catalog_profiles', {
   catalogIdUnique: uniqueIndex('catalog_profiles_catalog_id_unique').on(table.catalogId),
 }));
 
+export const catalogRuntimeStats = pgTable('catalog_runtime_stats', {
+  catalogId: text('catalog_id').primaryKey(),
+  activeJobCount: integer('active_job_count').notNull(),
+  countedAt: timestamp('counted_at', { withTimezone: true }).notNull(),
+});
+
 export const objectContracts = pgTable('object_contracts', {
   id: text('id').primaryKey(),
   catalogId: text('catalog_id').notNull(),
@@ -121,6 +127,7 @@ export const commercialObjects = pgTable('commercial_objects', {
 }, (table) => ({
   objectUnique: uniqueIndex('commercial_objects_provider_object_unique').on(table.catalogId, table.providerId, table.objectId),
   typeIdx: index('commercial_objects_catalog_type_idx').on(table.catalogId, table.objectType),
+  providerUpdatedIdx: index('commercial_objects_provider_updated_idx').on(table.catalogId, table.providerId, table.updatedAt, table.id),
 }));
 
 export const providerSyncControls = pgTable('provider_sync_controls', {
