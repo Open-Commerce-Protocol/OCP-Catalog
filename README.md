@@ -87,6 +87,11 @@ Requires Bun 1.3+. The minimal examples each have their own README under
 - [Handshake v1 spec](./docs/specs/handshake/v1.md)
 - [docs/README.md](./docs/README.md)
 
+## Contributing and security
+
+- See [CONTRIBUTING.md](./CONTRIBUTING.md) before opening an issue or pull request.
+- Report vulnerabilities privately as described in [SECURITY.md](./SECURITY.md). Do not publicly disclose unresolved security issues.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
