@@ -159,6 +159,7 @@ async function run(argv: string[]) {
       filters: jsonFlag(flags, 'filters', {}),
       limit: numberFlag(flags, 'limit', 20),
       offset: numberFlag(flags, 'offset', 0),
+      ...(stringFlag(flags, 'cursor') ? { cursor: stringFlag(flags, 'cursor') } : {}),
       explain: booleanFlag(flags, 'explain', true),
     });
 
@@ -206,6 +207,7 @@ async function run(argv: string[]) {
       filters: jsonFlag(flags, 'filters', {}),
       limit: numberFlag(flags, 'limit', 20),
       offset: numberFlag(flags, 'offset', 0),
+      ...(stringFlag(flags, 'cursor') ? { cursor: stringFlag(flags, 'cursor') } : {}),
       explain: booleanFlag(flags, 'explain', true),
     });
 

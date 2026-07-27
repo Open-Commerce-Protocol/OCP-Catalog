@@ -346,6 +346,10 @@ export const CLI_HELP: CliHelp = {
           description: 'Must be 0. Deep offset pagination is disabled.',
         },
         {
+          name: '--cursor',
+          description: 'Opaque cursor returned as page.next_cursor by the previous query response. Use it to request the next page.',
+        },
+        {
           name: '--explain',
           description: 'Whether to request match explanations. Defaults to true.',
         },
@@ -354,6 +358,7 @@ export const CLI_HELP: CliHelp = {
       examples: [
         'ocp catalog query --query-url http://localhost:4000/ocp/query --query-pack ocp.query.keyword.v1 --query-mode keyword --query "running shoes"',
         'ocp catalog query --query-url http://localhost:4000/ocp/query --query-pack ocp.query.filter.v1 --filters "{\\"category\\":\\"shoes\\"}"',
+        'ocp catalog query --query-url http://localhost:4000/ocp/query --query-pack ocp.query.keyword.v1 --query "running shoes" --cursor "opaque-next-cursor"',
       ],
     },
     {
@@ -433,6 +438,10 @@ export const CLI_HELP: CliHelp = {
         {
           name: '--offset',
           description: 'Must be 0. Deep offset pagination is disabled.',
+        },
+        {
+          name: '--cursor',
+          description: 'Opaque cursor from page.next_cursor used to validate a next-page request.',
         },
         {
           name: '--explain',

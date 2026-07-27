@@ -198,6 +198,10 @@ describe('CLI help', () => {
           name: '--query-mode',
           description: expect.stringContaining('keyword'),
         }),
+        expect.objectContaining({
+          name: '--cursor',
+          description: expect.stringContaining('next page'),
+        }),
       ]),
     );
 
@@ -225,6 +229,8 @@ describe('CLI help', () => {
       'hybrid',
       '--filters',
       '{"category":"shoes"}',
+      '--cursor',
+      'next_page_cursor_1',
     );
 
     expect(success.status).toBe(0);
@@ -233,6 +239,7 @@ describe('CLI help', () => {
       request: {
         query_pack: 'ocp.query.keyword.v1',
         query_mode: 'hybrid',
+        cursor: 'next_page_cursor_1',
       },
       policy_summary: {
         selected_query_pack: 'ocp.query.keyword.v1',
