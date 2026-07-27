@@ -10,6 +10,16 @@ Handshake layer for how providers feed data into a catalog.
 
 ## What's in this repo
 
+This repo holds three tiers, in increasing order of distance from the spec:
+
+| Tier | What it is | Where |
+|---|---|---|
+| **Protocol** | The specs and the schema/client packages that encode them | [`docs/specs/`](./docs/specs), [`packages/`](./packages) |
+| **Skill & CLI** | Agent tooling that speaks the protocol — installable in one command | [`skills/`](./skills), [`packages/ocp-cli/`](./packages/ocp-cli), [`plugins/`](./plugins) |
+| **Examples** | The smallest correct Catalog Node, in three languages | [`examples/`](./examples) |
+
+Production applications are **not** here — see [Reference applications](#reference-applications).
+
 ```text
 docs/specs/                     Protocol specifications
   registration/v1.md              How a Catalog registers with a Registration node
@@ -25,12 +35,14 @@ packages/
   shared/                       Small shared utilities
   webmcp-adapter/               WebMCP adapter for browser tools
   ocp-cli/                      `ocp` CLI (published to npm)
+  ocp-skill/                    `npx @ocp-catalog/skill` one-command skill installer
 
 examples/
   typescript/  python/  go/     Minimal, spec-valid Catalog Nodes (~3 in-memory products)
 
+skills/ocp-catalog/             The agent skill (single source of truth)
+plugins/ocp-catalog/            Claude Code plugin wrapper (generated from skills/)
 apps/ocp-site-web/              The OCP protocol website + docs
-skills/                         Agent skill bundled by the CLI
 ```
 
 The published protocol packages (npm, scope `@ocp-catalog`):
@@ -41,6 +53,35 @@ The published protocol packages (npm, scope `@ocp-catalog`):
 [`shared`](https://www.npmjs.com/package/@ocp-catalog/shared),
 [`webmcp-adapter`](https://www.npmjs.com/package/@ocp-catalog/webmcp-adapter),
 [`ocp-cli`](https://www.npmjs.com/package/@ocp-catalog/ocp-cli).
+
+## Install the agent skill
+
+The skill teaches an agent the OCP workflow — discover a Registration node,
+inspect a Catalog manifest, query with a declared query pack, resolve an entry —
+and drives it through the `ocp` CLI. There are two ways to install it, from the
+same source (`skills/ocp-catalog/`):
+
+**One command, any agent:**
+
+```bash
+npx @ocp-catalog/skill                # auto-detect
+npx @ocp-catalog/skill --agent claude # ~/.claude/skills
+npx @ocp-catalog/skill --agent all    # Claude Code + Codex + .agents
+npx @ocp-catalog/skill --scope project # ./.claude/skills in the current repo
+npx @ocp-catalog/skill doctor         # where is it installed?
+```
+
+It refuses to overwrite a skill it didn't install unless you pass `--force`, and
+`--dry-run` prints the plan without touching disk.
+
+**As a Claude Code plugin:**
+
+```
+/plugin marketplace add Open-Commerce-Protocol/OCP-Catalog
+/plugin install ocp-catalog@ocp-catalog
+```
+
+If you already use the CLI, `ocp skill install` does the same thing.
 
 ## Reference applications
 
@@ -76,10 +117,16 @@ bun run typecheck
 bun test
 bun run build          # build the packages + site
 bun run site:dev       # run the protocol website
+bun run skill:sync     # regenerate the skill copies after editing skills/
+bun run skill:check    # fail if a generated skill copy has drifted
 ```
 
 Requires Bun 1.3+. The minimal examples each have their own README under
 [`examples/`](./examples).
+
+`skills/ocp-catalog/` is the single source of truth for the skill. The npm
+payload and the Claude Code plugin copy are both generated from it by
+`scripts/sync-skill-copies.ts` — edit the source, then run `skill:sync`.
 
 ## Documentation
 
