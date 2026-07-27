@@ -151,7 +151,7 @@ describe('CLI help', () => {
           description: expect.stringContaining('ObjectSyncRequest'),
         }),
         expect.objectContaining({
-          command: 'ocp skill doctor [--target auto|codex|agents|both|<skills-dir>]',
+          command: 'ocp skill doctor [--target auto|codex|agents|claude|both|all|<skills-dir>]',
           summary: expect.stringContaining('Check'),
           description: expect.stringContaining('installed skill'),
         }),

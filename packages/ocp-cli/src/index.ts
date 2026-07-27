@@ -272,12 +272,19 @@ function skillTargetFromFlags(flags: ParsedFlags): SkillTarget {
   const explicitTarget = stringFlag(flags, 'target');
   if (explicitTarget) return explicitTarget;
 
-  const scope = stringFlag(flags, 'scope', 'user');
-  if (scope === 'project') return pathJoin(process.cwd(), '.agents', 'skills');
-
   const agent = stringFlag(flags, 'agent');
-  if (agent === 'all') return 'both';
-  if (agent === 'codex' || agent === 'agents') return agent;
+
+  const scope = stringFlag(flags, 'scope', 'user');
+  if (scope === 'project') {
+    // Project scope writes into the repo, using the layout the chosen agent
+    // reads: Claude Code looks in .claude/skills, the others in .agents/skills.
+    return agent === 'claude'
+      ? pathJoin(process.cwd(), '.claude', 'skills')
+      : pathJoin(process.cwd(), '.agents', 'skills');
+  }
+
+  if (agent === 'all') return 'all';
+  if (agent === 'codex' || agent === 'agents' || agent === 'claude') return agent;
 
   return 'auto';
 }

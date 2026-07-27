@@ -98,6 +98,51 @@ describe('OCP skill installer', () => {
     expect(targets.some((item) => item.replaceAll('\\', '/').endsWith('/.agents/skills'))).toBe(true);
     expect(targets.some((item) => item.replaceAll('\\', '/').endsWith('/.codex/skills'))).toBe(true);
   });
+
+  test('both stays codex+agents so it keeps its pre-Claude meaning', () => {
+    expect(resolveSkillTargetDirs('both')).toHaveLength(2);
+    expect(resolveSkillTargetDirs('both').some((item) => item.replaceAll('\\', '/').endsWith('/.claude/skills'))).toBe(false);
+  });
+
+  test('claude target resolves the Claude Code skills directory', () => {
+    const targets = resolveSkillTargetDirs('claude');
+
+    expect(targets).toHaveLength(1);
+    expect(targets[0]!.replaceAll('\\', '/')).toEndWith('/.claude/skills');
+  });
+
+  test('claude target honours CLAUDE_CONFIG_DIR', () => {
+    const previous = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = path.join(os.tmpdir(), 'ocp-claude-home');
+
+    try {
+      expect(resolveSkillTargetDirs('claude')).toEqual([
+        path.join(os.tmpdir(), 'ocp-claude-home', 'skills'),
+      ]);
+    } finally {
+      if (previous === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+      else process.env.CLAUDE_CONFIG_DIR = previous;
+    }
+  });
+
+  test('all target resolves codex, agents, and claude skill directories', () => {
+    const targets = resolveSkillTargetDirs('all').map((item) => item.replaceAll('\\', '/'));
+
+    expect(targets).toHaveLength(3);
+    expect(targets.some((item) => item.endsWith('/.codex/skills'))).toBe(true);
+    expect(targets.some((item) => item.endsWith('/.agents/skills'))).toBe(true);
+    expect(targets.some((item) => item.endsWith('/.claude/skills'))).toBe(true);
+  });
+
+  test('doctor classifies a claude skills directory', async () => {
+    const home = await tempDir();
+    const skillsDir = path.join(home, '.claude', 'skills');
+    await installOcpSkill({ target: skillsDir });
+
+    const result = await doctorOcpSkill(skillsDir);
+
+    expect(result.targets[0]).toMatchObject({ kind: 'claude', installed: true, valid: true });
+  });
 });
 
 async function tempDir() {

@@ -8,7 +8,7 @@ export const OCP_SKILL_NAME = 'ocp-catalog';
 export const OCP_SKILL_MARKER = '.ocp-skill-install.json';
 const OCP_CLI_PACKAGE = '@ocp-catalog/ocp-cli';
 
-export type SkillTarget = 'auto' | 'codex' | 'agents' | 'both' | string;
+export type SkillTarget = 'auto' | 'codex' | 'agents' | 'claude' | 'both' | 'all' | string;
 
 export type SkillInstallOptions = {
   target?: SkillTarget;
@@ -199,28 +199,55 @@ export function resolveSkillTargetDirs(target: SkillTarget): string[] {
   if (target === 'auto') {
     if (process.env.CODEX_HOME) return [path.join(process.env.CODEX_HOME, 'skills')];
 
-    const agentsDir = path.join(homeDir(), '.agents', 'skills');
+    const agentsDir = agentsSkillsDir();
     if (existsSync(agentsDir)) return [agentsDir];
 
-    return [path.join(homeDir(), '.codex', 'skills')];
+    const claudeDir = claudeSkillsDir();
+    if (existsSync(claudeDir)) return [claudeDir];
+
+    return [codexSkillsDir()];
   }
 
   if (target === 'codex') {
-    return [process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, 'skills') : path.join(homeDir(), '.codex', 'skills')];
+    return [codexSkillsDir()];
   }
 
   if (target === 'agents') {
-    return [path.join(homeDir(), '.agents', 'skills')];
+    return [agentsSkillsDir()];
   }
 
+  if (target === 'claude') {
+    return [claudeSkillsDir()];
+  }
+
+  // 'both' predates Claude Code support and stays codex+agents so existing
+  // invocations keep installing exactly where they used to. 'all' is the
+  // everything option.
   if (target === 'both') {
-    return uniquePaths([
-      process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, 'skills') : path.join(homeDir(), '.codex', 'skills'),
-      path.join(homeDir(), '.agents', 'skills'),
-    ]);
+    return uniquePaths([codexSkillsDir(), agentsSkillsDir()]);
+  }
+
+  if (target === 'all') {
+    return uniquePaths([codexSkillsDir(), agentsSkillsDir(), claudeSkillsDir()]);
   }
 
   return [path.resolve(target)];
+}
+
+function codexSkillsDir() {
+  return process.env.CODEX_HOME
+    ? path.join(process.env.CODEX_HOME, 'skills')
+    : path.join(homeDir(), '.codex', 'skills');
+}
+
+function agentsSkillsDir() {
+  return path.join(homeDir(), '.agents', 'skills');
+}
+
+function claudeSkillsDir() {
+  return process.env.CLAUDE_CONFIG_DIR
+    ? path.join(process.env.CLAUDE_CONFIG_DIR, 'skills')
+    : path.join(homeDir(), '.claude', 'skills');
 }
 
 async function assertSkillSource(sourceDir: string): Promise<void> {
@@ -366,6 +393,7 @@ function classifySkillsDir(skillsDir: string) {
   const normalized = skillsDir.replaceAll('\\', '/');
   if (normalized.endsWith('/.agents/skills')) return 'agents';
   if (normalized.endsWith('/.codex/skills')) return 'codex';
+  if (normalized.endsWith('/.claude/skills')) return 'claude';
   return 'custom';
 }
 

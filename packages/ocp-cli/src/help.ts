@@ -48,11 +48,11 @@ const clientOptions: CliOptionHelp[] = [
 const targetOptions: CliOptionHelp[] = [
   {
     name: '--target',
-    description: 'Skill destination: auto, codex, agents, both, or an explicit skills directory.',
+    description: 'Skill destination: auto, codex, agents, claude, both (codex+agents), all, or an explicit skills directory.',
   },
   {
     name: '--agent',
-    description: 'Compatibility alias for choosing codex, agents, or all skill destinations.',
+    description: 'Compatibility alias for choosing codex, agents, claude, or all skill destinations.',
   },
   {
     name: '--scope',
@@ -96,7 +96,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp setup [--target auto|codex|agents|both|<skills-dir>] [--dry-run]',
+      command: 'ocp setup [--target auto|codex|agents|claude|both|all|<skills-dir>] [--dry-run]',
       domain: 'setup',
       summary: 'Install the OCP Catalog skill.',
       description: 'Copies the bundled ocp-catalog skill into the selected local agent skill directory.',
@@ -107,7 +107,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp update [--manager bun|npm] [--target auto|codex|agents|both|<skills-dir>] [--dry-run]',
+      command: 'ocp update [--manager bun|npm] [--target auto|codex|agents|claude|both|all|<skills-dir>] [--dry-run]',
       domain: 'update',
       summary: 'Update the global CLI package and refresh the local skill.',
       description: 'Installs @ocp-catalog/ocp-cli@latest with bun or npm, then runs skill update for the selected target.',
@@ -124,7 +124,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp skill install [--target auto|codex|agents|both|<skills-dir>] [--force] [--dry-run]',
+      command: 'ocp skill install [--target auto|codex|agents|claude|both|all|<skills-dir>] [--force] [--dry-run]',
       domain: 'skill',
       action: 'install',
       summary: 'Install the OCP skill into a local skill directory.',
@@ -136,7 +136,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp skill install [--agent codex|agents|all] [--scope user|project] [--dir <skills-dir>] [--force]',
+      command: 'ocp skill install [--agent codex|agents|claude|all] [--scope user|project] [--dir <skills-dir>] [--force]',
       domain: 'skill',
       action: 'install',
       summary: 'Install the OCP skill using compatibility flags.',
@@ -144,11 +144,12 @@ export const CLI_HELP: CliHelp = {
       options: targetOptions,
       examples: [
         'ocp skill install --agent all --scope user',
+        'ocp skill install --agent claude --scope project',
         'ocp skill install --scope project --force',
       ],
     },
     {
-      command: 'ocp skill update [--target auto|codex|agents|both|<skills-dir>] [--force] [--dry-run]',
+      command: 'ocp skill update [--target auto|codex|agents|claude|both|all|<skills-dir>] [--force] [--dry-run]',
       domain: 'skill',
       action: 'update',
       summary: 'Refresh an installed OCP skill.',
@@ -160,7 +161,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp skill uninstall [--target auto|codex|agents|both|<skills-dir>] [--force] [--dry-run]',
+      command: 'ocp skill uninstall [--target auto|codex|agents|claude|both|all|<skills-dir>] [--force] [--dry-run]',
       domain: 'skill',
       action: 'uninstall',
       summary: 'Remove an installed OCP skill.',
@@ -172,7 +173,7 @@ export const CLI_HELP: CliHelp = {
       ],
     },
     {
-      command: 'ocp skill doctor [--target auto|codex|agents|both|<skills-dir>]',
+      command: 'ocp skill doctor [--target auto|codex|agents|claude|both|all|<skills-dir>]',
       domain: 'skill',
       action: 'doctor',
       summary: 'Check the installed skill.',
