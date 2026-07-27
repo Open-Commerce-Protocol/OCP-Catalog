@@ -19,6 +19,12 @@ drizzle
 .tmp/
 tmp_remote_patch/
 
+# Generated at pack time from skills/ocp-catalog by scripts/sync-skill-copies.ts.
+# The plugins/ copy is intentionally NOT ignored: the Claude Code marketplace
+# reads it straight from git.
+packages/ocp-skill/skill/
+packages/ocp-skill/*.tgz
+
 # 部署包打的 zip(build artifact,不入库)
 ocp-skill-gateway-deploy-*.zip
 

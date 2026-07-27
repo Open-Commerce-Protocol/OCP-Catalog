@@ -20,6 +20,8 @@
     "site:dev": "bun run --cwd apps/ocp-site-web dev",
     "site:start": "bun run --cwd apps/ocp-site-web start",
     "site:build": "bun run --cwd apps/ocp-site-web build",
+    "skill:sync": "bun scripts/sync-skill-copies.ts",
+    "skill:check": "bun scripts/sync-skill-copies.ts --check",
     "skill:ocp:export": "bun scripts/export-ocp-skill.ts"
   },
   "devDependencies": {

@@ -89,6 +89,13 @@
         "zod": "^4.1.12",
       },
     },
+    "packages/ocp-skill": {
+      "name": "@ocp-catalog/skill",
+      "version": "0.1.0",
+      "bin": {
+        "ocp-skill": "./bin/ocp-skill.mjs",
+      },
+    },
     "packages/registration-schema": {
       "name": "@ocp-catalog/registration-schema",
       "version": "0.2.1",
@@ -209,6 +216,8 @@
     "@ocp-catalog/shared": ["@ocp-catalog/shared@workspace:packages/shared"],
 
     "@ocp-catalog/site-web": ["@ocp-catalog/site-web@workspace:apps/ocp-site-web"],
+
+    "@ocp-catalog/skill": ["@ocp-catalog/skill@workspace:packages/ocp-skill"],
 
     "@ocp-catalog/webmcp-adapter": ["@ocp-catalog/webmcp-adapter@workspace:packages/webmcp-adapter"],
 
