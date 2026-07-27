@@ -9,6 +9,35 @@ afterEach(() => {
 });
 
 describe('OcpClient activity instrumentation', () => {
+  it('fails loudly when catalog query results omit page pagination metadata', async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      ocp_version: '1.0',
+      kind: 'CatalogQueryResult',
+      id: 'query_1',
+      catalog_id: 'cat_test',
+      query_pack: 'ocp.query.keyword.v1',
+      query_mode: 'keyword',
+      query: 'shoe',
+      result_count: 1,
+      entries: [],
+      explain: [],
+    }), { status: 200 })) as unknown as typeof fetch;
+
+    const client = new OcpClient();
+
+    await expect(client.queryCatalog('https://catalog.example.test/ocp/query', {
+      ocp_version: '1.0',
+      kind: 'CatalogQueryRequest',
+      query_pack: 'ocp.query.keyword.v1',
+      query_mode: 'keyword',
+      query: 'shoe',
+      filters: {},
+      limit: 20,
+      offset: 0,
+      explain: true,
+    })).rejects.toThrow();
+  });
+
   it('records sanitized attempted and completed events for registration calls', async () => {
     const events: OcpActivityEventInput[] = [];
     globalThis.fetch = (async () => new Response(JSON.stringify({

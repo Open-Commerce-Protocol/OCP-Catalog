@@ -318,7 +318,7 @@ export class OcpClient {
         request_offset: body.offset ?? null,
       },
     });
-    return catalogQueryResultSchema.parse(normalizeCatalogQueryResult(payload, body));
+    return catalogQueryResultSchema.parse(payload);
   }
 
   async resolveCatalogEntry(resolveUrl: string, body: ResolveRequest): Promise<ResolvableReference> {
@@ -626,25 +626,4 @@ async function sendActivityEvent(activity: OcpClientActivityOptions, event: OcpA
 function activityIngestUrl(apiUrl: string) {
   const trimmed = trimTrailingSlash(apiUrl);
   return trimmed.endsWith('/ocp/audit/events') ? trimmed : `${trimmed}/ocp/audit/events`;
-}
-
-function normalizeCatalogQueryResult(payload: unknown, request: CatalogQueryRequest) {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
-  const record = payload as Record<string, unknown>;
-  if (record.page) return payload;
-
-  const limit = request.limit ?? 20;
-  const offset = 0;
-  const entries = Array.isArray(record.entries) ? record.entries : [];
-  const resultCount = typeof record.result_count === 'number' ? record.result_count : entries.length;
-  const hasMore = entries.length < resultCount;
-
-  return {
-    ...record,
-    page: {
-      limit,
-      offset,
-      has_more: hasMore,
-    },
-  };
 }

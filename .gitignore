@@ -13,6 +13,12 @@ drizzle
 .workspace
 .codegraph/
 
+# Local agent/tooling scratch dirs
+.codex-tmp/
+.codex-remote-work/
+.tmp/
+tmp_remote_patch/
+
 # 部署包打的 zip(build artifact,不入库)
 ocp-skill-gateway-deploy-*.zip
 
