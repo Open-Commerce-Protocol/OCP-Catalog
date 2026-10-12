@@ -25,8 +25,9 @@
 - `SyncCapability`
 - commerce product descriptor packs
 
-文件结构：
-
+##文件结构：
+- `README.md`：协议说明文档
+- `catalog-health.schema.json` 等：协议相关的 Schema 文件
 ```text
 ocp.catalog.handshake.v1/
 ├── package.json
