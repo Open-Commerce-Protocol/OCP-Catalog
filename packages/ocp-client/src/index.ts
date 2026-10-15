@@ -25,13 +25,27 @@ import {
   type CatalogSearchResult,
   type RegistrationDiscovery,
 } from '@ocp-catalog/registration-schema';
+export {
+  catalogCapabilityProfileSchema,
+  catalogCapabilityRequirementsSchema,
+  catalogCapabilityMatchResultSchema,
+  deriveCatalogCapabilityProfile,
+  matchCatalogCapabilityProfile,
+  type CatalogCapabilityProfile,
+  type CatalogCapabilityRequirements,
+  type CatalogCapabilityMatchResult,
+  type ProfileSourceRef,
+} from './capabilities';
+
 import {
   ocpActivityEventInputSchema,
+  ocpPublicActivityEventSchema,
   type OcpActivityClientKind,
   type OcpActivityEventInput,
   type OcpActivityProtocolFamily,
   type OcpActivityPublicVisibility,
   type OcpActivitySourceKind,
+  type OcpPublicActivityEvent,
 } from '@ocp-catalog/ocp-activity-schema';
 
 export type OcpClientActivityMetadata = Record<string, string | number | boolean | null>;
@@ -70,9 +84,16 @@ type FetchJsonContext = {
 };
 
 export class OcpClientError extends Error {
+  readonly details: {
+    url: string;
+    status?: number;
+    payload?: unknown;
+    cause?: string;
+  };
+
   constructor(
     message: string,
-    public readonly details: {
+    details: {
       url: string;
       status?: number;
       payload?: unknown;
@@ -81,16 +102,17 @@ export class OcpClientError extends Error {
   ) {
     super(message);
     this.name = 'OcpClientError';
+    this.details = details;
   }
 }
 
 export class OcpClientValidationError extends Error {
-  constructor(
-    message: string,
-    public readonly details: Record<string, unknown> & { code: string },
-  ) {
+  readonly details: Record<string, unknown> & { code: string };
+
+  constructor(message: string, details: Record<string, unknown> & { code: string }) {
     super(message);
     this.name = 'OcpClientValidationError';
+    this.details = details;
   }
 }
 
@@ -227,7 +249,11 @@ export function validateCatalogQueryRequest(
 }
 
 export class OcpClient {
-  constructor(private readonly options: OcpClientOptions = {}) {}
+  private readonly options: OcpClientOptions;
+
+  constructor(options: OcpClientOptions = {}) {
+    this.options = options;
+  }
 
   async discoverRegistration(discoveryUrl: string): Promise<RegistrationDiscovery> {
     const payload = await this.fetchJson(discoveryUrl, { method: 'GET' }, {
@@ -345,10 +371,18 @@ export class OcpClient {
     });
   }
 
-  async listActivityEvents(activityUrl: string, limit = 50) {
-    return this.fetchJson(`${trimTrailingSlash(activityUrl)}/api/activity/recent?limit=${encodeURIComponent(String(limit))}`, {
+  async listActivityEvents(activityUrl: string, limit = 50): Promise<{ events: OcpPublicActivityEvent[] }> {
+    const payload = await this.fetchJson(`${trimTrailingSlash(activityUrl)}/api/activity/recent?limit=${encodeURIComponent(String(limit))}`, {
       method: 'GET',
     });
+    if (!isRecord(payload) || !Array.isArray(payload.events)) {
+      throw new OcpClientValidationError('Activity recent payload does not expose an events array', {
+        code: 'invalid_activity_events_response',
+      });
+    }
+    return {
+      events: payload.events.map((event) => ocpPublicActivityEventSchema.parse(event)),
+    };
   }
 
   private async fetchJson(url: string, init: RequestInit, context?: FetchJsonContext): Promise<unknown> {
@@ -356,6 +390,10 @@ export class OcpClient {
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs ?? 10_000);
     const method = normalizeHttpMethod(init.method);
     const startedAt = Date.now();
+    const clientCorrelationId = resolveCorrelationId(this.options.correlationId);
+    const activityCorrelationId = context
+      ? resolveActivityCorrelationId(this.options.activity, clientCorrelationId)
+      : undefined;
     let statusCode: number | undefined;
     let errorCode: string | undefined;
 
@@ -363,10 +401,9 @@ export class OcpClient {
       const headers = new Headers(init.headers);
       if (this.options.userAgent) headers.set('user-agent', this.options.userAgent);
       if (this.options.apiKey && !headers.has('x-api-key')) headers.set('x-api-key', this.options.apiKey);
-      const traceId = resolveCorrelationId(this.options.correlationId);
-      if (traceId) headers.set('x-ocp-trace-id', traceId);
+      if (clientCorrelationId) headers.set('x-ocp-trace-id', clientCorrelationId);
 
-      this.recordClientCall('client.call_attempted', url, method, context);
+      this.recordClientCall('client.call_attempted', url, method, context, activityCorrelationId);
 
       const response = await fetch(url, {
         ...init,
@@ -395,7 +432,7 @@ export class OcpClient {
         cause: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      this.recordClientCall('client.call_completed', url, method, context, {
+      this.recordClientCall('client.call_completed', url, method, context, activityCorrelationId, {
         statusCode,
         durationMs: Date.now() - startedAt,
         errorCode,
@@ -409,6 +446,7 @@ export class OcpClient {
     url: string,
     method: string,
     context: FetchJsonContext | undefined,
+    activityCorrelationId: string | undefined,
     result: { statusCode?: number; durationMs?: number; errorCode?: string } = {},
   ) {
     const activity = this.options.activity;
@@ -423,7 +461,7 @@ export class OcpClient {
     const event = compactActivityEvent({
       event_type: eventType,
       occurred_at: new Date().toISOString(),
-      correlation_id: resolveActivityCorrelationId(activity, this.options.correlationId),
+      correlation_id: activityCorrelationId,
       source_kind: activity.sourceKind ?? 'unknown',
       client_kind: activity.clientKind ?? 'http',
       endpoint_role: 'outbound',
@@ -471,6 +509,10 @@ export class OcpClient {
       void Promise.allSettled(pending);
     }
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function manifestQueryPackDescriptors(manifest: CatalogManifest) {
@@ -534,10 +576,11 @@ function resolveCorrelationId(value: OcpClientCorrelationId | undefined) {
   return typeof value === 'function' ? value() : value;
 }
 
-function resolveActivityCorrelationId(activity: OcpClientActivityOptions, clientCorrelationId: OcpClientCorrelationId | undefined) {
+function resolveActivityCorrelationId(activity: OcpClientActivityOptions | undefined, clientCorrelationId: string | undefined) {
+  if (!activity) return undefined;
   if (activity.correlationId !== undefined) return resolveCorrelationId(activity.correlationId);
   if (activity.includeClientCorrelationId === false) return undefined;
-  return resolveCorrelationId(clientCorrelationId);
+  return clientCorrelationId;
 }
 
 function normalizeHttpMethod(method: string | undefined) {

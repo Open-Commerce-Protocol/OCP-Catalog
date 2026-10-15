@@ -320,6 +320,93 @@ export const federationProfileSchema = z.object({
   },
 });
 
+export const signatureAlgorithmSchema = z.enum(['EdDSA']);
+export const signatureErrorCodeSchema = z.enum([
+  'unsigned',
+  'envelope_malformed',
+  'alg_not_supported',
+  'issuer_mismatch',
+  'payload_mismatch',
+  'key_not_found',
+  'signature_invalid',
+  'signature_expired',
+]);
+
+/**
+ * The signature envelope embedded in a signed OCP document — `docs/specs/crypto/v1.md` §5.
+ *
+ * `.strict()`, unlike the documents it attaches to. The envelope *is* the
+ * signed material: a member a verifier does not recognise still entered the
+ * signature and still went unchecked, which is the worst of both worlds. A
+ * closed field set makes that state unreachable (spec §5.1).
+ *
+ * `payload_hash` is the canonical hash of the document minus this member, and
+ * the signature is over this envelope minus `signature` — two layers, so a
+ * tampered payload and a tampered envelope produce different error codes
+ * (§4.2). Neither is computed here: canonicalization is `ocp-crypto`'s job, and
+ * spec §4.5 forbids hashing `parse()` output at all.
+ */
+export const signatureEnvelopeSchema = z.object({
+  alg: signatureAlgorithmSchema,
+  kid: z.string().min(1),
+  /** The issuing node's `catalog_id`, not a URL (§4.4). */
+  issuer: z.string().min(1),
+  signed_at: z.string().datetime(),
+  expires_at: z.string().datetime().optional(),
+  payload_hash: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+  signature: z.string().regex(/^[A-Za-z0-9_-]+$/),
+}).strict();
+
+/**
+ * `GET /.well-known/ocp-catalog` — the discovery document.
+ *
+ * This response has been served by every example and documented in every
+ * getting-started guide since the protocol existed, but had no schema until
+ * now, so `examples/typescript/src/server.test.ts` could only assert two of its
+ * fields by hand while claiming to parse "every response" through a schema.
+ *
+ * Deliberately not `.strict()`, matching `catalogManifestSchema`: nodes in the
+ * wild already serve this document and an unknown-key rejection here would be a
+ * breaking change to a live endpoint.
+ *
+ * Only `manifest_url` is required among the URLs. A node that publishes just
+ * the manifest is discoverable — the rest of the endpoint truth lives in the
+ * manifest, which is the documented source of truth for capabilities.
+ */
+export const wellKnownCatalogDiscoverySchema = z.object({
+  ocp_version: ocpVersionSchema,
+  kind: z.literal('WellKnownCatalogDiscovery'),
+  catalog_id: z.string().min(1),
+  catalog_name: z.string().min(1).optional(),
+  manifest_url: z.string().url(),
+  health_url: z.string().url().optional(),
+  query_url: z.string().url().optional(),
+  resolve_url: z.string().url().optional(),
+  contracts_url: z.string().url().optional(),
+  /**
+   * JWK Set for verifying this catalog's signatures (attribution chain nodes
+   * today; signed manifests later).
+   *
+   * Optional because signing is an incremental capability and an unsigned node
+   * stays valid. But without it there is no protocol-level answer to "商户怎么
+   * 找到公钥"，and a verifier that cannot find a key cannot verify anything —
+   * see `docs/specs/attribution/v1.md` §7.1 row 4.
+   */
+  jwks_url: z.string().url().optional(),
+  /**
+   * This document's own signature (`docs/specs/crypto/v1.md` §1). Optional:
+   * signing is an incremental capability and an unsigned document stays valid
+   * (spec §10.1).
+   *
+   * Signing the document that *points at* the key set is not circular. The
+   * first fetch is trusted through TLS and the domain, exactly as before; the
+   * signature starts paying from the second one, when this document has been
+   * cached, mirrored, or committed somewhere and can no longer be re-fetched
+   * from the node that wrote it.
+   */
+  signature: signatureEnvelopeSchema.optional(),
+});
+
 export const catalogManifestSchema = z.object({
   ocp_version: ocpVersionSchema,
   kind: z.literal('CatalogManifest'),
@@ -347,6 +434,17 @@ export const catalogManifestSchema = z.object({
   }).optional(),
   object_contracts: z.array(objectContractSchema),
   federation: federationProfileSchema.optional(),
+  /**
+   * This manifest's signature (`docs/specs/crypto/v1.md`). Optional, and this
+   * schema is deliberately not `.strict()`, so adding it breaks no consumer.
+   *
+   * Note that `federation.trust_strategy.manifest_signed` sits *inside* the
+   * signed payload, so the claim and the proof are bound together — editing the
+   * claim changes the payload hash. A verifier must still recompute rather than
+   * read the claim (spec §9.1): a manifest asserting `manifest_signed: true`
+   * with no `signature` member here is simply unsigned.
+   */
+  signature: signatureEnvelopeSchema.optional(),
 });
 
 export const providerRegistrationSchema = z.object({
@@ -608,6 +706,72 @@ export const catalogQueryResultSchema = z.object({
   explain: z.array(z.string()).default([]),
 });
 
+export const agentIdentitySourceSchema = z.enum(['ocp', 'external']);
+export const attributionSignatureAlgorithmSchema = z.enum(['EdDSA']);
+export const attributionChainNodeRoleSchema = z.enum(['origin', 'relay']);
+export const conversionStatusSchema = z.enum(['confirmed', 'pending', 'refunded', 'cancelled']);
+export const attributionErrorCodeSchema = z.enum([
+  'chain_broken',
+  'complete_mismatch',
+  'signature_invalid',
+  'key_not_found',
+  'alg_not_supported',
+  'token_expired',
+  'token_not_yet_valid',
+  'replayed_jti',
+  'duplicate_order',
+  'provider_mismatch',
+  'purpose_not_settleable',
+]);
+
+export const attributionChainNodeSchema = z.object({
+  catalog_id: z.string().min(1),
+  hop: z.number().int().min(1).max(8),
+  role: attributionChainNodeRoleSchema,
+  settles: z.boolean(),
+  chain_complete: z.boolean(),
+  alg: attributionSignatureAlgorithmSchema,
+  kid: z.string().min(1),
+  signed_at: z.string().datetime(),
+  signature: z.string().regex(/^[A-Za-z0-9_-]+$/),
+}).strict();
+
+export const attributionTokenSchema = z.object({
+  ocp_version: ocpVersionSchema,
+  kind: z.literal('AttributionToken'),
+  jti: z.string().min(1),
+  iss: z.string().min(1),
+  iat: z.string().datetime(),
+  exp: z.string().datetime(),
+  agent_id: z.string().min(1),
+  agent_identity_source: agentIdentitySourceSchema.optional(),
+  entry_id: z.string().min(1),
+  object_id: z.string().min(1),
+  provider_id: z.string().min(1),
+  purpose: z.enum(['view', 'checkout', 'contact', 'workflow']),
+  complete: z.boolean(),
+  chain: z.array(attributionChainNodeSchema).min(1).max(8),
+}).strict();
+
+export const attributionContextSchema = z.object({
+  agent_id: z.string().min(1),
+  agent_identity_source: agentIdentitySourceSchema.optional(),
+  upstream_token: attributionTokenSchema.optional(),
+}).strict();
+
+export const conversionReportSchema = z.object({
+  ocp_version: ocpVersionSchema,
+  kind: z.literal('ConversionReport'),
+  report_id: z.string().min(1),
+  order_id: z.string().min(1),
+  provider_id: z.string().min(1),
+  attribution_token: attributionTokenSchema,
+  amount_minor: z.number().int().min(0).max(9007199254740991),
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  occurred_at: z.string().datetime(),
+  status: conversionStatusSchema,
+}).strict();
+
 export const resolveRequestSchema = z.object({
   ocp_version: ocpVersionSchema.optional(),
   kind: z.literal('ResolveRequest').optional(),
@@ -616,6 +780,7 @@ export const resolveRequestSchema = z.object({
   purpose: z.enum(['view', 'checkout', 'contact', 'workflow']).default('view'),
   live_check: z.boolean().default(true),
   requested_fields: z.array(z.string().min(1)).default([]),
+  attribution_context: attributionContextSchema.optional(),
 });
 
 export const actionEntrypointSchema = z.object({
@@ -634,6 +799,7 @@ export const actionBindingSchema = z.object({
   auth_requirements: z.record(z.string(), z.unknown()).default({}),
   requires_user_confirmation: z.boolean().default(false),
   expires_at: z.string().datetime().optional(),
+  attribution: attributionTokenSchema.optional(),
 });
 
 export const liveCheckSchema = z.object({
@@ -699,6 +865,7 @@ export const inventoryPackSchema = z.object({
 }).strict();
 
 export type CatalogManifest = z.infer<typeof catalogManifestSchema>;
+export type WellKnownCatalogDiscovery = z.infer<typeof wellKnownCatalogDiscoverySchema>;
 export type CatalogDataProfile = z.infer<typeof catalogDataProfileSchema>;
 export type CatalogHealthResponse = z.infer<typeof catalogHealthResponseSchema>;
 export type CatalogHealthStatus = z.infer<typeof catalogHealthStatusSchema>;
@@ -730,3 +897,13 @@ export type ResolvableReference = z.infer<typeof resolvableReferenceSchema>;
 export type ActionBinding = z.infer<typeof actionBindingSchema>;
 export type LiveCheck = z.infer<typeof liveCheckSchema>;
 export type ResolveAccess = z.infer<typeof resolveAccessSchema>;
+export type AttributionToken = z.infer<typeof attributionTokenSchema>;
+export type AttributionChainNode = z.infer<typeof attributionChainNodeSchema>;
+export type AttributionContext = z.infer<typeof attributionContextSchema>;
+export type ConversionReport = z.infer<typeof conversionReportSchema>;
+export type AttributionErrorCode = z.infer<typeof attributionErrorCodeSchema>;
+export type AgentIdentitySource = z.infer<typeof agentIdentitySourceSchema>;
+export type ConversionStatus = z.infer<typeof conversionStatusSchema>;
+export type SignatureEnvelope = z.infer<typeof signatureEnvelopeSchema>;
+export type SignatureAlgorithm = z.infer<typeof signatureAlgorithmSchema>;
+export type SignatureErrorCode = z.infer<typeof signatureErrorCodeSchema>;

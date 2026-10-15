@@ -17,7 +17,21 @@ import {
   type CatalogManifest,
 } from '@ocp-catalog/ocp-schema';
 import { doctorOcpSkill, installOcpSkill, uninstallOcpSkill, type SkillTarget } from './skill-installer';
+import {
+  checkResolveBinding,
+  extractAttributionToken,
+  parseJwksSpec,
+  requiredCatalogIds,
+  verifyAttributionPayload,
+  exitCodeForAttributionVerification,
+} from './attribution';
 import { CLI_HELP, FULL_CLI_HELP, findCommandHelp, findDomainHelp } from './help';
+import {
+  documentSignatureIssuer,
+  exitCodeForVerification,
+  verifyCatalogDocument,
+  type DocumentVerification,
+} from './inspect-verify';
 import { redactSavedProviderApiKey } from './provider-output';
 
 const CLI_PACKAGE_NAME = '@ocp-catalog/ocp-cli';
@@ -27,6 +41,13 @@ const args = process.argv.slice(2);
 try {
   const result = await run(args);
   if (result !== undefined) printJson(result);
+  // A verdict of "this did not verify" is an answer, not a crash, so it is
+  // printed like one — but a shell that cannot tell it from a pass will happily
+  // pipe a tampered document onwards. `2`, never `1`: `1` already means the
+  // command itself failed, and conflating the two makes a network error look
+  // like a forgery and a forgery look like a network error.
+  const verificationExitCode = exitCodeForCliVerification(result);
+  if (verificationExitCode !== undefined) process.exitCode = verificationExitCode;
 } catch (error) {
   const payload = error instanceof OcpClientValidationError
     ? { error: { code: 'validation_error', message: error.message, details: error.details } }
@@ -127,7 +148,8 @@ async function run(argv: string[]) {
 
   if (domain === 'catalog' && command === 'inspect') {
     const manifestUrl = flags.positionals[0] ?? requiredFlag(flags, 'manifest-url');
-    return client.inspectCatalog(manifestUrl);
+    if (!booleanFlag(flags, 'verify', false)) return client.inspectCatalog(manifestUrl);
+    return inspectAndVerify(flags, manifestUrl);
   }
 
   if (domain === 'provider' && command === 'register') {
@@ -175,13 +197,53 @@ async function run(argv: string[]) {
   }
 
   if (domain === 'catalog' && command === 'resolve') {
+    const agentId = stringFlag(flags, 'agent-id');
+    const upstreamTokenPath = stringFlag(flags, 'upstream-token');
     const request = resolveRequestSchema.parse({
       ocp_version: '1.0',
       kind: 'ResolveRequest',
       entry_id: requiredFlag(flags, 'entry-id'),
       purpose: stringFlag(flags, 'purpose') ?? 'view',
+      // Only sent when asked for. §10.2 requires a resolve without an
+      // attribution_context to behave exactly as it did before this protocol
+      // existed, and the cheapest way to honour that is to omit the member.
+      ...(agentId
+        ? {
+            attribution_context: {
+              agent_id: agentId,
+              ...(upstreamTokenPath
+                ? { upstream_token: await loadJsonFile(upstreamTokenPath) }
+                : {}),
+            },
+          }
+        : {}),
     });
-    return client.resolveCatalogEntry(requiredFlag(flags, 'resolve-url'), request);
+    const resolveUrl = requiredFlag(flags, 'resolve-url');
+    const resolved = await client.resolveCatalogEntry(resolveUrl, request);
+
+    if (!booleanFlag(flags, 'verify-attribution', false)) return resolved;
+    return { ...resolved, attribution_verification: await verifyResolved(flags, resolveUrl, resolved) };
+  }
+
+  if (domain === 'attribution' && command === 'verify') {
+    const at = stringFlag(flags, 'at');
+    if (at && Number.isNaN(Date.parse(at))) throw new Error('--at must be an RFC 3339 timestamp');
+
+    const target = flags.positionals[0] ?? requiredFlag(flags, 'token');
+    const payload = await loadJsonFile(target);
+    const token = extractAttributionToken(payload);
+    const providerId = stringFlag(flags, 'provider-id');
+
+    return verifyAttributionPayload({
+      payload,
+      jwks: await loadJwksMap(flags, token ? requiredCatalogIds(token) : []),
+      ...(at ? { at: new Date(at) } : {}),
+      ...(providerId ? { expectedProviderId: providerId } : {}),
+      // A `view` token is legitimately signed and cannot be settled against.
+      // Asking "is this signature real" about one is a fair question, so the
+      // purpose gate is opt-out rather than unconditional.
+      ...(booleanFlag(flags, 'any-purpose', false) ? { requirePurpose: null } : {}),
+    });
   }
 
   if (domain === 'validate' && command === 'manifest') {
@@ -255,6 +317,57 @@ function updateOcpCliAndSkill(options: { manager?: string; dryRun: boolean; targ
   };
 }
 
+/**
+ * `ocp catalog inspect --verify` — fetch the manifest, then check its signature.
+ *
+ * Fetched with `loadJsonTarget` and **not** with `client.inspectCatalog()`: the
+ * client parses the manifest through `catalogManifestSchema`, and a parsed
+ * document is not the document that was signed. Spec §4.5 rules that out, and
+ * the failure it produces is `payload_mismatch` — indistinguishable, in the
+ * output, from a node that really was tampered with.
+ *
+ * The manifest is printed either way. A caller that cannot verify it still has
+ * to see what it was asked to trust, and the verdict beside it says how much of
+ * it to believe.
+ */
+async function inspectAndVerify(flags: ParsedFlags, manifestUrl: string) {
+  const at = stringFlag(flags, 'at');
+  if (at && Number.isNaN(Date.parse(at))) throw new Error('--at must be an RFC 3339 timestamp');
+
+  const manifest = await loadJsonTarget(manifestUrl);
+  const issuer = documentSignatureIssuer(manifest);
+  const remote = manifestUrl.startsWith('http://') || manifestUrl.startsWith('https://');
+
+  const jwks = await loadJwksMap(
+    flags,
+    issuer ? [issuer] : [],
+    // Same default as `--verify-attribution`: the node we just fetched from.
+    // Discovery is a way to *find* a key set, never a reason to trust one the
+    // document did not name — the issuer check below is what binds them.
+    remote ? new URL('/.well-known/ocp-catalog', manifestUrl).toString() : undefined,
+  );
+
+  if (issuer && !(issuer in jwks)) {
+    // Thrown rather than reported as `key_not_found`, and so exits 1 rather
+    // than 2. The operator did not supply this node's keys at all; calling that
+    // an unverifiable manifest would put a missing flag and a forged document
+    // behind the same exit code.
+    throw new Error(
+      `No keys supplied for "${issuer}". Use --discover <well-known-url> for a node you can reach, ` +
+        `or --jwks ${issuer}=<file-or-url>.`,
+    );
+  }
+
+  const verification = await verifyCatalogDocument({
+    document: manifest,
+    jwks,
+    ...(at ? { at: new Date(at) } : {}),
+    ...(stringFlag(flags, 'expect-issuer') ? { expectedIssuer: stringFlag(flags, 'expect-issuer')! } : {}),
+  });
+
+  return { ...verification, manifest };
+}
+
 async function loadManifestTarget(client: OcpClient, target: string): Promise<CatalogManifest | unknown> {
   return target.startsWith('http://') || target.startsWith('https://')
     ? client.inspectCatalog(target)
@@ -263,6 +376,88 @@ async function loadManifestTarget(client: OcpClient, target: string): Promise<Ca
 
 async function loadJsonFile(path: string): Promise<unknown> {
   return JSON.parse(await readFile(path, 'utf8'));
+}
+
+async function loadJsonTarget(target: string): Promise<unknown> {
+  if (!target.startsWith('http://') && !target.startsWith('https://')) return loadJsonFile(target);
+  const response = await fetch(target);
+  if (!response.ok) throw new Error(`GET ${target} responded ${response.status}`);
+  return response.json();
+}
+
+/**
+ * Builds the `catalog_id` → JWKS map a verification needs, from any mix of
+ * `--jwks <id>=<file-or-url>` and `--discover <well-known-url>`.
+ *
+ * `--discover` exists because the one-hop case is the common case and making
+ * the operator read `catalog_id` out of a discovery document by hand, only to
+ * type it back in, is a step with no decision in it. It still resolves to the
+ * same map: discovery is a *way to find* a key set, never a reason to trust one
+ * the chain did not name.
+ */
+async function loadJwksMap(
+  flags: ParsedFlags,
+  needed: string[],
+  fallbackDiscoveryUrl?: string,
+): Promise<Record<string, unknown>> {
+  const jwks: Record<string, unknown> = {};
+  const explicit = [...repeatedFlag(flags, 'discover'), ...repeatedFlag(flags, 'jwks')];
+  const discoveries =
+    explicit.length === 0 && fallbackDiscoveryUrl
+      ? [fallbackDiscoveryUrl]
+      : repeatedFlag(flags, 'discover');
+
+  for (const url of discoveries) {
+    const discovery = (await loadJsonTarget(url)) as { catalog_id?: string; jwks_url?: string };
+    if (!discovery.catalog_id || !discovery.jwks_url) {
+      throw new Error(`${url} is not a discovery document with catalog_id and jwks_url — this node does not sign`);
+    }
+    jwks[discovery.catalog_id] = await loadJsonTarget(discovery.jwks_url);
+  }
+
+  for (const spec of repeatedFlag(flags, 'jwks')) {
+    const { catalogId, source } = parseJwksSpec(spec);
+    jwks[catalogId] = await loadJsonTarget(source);
+  }
+
+  // Reported here rather than left to fail as `key_not_found`: an operator who
+  // supplied nothing needs the list of ids to fetch, not a verdict about one.
+  const missing = needed.filter((id) => !(id in jwks));
+  if (missing.length > 0 && Object.keys(jwks).length === 0) {
+    throw new Error(
+      `No keys supplied. This token needs one key set per hop: ${needed.join(', ')}. ` +
+        `Use --discover <well-known-url> for a node you can reach, or --jwks <catalog_id>=<file-or-url>.`,
+    );
+  }
+  return jwks;
+}
+
+/**
+ * The resolve-side check: §7.1 over the token, plus the binding §7.1 cannot see.
+ *
+ * Both halves are reported even when the first fails, because they are different
+ * accusations. A bad signature says the token is forged; a good signature on a
+ * token about another object says the *presenter* is misusing a real one.
+ */
+async function verifyResolved(flags: ParsedFlags, resolveUrl: string, resolved: unknown) {
+  const token = extractAttributionToken(resolved);
+  const verification = await verifyAttributionPayload({
+    payload: resolved,
+    // Default to the node we just talked to: it issued the last hop, and on a
+    // one-hop chain it is the only key set needed. A relayed chain still needs
+    // an explicit --jwks per upstream hop, and says so when one is missing.
+    jwks: await loadJwksMap(
+      flags,
+      token ? requiredCatalogIds(token) : [],
+      new URL('/.well-known/ocp-catalog', resolveUrl).toString(),
+    ),
+    ...(stringFlag(flags, 'at') ? { at: new Date(stringFlag(flags, 'at')!) } : {}),
+    ...(booleanFlag(flags, 'any-purpose', false) ? { requirePurpose: null } : {}),
+  });
+
+  const binding = token ? checkResolveBinding(token, resolved) : { ok: true as const };
+  if (binding.ok) return verification;
+  return { ...verification, ok: false, binding_error: binding.error };
 }
 
 function skillTargetFromFlags(flags: ParsedFlags): SkillTarget {
@@ -307,10 +502,19 @@ function runCommand(command: string[]) {
 type ParsedFlags = {
   positionals: string[];
   values: Map<string, string | boolean>;
+  /**
+   * Every occurrence of each flag, in order. `values` keeps last-wins for the
+   * flags that have always been single-valued; this is the one place a repeat is
+   * meaningful, because a relayed chain needs one `--jwks` per hop and silently
+   * keeping only the last would fail as `key_not_found` on a key the operator
+   * did supply.
+   */
+  lists: Map<string, string[]>;
 };
 
 function parseFlags(argv: string[]): ParsedFlags {
   const values = new Map<string, string | boolean>();
+  const lists = new Map<string, string[]>();
   const positionals: string[] = [];
   for (let index = 0; index < argv.length; index += 1) {
     const item = argv[index];
@@ -327,10 +531,15 @@ function parseFlags(argv: string[]): ParsedFlags {
     }
 
     values.set(key, next);
+    lists.set(key, [...(lists.get(key) ?? []), next]);
     index += 1;
   }
 
-  return { positionals, values };
+  return { positionals, values, lists };
+}
+
+function repeatedFlag(flags: ParsedFlags, key: string): string[] {
+  return flags.lists.get(key) ?? [];
 }
 
 function requiredFlag(flags: ParsedFlags, key: string) {
@@ -366,6 +575,30 @@ function jsonFlag<T>(flags: ParsedFlags, key: string, fallback: T): T {
 
 function printJson(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
+}
+
+/**
+ * Returns the shell status for the CLI's three verification result shapes.
+ * Ordinary command results are deliberately left unclassified.
+ */
+function exitCodeForCliVerification(result: unknown): 0 | 2 | undefined {
+  if (isDocumentVerification(result)) return exitCodeForVerification(result);
+
+  const direct = exitCodeForAttributionVerification(result);
+  if (direct !== undefined) return direct;
+
+  return undefined;
+}
+
+function isDocumentVerification(result: unknown): result is DocumentVerification {
+  const record = result as Record<string, unknown> | null;
+  return (
+    !!record &&
+    typeof record === 'object' &&
+    typeof record.ok === 'boolean' &&
+    typeof record.trust_tier === 'string' &&
+    typeof record.invalidates_cache === 'boolean'
+  );
 }
 
 type ZodLikeIssue = {

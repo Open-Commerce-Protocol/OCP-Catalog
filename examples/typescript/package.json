@@ -6,10 +6,14 @@
   "description": "Minimal OCP Catalog Node in TypeScript — ~3 in-memory products, no database or vendor client.",
   "scripts": {
     "start": "bun run src/server.ts",
+    "verify:offline": "bun run src/offline-verify.ts",
+    "settle": "bun run src/settle.ts",
+    "demo": "bun run src/demo.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ocp-catalog/ocp-crypto": "^0.2.1",
     "@ocp-catalog/ocp-schema": "^0.2.0"
   },
   "devDependencies": {

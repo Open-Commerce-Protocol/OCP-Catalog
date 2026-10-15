@@ -1,11 +1,30 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'bun:test';
 import {
   catalogHealthResponseSchema,
   catalogManifestSchema,
   catalogQueryResultSchema,
   resolvableReferenceSchema,
+  signatureEnvelopeSchema,
+  wellKnownCatalogDiscoverySchema,
 } from '@ocp-catalog/ocp-schema';
+import {
+  appendRelayHop,
+  assertEd25519PublicJwk,
+  generateEd25519KeyPair,
+  issueOriginToken,
+  publicJwkOf,
+  staticDocumentKeyResolver,
+  staticKeyResolver,
+  trustCeilingFor,
+  verifyAttributionToken,
+  verifyDocumentSignature,
+  type AttributionToken,
+} from '@ocp-catalog/ocp-crypto';
 import { handle } from './server';
+import { trustUpstream } from './upstream-keys';
+import { verifyOffline } from './offline-verify';
+import { MerchantSettler, buildReport } from './settle';
 
 const get = (path: string) => handle(new Request(`http://localhost${path}`));
 const post = (path: string, body: unknown) =>
@@ -34,11 +53,25 @@ describe('minimal TypeScript OCP Catalog Node', () => {
     expect(parsed.status).toBe('healthy');
   });
 
-  test('well-known discovery points at the OCP endpoints', async () => {
-    const disco: any = await body(await get('/.well-known/ocp-catalog'));
-    expect(disco.kind).toBe('WellKnownCatalogDiscovery');
-    expect(disco.query_url).toContain('/ocp/query');
-    expect(disco.resolve_url).toContain('/ocp/resolve');
+  test('well-known discovery conforms to wellKnownCatalogDiscoverySchema', async () => {
+    const parsed = wellKnownCatalogDiscoverySchema.parse(await body(await get('/.well-known/ocp-catalog')));
+    expect(parsed.query_url).toContain('/ocp/query');
+    expect(parsed.resolve_url).toContain('/ocp/resolve');
+    // This node signs attribution tokens, so it must say where its public keys
+    // are. A token whose key cannot be found is not verifiable, and a token
+    // nobody can verify is not worth issuing.
+    expect(parsed.jwks_url).toContain('/.well-known/jwks.json');
+  });
+
+  test('jwks.json publishes an Ed25519 signing key and no private material', async () => {
+    const jwks = (await body(await get('/.well-known/jwks.json'))) as { keys: Record<string, unknown>[] };
+    expect(jwks.keys).toHaveLength(1);
+    const jwk = assertEd25519PublicJwk(jwks.keys[0]);
+    expect(jwk.alg).toBe('EdDSA');
+    expect(jwk.use).toBe('sig');
+    expect(typeof jwk.kid).toBe('string');
+    // The one mistake in this file that would be catastrophic and silent.
+    expect('d' in jwks.keys[0]!).toBe(false);
   });
 
   test('query conforms to catalogQueryResultSchema and filters by keyword', async () => {
@@ -64,5 +97,634 @@ describe('minimal TypeScript OCP Catalog Node', () => {
   test('resolve of an unknown entry returns 404', async () => {
     const res = await post('/ocp/resolve', { entry_id: 'entry_example_inmemory_nope' });
     expect(res.status).toBe(404);
+  });
+});
+
+const MANIFEST_SCHEMA_URL = new URL(
+  '../../../ocp.catalog.handshake.v1/catalog-manifest.schema.json',
+  import.meta.url,
+);
+
+interface SchemaNode {
+  $ref?: string;
+  type?: string;
+  properties?: Record<string, SchemaNode>;
+  items?: SchemaNode;
+  required?: string[];
+  additionalProperties?: boolean;
+}
+
+/**
+ * Every member the JSON Schema has not declared, at every depth it closes.
+ *
+ * `catalog-manifest.schema.json` says `additionalProperties: false` on its top
+ * level, on `federation`, and on `trust_strategy`; `catalogManifestSchema` is
+ * not `.strict()`. So Zod accepts a member written at the wrong level and JSON
+ * Schema rejects it — the gap between the two is exactly wide enough to hide a
+ * manifest no node can publish. Checking member names here is not a full JSON
+ * Schema validation (there is no validator in this workspace), but it is the
+ * one rule Zod does not cover.
+ *
+ * Stops at `$ref`: the member itself is declared, and what is behind the
+ * reference belongs to the schema that defines it.
+ */
+function undeclaredMembers(value: unknown, schema: SchemaNode, path = ''): string[] {
+  if (schema.$ref !== undefined || value === null || typeof value !== 'object') return [];
+  if (Array.isArray(value)) {
+    if (!schema.items) return [];
+    return value.flatMap((item, i) => undeclaredMembers(item, schema.items!, `${path}[${i}]`));
+  }
+  const declared = schema.properties ?? {};
+  const record = value as Record<string, unknown>;
+  const found = schema.additionalProperties === false
+    ? Object.keys(record).filter((key) => !(key in declared)).map((key) => `${path}${path && '.'}${key}`)
+    : [];
+  return Object.entries(record).flatMap(([key, member]) =>
+    declared[key] ? undeclaredMembers(member, declared[key], `${path}${path && '.'}${key}`) : [],
+  ).concat(found);
+}
+
+describe('manifest 与 discovery 的签名（T1）', () => {
+  const manifestSchema = JSON.parse(readFileSync(MANIFEST_SCHEMA_URL, 'utf8')) as SchemaNode & {
+    required: string[];
+  };
+
+  const jwks = async () => (await body(await get('/.well-known/jwks.json'))) as { keys: unknown[] };
+
+  test('manifest 带签名信封，且 JSON Schema 与 Zod 两侧都收', async () => {
+    const raw = (await body(await get('/ocp/manifest'))) as Record<string, unknown>;
+    // Zod 侧。
+    catalogManifestSchema.parse(raw);
+    // JSON Schema 侧：成员名与必填项。
+    expect(undeclaredMembers(raw, manifestSchema)).toEqual([]);
+    expect(manifestSchema.required.filter((key) => !(key in raw))).toEqual([]);
+    // 信封是 `.strict()` 的，所以这一条真的把信封关死了。
+    expect(signatureEnvelopeSchema.parse(raw.signature).issuer).toBe(raw.catalog_id);
+  });
+
+  test('trust_strategy 是可检验的事实，不是自述的 trust_tier', async () => {
+    const raw = (await body(await get('/ocp/manifest'))) as {
+      federation: { trust_strategy: Record<string, unknown> };
+    };
+    const strategy = raw.federation.trust_strategy;
+    expect(strategy.manifest_signed).toBe(true);
+    expect(strategy.signature_algorithms).toEqual(['EdDSA']);
+    // 自己给自己发的 trust_tier 正是签名要取代的东西：等级由验签方算（crypto/v1 §9）。
+    expect('trust_tier' in strategy).toBe(false);
+  });
+
+  test('discovery 带签名信封，Zod 侧通过', async () => {
+    const raw = (await body(await get('/.well-known/ocp-catalog'))) as Record<string, unknown>;
+    const parsed = wellKnownCatalogDiscoverySchema.parse(raw);
+    expect(parsed.signature).toBeDefined();
+    expect(signatureEnvelopeSchema.parse(raw.signature).alg).toBe('EdDSA');
+  });
+
+  test('取到公钥后离线验通两份文档', async () => {
+    // 只用 /.well-known/jwks.json 拿到的公钥，不碰节点的私钥，也不再请求节点。
+    const resolveKey = staticDocumentKeyResolver(await jwks());
+    for (const path of ['/ocp/manifest', '/.well-known/ocp-catalog']) {
+      const document = await body(await get(path));
+      const result = await verifyDocumentSignature({ document, resolveKey });
+      expect(result.ok).toBe(true);
+      if (!result.ok) throw new Error(`${path}: ${result.error.message}`);
+      expect(result.issuer).toBe('cat_example_typescript');
+      expect(trustCeilingFor(result)).toEqual({ trustTier: 'verified', invalidatesCache: false });
+    }
+  });
+
+  test('改 manifest 一个字节就验不过，且缓存必须作废', async () => {
+    const resolveKey = staticDocumentKeyResolver(await jwks());
+    const tampered = (await body(await get('/ocp/manifest'))) as Record<string, unknown>;
+    tampered.catalog_name = `${tampered.catalog_name as string}.`;
+    const result = await verifyDocumentSignature({ document: tampered, resolveKey });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('payload_mismatch');
+    expect(trustCeilingFor(result)).toEqual({ trustTier: 'unknown', invalidatesCache: true });
+  });
+
+  test('验签必须用收到的字节，不能用 parse() 的结果', async () => {
+    // crypto/v1 §4.5。96 处 `.default()` 会往文档里注入成员，拿 parse() 的输出去
+    // 验签必然失败——失败得还很像篡改，所以这条写成断言而不是注释。
+    const resolveKey = staticDocumentKeyResolver(await jwks());
+    const parsed = catalogManifestSchema.parse(await body(await get('/ocp/manifest')));
+    const result = await verifyDocumentSignature({ document: parsed, resolveKey });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('payload_mismatch');
+  });
+});
+
+const ENTRY = 'entry_example_inmemory_sku-001';
+const AGENT = { agent_id: 'agent_demo_shopper' };
+
+const resolveRaw = async (request: Record<string, unknown>) =>
+  (await post('/ocp/resolve', { entry_id: ENTRY, ...request }).then((r) => r.json())) as Record<string, unknown>;
+
+const bindingsOf = (res: Record<string, unknown>) => res.action_bindings as Record<string, unknown>[];
+const attributionOf = (res: Record<string, unknown>) =>
+  bindingsOf(res).find((b) => b.attribution)?.attribution as Record<string, unknown> | undefined;
+
+describe('resolve 上的归因签发（T3）', () => {
+  test('purpose=checkout + attribution_context → 签出 token，挂在 checkout 绑定上', async () => {
+    const raw = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    const parsed = resolvableReferenceSchema.parse(raw);
+
+    const checkout = parsed.action_bindings.find((b) => b.action_id === 'checkout');
+    expect(checkout).toBeDefined();
+    // On the binding that leads to money, not on the response — a resolve can
+    // offer several actions and only some of them settle.
+    expect(parsed.action_bindings.find((b) => b.action_id === 'view')?.attribution).toBe(undefined);
+
+    const token = checkout!.attribution!;
+    expect(token.kind).toBe('AttributionToken');
+    expect(token.iss).toBe('cat_example_typescript');
+    expect(token.agent_id).toBe(AGENT.agent_id);
+    expect(token.entry_id).toBe(ENTRY);
+    expect(token.object_id).toBe('sku-001');
+    expect(token.provider_id).toBe('example_inmemory');
+    expect(token.purpose).toBe('checkout');
+    expect(token.chain).toHaveLength(1);
+    expect(token.chain[0]!.role).toBe('origin');
+    expect(token.complete).toBe(true);
+  });
+
+  test('token 的 kid 指向 JWKS 里真的存在的那把钥匙', async () => {
+    const token = attributionOf(await resolveRaw({ purpose: 'checkout', attribution_context: AGENT }))!;
+    const jwks = (await body(await get('/.well-known/jwks.json'))) as { keys: { kid: string }[] };
+    const kid = (token.chain as { kid: string }[])[0]!.kid;
+    expect(jwks.keys.map((k) => k.kid)).toContain(kid);
+  });
+
+  test('§10.2：不带 attribution_context 的 resolve 照常通过，且不签发', async () => {
+    // The compatibility guarantee, stated normatively. An existing agent that
+    // has never heard of attribution must see the response it saw before.
+    for (const request of [{}, { purpose: 'checkout' }, { purpose: 'view' }]) {
+      const parsed = resolvableReferenceSchema.parse(await resolveRaw(request));
+      expect(parsed.action_bindings.every((b) => b.attribution === undefined)).toBe(true);
+      expect(parsed.action_bindings.some((b) => b.action_id === 'view')).toBe(true);
+    }
+  });
+
+  test('§7.1：purpose 不是 checkout 就不签——签了就是给一次浏览开结算凭证', async () => {
+    for (const purpose of ['view', 'contact', 'workflow']) {
+      const parsed = resolvableReferenceSchema.parse(await resolveRaw({ purpose, attribution_context: AGENT }));
+      expect(parsed.action_bindings.every((b) => b.attribution === undefined)).toBe(true);
+    }
+  });
+
+  test('upstream_token 形状不对 → 不签，但 resolve 照常返回', async () => {
+    const parsed = resolvableReferenceSchema.parse(
+      await resolveRaw({
+        purpose: 'checkout',
+        attribution_context: { ...AGENT, upstream_token: { kind: 'AttributionToken' } },
+      }),
+    );
+    expect(parsed.action_bindings.every((b) => b.attribution === undefined)).toBe(true);
+  });
+
+  test('jti 每次 resolve 都不同——否则无法去重', async () => {
+    const a = attributionOf(await resolveRaw({ purpose: 'checkout', attribution_context: AGENT }))!;
+    const b = attributionOf(await resolveRaw({ purpose: 'checkout', attribution_context: AGENT }))!;
+    expect(a.jti).not.toBe(b.jti);
+  });
+
+  test('agent_identity_source 透传', async () => {
+    const token = attributionOf(
+      await resolveRaw({
+        purpose: 'checkout',
+        attribution_context: { ...AGENT, agent_identity_source: 'external' },
+      }),
+    )!;
+    expect(token.agent_identity_source).toBe('external');
+  });
+});
+
+describe('离线验通：取到公钥之后不再联网（T3 验收）', () => {
+  /** discovery → jwks_url → JWKS, plus one resolve. The only network half. */
+  async function fetchArtifacts() {
+    const discovery = (await body(await get('/.well-known/ocp-catalog'))) as { jwks_url: string };
+    const jwks = await body(await get(new URL(discovery.jwks_url).pathname));
+    const resolved = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    return { discovery, jwks, resolved };
+  }
+
+  test('拿到 discovery / JWKS / resolve 三份文档后，断网可以独立验通', async () => {
+    const artifacts = await fetchArtifacts();
+
+    // Prove the claim instead of asserting it: nothing below may reach out.
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (() => {
+      throw new Error('offline: verification must not touch the network');
+    }) as unknown as typeof globalThis.fetch;
+    try {
+      const result = await verifyOffline(artifacts);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.agentId).toBe(AGENT.agent_id);
+      expect(result.settlingCatalogIds).toEqual(['cat_example_typescript']);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+
+  test('改一个字段就验不过——逐个字段试', async () => {
+    const artifacts = await fetchArtifacts();
+
+    type Token = Record<string, unknown> & { chain: Record<string, unknown>[] };
+    const cases: [string, (token: Token) => void, string][] = [
+      ['agent_id 换人', (t) => { t.agent_id = 'agent_thief'; }, 'signature_invalid'],
+      ['exp 续期', (t) => { t.exp = new Date(Date.now() + 864e5).toISOString(); }, 'signature_invalid'],
+      ['settles 翻成 false', (t) => { t.chain[0]!.settles = false; }, 'signature_invalid'],
+      ['complete 翻成 false', (t) => { t.complete = false; }, 'complete_mismatch'],
+      ['kid 指向不存在的钥匙', (t) => { t.chain[0]!.kid = 'kid_nope'; }, 'key_not_found'],
+      ['hop 号对不上位置', (t) => { t.chain[0]!.hop = 2; }, 'chain_broken'],
+      ['origin 改成 relay', (t) => { t.chain[0]!.role = 'relay'; }, 'chain_broken'],
+    ];
+
+    for (const [label, tamper, expected] of cases) {
+      const fresh = structuredClone(artifacts);
+      tamper(attributionOf(fresh.resolved) as unknown as Token);
+      const result = await verifyOffline(fresh);
+      // Compare with the label attached so a failure names the case.
+      expect([label, result.ok ? 'verified' : result.error]).toEqual([label, expected]);
+    }
+  });
+
+  test('换一个目录节点的密钥集 → key_not_found', async () => {
+    const artifacts = await fetchArtifacts();
+    const result = await verifyOffline({ ...artifacts, jwks: { keys: [] } });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('key_not_found');
+  });
+
+  test('凭证过期 → token_expired', async () => {
+    const artifacts = await fetchArtifacts();
+    const result = await verifyOffline({ ...artifacts, now: new Date(Date.now() + 2 * 60 * 60 * 1000) });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('token_expired');
+  });
+
+  test('token 与 resolve 说的不是同一个商品 → object_mismatch', async () => {
+    const artifacts = await fetchArtifacts();
+    const resolved = structuredClone(artifacts.resolved);
+    resolved.object_id = 'sku-999';
+    const result = await verifyOffline({ ...artifacts, resolved });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('object_mismatch');
+  });
+});
+
+describe('多跳：接在上游 token 后面追加一跳（T4）', () => {
+  const upstreamKey = generateEd25519KeyPair();
+  const UPSTREAM_ID = 'cat_upstream_relaytest';
+
+  const upstreamJwks = {
+    keys: [{ ...publicJwkOf(upstreamKey.privateJwk), kid: upstreamKey.kid, alg: 'EdDSA', use: 'sig' }],
+  };
+
+  // This node will not co-sign a chain it cannot verify, so the upstream node's
+  // public keys have to be on hand before any of this works. A deployment sets
+  // OCP_UPSTREAM_JWKS; here it is the runtime call, so the key generated above
+  // can be used.
+  trustUpstream(UPSTREAM_ID, upstreamJwks);
+
+  /** A token some other catalog node issued for the same product. */
+  const upstreamToken = (over: Record<string, unknown> = {}) => ({
+    ...issueOriginToken({
+      privateJwk: upstreamKey.privateJwk,
+      kid: upstreamKey.kid,
+      catalogId: UPSTREAM_ID,
+      agentId: AGENT.agent_id,
+      entryId: 'entry_upstream_sku-001',
+      objectId: 'sku-001',
+      providerId: 'example_inmemory',
+      purpose: 'checkout',
+    }),
+    ...over,
+  });
+
+  const relayed = async (upstream: unknown) =>
+    attributionOf(
+      await resolveRaw({ purpose: 'checkout', attribution_context: { ...AGENT, upstream_token: upstream } }),
+    );
+
+  test('追加为第 2 跳 relay，上游那一跳原样保留', async () => {
+    const upstream = upstreamToken();
+    const token = (await relayed(upstream)) as unknown as AttributionToken;
+    expect(token.chain).toHaveLength(2);
+    expect(token.chain[0]!.catalog_id).toBe(UPSTREAM_ID);
+    expect(token.chain[0]!.signature).toBe(upstream.chain[0]!.signature);
+    expect(token.chain[1]!.hop).toBe(2);
+    expect(token.chain[1]!.role).toBe('relay');
+    expect(token.chain[1]!.catalog_id).toBe('cat_example_typescript');
+  });
+
+  test('core claims 不改——jti / iat / exp / entry_id 全是上游的', async () => {
+    const upstream = upstreamToken();
+    const token = (await relayed(upstream)) as unknown as AttributionToken;
+    // Rewriting any of these would invalidate hop 1's signature, which is the
+    // structural reason a relay cannot quietly re-point a token at itself.
+    expect(token.jti).toBe(upstream.jti);
+    expect(token.iat).toBe(upstream.iat);
+    expect(token.exp).toBe(upstream.exp);
+    expect(token.entry_id).toBe('entry_upstream_sku-001');
+    expect(token.iss).toBe(UPSTREAM_ID);
+  });
+
+  test('两跳链逐跳验通，两个节点都参与结算', async () => {
+    const token = (await relayed(upstreamToken())) as unknown as AttributionToken;
+    const jwks = await body(await get('/.well-known/jwks.json'));
+    const verdict = await verifyAttributionToken({
+      token,
+      resolveKey: staticKeyResolver({
+        [UPSTREAM_ID]: {
+          keys: [{ ...publicJwkOf(upstreamKey.privateJwk), kid: upstreamKey.kid, alg: 'EdDSA', use: 'sig' }],
+        },
+        cat_example_typescript: jwks as { keys: unknown[] },
+      }),
+    });
+    expect(verdict.ok).toBe(true);
+    if (!verdict.ok) return;
+    expect(verdict.hops).toBe(2);
+    expect(verdict.complete).toBe(true);
+    expect(verdict.settlingCatalogIds).toEqual([UPSTREAM_ID, 'cat_example_typescript']);
+  });
+
+  test('离线验通仍然成立——校验的是最后一跳，不是 iss', async () => {
+    const discovery = (await body(await get('/.well-known/ocp-catalog'))) as { jwks_url: string };
+    const jwks = await body(await get(new URL(discovery.jwks_url).pathname));
+    const resolved = await resolveRaw({
+      purpose: 'checkout',
+      attribution_context: { ...AGENT, upstream_token: upstreamToken() },
+    });
+    // Only this node's JWKS is on hand, so hop 1 cannot be verified here — the
+    // merchant would need the upstream node's keys too. That is the honest
+    // failure, and it names the hop it could not check.
+    const result = await verifyOffline({ discovery, jwks, resolved });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe('key_not_found');
+    expect(result.detail).toContain('hop 1');
+  });
+
+  test('上游 token 说的是另一个商品 → 不签', async () => {
+    expect(await relayed(upstreamToken({ object_id: 'sku-999' }))).toBe(undefined);
+  });
+
+  test('本节点已在上游链里 → 不签（环路）', async () => {
+    const selfIssued = attributionOf(await resolveRaw({ purpose: 'checkout', attribution_context: AGENT }));
+    expect(await relayed(selfIssued)).toBe(undefined);
+  });
+
+  test('链已满 8 跳 → 不签，resolve 照常返回', async () => {
+    let token = upstreamToken() as unknown as AttributionToken;
+    for (let i = 2; i <= 8; i += 1) {
+      const key = generateEd25519KeyPair();
+      // Every filler is trusted, so the refusal below is §4.4 (chain full) and
+      // not an unverifiable hop. Without this the test would still pass, for
+      // the wrong reason, and stop covering the rule it names.
+      trustUpstream(`cat_filler_${i}`, {
+        keys: [{ ...publicJwkOf(key.privateJwk), kid: key.kid, alg: 'EdDSA', use: 'sig' }],
+      });
+      token = appendRelayHop({
+        privateJwk: key.privateJwk,
+        kid: key.kid,
+        catalogId: `cat_filler_${i}`,
+        token,
+        chainComplete: true,
+      });
+    }
+    expect(token.chain).toHaveLength(8);
+    expect(await relayed(token)).toBe(undefined);
+  });
+});
+
+describe('联署前先验上游链（T5）', () => {
+  const upstreamKey = generateEd25519KeyPair();
+  const UPSTREAM_ID = 'cat_upstream_verifytest';
+
+  trustUpstream(UPSTREAM_ID, {
+    keys: [{ ...publicJwkOf(upstreamKey.privateJwk), kid: upstreamKey.kid, alg: 'EdDSA', use: 'sig' }],
+  });
+
+  const upstreamToken = () =>
+    issueOriginToken({
+      privateJwk: upstreamKey.privateJwk,
+      kid: upstreamKey.kid,
+      catalogId: UPSTREAM_ID,
+      agentId: AGENT.agent_id,
+      entryId: 'entry_upstream_sku-001',
+      objectId: 'sku-001',
+      providerId: 'example_inmemory',
+      purpose: 'checkout',
+    });
+
+  const relayed = async (upstream: unknown) =>
+    attributionOf(
+      await resolveRaw({ purpose: 'checkout', attribution_context: { ...AGENT, upstream_token: upstream } }),
+    );
+
+  test('上游链完好 → 照常联署', async () => {
+    const token = (await relayed(upstreamToken())) as unknown as AttributionToken;
+    expect(token.chain).toHaveLength(2);
+    expect(token.chain[1]!.catalog_id).toBe('cat_example_typescript');
+  });
+
+  // The core of T5. A relay that co-signs whatever arrives is the cheapest way
+  // to launder a forgery: §5.2 makes hop 2's signature cover hop 1, so the
+  // forger ends up with a chain carrying a real signature from a node the
+  // merchant has a relationship with.
+  test('上游签名被改一个字节 → 拒绝联署', async () => {
+    const forged = structuredClone(upstreamToken()) as AttributionToken;
+    const signature = forged.chain[0]!.signature;
+    // Flipped in the middle, not at the end: base64url's last character of an
+    // Ed25519 signature carries padding bits that a decoder may ignore, so a
+    // tail edit can decode to the same 64 bytes and prove nothing.
+    const at = Math.floor(signature.length / 2);
+    forged.chain[0]!.signature =
+      signature.slice(0, at) + (signature[at] === 'A' ? 'B' : 'A') + signature.slice(at + 1);
+    expect(await relayed(forged)).toBe(undefined);
+  });
+
+  test('上游核心声明被改 → 拒绝联署（签名覆盖的就是这些）', async () => {
+    const forged = structuredClone(upstreamToken()) as AttributionToken;
+    forged.agent_id = 'agent_somebody_else';
+    expect(await relayed(forged)).toBe(undefined);
+  });
+
+  test('上游链自称 complete=true 但跳内标记说不是 → 拒绝联署', async () => {
+    const forged = structuredClone(upstreamToken()) as AttributionToken;
+    forged.complete = !forged.complete;
+    expect(await relayed(forged)).toBe(undefined);
+  });
+
+  test('整条链由陌生 catalog 签发（本节点没有它的公钥）→ 拒绝联署', async () => {
+    const stranger = generateEd25519KeyPair();
+    const token = issueOriginToken({
+      privateJwk: stranger.privateJwk,
+      kid: stranger.kid,
+      catalogId: 'cat_never_configured',
+      agentId: AGENT.agent_id,
+      entryId: 'entry_stranger_sku-001',
+      objectId: 'sku-001',
+      providerId: 'example_inmemory',
+      purpose: 'checkout',
+    });
+    // Signed perfectly well — by somebody this node has no reason to vouch for.
+    // "Verify if keys happen to be around" would sign this, and a forger picks
+    // exactly the catalog_id that is not configured.
+    expect(await relayed(token)).toBe(undefined);
+  });
+
+  test('上游 token 已过期 → 拒绝联署', async () => {
+    // Re-issued in the past rather than edited: rewriting `exp` in place would
+    // break hop 1's signature, and then the test would be covering
+    // signature_invalid again. The point is that a *well-signed* expired chain
+    // is refused — adding a hop cannot make it settleable, so co-signing one
+    // only puts this node's name on a token that gets rejected downstream.
+    const token = issueOriginToken({
+      privateJwk: upstreamKey.privateJwk,
+      kid: upstreamKey.kid,
+      catalogId: UPSTREAM_ID,
+      agentId: AGENT.agent_id,
+      entryId: 'entry_upstream_sku-001',
+      objectId: 'sku-001',
+      providerId: 'example_inmemory',
+      purpose: 'checkout',
+      now: () => new Date(Date.now() - 48 * 60 * 60 * 1000),
+      ttlSeconds: 60,
+    });
+    expect(await relayed(token)).toBe(undefined);
+  });
+
+  test('拒绝联署不影响 resolve 本身——仍是合规响应，只是没有 attribution', async () => {
+    const forged = structuredClone(upstreamToken()) as AttributionToken;
+    forged.agent_id = 'agent_somebody_else';
+    const parsed = resolvableReferenceSchema.parse(
+      await resolveRaw({ purpose: 'checkout', attribution_context: { ...AGENT, upstream_token: forged } }),
+    );
+    // §10.2: an agent that cannot be attributed gets the response it would have
+    // got before this node learned to sign, not an error.
+    const checkout = parsed.action_bindings.find((b) => b.action_id === 'checkout');
+    expect(checkout).toBeDefined();
+    expect((checkout as Record<string, unknown>).attribution).toBeUndefined();
+  });
+});
+
+describe('商户收单：回报、去重、裁决（T5）', () => {
+  const NODE_ID = 'cat_example_typescript';
+
+  /** One resolve plus this node's JWKS — everything a merchant needs offline. */
+  async function merchantArtifacts() {
+    const jwks = (await body(await get('/.well-known/jwks.json'))) as { keys?: unknown };
+    const resolved = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    return { jwks, resolved, settler: new MerchantSettler({ [NODE_ID]: jwks }) };
+  }
+
+  const reportFor = (resolved: Record<string, unknown>, over: Partial<Parameters<typeof buildReport>[0]> = {}) =>
+    buildReport({
+      resolved,
+      orderId: 'ord_1',
+      reportId: 'rep_1',
+      amountMinor: 12900,
+      currency: 'CNY',
+      occurredAt: new Date(),
+      ...over,
+    });
+
+  test('回报通过 conversionReportSchema，provider_id 取自凭证', async () => {
+    const { resolved } = await merchantArtifacts();
+    const report = reportFor(resolved);
+    // buildReport parses before returning; this asserts the fields it derived.
+    expect(report.provider_id).toBe('example_inmemory');
+    expect(report.attribution_token.jti).toBe(
+      (attributionOf(resolved) as unknown as AttributionToken).jti,
+    );
+    expect(report.amount_minor).toBe(12900);
+  });
+
+  test('同一个 order_id 回报两次，只记一次（T5 判据一）', async () => {
+    const { resolved, settler } = await merchantArtifacts();
+    const report = reportFor(resolved);
+
+    const [first] = await settler.settle([report]);
+    const [second] = await settler.settle([report]);
+
+    expect(first!.result.ok).toBe(true);
+    expect(second!.result.ok).toBe(true);
+    if (!first!.result.ok || !second!.result.ok) return;
+    if (first!.result.action !== 'settled' || second!.result.action !== 'settled') return;
+    expect(first!.result.idempotent).toBe(false);
+    expect(second!.result.idempotent).toBe(true);
+    expect(settler.ledger.settledOrders).toBe(1);
+    expect(settler.ledger.records()).toHaveLength(1);
+  });
+
+  test('同一订单换一份新回报 → duplicate_order，不是第二次打款', async () => {
+    const { resolved, settler } = await merchantArtifacts();
+    await settler.settle([reportFor(resolved)]);
+
+    // A second resolve mints a second token; both name the same sale.
+    const again = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    const [outcome] = await settler.settle([reportFor(again, { reportId: 'rep_2' })]);
+    expect(outcome!.result.ok).toBe(false);
+    if (outcome!.result.ok) return;
+    expect(outcome!.result.error.code).toBe('duplicate_order');
+    expect(settler.ledger.settledOrders).toBe(1);
+  });
+
+  test('两张凭证争同一订单 → 裁出唯一赢家（T5 判据二）', async () => {
+    const { settler } = await merchantArtifacts();
+    const first = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const second = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+
+    const tokens = [attributionOf(first), attributionOf(second)] as unknown as AttributionToken[];
+    expect(tokens[0]!.jti).not.toBe(tokens[1]!.jti);
+    const latest = tokens[0]!.chain[0]!.signed_at >= tokens[1]!.chain[0]!.signed_at ? tokens[0]! : tokens[1]!;
+
+    const [outcome] = await settler.settle([
+      reportFor(first, { reportId: 'rep_a' }),
+      reportFor(second, { reportId: 'rep_b' }),
+    ]);
+
+    expect(outcome!.result.ok).toBe(true);
+    if (!outcome!.result.ok || outcome!.result.action !== 'settled') return;
+    expect(outcome!.result.candidates.filter((c) => c.won)).toHaveLength(1);
+    expect(outcome!.result.record.jti).toBe(latest.jti);
+    expect(outcome!.result.record.settlingCatalogIds).toEqual([NODE_ID]);
+    expect(settler.ledger.settledOrders).toBe(1);
+  });
+
+  test('不同订单各结各的，一次调用分组处理', async () => {
+    const { settler } = await merchantArtifacts();
+    const a = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    const b = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+
+    const outcomes = await settler.settle([
+      reportFor(a, { orderId: 'ord_a', reportId: 'rep_a' }),
+      reportFor(b, { orderId: 'ord_b', reportId: 'rep_b', amountMinor: 500 }),
+    ]);
+    expect(outcomes.map((o) => o.orderId)).toEqual(['ord_a', 'ord_b']);
+    expect(outcomes.every((o) => o.result.ok)).toBe(true);
+    expect(settler.ledger.settledOrders).toBe(2);
+  });
+
+  test('商户拿别人的凭证来报自己的单 → provider_mismatch', async () => {
+    const { settler } = await merchantArtifacts();
+    const resolved = await resolveRaw({ purpose: 'checkout', attribution_context: AGENT });
+    const report = { ...reportFor(resolved), provider_id: 'prov_someone_else' };
+
+    const [outcome] = await settler.settle([report]);
+    expect(outcome!.result.ok).toBe(false);
+    if (outcome!.result.ok) return;
+    expect(outcome!.result.error.code).toBe('provider_mismatch');
+  });
+
+  test('不带 attribution 的 resolve 没得可报', async () => {
+    const resolved = await resolveRaw({ purpose: 'view' });
+    expect(() => reportFor(resolved)).toThrow('no attribution token');
   });
 });

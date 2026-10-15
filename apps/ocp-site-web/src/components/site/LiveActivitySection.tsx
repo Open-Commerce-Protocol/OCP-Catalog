@@ -1,7 +1,8 @@
 import { useMemo, type CSSProperties } from 'react';
 import { AlertTriangle, Radio } from 'lucide-react';
 import { useLiveActivity, type PublicActivityEvent } from '../../lib/useLiveActivity';
-import { useDocsLocale } from '../../content/i18n';
+import { attributionOutcomePresentation } from '../../lib/activityPresentation';
+import { useDocsLocale, type DocsLocale } from '../../content/i18n';
 
 const familyTone: Record<string, string> = {
   ocp: 'var(--ocp-cyan)',
@@ -48,7 +49,7 @@ export function LiveActivitySection() {
           events: '最近事件',
           rollups: '24 小时聚合 · 事件类型',
           empty: '还没有公开活动事件。',
-          unavailable: 'Activity API 暂不可用。启动 `bun run activity:api` 并执行迁移后刷新。',
+          unavailable: 'Activity API 暂不可用。请由部署方配置 `VITE_OCP_ACTIVITY_API_URL` 指向可用的公开投影服务后刷新。',
           metricEvents: '事件总数',
           metricProtocols: '协议族',
           metricWindow: '观测窗口',
@@ -65,7 +66,7 @@ export function LiveActivitySection() {
           events: 'Recent events',
           rollups: '24h rollup · event types',
           empty: 'No public activity events yet.',
-          unavailable: 'Activity API is unavailable. Start `bun run activity:api`, run migrations, then refresh.',
+          unavailable: 'Activity API is unavailable. Configure `VITE_OCP_ACTIVITY_API_URL` to a reachable public projection endpoint, then refresh.',
           metricEvents: 'Events',
           metricProtocols: 'Protocols',
           metricWindow: 'Window',
@@ -167,7 +168,7 @@ export function LiveActivitySection() {
           ) : (
             <ul className="border-y border-white/10">
               {events.slice(0, 8).map((event) => (
-                <EventRow key={event.public_event_id} event={event} />
+                <EventRow key={event.public_event_id} event={event} locale={locale} />
               ))}
             </ul>
           )}
@@ -186,10 +187,11 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   );
 }
 
-function EventRow({ event }: { event: PublicActivityEvent }) {
+function EventRow({ event, locale }: { event: PublicActivityEvent; locale: DocsLocale }) {
   const tone = familyTone[event.protocol_family] ?? 'var(--ocp-ink)';
+  const attribution = attributionOutcomePresentation(event.attribution_outcome, locale);
   return (
-    <li className="grid gap-3 border-b border-white/10 py-4 last:border-0 md:grid-cols-[9rem_1fr_7rem]">
+    <li className="grid gap-3 border-b border-white/10 py-4 last:border-0 md:grid-cols-[9rem_1fr_12rem]">
       <div className="flex items-center gap-2">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: tone }} />
         <time className="font-mono text-xs tabular-nums text-[var(--text-faint)]">{formatTime(event.occurred_at)}</time>
@@ -208,10 +210,22 @@ function EventRow({ event }: { event: PublicActivityEvent }) {
         </div>
         <p className="mt-1.5 truncate text-sm text-[var(--text-muted)]">{event.public_summary}</p>
       </div>
-      <div className="text-left md:text-right">
+      <div className="flex flex-wrap gap-1.5 text-left md:justify-end md:text-right">
         <span className={`inline-flex border px-2 py-0.5 font-mono text-[11px] font-bold uppercase tracking-[0.12em] ${statusTone(event.status_class)}`}>
           {event.status_class}
         </span>
+        {attribution ? (
+          <span
+            aria-label={attribution.ariaLabel}
+            className={`inline-flex border px-2 py-0.5 text-[11px] font-semibold ${
+              attribution.tone === 'success'
+                ? 'border-emerald-300/30 text-emerald-200'
+                : 'border-amber-300/35 text-amber-100'
+            }`}
+          >
+            {attribution.label}
+          </span>
+        ) : null}
       </div>
     </li>
   );

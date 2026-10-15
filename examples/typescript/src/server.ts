@@ -5,8 +5,9 @@
  * vendor client, and no auth. It is the smallest thing that answers the OCP
  * Catalog read surface:
  *
- *   GET  /.well-known/ocp-catalog   discovery
- *   GET  /ocp/manifest              capabilities
+ *   GET  /.well-known/ocp-catalog   discovery（已签名）
+ *   GET  /.well-known/jwks.json     the node's public signing keys
+ *   GET  /ocp/manifest              capabilities（已签名）
  *   GET  /ocp/health                liveness
  *   GET  /ocp/contracts             object contracts (empty — read-only node)
  *   POST /ocp/query                 keyword search over products
@@ -15,7 +16,15 @@
  * The response shapes match @ocp-catalog/ocp-schema; see server.test.ts, which
  * parses every response through those schemas to prove conformance.
  */
+import {
+  issueOriginToken,
+  signDocument,
+  verifyAndAppendRelayHop,
+  type AttributionToken,
+} from '@ocp-catalog/ocp-crypto';
 import { PRODUCTS, type Product } from './products';
+import { SIGNING_KEY, jwkSet } from './signing-key';
+import { trustUpstream, trustedUpstreams, upstreamKeyResolver } from './upstream-keys';
 
 const CATALOG_ID = process.env.CATALOG_ID ?? 'cat_example_typescript';
 const CATALOG_NAME = process.env.CATALOG_NAME ?? 'Example TypeScript Catalog';
@@ -25,6 +34,12 @@ const BASE_URL = (process.env.PUBLIC_BASE_URL ?? `http://localhost:${PORT}`).rep
 
 const entryId = (product: Product) => `entry_${PROVIDER_ID}_${product.id}`;
 
+// This node can always verify its own hops, so its key belongs in the upstream
+// set. Without it, a chain that already passed through here fails at
+// `key_not_found` before the §4.4 loop check ever runs — the same refusal, but
+// reported as "I don't know that catalog" about itself.
+trustUpstream(CATALOG_ID, jwkSet());
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -32,7 +47,7 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function wellKnownDiscovery() {
+function discoveryPayload() {
   return {
     ocp_version: '1.0',
     kind: 'WellKnownCatalogDiscovery',
@@ -43,10 +58,14 @@ function wellKnownDiscovery() {
     query_url: `${BASE_URL}/ocp/query`,
     resolve_url: `${BASE_URL}/ocp/resolve`,
     contracts_url: `${BASE_URL}/ocp/contracts`,
+    // Published because this node signs attribution tokens. Without it a
+    // merchant holding a token has no protocol-level route to the public key,
+    // and an unverifiable token is worth nothing at settlement time.
+    jwks_url: `${BASE_URL}/.well-known/jwks.json`,
   };
 }
 
-function manifest() {
+function manifestPayload() {
   return {
     ocp_version: '1.0',
     kind: 'CatalogManifest',
@@ -79,8 +98,55 @@ function manifest() {
     ],
     // Required by the schema even for a read-only node that ingests nothing.
     object_contracts: [],
+    /**
+     * Signing is not a federation feature, but `trust_strategy` lives under
+     * `federation` — both this object and the manifest's top level are
+     * `additionalProperties: false`, so the declaration has to go here.
+     *
+     * `trust_tier` is deliberately absent. The schema allows a node to write
+     * `verified` about itself, and a self-asserted tier is precisely the thing
+     * a signature exists to replace: whoever verifies the signature below
+     * decides the tier (`trustCeilingFor()`, crypto/v1 §9). The two booleans
+     * are different — they describe what this node *does*, and the signature
+     * on this very document makes them checkable rather than claimed.
+     */
+    federation: {
+      mode: 'disabled',
+      node_role: 'source_catalog',
+      trust_strategy: {
+        manifest_signed: true,
+        signature_algorithms: ['EdDSA'],
+        downgrade_invalidates_cache: true,
+      },
+    },
   };
 }
+
+/**
+ * Both documents are signed once, at startup, rather than per request.
+ *
+ * They are static — every member derives from an environment variable read at
+ * module load — so re-signing per request would only jitter `signed_at` and
+ * burn a signature per hit. A cached copy stays verifiable for as long as the
+ * key does, which is the whole point of signing the document rather than the
+ * transport.
+ *
+ * No `expires_at`: it is optional (crypto/v1 §5.3), and this example's key is
+ * ephemeral unless `OCP_SIGNING_JWK` is set. A real node that rotates keys
+ * should set one shorter than its rotation window, so a document cannot
+ * outlive the key that proves it.
+ */
+const SIGNED_DISCOVERY = signDocument({
+  document: discoveryPayload(),
+  privateJwk: SIGNING_KEY.privateJwk,
+  kid: SIGNING_KEY.kid,
+});
+
+const SIGNED_MANIFEST = signDocument({
+  document: manifestPayload(),
+  privateJwk: SIGNING_KEY.privateJwk,
+  kid: SIGNING_KEY.kid,
+});
 
 function health() {
   return {
@@ -150,7 +216,138 @@ function query(body: { query?: string; limit?: number }) {
   };
 }
 
-function resolve(body: { entry_id?: string }) {
+/** The `attribution_context` an agent may send on a resolve request (§6.1). */
+interface AttributionContext {
+  agent_id?: unknown;
+  agent_identity_source?: unknown;
+  upstream_token?: unknown;
+}
+
+interface ResolveBody {
+  entry_id?: string;
+  purpose?: unknown;
+  attribution_context?: unknown;
+}
+
+/**
+ * Mints an attribution token for this resolve, or returns `undefined`.
+ *
+ * Two gates decide whether anything is signed at all, and each is a reason not
+ * to sign rather than a formality:
+ *
+ *  - `purpose` must be `checkout`. Spec §7.1: only checkout is settleable, and
+ *    a signed token for a `view` would be a settlement claim over a page load.
+ *  - `attribution_context.agent_id` must be present. Attribution says *who*
+ *    brought the buyer; there is nobody to name without it. This is also the
+ *    §10.2 compatibility path — an agent that sends no context gets exactly the
+ *    response it got before this node learned to sign.
+ *
+ * Past those, the presence of an `upstream_token` decides *what* is signed: a
+ * fresh one-hop `origin` chain, or one more `relay` hop on the chain that
+ * arrived. Minting a fresh chain over an upstream token would erase the hops
+ * before it and claim origin for traffic somebody else found.
+ */
+function mintAttribution(product: Product, body: ResolveBody): Promise<AttributionToken | undefined> | AttributionToken | undefined {
+  if (body.purpose !== 'checkout') return undefined;
+
+  const context = body.attribution_context as AttributionContext | undefined;
+  if (!context || typeof context.agent_id !== 'string' || context.agent_id.length === 0) return undefined;
+
+  if (context.upstream_token !== undefined) return relayAttribution(product, context.upstream_token);
+
+  return issueOriginToken({
+    privateJwk: SIGNING_KEY.privateJwk,
+    kid: SIGNING_KEY.kid,
+    catalogId: CATALOG_ID,
+    agentId: context.agent_id,
+    agentIdentitySource: context.agent_identity_source === 'external' ? 'external' : undefined,
+    entryId: entryId(product),
+    objectId: product.id,
+    providerId: PROVIDER_ID,
+    purpose: 'checkout',
+  });
+}
+
+/** A shallow shape check before handing anything to `appendRelayHop`. */
+function asUpstreamToken(value: unknown): AttributionToken | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const candidate = value as Partial<AttributionToken>;
+  if (candidate.kind !== 'AttributionToken' || !Array.isArray(candidate.chain)) return undefined;
+  return candidate as AttributionToken;
+}
+
+/**
+ * Appends this node as a `relay` hop on an upstream token — **after verifying
+ * the chain it is about to co-sign.**
+ *
+ * `entry_id` is *not* required to match this node's entry, and deliberately so.
+ * Core claims are immutable across hops (§4.3) — every upstream hop has already
+ * signed over them — so they keep naming the origin catalog's entry. What must
+ * match is `object_id`: relaying a token minted for a different product would
+ * attribute this sale to whoever found that one.
+ *
+ * ## Why the upstream chain is verified first
+ *
+ * §5.2 makes hop N's signature cover hops 1..N−1. Co-signing an unverified
+ * chain therefore does not merely pass a forgery along — it puts this node's
+ * key on it, permanently, and a merchant verifying later sees a valid hop from
+ * a node it has a relationship with sitting on top of a hop nobody can check.
+ * The forger needs no key of their own; they need one relay that signs
+ * whatever arrives.
+ *
+ * The check is the full §7.1 filter, not a signature loop, because the other
+ * rows matter here too: an expired chain (row 9) or a `view` token (row 6)
+ * cannot be made settleable by adding a hop, so appending one only produces a
+ * token that will be rejected further downstream with this node named on it.
+ *
+ * Row 7 (`provider_id`) and row 10 (`jti` replay) are *not* checked, and that
+ * is not an omission. Both are settlement-time rows: row 7 compares against a
+ * report's `provider_id`, which does not exist yet, and claiming the `jti`
+ * here would burn a token at resolve time for an order that may never happen.
+ *
+ * Keys come from {@link upstreamKeyResolver} — see `upstream-keys.ts` for the
+ * configuration, and for why "no keys configured" means "no relay" rather than
+ * "relay anyway".
+ *
+ * Returns `undefined` rather than an error response whenever the upstream
+ * token is unusable, which keeps this node's resolve contract unchanged
+ * (§10.2). The agent gets the same response it would have got without
+ * attribution.
+ */
+async function relayAttribution(product: Product, upstream: unknown): Promise<AttributionToken | undefined> {
+  const token = asUpstreamToken(upstream);
+  if (!token || token.object_id !== product.id) return undefined;
+
+  try {
+    const relayed = await verifyAndAppendRelayHop({
+      privateJwk: SIGNING_KEY.privateJwk,
+      kid: SIGNING_KEY.kid,
+      catalogId: CATALOG_ID,
+      token,
+      resolveKey: upstreamKeyResolver,
+      // This node received the token directly in the resolve request, with no
+      // catalog hop in between that went unrecorded.
+      chainComplete: true,
+      // It is in the money flow: it put the object in front of the buyer too.
+      settles: true,
+    });
+    return relayed.token;
+  } catch (err) {
+    // Verification failures, unavailable key material, loops and full chains all
+    // fail closed. A production node should count these by upstream catalog and
+    // error code; resolve itself remains backward compatible (§10.2).
+    const detail = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `refusing to relay for "${token.iss}": ${detail}` +
+        (trustedUpstreams().length === 0
+          ? ' (no upstream JWKS configured; set OCP_UPSTREAM_JWKS or call trustUpstream)'
+          : ''),
+    );
+    return undefined;
+  }
+}
+
+async function resolve(body: ResolveBody): Promise<Response> {
   const product = PRODUCTS.find((p) => entryId(p) === body.entry_id);
   if (!product) {
     return json(
@@ -159,6 +356,30 @@ function resolve(body: { entry_id?: string }) {
     );
   }
   const now = new Date().toISOString();
+
+  const actionBindings: Record<string, unknown>[] = [
+    {
+      action_id: 'view',
+      action_type: 'url',
+      label: 'View product',
+      entrypoint: { url: product.url, method: 'GET' },
+    },
+  ];
+
+  // The token rides on the binding that leads to money, not on the response as
+  // a whole: a resolve can offer several actions and only some of them settle.
+  const attribution = await mintAttribution(product, body);
+  if (body.purpose === 'checkout') {
+    actionBindings.push({
+      action_id: 'checkout',
+      action_type: 'url',
+      label: 'Buy now',
+      entrypoint: { url: product.url, method: 'GET' },
+      requires_user_confirmation: true,
+      ...(attribution ? { attribution } : {}),
+    });
+  }
+
   return json({
     ocp_version: '1.0',
     kind: 'ResolvableReference',
@@ -176,14 +397,7 @@ function resolve(body: { entry_id?: string }) {
       price: { currency: product.currency, amount: product.amount },
       availability: product.availability,
     },
-    action_bindings: [
-      {
-        action_id: 'view',
-        action_type: 'url',
-        label: 'View product',
-        entrypoint: { url: product.url, method: 'GET' },
-      },
-    ],
+    action_bindings: actionBindings,
     freshness: { object_updated_at: product.updated_at, resolved_at: now },
     // Resolutions are short-lived; expire in one hour.
     expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
@@ -203,8 +417,9 @@ export async function handle(request: Request): Promise<Response> {
   const { pathname } = new URL(request.url);
   const { method } = request;
 
-  if (method === 'GET' && pathname === '/.well-known/ocp-catalog') return json(wellKnownDiscovery());
-  if (method === 'GET' && pathname === '/ocp/manifest') return json(manifest());
+  if (method === 'GET' && pathname === '/.well-known/ocp-catalog') return json(SIGNED_DISCOVERY);
+  if (method === 'GET' && pathname === '/.well-known/jwks.json') return json(jwkSet());
+  if (method === 'GET' && pathname === '/ocp/manifest') return json(SIGNED_MANIFEST);
   if (method === 'GET' && pathname === '/ocp/health') return json(health());
   if (method === 'GET' && pathname === '/ocp/contracts') return json(contracts());
   if (method === 'POST' && pathname === '/ocp/query') return json(query(await readJson(request)));
